@@ -1,4 +1,4 @@
-# segment-source -- Segment source distribution
+# segment-open -- Segment source distribution
 
 ![lvimage](docs/images/titlepage.jpg)
 
