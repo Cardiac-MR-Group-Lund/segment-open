@@ -1,0 +1,24 @@
+Name: 'Maceira, Females, Age 20-29'
+ImagingType: 'SSFP'
+Sex: 'F'
+LowerAgeBound: 20
+UpperAgeBound: 29
+LVM: [69 141]
+EDV: [99 179]
+ESV: [29 66]
+SV: [63 119]
+EF: [56 75]
+LVM_BSA: [47 77]
+EDV_BSA: [65 99]
+ESV_BSA: [19 37]
+SV_BSA: [42 66]
+RVM: [33 74]
+RVEDV: [100 184]
+RVESV: [29 82]
+RVSV: [61 112]
+RVEF: [49 73]
+RVM_BSA: [22 42]
+RVEDV_BSA: [65 102]
+RVESV_BSA: [20 45]
+RVSV_BSA: [39 63]
+RVEF_BSA: [27 47]

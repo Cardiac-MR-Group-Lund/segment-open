@@ -1,0 +1,78 @@
+#;This is a comment line no semicolon in the line and end line with one;
+
+#;First argument is mode as used by the parser, i.e LV/RV/ROI/Scar;
+
+#;Second argument is type of specification;
+#; - mm is measurement;
+#; - roi is roi;
+#; - sp is special (more flexibility, see below);
+#; - ta is graphical description of how the table should look like;
+#;   ta has a special syntax;
+
+#;Third argument is code in export;
+
+#;Fourth argument is short name (displayed);
+
+#;Fith argument is long name (displayed);
+
+#;Sixth argument is 1 if show in panel;
+
+#;Seventh argument is 1 if show in report (not implemented, but needs to be 1);
+
+#;Eight argument (sp only) is unit;
+
+#;Nineth argument (sp only) Matlab expression of what to output;
+
+#;Flow is outputed as CODE_NET,_FWD,_BKWD,_MF,_PEAK,_MEANVEL,_PEAKVEL,_SV,_DIS;
+
+#;For ta the arguments are in order;
+#;- Code;
+#;- Title;
+#;- Unused;
+#;- 1;
+#;- 1;
+#;- Number of columns;
+#;- Number of values;
+#;- Vector of column sizes;
+
+
+#;volumes tables;
+
+#;LV;
+LV;ta;LVTable;LV  stack X;;1;1;2;1;[0.65 0.35];
+LV;sp;LVM;     ED/ES LVM; 1;1;1;g;;
+LV;sp;LVEDV;   LV-EDV;    1;1;1;ml;;
+LV;sp;LVESV;   LV-ESV;    1;1;1;ml;;
+LV;sp;LVSV;    LV-SV;     1;1;1;ml;;
+LV;sp;LVEF;    LV-EF;     1;1;1;%;;
+LV;sp;LVHR;    HR;        1;1;1;bpm;;
+
+#;RV;
+RV;ta;RVTable;RV  stack X;;1;1;2;1;[0.65 0.35];
+RV;sp;RVM;     ED/ES RVM; 1;1;1;g;;
+RV;sp;RVEDV;   RV-EDV;    1;1;1;ml;;
+RV;sp;RVESV;   RV-ESV;    1;1;1;ml;;
+RV;sp;RVSV;    RV-SV;     1;1;1;ml;;
+RV;sp;RVEF;    RV-EF;     1;1;1;%;;
+RV;sp;RVHR;    HR;        1;1;1;bpm;;
+
+
+
+#;flow tables;
+
+#;Flow table;
+Flow;ta;FlowTable;Flow  stack X;;1;1;2;1;[0.65 0.35];
+Flow;sp;ROI;       ROI;  	ROI;1;1;;;
+Flow;sp;Netvol;    Net;  	1;1;1;ml;;
+Flow;sp;Forward;   Forward;  	1;1;1;ml;;
+Flow;sp;Backward;  Backward; 	1;1;1;ml;;
+Flow;sp;Regfrac;   Regurg. frac;1;1;1;%;;
+Flow;sp;FlowHR;    HR;  	1;1;1;bpm;;
+
+
+#;measurement tables;
+
+#;Measurement table;
+Measurement;ta;MeasurementTable;Measurement  stack X;;1;1;2;1;[0.6 0.4];
+Measurement;sp;m1;    m1;  1;1;1;g;;
+Measurement;sp;m2;    m2;  1;1;1;%;;

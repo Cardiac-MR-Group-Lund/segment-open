@@ -1,0 +1,24 @@
+Name: 'Maceira, Males, Age 20-29.' %Title that is display in listbox.
+ImagingType: 'SSFP' %Describes used imaging type.
+LowerAgeBound: 20
+UpperAgeBound: 29
+Sex: 'M' %should be either M or F.
+EDV: [126 208] %range
+ESV: [35 80]
+SV: [81 137]
+EF: [57 74]
+LVM: [109 186]
+EDV_BSA: [68 103] %_BSA means normalized with BSA.
+ESV_BSA: [19 41]
+SV_BSA: [44 68]
+LVM_BSA: [59 93]
+RVM: [42 99]
+RVEDV: [127 227]
+RVESV: [38 98]
+RVSV: [74 143]
+RVEF: [48 74]
+RVM_BSA: [23 50]
+RVEDV_BSA: [68 114]
+RVESV_BSA: [21 50]
+RVSV_BSA: [40 72]
+RVEF_BSA: [24 40]
