@@ -47,6 +47,19 @@ Provided that you give proper attribution, you can:
 | All use   | [Heiberg et al. BMC Med Imag 2010](https://bmcmedimaging.biomedcentral.com/articles/10.1186/1471-2342-10-1) |
 
 
+## Contributions
+
+ * Start by [forking](https://help.github.com/articles/fork-a-repo/) this repository. Forking means that you create your own copy of Segment on Github.
+ * Happy hacking!
+ * When/if you want to submit your work to us, submit a [pull request](https://help.github.com/articles/creating-a-pull-request-from-a-fork/) and we'll have a look at your code. If we think there is some more organization needed, we'll help.
+
+Things to keep in mind
+
+ * Please have a look at the coding standars in Chapter 6 of the [tech manual](source/Docs/techmanual.pdf).
+ * Organize your code as a single file source/plugin_*pluginname*.m (to get an item in the plugin menu).
+ * If you want additional files, put them in a single package directory source/+*pluginname*.
+ * Please use the [Matlab package mechanism](https://mathworks.com/help/matlab/matlab_oop/scoping-classes-with-packages.html) instead of *addpath*.
+
 ## Frequently asked questions
 
 Q: What is the airspeed of an unladen swallow?
