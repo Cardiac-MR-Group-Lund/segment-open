@@ -1,6 +1,6 @@
 # segment-source -- Segment source distribution
 
-![lvimage](images/titlepage.jpg)
+![lvimage](docs/images/titlepage.jpg)
 
 ## What is Segment?
 
