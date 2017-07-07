@@ -15,6 +15,8 @@ This forms the basis for segment-open, the Segment Source Distribution, which ca
 Note that not all functionality in Segment is present in the Source Distribution, and the Source Distribution is neither FDA-approved nor CE-marked, and may not be used for clinical purposes.
 Some parts of the code is protected (Matlab p-files).
 
+**It is strongly recommended to use Matlab R2014a.** Performance of the GUI will be reduced with newer versions, as a new GUI framework was introduced in R2014b.
+
 ## How do I use Segment?
 
  * Have a look in the folder [source/Docs](source/Docs)
