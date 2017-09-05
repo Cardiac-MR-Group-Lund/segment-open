@@ -283,8 +283,7 @@ numrois = gui.numrois;
 
 calcfunctions('calcflow',no);
 
-if (~gui.resamped)
-  
+if (~gui.resamped)  
   
 	gui.velmean = NaN(SET(nom).TSize,numrois);
 	gui.velstd = gui.velmean;
@@ -489,6 +488,8 @@ switch arg
     value = mean(gui.netflow);
   case 'getpeakflow'
     value = max(gui.netflow);
+  case 'getvelocity'
+    value = gui.velmean;
   case 'getmeanvelocity'
     value = mean(gui.velmean,1);
   case 'getpeakvelocity'
@@ -512,7 +513,7 @@ global DATA SET
 gui = DATA.GUI.Flow;
 
 no = gui.nom;
-for roinbr = gui.rois2take
+for roinbr = 1:gui.numrois%gui.rois2take
   flowdata = [];
   flowdata.velmean = gui.velmean(:,roinbr);
   flowdata.velstd = gui.velstd(:,roinbr);
@@ -537,7 +538,7 @@ for roinbr = gui.rois2take
   flowdata.sv = gui.sv(roinbr);
   flowdata.meanmeanvel = gui.meanmeanvel(roinbr);
   
-  SET(no).Roi(roinbr).Flow = flowdata;
+  SET(no).Roi(gui.rois2take(roinbr)).Flow = flowdata;
 end 
 
 return
@@ -583,6 +584,7 @@ function update(no)
 %--------------
 %Make graphical update of plot
 global DATA SET NO
+
 gui = DATA.GUI.Flow;
 t = gui.t;
 d = gui.d;
@@ -594,14 +596,12 @@ if nargin < 1
   no = NO;
 end
   
-
 %check if there has been roi updates in the main gui
 if ~(gui.nop==no) && ~(gui.nom==no)
   reportflow('init');
 elseif ~(numrois==length(SET(no).Roi))
-  reportflow('init');
+  %reportflow('init');
 end
-
 
 s=get(gui.handles.parameterlistbox,'String');
 v=mygetlistbox(gui.handles.parameterlistbox);

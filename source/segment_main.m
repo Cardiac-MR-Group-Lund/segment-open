@@ -124,7 +124,26 @@ global DATA;
 
 DATA.Preview = genemptypreview(DATA.Pref.datapath);
 
-%---------------------------------
+
+  %-----------------------------
+  function framemode_Callback(type)
+  %-----------------------------
+  %If type 1 we have pressed the single frame mode button type 2 the multi frame mode button 
+  global DATA
+  singlebutton=DATA.Handles.singleframemodepushbutton;
+  multibutton=DATA.Handles.multiframemodepushbutton;
+  switch type
+    case 1
+      set(singlebutton, 'backgroundcolor','g');
+      set(multibutton, 'backgroundcolor','r');
+      DATA.thisframeonly_Callback(1)
+    case  2
+      set(singlebutton, 'backgroundcolor','r');
+      set(multibutton, 'backgroundcolor','g');
+      DATA.thisframeonly_Callback(0)
+  end
+  
+  %---------------------------------
 function preview = genemptypreview(datapath)
 %---------------------------------
 %Generate an empty preview struct
@@ -747,6 +766,9 @@ DATA.CurrentPanel = panel;
 
 %Make sure the current image stack, runs updateviewicons
 if updateimagestack
+  if DATA.CurrentPanel>length(DATA.ViewPanels)
+    DATA.CurrentPanel=length(DATA.ViewPanels);
+  end
   DATA.switchtoimagestack(DATA.ViewPanels(DATA.CurrentPanel));
 end
 %Make all black, one highlighted
@@ -1127,7 +1149,6 @@ function thumbnail_Buttonup %#ok<DEFNU>
 %--------------------------
 %Buttonup fcn for thumbnails.
 global DATA SET NO
-
 %Get coordinate
 [x,y] = mygetcurrentpoint(DATA.Handles.boxaxes);
 
@@ -1194,10 +1215,10 @@ if ~isempty(ind)
       %isempty(SET(NO).Flow)
     linkaxes(DATA.Handles.imageaxes(panel),'off');
   end
-
   drawfunctions('drawimageno',NO);
   drawfunctions('drawallslices');
   DATA.switchtoimagestack(NO,true); %force
+  
 end
 
 %----------------------------
@@ -1819,8 +1840,9 @@ nos = SET(no).Linked;
 %This is time consuming, though the alternative will consume memory
 for loop=1:length(DATA.ViewPanels)
 %  if ...
-  if (ismember(DATA.ViewPanels(loop),nos))&&...
-      ismember(DATA.ViewPanelsType{loop},{'one','mmodespatial','ortho','hla','vla','gla'})
+  if (ismember(DATA.ViewPanels(loop),nos))&&... 
+  ismember(DATA.ViewPanelsType{loop},{'one','mmodespatial','ortho','hla','vla','gla'})
+    
     makeviewim(loop,DATA.ViewPanels(loop));
   end;
 end;
@@ -2166,7 +2188,7 @@ for loop=nos'
   end;
 end;
 
-DATA.StartFrame = 1;
+DATA.StartFrame = SET(NO).CurrentTimeFrame;%DATA.StartFrame = 1;
 DATA.StartTime = now;
 
 %Run this loop until stopped by setting DATA.Run==0
@@ -2226,35 +2248,40 @@ function playmovie_Callback(keypress) %#ok<INUSD>
 %Starts playing current image stack as a movie.
 global DATA SET NO
 
-if nargin > 0
-  if isequal(get(DATA.Handles.playmovieicon,'enable'),'off')
-    return
-  end
-  if isequal(get(DATA.Handles.playmovieicon,'state'),'off')
-    set(DATA.Handles.playmovieicon,'state','on');
-  elseif isequal(get(DATA.Handles.playmovieicon,'state'),'on')
-    set(DATA.Handles.playmovieicon,'state','off');
-  else %if handle is empty, icon is unavailable
-    playall_Callback('keypressed');
-    return
-  end
-end
+% if nargin > 0
+%   if isequal(get(DATA.Handles.playmovieicon,'enable'),'off')
+%     return
+%   end
+%   if isequal(get(DATA.Handles.playmovieicon,'state'),'off')
+%     set(DATA.Handles.playmovieicon,'state','on');
+%   elseif isequal(get(DATA.Handles.playmovieicon,'state'),'on')
+%     set(DATA.Handles.playmovieicon,'state','off');
+%   else %if handle is empty, icon is unavailable
+%     playall_Callback('keypressed');
+%     return
+%   end
+% end
 
-%Opposide since it toggles when pressed
-if isequal(get(DATA.Handles.playmovieicon,'state'),'off')
-  stopmovie_Callback;
-  return;
-end;
+% %Opposide since it toggles when pressed
+% if isequal(get(DATA.Handles.playmovieicon,'state'),'off')
+%   stopmovie_Callback;
+%   return;
+% end;
 
 %Check if play all is running.
-if isequal(get(DATA.Handles.playallicon,'state'),'on')
+% if isequal(get(DATA.Handles.playallicon,'state'),'on')
+%   stopmovie_Callback;
+%   return;
+% end;
+
+if DATA.Run==1
   stopmovie_Callback;
   return;
-end;
+end
 
 %figure(DATA.imagefig);
 DATA.Run = 1; %Start the movie :-)
-set(DATA.Handles.playmovieicon,'state','on');
+%set(DATA.Handles.playmovieicon,'state','on');
 DATA.StartFrame = SET(NO).CurrentTimeFrame;
 DATA.StartTime = now;
 
@@ -2492,13 +2519,13 @@ if nargin < 1
   val = ~DATA.Pref.ViewInterpolated;
 end
 DATA.Pref.ViewInterpolated = val;
-if val
-  set(DATA.Handles.viewpixelsmenu,'Checked','off');
-%   set(DATA.Handles.viewpixelyicon,'state','off');
-else
-  set(DATA.Handles.viewpixelsmenu,'Checked','on');
-%   set(DATA.Handles.viewpixelyicon,'state','on');
-end
+% if val
+%   set(DATA.Handles.viewpixelsmenu,'Checked','off');
+% %   set(DATA.Handles.viewpixelyicon,'state','off');
+% else
+%   set(DATA.Handles.viewpixelsmenu,'Checked','on');
+% %   set(DATA.Handles.viewpixelyicon,'state','on');
+% end
 DATA.ViewIM = cell(size(DATA.ViewIM));
 drawfunctions('drawall');
 
@@ -4951,6 +4978,11 @@ if nargin <2
   silent=0;
 end
 
+%check so that no isn't a phase image
+if isfield(SET(no).Flow, 'PhaseNo') && SET(no).Flow.PhaseNo==no
+  return
+end
+
 %set percentile values
 lowerpercentile=0.02;
 upperpercentile=0.99;
@@ -5441,8 +5473,11 @@ end
 im=SET(no).IM;
 
 %Add papillary visualization, connected to LV hide / show
+%Weirdest problem ever apparently entering a zero indexes into a ct image
+%is extremely timeconsuming. Therefore extra if case
 stateandicon=segment('iconson','hidelv');
-if not(stateandicon{1}) % not(isempty(SET(no).PapillaryIM)) && isequal(get(DATA.Handles.hidepapicon,'state'),'off')
+%if not(stateandicon{1}) && any(SET(no).PapillaryIM==0) % not(isempty(SET(no).PapillaryIM)) && isequal(get(DATA.Handles.hidepapicon,'state'),'off')
+if not(stateandicon{1}) && (~isempty(SET(no).PapillaryIM)) % not(isempty(SET(no).PapillaryIM)) && isequal(get(DATA.Handles.hidepapicon,'state'),'off')
   im(SET(no).PapillaryIM)=DATA.GUISettings.PapilarColor;
 end
 
@@ -6123,9 +6158,7 @@ if nargin==3
   end;
 end;
 
-if strcmp(DATA.ProgramName,'Segment CMR')
-  DATA.ThisFrameOnly = true;
-end
+oldpref=DATA.ThisFrameOnly;
 
 %--- Use variable no instead of NO. If flow data
 %set then point to magnitude data set.
@@ -6134,6 +6167,24 @@ no = NO;
 if ~isempty(SET(NO).Parent)
   no = SET(NO).Parent;
 end;
+
+if ~isempty(SET(no).Flow) && strcmp(type,'roi')
+  DATA.ThisFrameOnly = false;
+end
+
+%check if resampling is needed
+numpointscheck=[size(SET(no).EndoX,1),size(SET(no).RVEndoX,1),size(SET(no).EpiX,1),size(SET(no).RVEpiX,1)];
+numpointscheck(isnan(numpointscheck))=[];
+numpointscheck(numpointscheck==0)=[];
+
+if any(DATA.NumPoints~=numpointscheck)
+  %Do all curve interpolations. this is safety measure only done
+  %occasionally when something has happened.
+  for loop=1:length(SET)
+    segpref('numpointsedithelper', loop);
+    segment('updatemodeldisplay',loop);
+  end;
+end
 
 tools('enableundo',no);
 
@@ -6814,6 +6865,10 @@ if ~isempty(SET(no).StrainTagging)
   SET(no).StrainTagging.LVupdated=1;
 end
 
+if oldpref~=DATA.ThisFrameOnly
+  DATA.ThisFrameOnly = oldpref;
+end
+
 %-------------------------
 function manualdraw_Motion %#ok<DEFNU>
 %-------------------------
@@ -6847,6 +6902,69 @@ if (slice==SET(NO).CurrentSlice) && ...
     'XData',DATA.CursorXOfs+DATA.CursorX(1:DATA.CursorN),...
     'YData',DATA.CursorYOfs+DATA.CursorY(1:DATA.CursorN));
 
+end
+%------------------------------------------------
+  function buttondowntoggler(caller,panel)
+%-----------------------------------------------
+%when clicking in a image toggles to the correct handle buttondown
+global SET NO DATA
+
+[x,y,slice] = getclickedcoords;  
+
+distlimit = DATA.Pref.ContourAdjustDistance;
+
+dist=2*distlimit*ones(1,5);
+
+if ~isempty(SET(NO).EndoX)
+  dist(1) = min(sqrt(...
+    (SET(NO).EndoX(:,SET(NO).CurrentTimeFrame,SET(NO).CurrentSlice)-y).^2+...
+    (SET(NO).EndoY(:,SET(NO).CurrentTimeFrame,SET(NO).CurrentSlice)-x).^2));
+end;
+
+if ~isempty(SET(NO).EpiX)
+  dist(2) = min(sqrt(...
+    (SET(NO).EpiX(:,SET(NO).CurrentTimeFrame,SET(NO).CurrentSlice)-y).^2+...
+    (SET(NO).EpiY(:,SET(NO).CurrentTimeFrame,SET(NO).CurrentSlice)-x).^2));
+end;
+
+if ~isempty(SET(NO).RVEndoX)
+  dist(3) = min(sqrt(...
+    (SET(NO).RVEndoX(:,SET(NO).CurrentTimeFrame,SET(NO).CurrentSlice)-y).^2+...
+    (SET(NO).RVEndoY(:,SET(NO).CurrentTimeFrame,SET(NO).CurrentSlice)-x).^2));
+end;
+
+if ~isempty(SET(NO).RVEpiX)
+  dist(4) = min(sqrt(...
+    (SET(NO).RVEpiX(:,SET(NO).CurrentTimeFrame,SET(NO).CurrentSlice)-y).^2+...
+    (SET(NO).RVEpiY(:,SET(NO).CurrentTimeFrame,SET(NO).CurrentSlice)-x).^2));
+end
+
+%Calc distance to contour
+no = roi('roifindmag');
+for rloop=1:SET(no).RoiN
+  if ~isempty(find(SET(no).Roi(rloop).Z==SET(no).CurrentSlice,1)) && ~isempty(find(SET(no).Roi(rloop).T==SET(no).CurrentTimeFrame,1))
+    temp = min(sqrt(...
+      (SET(no).Roi(rloop).X(:,SET(no).CurrentTimeFrame)-y).^2+...
+      (SET(no).Roi(rloop).Y(:,SET(no).CurrentTimeFrame)-x).^2));
+    if temp<dist(end)
+      dist(end) = temp;
+    end;
+  end;
+end;
+
+typecell={'endo','epi','rvendo','rvepi','roi'};
+[~,ind]=min(dist);
+
+if any(dist<distlimit)
+  type = typecell{ind};
+else
+  type = 'image';
+end
+
+if strcmp('move',caller)
+  move_Buttondown(type,panel);
+else
+  scale_Buttondown(type,panel);
 end
 
 %---------------------------------------------
@@ -7156,7 +7274,7 @@ xout = interp1(d,reppinx,linspace(d(length(reppinx)/3+1),d(2*length(reppinx)/3+1
 
 yout = interp1(d,reppiny,linspace(d(length(reppinx)/3+1),d(2*length(reppinx)/3+1),DATA.NumPoints),'pchip');
 
-[xout,yout]=poly2cw(xout,yout);
+[xout,yout]=mypoly2cw(xout,yout);
   
 % if isopengui('strain.fig')
 %   straintagging.straintagging('updateinterp',1)
@@ -7748,9 +7866,9 @@ if ~isempty(SET(NO).Parent)
   no = SET(NO).Parent;
 end
 
-if strcmp(DATA.ProgramName,'Segment CMR')
-  DATA.ThisFrameOnly = true;
-end
+% if strcmp(DATA.ProgramName,'Segment CMR')
+%   DATA.ThisFrameOnly = true;
+% end
 
 if (nargin<2)||isempty(type)
   %Annoying but easy way to get type from context menu calls. 
@@ -8320,9 +8438,9 @@ DATA.buttonup_Callback;
 set(DATA.imagefig,'WindowButtonUpFcn',sprintf('%s(''buttonup_Callback'')','segment'));
 set(DATA.Handles.cursor(DATA.CurrentPanel),'visible','off');
 
-if strcmp(DATA.ProgramName,'Segment CMR')
-  DATA.ThisFrameOnly = true;
-end
+% if strcmp(DATA.ProgramName,'Segment CMR')
+%   DATA.ThisFrameOnly = true;
+% end
 if DATA.ThisFrameOnly && ~strcmp(type,'roi')
   tf = SET(no).CurrentTimeFrame;
 else
@@ -8958,10 +9076,10 @@ y = get(DATA.Handles.cursor(DATA.CurrentPanel),'xdata')-DATA.CursorXOfs;
 dx = mean(x)-mean(DATA.CursorX);
 dy = mean(y)-mean(DATA.CursorY);
 
-if strcmp(DATA.ProgramName,'Segment CMR')
-  DATA.ThisFrameOnly = true;
-end
-if DATA.ThisFrameOnly && ~strcmp(type, 'roi')
+% if strcmp(DATA.ProgramName,'Segment CMR')
+%   DATA.ThisFrameOnly = true;
+% end
+if DATA.ThisFrameOnly %&& ~strcmp(type, 'roi')
   tf = SET(no).CurrentTimeFrame;
 else
   tf = 1:SET(no).TSize;
@@ -9385,9 +9503,9 @@ y = get(DATA.Handles.cursor(DATA.CurrentPanel),'xdata')-DATA.CursorXOfs;
 dx = nanmean(x)-nanmean(DATA.CursorX);
 dy = nanmean(y)-nanmean(DATA.CursorY);
 
-if strcmp(DATA.ProgramName,'Segment CMR')
-  DATA.ThisFrameOnly = true;
-end
+% if strcmp(DATA.ProgramName,'Segment CMR')
+%   DATA.ThisFrameOnly = true;
+% end
 if DATA.ThisFrameOnly
   tf = SET(no).CurrentTimeFrame;
 else
@@ -9406,7 +9524,7 @@ switch type
     return;
     %myfailed('You can not translate between slices. Aborted.',DATA.GUI.Segment);
   otherwise
-    if ~isempty(SET(no).EndoX) && all(~isnan(SET(no).EndoX(1,tf,slice)))
+    if ~isempty(SET(no).EndoX) %&& all(~isnan(SET(no).EndoX(1,tf,slice)))
       SET(no).EndoX(:,tf,slice) = SET(no).EndoX(:,tf,slice)+dx;
       SET(no).EndoY(:,tf,slice) = SET(no).EndoY(:,tf,slice)+dy;
       if ~isempty(SET(no).EndoPinX)
@@ -9418,7 +9536,7 @@ switch type
           SET(no).EndoInterpX,SET(no).EndoInterpY,tf,slice,[dx dy]);
       end
     end
-    if ~isempty(SET(no).EpiX) && all(~isnan(SET(no).EpiX(1,tf,slice)))
+    if ~isempty(SET(no).EpiX) %&& all(~isnan(SET(no).EpiX(1,tf,slice)))
       SET(no).EpiX(:,tf,slice) = SET(no).EpiX(:,tf,slice)+dx;
       SET(no).EpiY(:,tf,slice) = SET(no).EpiY(:,tf,slice)+dy;
       if ~isempty(SET(no).EpiPinX)
@@ -9430,7 +9548,7 @@ switch type
           SET(no).EpiInterpX,SET(no).EpiInterpY,tf,slice,[dx dy]);
       end
     end
-    if ~isempty(SET(no).RVEndoX) && all(~isnan(SET(no).RVEndoX(1,tf,slice)))
+    if ~isempty(SET(no).RVEndoX) %&& all(~isnan(SET(no).RVEndoX(1,tf,slice)))
       SET(no).RVEndoX(:,tf,slice) = SET(no).RVEndoX(:,tf,slice)+dx;
       SET(no).RVEndoY(:,tf,slice) = SET(no).RVEndoY(:,tf,slice)+dy;
       if ~isempty(SET(no).RVEndoPinX)
@@ -9442,7 +9560,7 @@ switch type
           SET(no).RVEndoInterpX,SET(no).RVEndoInterpY,tf,slice,[dx dy]);
       end
     end
-    if ~isempty(SET(no).RVEpiX) && all(~isnan(SET(no).RVEpiX(1,tf,slice)))
+    if ~isempty(SET(no).RVEpiX) %&& all(~isnan(SET(no).RVEpiX(1,tf,slice)))
       SET(no).RVEpiX(:,tf,slice) = SET(no).RVEpiX(:,tf,slice)+dx;
       SET(no).RVEpiY(:,tf,slice) = SET(no).RVEpiY(:,tf,slice)+dy;
       if ~isempty(SET(no).RVEpiPinX)

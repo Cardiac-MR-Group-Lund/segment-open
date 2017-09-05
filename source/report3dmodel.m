@@ -11,7 +11,7 @@ function report3dmodel(varargin)
 % - rvendo may be improperly sampled radially. This should be fixed in
 %   checkconsistancy.
 % - -clean up persistants...
-%
+% Check if possible not to use grid
 
 global DATA SET 
 

@@ -16,8 +16,10 @@ function checkversion()
     return
   end
   
+  online_version = str2double(online_version);
+  
   try 
-    if parseversionstr(online_version) <= versionnbr
+    if online_version <= versionnbr
       return
     end
   catch %#ok<CTCH>

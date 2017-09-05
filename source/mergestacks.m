@@ -1,4 +1,4 @@
-function mergestacks(varargin)
+function [varargout] = mergestacks(varargin)
 %MERGESTACKS
 %Function to merge several image stacks into one, provided they have the
 %same image shape. Avoids slice duplication and stores the merged stack in
@@ -6,6 +6,8 @@ function mergestacks(varargin)
 
 %Nils Lundahl
 %Minor bugfixing by Einar Heiberg
+
+
 global SET
 
 if nargin < 1
@@ -24,7 +26,9 @@ else
   handles = guihandles(gcbf);
   %to enable multiple selection, set max = 2.0
   nos = mygetvalue(handles.imagestackslistbox);
-  if strcmp(arg,'update')
+  if strcmp(arg,'setfactor_Callback')
+    setfactor_Callback;
+  elseif strcmp(arg,'update')
     kids = [SET(nos).Children];
     set(handles.imagestackslistbox,'Value',union(nos,kids));
   elseif strcmp(arg,'domerge')
@@ -32,6 +36,31 @@ else
       myfailed('Need to select at least two image stacks');
       return
     end
+    
+    %do timeframe check
+    Ts=zeros(1,length(nos));
+    
+    counter=1;
+    for no=nos
+      Ts(counter)=SET(no).TSize;
+      counter=counter+1;
+    end
+    
+    
+    if ~all(Ts(1)==Ts)
+      answer=yesno('Number of timeframes does not match. Do you wish to resample stacks?');
+      if answer
+        initwhichstack_Callback(nos)
+%       if ~DATA.GUI.whichstack.proceed
+%         return
+%       end
+%       
+      else
+        return
+      end
+      
+    end
+    
     parents = unique([SET(nos).Parent]); %Bugfix, EH: Was without (nos) here.
     if numel(parents) > 1
       domerge(parents);
@@ -142,8 +171,13 @@ while numel(nostomerge) > 1
   newzsz = zsz1+zsz2;
   
   if ~isequal(orsz1(3),orsz2(3))
-    myfailed('Number of timeframes does not match.')
-    return
+        myfailed('Number of timeframes does not match.')
+        return
+%     answer=yesno('Number of timeframes does not match. Do you wish to resample stacks?');
+%     if answer
+%       initwhichstack_Callback
+%     end
+%       return
   end
   
   %Check slice order by looking at fh coordinates of end slices
@@ -360,3 +394,51 @@ if not(isempty(SET(newno).StrainTagging))
 end
 
 drawfunctions('drawthumbnails');
+
+
+%--------------------------------------------------------------------
+function initwhichstack_Callback(nostomerge)
+%--------------------------------------------------------------------
+
+global DATA SET
+%Launch GUI
+DATA.GUI.whichstack = openfig('whichstack.fig');
+handles = guihandles(DATA.GUI.whichstack);
+%DATA.GUI.whichstack.handles=handles;
+DATA.GUI.whichstack.nostomerge=nostomerge;
+stackc = cell(1,numel(nostomerge));
+counter=1;
+for no = nostomerge
+  stackc{counter} = sprintf('%d. Number of timeframes: %d.',no,SET(no).TSize);
+  counter=counter+1;
+end
+set(handles.imagestackslistbox,'String',stackc);
+%alters if we should
+%DATA.GUI.whichstack.proceed=0; 
+uiwait(gcf)
+
+%--------------------------------------------------------------------
+function setfactor_Callback
+%--------------------------------------------------------------------
+global SET DATA NO
+
+handles=guihandles(gcbf);
+gui=DATA.GUI.whichstack;
+ind=get(handles.imagestackslistbox,'value');
+nom=SET(gui.nostomerge(ind)).TSize;
+oldNO=NO;
+for no=gui.nostomerge
+  NO=no;
+  tools('upsampletemporal_Callback',(nom/SET(no).TSize));
+end
+NO=oldNO;
+close(gcbf)
+%DATA.GUI.whichstack.proceed=1;
+
+%DATA.GUI.whichstack=[];
+% %--------------------------------------------
+% function close_Callback
+% %--------------------------------------------
+% global DATA
+% close(gcbf)
+%DATA.GUI.whichstack.proceed=0;

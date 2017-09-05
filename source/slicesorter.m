@@ -49,7 +49,7 @@ for loop = 1:length(f)
     if guessifdicom(filename,1); %1=heuristic mode
       
       info = fastdicominfo(filename);
-      if ischar(info)
+      if ischar(info) || isequal(info.TransferSyntaxUID,'jpeg') || isequal(info.TransferSyntaxUID,'1.2.840.10008.1.2.4.90')
         dicomconvert(filename); %try to convert on the fly
         info = fastdicominfo(filename);
         if ischar(info)

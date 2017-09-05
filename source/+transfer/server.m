@@ -287,11 +287,12 @@ classdef server < handle
       r = {};
       while(numel(res) ~= 0)
         [A, ~, ~, nextindex] = sscanf(res, '%s', 1);
+        A = A(uint8(A)~=255); %remove uint8(255) from string
         r{end+1} = A;
         res = res(nextindex:end);
       end
     end
-    
+        
     function r = join(str_list)
       r = '';
       for i=1:numel(str_list)

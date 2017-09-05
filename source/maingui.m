@@ -317,8 +317,13 @@ classdef maingui < handle %Handle class
     g.GUISettings.DefaultROIDrawColor='b';
     
     %GUI positions default values
-    g.GUIPositions(1).FileName='segment.fig';
-    g.GUIPositions(1).Position=[0.05 0.05 0.9 0.85];%normalized position
+    g.GUIPositions(1).FileName='monitor';
+    g.GUIPositions(1).Position=get(0,'MonitorPosition');%normalized position
+    
+    g.GUIPositions(2).FileName='segment.fig';
+    g.GUIPositions(2).Position=[0.05 0.05 0.9 0.85];%normalized position
+    
+    
 
     %load saved GUIpositions
     try
@@ -398,189 +403,200 @@ classdef maingui < handle %Handle class
     set(g.Handles.hideallpanelscheckbox,'Visible','on')
     end
     
- %---------------------------------------------
-    function initconfigplaceholder(varargin)
-      %--------------------------------------------
-      g=varargin{1};
-      
-      %check if using new gui version
-%       if all([isfield(g.Icons,'lviconcell'),isfield(g.Icons,'rviconcell'),...
-%         isfield(g.Icons,'analysisviconcell'),isfield(g.Icons,'roiflowiconcell'),...
-%         isfield(g.Icons,'viabilityiconcell'),isfield(g.Icons,'imageiconcell')]);
-%        
-%       g.lviconcell=cell(1,1);
-%     g.rviconcell=cell(1,1);
-%     g.analysisiconcell=cell(1,1);
-%     g.roiflowiconcell=cell(1,1);
-%     g.viabilityiconcell=cell(1,1);
-%     g.imageiconcell=cell(1,1);
-%       else
-    %initcells
-    lviconcell=cell(1,1);
-    rviconcell=cell(1,1);
-    analysisiconcell=cell(1,1);
-    roiflowiconcell=cell(1,1);
-    viabilityiconcell=cell(1,1);
-    imageiconcell=cell(1,1);
-    %LV
-    lviconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
-    lviconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'),@() updatetool('move'));
-    lviconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
-    lviconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
-    lviconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set light to predefined values'),@() segment('autocontrast_Callback'),0);
-    lviconcell{1,end+1}=myicon('lvstack',g.Handles.configiconholder,g.Icons.config.lvstack,translation.dictionary('Go to LV stack'),@() segment('viewspecial_Callback','lv'),0);
-     lviconcell{1,end+1}=myicon('moveall',g.Handles.configiconholder,g.Icons.config.moveall,translation.dictionary('Translate all contours'),@() updatetool('moveall'));    
-    lviconcell{1,end+1}=myicon('autolv',g.Handles.configiconholder,g.Icons.config.autolv,translation.dictionary('Automatic LV segmentation'),@() updatetool('autolv'),0);
-    lviconcell{1,end+1}=myicon('endopen',g.Handles.configiconholder,g.Icons.config.endopen,translation.dictionary('Endo pen'),@() updatetool('drawendo'));
-    lviconcell{1,end+1}=myicon('epipen',g.Handles.configiconholder,g.Icons.config.epipen,translation.dictionary('Epi pen'),@() updatetool('drawepi'));
-    lviconcell{1,end+1}=myicon('interpendo',g.Handles.configiconholder,g.Icons.config.interpendo,translation.dictionary('Set interpolation points for Endo'),@() updatetool('interpendo'));
-    lviconcell{1,end+1}=myicon('interpepi',g.Handles.configiconholder,g.Icons.config.interpepi,translation.dictionary('Set interpolation points for Epi'),@() updatetool('interpepi'));
-    
-    lviconcell{1,end+1}=myicon('refineendo',g.Handles.configiconholder,g.Icons.config.refineendo,translation.dictionary('Refine Endo'),@() lvpeter('segmentrefineendo_Callback'),0);
-    lviconcell{1,end+1}=myicon('refineepi',g.Handles.configiconholder,g.Icons.config.refineepi,translation.dictionary('Refine Epi'),@() lvpeter('segmentrefineepi_Callback'),0);
-    lviconcell{1,end+1}=myicon('propagateendo',g.Handles.configiconholder,g.Icons.config.propagateendo,translation.dictionary('Propagate endo forward in time'), @() lvpeter('segmentpropagateendo_Callback'),0);
-    lviconcell{1,end+1}=myicon('propagateepi',g.Handles.configiconholder,g.Icons.config.propagateepi,translation.dictionary('Propagate epi forward in time'),@() lvpeter('segmentpropagateepi_Callback'),0);
-    
-    lviconcell{1,end+1}=myicon('contractendo',g.Handles.configiconholder,g.Icons.config.contractendo,translation.dictionary('Contract Endo segmentation'),@() lv('segmentexpandcontract_Callback',-1,'endo'),0);
-    lviconcell{1,end+1}=myicon('expandendo',g.Handles.configiconholder,g.Icons.config.expandendo,translation.dictionary('Expand Endo segmentation'),@() lv('segmentexpandcontract_Callback',1,'endo'),0);
-    lviconcell{1,end+1}=myicon('contractepi',g.Handles.configiconholder,g.Icons.config.contractepi,translation.dictionary('Contract Epi segmentation'),@() lv('segmentexpandcontract_Callback',-1,'epi'),0);
-    lviconcell{1,end+1}=myicon('expandepi',g.Handles.configiconholder,g.Icons.config.expandepi,translation.dictionary('Expand Epi segmentation'),@() lv('segmentexpandcontract_Callback',1,'epi'),0);
-    lviconcell{1,end+1}=myicon('copylvup',g.Handles.configiconholder,g.Icons.config.copylvup,translation.dictionary('Copy LV upwards'),@()tools('copyupward_Callback'),0);
-    lviconcell{1,end+1}=myicon('copylvdown',g.Handles.configiconholder,g.Icons.config.copylvdown,translation.dictionary('Copy LV downwards'),@()tools('copydownward_Callback'),0);
-    
-    lviconcell{1,end+1}=myicon('hidelv',g.Handles.configiconholder,g.Icons.config.hidelv,translation.dictionary('Hide LV segmentation'),@() segment('viewhidelv_Callback'),2);
-    lviconcell{1,end+1}=myicon('hideinterp',g.Handles.configiconholder,g.Icons.config.hideinterp,translation.dictionary('Hide interpolation points'),@() segment('viewhideinterp_Callback'),2);
-    lviconcell{1,end+1}=myicon('clearalllv',g.Handles.configiconholder,g.Icons.config.clearalllv,translation.dictionary('Clear all LV segmentation'),@() segment('segmentclearalllv_Callback'),0);
-    lviconcell{1,end+1}=myicon('clearalllv',g.Handles.configiconholder,g.Icons.config.clearendo,translation.dictionary('Clear LV endo in selected slices this time frame'),@() segmentation('clearslicesthis_Callback',1,0,0,0),0);
-    lviconcell{1,end+1}=myicon('clearepi',g.Handles.configiconholder,g.Icons.config.clearepi,translation.dictionary('Clear LV epi in selected slices this time frame'),@() segmentation('clearslicesthis_Callback',0,1,0,0),0);
-    lviconcell{1,end+1}=myicon('volumecurve',g.Handles.configiconholder,g.Icons.config.volumecurve,translation.dictionary('Plot Volume Curve'),@() lvpeter('plotvolumecurve'),0);
-    
-    g.Icons.lviconcell=lviconcell;
-    
-    %RV
-    rviconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
-    rviconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'), @() updatetool('move'));
-    rviconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
-    rviconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
-    rviconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set light to predefined values'),@() segment('autocontrast_Callback'),0);
-    rviconcell{1,end+1}=myicon('rvstack',g.Handles.configiconholder,g.Icons.config.rvstack,translation.dictionary('Go to RV stack'),@() segment('viewspecial_Callback','rv'),0);
-    rviconcell{1,end+1}=myicon('autorvendo',g.Handles.configiconholder,g.Icons.config.autorvendo,translation.dictionary('Automatic RV Endo segmentation'),@() updatetool('autorvendo'),0);
-    rviconcell{1,end+1}=myicon('rvendopen',g.Handles.configiconholder,g.Icons.config.rvendopen,translation.dictionary('RV Endo pen'),@() updatetool('drawrvendo'));
-    rviconcell{1,end+1}=myicon('rvepipen',g.Handles.configiconholder,g.Icons.config.rvepipen,translation.dictionary('RV Epi pen'),@() updatetool('drawrvepi'));
-    rviconcell{1,end+1}=myicon('interprvendo',g.Handles.configiconholder,g.Icons.config.interprvendo,translation.dictionary('Set interpolation points for RV Endo'),@() updatetool('interprvendo'));
-    rviconcell{1,end+1}=myicon('interprvepi',g.Handles.configiconholder,g.Icons.config.interprvepi,translation.dictionary('Set interpolation points for RV Epi'),@() updatetool('interprvepi'));
-    rviconcell{1,end+1}=myicon('refinervendo',g.Handles.configiconholder,g.Icons.config.refinervendo,translation.dictionary('Refine RV Endo'),@() rv('segmentrefinervendo_Callback'),0);
-    %need icon
-    rviconcell{1,end+1}=myicon('copyrvup',g.Handles.configiconholder,g.Icons.config.copyrvup,translation.dictionary('Copy RV upwards'),@()tools('copyupward_Callback','endo',false,false),0);
-    rviconcell{1,end+1}=myicon('copyrvdown',g.Handles.configiconholder,g.Icons.config.copyrvdown,translation.dictionary('Copy RV downwards'),@()tools('copydownward_Callback','endo',false,false),0);
-    rviconcell{1,end+1}=myicon('hiderv',g.Handles.configiconholder,g.Icons.config.hiderv,translation.dictionary('Hide RV segmentation'), @() segment('viewhiderv_Callback'),2);
-    rviconcell{1,end+1}=lviconcell{end-4};%myicon('hideinterp',g.Handles.configiconholder,g.Icons.config.hideinterp,'Hide interpolation points',@() segment('viewhideinterp_Callback'),2);
-    rviconcell{1,end+1}=myicon('clearallrv',g.Handles.configiconholder,g.Icons.config.clearallrv,translation.dictionary('Clear all RV segmentation'),@() segment('segmentclearallrv_Callback'),0);
-    rviconcell{1,end+1}=myicon('clearrv',g.Handles.configiconholder,g.Icons.config.clearrv,translation.dictionary('Clear RV in selected slices this time frame'),@() segmentation('clearslicesthis_Callback',0,0,1,1),0);
-    rviconcell{1,end+1}=myicon('volumecurve',g.Handles.configiconholder,g.Icons.config.volumecurve,translation.dictionary('Plot Volume Curve'),@() lvpeter('plotvolumecurve'),0);
-    
-    g.Icons.rviconcell=rviconcell;
-    
-    %ROIFLOW
-    
-    roiflowiconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
-    roiflowiconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'),@() updatetool('move'));
-    roiflowiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
-    %roiflowiconcell{1,end+1}=myicon('scaleROI',g.Handles.configiconholder,g.Icons.config.scaleROI,'Scale ROI',@() updatetool('scaleROI'));
-    roiflowiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
-    roiflowiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set light to predefined values'),@() segment('autocontrast_Callback'),0);
-    roiflowiconcell{1,end+1}=myicon('flowstack',g.Handles.configiconholder,g.Icons.config.flowstack,translation.dictionary('Go to flow stack'),@() segment('viewspecial_Callback','flow'),0);
-    roiflowiconcell{1,end+1}=myicon('putroi',g.Handles.configiconholder,g.Icons.config.putroi,translation.dictionary('Place ROI'),@() updatetool('putroi'));
-    roiflowiconcell{1,end+1}=myicon('roipen',g.Handles.configiconholder,g.Icons.config.roipen,translation.dictionary('ROI pen'),@() updatetool('drawroi'));
-    roiflowiconcell{1,end+1}=myicon('roipen',g.Handles.configiconholder,g.Icons.config.trackingvessel,translation.dictionary('Track vessel in all time frames'),@() vesselsnake_flowtrackroi('flowtrackroi'),0);
-    roiflowiconcell{1,end+1}=myicon('refineroi',g.Handles.configiconholder,g.Icons.config.refineroi,translation.dictionary('Refine ROI'),@() flow('flowrefine_Callback'),0);
-    roiflowiconcell{1,end+1}=myicon('refineroinext',g.Handles.configiconholder,g.Icons.config.refineroinext,translation.dictionary('Propagate ROI to next timeframe'),@() flow('flowpropagate_Callback'),0);
-    roiflowiconcell{1,end+1}=myicon('unwrap',g.Handles.configiconholder,g.Icons.config.unwrap,translation.dictionary('Unwrap flow'),@() flowunwrap,0);
-    roiflowiconcell{1,end+1}=myicon('palette',g.Handles.configiconholder,g.Icons.config.palette,translation.dictionary('Set ROI color'),@() roi('roisetcolor_Callback'),0);
-    roiflowiconcell{1,end+1}=myicon('text',g.Handles.configiconholder,g.Icons.config.text,translation.dictionary('Set ROI label'),@() roi('roisetlabel_Callback'),0);
-    roiflowiconcell{1,end+1}=myicon('plotflow',g.Handles.configiconholder,g.Icons.config.plotflow,translation.dictionary('Plot flow'),@() reportflow,0);
-    roiflowiconcell{1,end+1}=myicon('hideroi',g.Handles.configiconholder,g.Icons.config.hideroi,translation.dictionary('Hide ROI'),@() segment('viewhideroi_Callback'),2);
-    roiflowiconcell{1,end+1}=myicon('clearroi',g.Handles.configiconholder,g.Icons.config.clearroi,translation.dictionary('Clear selected ROIs'),@() roi('roidelete_Callback'),0);  
-    roiflowiconcell{1,end+1}=myicon('clearallroi',g.Handles.configiconholder,g.Icons.config.clearallroi,translation.dictionary('Clear all ROIs'),@() roi('roiclearall_Callback'),0); 
-    g.Icons.roiflowiconcell=roiflowiconcell;
-    
-    %Viablility
-    viabilityiconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
-    viabilityiconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'),@() updatetool('move'));
-    viabilityiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
-    viabilityiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
-    viabilityiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set light to predefined values'),@() segment('autocontrast_Callback'),0);
-    viabilityiconcell{1,end+1}=myicon('scarstack',g.Handles.configiconholder,g.Icons.config.scarstack,translation.dictionary('Go to scar stack'),@() segment('viewspecial_Callback','cinescar'),0);
-    viabilityiconcell{1,end+1}=myicon('importfromother',g.Handles.configiconholder,g.Icons.config.importfromother,translation.dictionary('Import LV segmentation from cine to scar image stack'),@() segmentation('importfromcine2scar_Callback'),0);
-    viabilityiconcell{1,end+1}=myicon('endopen',g.Handles.configiconholder,g.Icons.config.endopen,translation.dictionary('Endo pen'),@() updatetool('drawendo'));
-    viabilityiconcell{1,end+1}=myicon('epipen',g.Handles.configiconholder,g.Icons.config.epipen,translation.dictionary('Epi pen'),@() updatetool('drawepi'));
-    viabilityiconcell{1,end+1}=myicon('interpendo',g.Handles.configiconholder,g.Icons.config.interpendo,translation.dictionary('Set interpolation points for Endo'),@() updatetool('interpendo'));
-    viabilityiconcell{1,end+1}=myicon('interpepi',g.Handles.configiconholder,g.Icons.config.interpepi,translation.dictionary('Set interpolation points for Epi'),@() updatetool('interpepi'));
-    viabilityiconcell{1,end+1}=myicon('autoscar',g.Handles.configiconholder,g.Icons.config.autoscar,translation.dictionary('Auto scar'),@() updatetool('autoscar'),0);
-    viabilityiconcell{1,end+1}=myicon('scarpen',g.Handles.configiconholder,g.Icons.config.scarpen,translation.dictionary('Draw scar'),@() updatetool('drawscar'));
-    viabilityiconcell{1,end+1}=myicon('mopen',g.Handles.configiconholder,g.Icons.config.mopen,translation.dictionary('Draw MO'),@() updatetool('drawmo'));
-    viabilityiconcell{1,end+1}=myicon('rubberscar',g.Handles.configiconholder,g.Icons.config.rubberscar,translation.dictionary('Remove interaction with scar segmentation'),@() updatetool('drawrubberpen'));
-    viabilityiconcell{1,end+1}=myicon('automar',g.Handles.configiconholder,g.Icons.config.automar,translation.dictionary('Auto MaR'),@() updatetool('automar'),0);
-    viabilityiconcell{1,end+1}=myicon('marpen',g.Handles.configiconholder,g.Icons.config.marpen,translation.dictionary('Draw MaR'),@() updatetool('drawmarpen'));
-    viabilityiconcell{1,end+1}=myicon('rubbermar',g.Handles.configiconholder,g.Icons.config.rubbermar,translation.dictionary('Remove interaction with MaR segmentation'),@() updatetool('drawmarrubberpen'));
-    viabilityiconcell{1,end+1}=myicon('hidescar',g.Handles.configiconholder,g.Icons.config.hidescar,translation.dictionary('Hide scar segmentation'),@() segment('viewhidescar_Callback'),2);
-    viabilityiconcell{1,end+1}=myicon('hidemar',g.Handles.configiconholder,g.Icons.config.hidemar,translation.dictionary('Hide MaR segmentation'),@() segment('viewhidemar_Callback'),2);
-    viabilityiconcell{1,end+1}=myicon('clearscar',g.Handles.configiconholder,g.Icons.config.clearscar,translation.dictionary('Clear scar segmentation'),@() viability('viabilityclear_Callback'),0);  
-    viabilityiconcell{1,end+1}=myicon('clearmar',g.Handles.configiconholder,g.Icons.config.clearmar,translation.dictionary('Clear MaR segmentation'),@() mar('clearall_Callback'),0);  
-    g.Icons.viabilityiconcell=viabilityiconcell;
-    
-    %Analysis
-    analysisiconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
-    analysisiconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'),@() updatetool('move'));
-    analysisiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
-    analysisiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
-    analysisiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set light to predefined values'),@() segment('autocontrast_Callback'),0);
-    analysisiconcell{1,end+1}=myicon('importfromother',g.Handles.configiconholder,g.Icons.config.importfromother,translation.dictionary('Import LV segmentation from other image stack'),@() segmentation('importsegmentation_Callback'),0);
-    analysisiconcell{1,end+1}=myicon('measure',g.Handles.configiconholder,g.Icons.config.measure,translation.dictionary('Place Measurement'),@() updatetool('measure'));
-    analysisiconcell{1,end+1}=myicon('point',g.Handles.configiconholder,g.Icons.config.point,translation.dictionary('Place Annotation point'),@() updatetool('point'));
-    analysisiconcell{1,end+1}=myicon('roipen',g.Handles.configiconholder,g.Icons.config.roipen,translation.dictionary('ROI pen'),@() updatetool('drawroi'));
-    analysisiconcell{1,end+1}=myicon('addroiinlv',g.Handles.configiconholder,g.Icons.config.addroiinlv,translation.dictionary('Add ROIs to sector of LV wall in selected slices'),@() roi('roiaddinsector_Callback'),0);
-    analysisiconcell{1,end+1}=myicon('bullseye',g.Handles.configiconholder,g.Icons.config.bullseye,translation.dictionary('Bullseye plot interface'),@() reportbullseye,0);
-    analysisiconcell{1,end+1}=myicon('T1',g.Handles.configiconholder,g.Icons.config.T1, translation.dictionary('T1 analysis'),@() txmap('init',1),0);
-    analysisiconcell{1,end+1}=myicon('T2',g.Handles.configiconholder,g.Icons.config.T2, translation.dictionary('T2 analysis'),@() txmap('init',2),0);
-    analysisiconcell{1,end+1}=myicon('T2star',g.Handles.configiconholder,g.Icons.config.T2star, translation.dictionary('T2* analysis'),@() t2star.t2star,0);
-    analysisiconcell{1,end+1}=myicon('perfusion',g.Handles.configiconholder,g.Icons.config.perfusion, translation.dictionary('Perfusion analysis'),@() perfusion.perfusion,0);
-    analysisiconcell{1,end+1}=myicon('ecv',g.Handles.configiconholder,g.Icons.config.ecv, translation.dictionary('ECV analysis'),@() ecv('init_Callback'),0);
-    analysisiconcell{1,end+1}=myicon('reportperslice',g.Handles.configiconholder,g.Icons.config.reportperslice, translation.dictionary('Report per slice'),@() slicereport,0);
-    analysisiconcell{1,end+1}=myicon('model3d',g.Handles.configiconholder,g.Icons.config.model3d, translation.dictionary('Show 3D model'),@() report3dmodel,0);
-    analysisiconcell{1,end+1}=myicon('generalsegment',g.Handles.configiconholder,g.Icons.config.generalsegment,translation.dictionary('General Segmentation'),@() levelset,0);
-    analysisiconcell{1,end+1}=myicon('hidemeasure',g.Handles.configiconholder,g.Icons.config.hidemeasure,translation.dictionary('Hide measurements'),@() segment('viewhidemeasures_Callback'),2);
-    analysisiconcell{1,end+1}=myicon('hidepoint',g.Handles.configiconholder,g.Icons.config.hidepoint,translation.dictionary('Hide annotation points'),@() segment('viewhidepoints_Callback'),2);
-    analysisiconcell{1,end+1}=myicon('hideroi',g.Handles.configiconholder,g.Icons.config.hideroi,translation.dictionary('Hide ROI'),@() segment('viewhideroi_Callback'),2);
-    analysisiconcell{1,end+1}=myicon('clearmeasure',g.Handles.configiconholder,g.Icons.config.clearmeasure,translation.dictionary('Clear all measurements'),@() segment('measureclearall_Callback'),0);  
-    analysisiconcell{1,end+1}=myicon('clearpoint',g.Handles.configiconholder,g.Icons.config.clearpoint,translation.dictionary('Clear all annotation points'),@() annotationpoint('pointclearall_Callback'),0); 
-    analysisiconcell{1,end+1}=myicon('clearroi',g.Handles.configiconholder,g.Icons.config.clearroi,translation.dictionary('Clear selected ROIs'),@() roi('roidelete_Callback'),0);  
-    analysisiconcell{1,end+1}=myicon('clearallroi',g.Handles.configiconholder,g.Icons.config.clearallroi,translation.dictionary('Clear all ROIs'),@() roi('roiclearall_Callback'),0); 
-    g.Icons.analysisiconcell=analysisiconcell;
-    
-    %Image
-    imageiconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
-    imageiconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'),@() updatetool('move'));
-    imageiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
-    imageiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
-    imageiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set contrast and brightness to predefined values'),@() segment('autocontrast_Callback'),0);
-    imageiconcell{1,end+1}=myicon('resetlight',g.Handles.configiconholder,g.Icons.config.resetlight,translation.dictionary('Reset contrast and brightness'),@() segment('resetlight_Callback'),0);
-    imageiconcell{1,end+1}=myicon('autocontrastall',g.Handles.configiconholder,g.Icons.config.autocontrastall,translation.dictionary('Set contrast and brightness to predefined values for all images'),@() segment('autocontrastall_Callback'),0);
-    imageiconcell{1,end+1}=myicon('crop',g.Handles.configiconholder,g.Icons.config.crop,translation.dictionary('Manual crop'),@() updatetool('crop'));
-    imageiconcell{1,end+1}=myicon('cropall',g.Handles.configiconholder,g.Icons.config.cropall,translation.dictionary('Auto crop all'),@() updatetool('autocropall'),0);
-    imageiconcell{1,end+1}=myicon('cineplay',g.Handles.configiconholder,g.Icons.config.cineplay,translation.dictionary('Open cine tool'),@() segment('cinetool_Callback'),2);
-    imageiconcell{1,end+1}=myicon('movie',g.Handles.configiconholder,g.Icons.config.movie,translation.dictionary('Open movie tool'),@() export('exportmovierecorder_Callback'),0);
-    imageiconcell{1,end+1}=myicon('click3d',g.Handles.configiconholder,g.Icons.config.click3d,translation.dictionary('Set 3D point'),@() updatetool('click3d'));
-    imageiconcell{1,end+1}=myicon('rotate90',g.Handles.configiconholder,g.Icons.config.rotate90,translation.dictionary('Rotate 90 degrees clockwise'),@() tools('rotate90right_Callback'),0);
-    imageiconcell{1,end+1}=myicon('mpr',g.Handles.configiconholder,g.Icons.config.mpr,translation.dictionary('Reconstruct image stack'),@() reformater,0);
-    imageiconcell{1,end+1}=myicon('imageinfo',g.Handles.configiconholder,g.Icons.config.imageinfo,translation.dictionary('View and adjust image info'),@() tools('imageinfo_Callback'),0);
-    imageiconcell{1,end+1}=myicon('patientinfo',g.Handles.configiconholder,g.Icons.config.patientinfo,translation.dictionary('View and adjust patient info'),@() tools('viewpatientinfo_Callback'),0);    
-    imageiconcell{1,end+1}=myicon('hidetext',g.Handles.configiconholder,g.Icons.config.hidetext,translation.dictionary('Hide text'),@() segment('viewhidetext_Callback'),2);
-    imageiconcell{1,end+1}=myicon('hideplus',g.Handles.configiconholder,g.Icons.config.hideplus,translation.dictionary('Hide center cross'),@() segment('viewhideplus_Callback'),2);
-    imageiconcell{1,end+1}=myicon('hideintersections',g.Handles.configiconholder,g.Icons.config.hideintersections,translation.dictionary('Hide intersection lines'),@() segment('viewhideinterp_Callback'),2);
-    imageiconcell{1,end+1}=myicon('hideothercontour',g.Handles.configiconholder,g.Icons.config.hideothercontour,translation.dictionary('Hide other contour points'),@() segment('viewhideothercontour_Callback'),2);
-    g.Icons.imageiconcell=imageiconcell;
-    end
+%  %---------------------------------------------
+%     function initconfigplaceholder(varargin)
+%       %--------------------------------------------
+%       g=varargin{1};
+%       
+%       %check if using new gui version
+% %       if all([isfield(g.Icons,'lviconcell'),isfield(g.Icons,'rviconcell'),...
+% %         isfield(g.Icons,'analysisviconcell'),isfield(g.Icons,'roiflowiconcell'),...
+% %         isfield(g.Icons,'viabilityiconcell'),isfield(g.Icons,'imageiconcell')]);
+% %        
+% %       g.lviconcell=cell(1,1);
+% %     g.rviconcell=cell(1,1);
+% %     g.analysisiconcell=cell(1,1);
+% %     g.roiflowiconcell=cell(1,1);
+% %     g.viabilityiconcell=cell(1,1);
+% %     g.imageiconcell=cell(1,1);
+% %       else
+%     %initcells
+%     lviconcell=cell(1,1);
+%     rviconcell=cell(1,1);
+%     analysisiconcell=cell(1,1);
+%     roiflowiconcell=cell(1,1);
+%     viabilityiconcell=cell(1,1);
+%     imageiconcell=cell(1,1);
+%     %LV
+%     lviconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
+%     lviconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'),@() updatetool('move'));
+%     lviconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
+%     lviconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
+%     lviconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set light to predefined values'),@() segment('autocontrast_Callback'),0);
+%     lviconcell{1,end+1}=myicon('lvstack',g.Handles.configiconholder,g.Icons.config.lvstack,translation.dictionary('Go to LV stack'),@() segment('viewspecial_Callback','lv'),0);
+%      lviconcell{1,end+1}=myicon('moveall',g.Handles.configiconholder,g.Icons.config.moveall,translation.dictionary('Translate all contours'),@() updatetool('moveall'));    
+%     lviconcell{1,end+1}=myicon('autolv',g.Handles.configiconholder,g.Icons.config.autolv,translation.dictionary('Automatic LV segmentation'),@() updatetool('autolv'),0);
+%     lviconcell{1,end+1}=myicon('endopen',g.Handles.configiconholder,g.Icons.config.endopen,translation.dictionary('Endo pen'),@() updatetool('drawendo'));
+%     lviconcell{1,end+1}=myicon('epipen',g.Handles.configiconholder,g.Icons.config.epipen,translation.dictionary('Epi pen'),@() updatetool('drawepi'));
+%     lviconcell{1,end+1}=myicon('interpendo',g.Handles.configiconholder,g.Icons.config.interpendo,translation.dictionary('Set interpolation points for Endo'),@() updatetool('interpendo'));
+%     lviconcell{1,end+1}=myicon('interpepi',g.Handles.configiconholder,g.Icons.config.interpepi,translation.dictionary('Set interpolation points for Epi'),@() updatetool('interpepi'));
+%     
+%     lviconcell{1,end+1}=myicon('refineendo',g.Handles.configiconholder,g.Icons.config.refineendo,translation.dictionary('Refine Endo'),@() lvpeter('segmentrefineendo_Callback'),0);
+%     lviconcell{1,end+1}=myicon('refineepi',g.Handles.configiconholder,g.Icons.config.refineepi,translation.dictionary('Refine Epi'),@() lvpeter('segmentrefineepi_Callback'),0);
+%     lviconcell{1,end+1}=myicon('propagateendo',g.Handles.configiconholder,g.Icons.config.propagateendo,translation.dictionary('Propagate endo forward in time'), @() lvpeter('segmentpropagateendo_Callback'),0);
+%     lviconcell{1,end+1}=myicon('propagateepi',g.Handles.configiconholder,g.Icons.config.propagateepi,translation.dictionary('Propagate epi forward in time'),@() lvpeter('segmentpropagateepi_Callback'),0);
+%     
+%     lviconcell{1,end+1}=myicon('contractendo',g.Handles.configiconholder,g.Icons.config.contractendo,translation.dictionary('Contract Endo segmentation'),@() lv('segmentexpandcontract_Callback',-1,'endo'),0);
+%     lviconcell{1,end+1}=myicon('expandendo',g.Handles.configiconholder,g.Icons.config.expandendo,translation.dictionary('Expand Endo segmentation'),@() lv('segmentexpandcontract_Callback',1,'endo'),0);
+%     lviconcell{1,end+1}=myicon('contractepi',g.Handles.configiconholder,g.Icons.config.contractepi,translation.dictionary('Contract Epi segmentation'),@() lv('segmentexpandcontract_Callback',-1,'epi'),0);
+%     lviconcell{1,end+1}=myicon('expandepi',g.Handles.configiconholder,g.Icons.config.expandepi,translation.dictionary('Expand Epi segmentation'),@() lv('segmentexpandcontract_Callback',1,'epi'),0);
+%     lviconcell{1,end+1}=myicon('copylvup',g.Handles.configiconholder,g.Icons.config.copylvup,translation.dictionary('Copy LV upwards'),@()tools('copyupward_Callback'),0);
+%     lviconcell{1,end+1}=myicon('copylvdown',g.Handles.configiconholder,g.Icons.config.copylvdown,translation.dictionary('Copy LV downwards'),@()tools('copydownward_Callback'),0);
+%     
+%     
+%     lviconcell{1,end+1}=myicon('interpsegintime',g.Handles.configiconholder,g.Icons.config.interpsegintime,translation.dictionary('Interpolate segmentation in time'),@() segmentation('interpolatedelineationovertime_Callback'),0);
+%      lviconcell{1,end+1}=myicon('interpseginslice',g.Handles.configiconholder,g.Icons.config.interpseginslice,translation.dictionary('Interpolate segmentation over slices'),@() lv('interpolatedelineation_Callback'),0);
+%    
+%     lviconcell{1,end+1}=myicon('hidelv',g.Handles.configiconholder,g.Icons.config.hidelv,translation.dictionary('Hide LV segmentation'),@() segment('viewhidelv_Callback'),2);
+%     lviconcell{1,end+1}=myicon('hideinterp',g.Handles.configiconholder,g.Icons.config.hideinterp,translation.dictionary('Hide interpolation points'),@() segment('viewhideinterp_Callback'),2);
+%     lviconcell{1,end+1}=myicon('clearalllv',g.Handles.configiconholder,g.Icons.config.clearalllv,translation.dictionary('Clear all LV segmentation'),@() segment('segmentclearalllv_Callback'),0);
+%     lviconcell{1,end+1}=myicon('clearalllv',g.Handles.configiconholder,g.Icons.config.clearendo,translation.dictionary('Clear LV endo in selected slices this time frame'),@() segmentation('clearslicesthis_Callback',1,0,0,0),0);
+%     lviconcell{1,end+1}=myicon('clearepi',g.Handles.configiconholder,g.Icons.config.clearepi,translation.dictionary('Clear LV epi in selected slices this time frame'),@() segmentation('clearslicesthis_Callback',0,1,0,0),0);
+%     lviconcell{1,end+1}=myicon('volumecurve',g.Handles.configiconholder,g.Icons.config.volumecurve,translation.dictionary('Plot Volume Curve'),@() lvpeter('plotvolumecurve'),0);
+%     
+%     g.Icons.lviconcell=lviconcell;
+%     
+%     %RV
+%     rviconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
+%     rviconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'), @() updatetool('move'));
+%     rviconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
+%     rviconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
+%     rviconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set light to predefined values'),@() segment('autocontrast_Callback'),0);
+%     rviconcell{1,end+1}=myicon('rvstack',g.Handles.configiconholder,g.Icons.config.rvstack,translation.dictionary('Go to RV stack'),@() segment('viewspecial_Callback','rv'),0);
+%     rviconcell{1,end+1}=myicon('autorvendo',g.Handles.configiconholder,g.Icons.config.autorvendo,translation.dictionary('Automatic RV Endo segmentation'),@() updatetool('autorvendo'),0);
+%     rviconcell{1,end+1}=myicon('rvendopen',g.Handles.configiconholder,g.Icons.config.rvendopen,translation.dictionary('RV Endo pen'),@() updatetool('drawrvendo'));
+%     rviconcell{1,end+1}=myicon('rvepipen',g.Handles.configiconholder,g.Icons.config.rvepipen,translation.dictionary('RV Epi pen'),@() updatetool('drawrvepi'));
+%     rviconcell{1,end+1}=myicon('interprvendo',g.Handles.configiconholder,g.Icons.config.interprvendo,translation.dictionary('Set interpolation points for RV Endo'),@() updatetool('interprvendo'));
+%     rviconcell{1,end+1}=myicon('interprvepi',g.Handles.configiconholder,g.Icons.config.interprvepi,translation.dictionary('Set interpolation points for RV Epi'),@() updatetool('interprvepi'));
+%     rviconcell{1,end+1}=myicon('refinervendo',g.Handles.configiconholder,g.Icons.config.refinervendo,translation.dictionary('Refine RV Endo'),@() rv('segmentrefinervendo_Callback'),0);
+%     %need icon
+%     rviconcell{1,end+1}=myicon('copyrvup',g.Handles.configiconholder,g.Icons.config.copyrvup,translation.dictionary('Copy RV upwards'),@()tools('copyupward_Callback','endo',false,false),0);
+%     rviconcell{1,end+1}=myicon('copyrvdown',g.Handles.configiconholder,g.Icons.config.copyrvdown,translation.dictionary('Copy RV downwards'),@()tools('copydownward_Callback','endo',false,false),0);
+%     
+%     rviconcell{1,end+1}=myicon('interpsegintime',g.Handles.configiconholder,g.Icons.config.interpsegintime,translation.dictionary('Interpolate segmentation in time'),@() segmentation('interpolatedelineationovertime_Callback'),0);
+%      rviconcell{1,end+1}=myicon('interpseginslice',g.Handles.configiconholder,g.Icons.config.interpseginslice,translation.dictionary('Interpolate segmentation over slices'),@() lv('interpolatedelineation_Callback'),0);
+%     
+%     rviconcell{1,end+1}=myicon('hiderv',g.Handles.configiconholder,g.Icons.config.hiderv,translation.dictionary('Hide RV segmentation'), @() segment('viewhiderv_Callback'),2);
+%     rviconcell{1,end+1}=lviconcell{end-4};%myicon('hideinterp',g.Handles.configiconholder,g.Icons.config.hideinterp,'Hide interpolation points',@() segment('viewhideinterp_Callback'),2);
+%     rviconcell{1,end+1}=myicon('clearallrv',g.Handles.configiconholder,g.Icons.config.clearallrv,translation.dictionary('Clear all RV segmentation'),@() segment('segmentclearallrv_Callback'),0);
+%     rviconcell{1,end+1}=myicon('clearrv',g.Handles.configiconholder,g.Icons.config.clearrv,translation.dictionary('Clear RV in selected slices this time frame'),@() segmentation('clearslicesthis_Callback',0,0,1,1),0);
+%     rviconcell{1,end+1}=myicon('volumecurve',g.Handles.configiconholder,g.Icons.config.volumecurve,translation.dictionary('Plot Volume Curve'),@() lvpeter('plotvolumecurve'),0);
+%     
+%     g.Icons.rviconcell=rviconcell;
+%     
+%     %ROIFLOW
+%     
+%     roiflowiconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
+%     roiflowiconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'),@() updatetool('move'));
+%     roiflowiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
+%     %roiflowiconcell{1,end+1}=myicon('scaleROI',g.Handles.configiconholder,g.Icons.config.scaleROI,'Scale ROI',@() updatetool('scaleROI'));
+%     roiflowiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
+%     roiflowiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set light to predefined values'),@() segment('autocontrast_Callback'),0);
+%     roiflowiconcell{1,end+1}=myicon('flowstack',g.Handles.configiconholder,g.Icons.config.flowstack,translation.dictionary('Go to flow stack'),@() segment('viewspecial_Callback','flow'),0);
+%     roiflowiconcell{1,end+1}=myicon('putroi',g.Handles.configiconholder,g.Icons.config.putroi,translation.dictionary('Place ROI'),@() updatetool('putroi'));
+%     roiflowiconcell{1,end+1}=myicon('roipen',g.Handles.configiconholder,g.Icons.config.roipen,translation.dictionary('ROI pen'),@() updatetool('drawroi'));
+%     roiflowiconcell{1,end+1}=myicon('roipen',g.Handles.configiconholder,g.Icons.config.trackingvessel,translation.dictionary('Track vessel in all time frames'),@() vesselsnake_flowtrackroi('flowtrackroi'),0);
+%     roiflowiconcell{1,end+1}=myicon('refineroi',g.Handles.configiconholder,g.Icons.config.refineroi,translation.dictionary('Refine ROI'),@() flow('flowrefine_Callback'),0);
+%     roiflowiconcell{1,end+1}=myicon('refineroinext',g.Handles.configiconholder,g.Icons.config.refineroinext,translation.dictionary('Propagate ROI to next timeframe'),@() flow('flowpropagate_Callback'),0);
+%     roiflowiconcell{1,end+1}=myicon('unwrap',g.Handles.configiconholder,g.Icons.config.unwrap,translation.dictionary('Unwrap flow'),@() flowunwrap,0);
+%     roiflowiconcell{1,end+1}=myicon('palette',g.Handles.configiconholder,g.Icons.config.palette,translation.dictionary('Set ROI color'),@() roi('roisetcolor_Callback'),0);
+%     roiflowiconcell{1,end+1}=myicon('text',g.Handles.configiconholder,g.Icons.config.text,translation.dictionary('Set ROI label'),@() roi('roisetlabel_Callback'),0);
+%     roiflowiconcell{1,end+1}=myicon('plotflow',g.Handles.configiconholder,g.Icons.config.plotflow,translation.dictionary('Plot flow'),@() reportflow,0);
+%     roiflowiconcell{1,end+1}=myicon('hideroi',g.Handles.configiconholder,g.Icons.config.hideroi,translation.dictionary('Hide ROI'),@() segment('viewhideroi_Callback'),2);
+%     roiflowiconcell{1,end+1}=myicon('clearroi',g.Handles.configiconholder,g.Icons.config.clearroi,translation.dictionary('Clear selected ROIs'),@() roi('roidelete_Callback'),0);  
+%     roiflowiconcell{1,end+1}=myicon('clearallroi',g.Handles.configiconholder,g.Icons.config.clearallroi,translation.dictionary('Clear all ROIs'),@() roi('roiclearall_Callback'),0); 
+%     g.Icons.roiflowiconcell=roiflowiconcell;
+%     
+%     %Viablility
+%     viabilityiconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
+%     viabilityiconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'),@() updatetool('move'));
+%     viabilityiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
+%     viabilityiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
+%     viabilityiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set light to predefined values'),@() segment('autocontrast_Callback'),0);
+%     viabilityiconcell{1,end+1}=myicon('scarstack',g.Handles.configiconholder,g.Icons.config.scarstack,translation.dictionary('Go to scar stack'),@() segment('viewspecial_Callback','cinescar'),0);
+%     viabilityiconcell{1,end+1}=myicon('importfromother',g.Handles.configiconholder,g.Icons.config.importfromother,translation.dictionary('Import LV segmentation from cine to scar image stack'),@() segmentation('importfromcine2scar_Callback'),0);
+%     viabilityiconcell{1,end+1}=myicon('endopen',g.Handles.configiconholder,g.Icons.config.endopen,translation.dictionary('Endo pen'),@() updatetool('drawendo'));
+%     viabilityiconcell{1,end+1}=myicon('epipen',g.Handles.configiconholder,g.Icons.config.epipen,translation.dictionary('Epi pen'),@() updatetool('drawepi'));
+%     viabilityiconcell{1,end+1}=myicon('interpendo',g.Handles.configiconholder,g.Icons.config.interpendo,translation.dictionary('Set interpolation points for Endo'),@() updatetool('interpendo'));
+%     viabilityiconcell{1,end+1}=myicon('interpepi',g.Handles.configiconholder,g.Icons.config.interpepi,translation.dictionary('Set interpolation points for Epi'),@() updatetool('interpepi'));
+%     viabilityiconcell{1,end+1}=myicon('autoscar',g.Handles.configiconholder,g.Icons.config.autoscar,translation.dictionary('Auto scar'),@() updatetool('autoscar'),0);
+%     viabilityiconcell{1,end+1}=myicon('scarpen',g.Handles.configiconholder,g.Icons.config.scarpen,translation.dictionary('Draw scar'),@() updatetool('drawscar'));
+%     viabilityiconcell{1,end+1}=myicon('mopen',g.Handles.configiconholder,g.Icons.config.mopen,translation.dictionary('Draw MO'),@() updatetool('drawmo'));
+%     viabilityiconcell{1,end+1}=myicon('rubberscar',g.Handles.configiconholder,g.Icons.config.rubberscar,translation.dictionary('Remove interaction with scar segmentation'),@() updatetool('drawrubberpen'));
+%     viabilityiconcell{1,end+1}=myicon('automar',g.Handles.configiconholder,g.Icons.config.automar,translation.dictionary('Auto MaR'),@() updatetool('automar'),0);
+%     viabilityiconcell{1,end+1}=myicon('marpen',g.Handles.configiconholder,g.Icons.config.marpen,translation.dictionary('Draw MaR'),@() updatetool('drawmarpen'));
+%     viabilityiconcell{1,end+1}=myicon('rubbermar',g.Handles.configiconholder,g.Icons.config.rubbermar,translation.dictionary('Remove interaction with MaR segmentation'),@() updatetool('drawmarrubberpen'));
+%     viabilityiconcell{1,end+1}=myicon('hidescar',g.Handles.configiconholder,g.Icons.config.hidescar,translation.dictionary('Hide scar segmentation'),@() segment('viewhidescar_Callback'),2);
+%     viabilityiconcell{1,end+1}=myicon('hidemar',g.Handles.configiconholder,g.Icons.config.hidemar,translation.dictionary('Hide MaR segmentation'),@() segment('viewhidemar_Callback'),2);
+%     viabilityiconcell{1,end+1}=myicon('clearscar',g.Handles.configiconholder,g.Icons.config.clearscar,translation.dictionary('Clear scar segmentation'),@() viability('viabilityclear_Callback'),0);  
+%     viabilityiconcell{1,end+1}=myicon('clearmar',g.Handles.configiconholder,g.Icons.config.clearmar,translation.dictionary('Clear MaR segmentation'),@() mar('clearall_Callback'),0);  
+%     g.Icons.viabilityiconcell=viabilityiconcell;
+%     
+%     %Analysis
+%     analysisiconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
+%     analysisiconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'),@() updatetool('move'));
+%     analysisiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
+%     analysisiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
+%     analysisiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set light to predefined values'),@() segment('autocontrast_Callback'),0);
+%     analysisiconcell{1,end+1}=myicon('importfromother',g.Handles.configiconholder,g.Icons.config.importfromother,translation.dictionary('Import LV segmentation from other image stack'),@() segmentation('importsegmentation_Callback'),0);
+%     analysisiconcell{1,end+1}=myicon('measure',g.Handles.configiconholder,g.Icons.config.measure,translation.dictionary('Place Measurement'),@() updatetool('measure'));
+%     analysisiconcell{1,end+1}=myicon('point',g.Handles.configiconholder,g.Icons.config.point,translation.dictionary('Place Annotation point'),@() updatetool('point'));
+%     analysisiconcell{1,end+1}=myicon('roipen',g.Handles.configiconholder,g.Icons.config.roipen,translation.dictionary('ROI pen'),@() updatetool('drawroi'));
+%     analysisiconcell{1,end+1}=myicon('addroiinlv',g.Handles.configiconholder,g.Icons.config.addroiinlv,translation.dictionary('Add ROIs to sector of LV wall in selected slices'),@() roi('roiaddinsector_Callback'),0);
+%     analysisiconcell{1,end+1}=myicon('bullseye',g.Handles.configiconholder,g.Icons.config.bullseye,translation.dictionary('Bullseye plot interface'),@() reportbullseye,0);
+%     analysisiconcell{1,end+1}=myicon('bullseye',g.Handles.configiconholder,g.Icons.config.AVPD,translation.dictionary('AV plane displacement'),@() avplane,0);
+%     
+%     analysisiconcell{1,end+1}=myicon('T1',g.Handles.configiconholder,g.Icons.config.T1, translation.dictionary('T1 analysis'),@() txmap('init',1),0);
+%     analysisiconcell{1,end+1}=myicon('T2',g.Handles.configiconholder,g.Icons.config.T2, translation.dictionary('T2 analysis'),@() txmap('init',2),0);
+%     analysisiconcell{1,end+1}=myicon('T2star',g.Handles.configiconholder,g.Icons.config.T2star, translation.dictionary('T2* analysis'),@() t2star.t2star,0);
+%     analysisiconcell{1,end+1}=myicon('perfusion',g.Handles.configiconholder,g.Icons.config.perfusion, translation.dictionary('Perfusion analysis'),@() perfusion.perfusion,0);
+%     analysisiconcell{1,end+1}=myicon('ecv',g.Handles.configiconholder,g.Icons.config.ecv, translation.dictionary('ECV analysis'),@() ecv('init_Callback'),0);
+%     analysisiconcell{1,end+1}=myicon('reportperslice',g.Handles.configiconholder,g.Icons.config.reportperslice, translation.dictionary('Report per slice'),@() slicereport,0);
+%     analysisiconcell{1,end+1}=myicon('model3d',g.Handles.configiconholder,g.Icons.config.model3d, translation.dictionary('Show 3D model'),@() report3dmodel,0);
+%     analysisiconcell{1,end+1}=myicon('generalsegment',g.Handles.configiconholder,g.Icons.config.generalsegment,translation.dictionary('General Segmentation'),@() levelset,0);
+%     analysisiconcell{1,end+1}=myicon('hidemeasure',g.Handles.configiconholder,g.Icons.config.hidemeasure,translation.dictionary('Hide measurements'),@() segment('viewhidemeasures_Callback'),2);
+%     analysisiconcell{1,end+1}=myicon('hidepoint',g.Handles.configiconholder,g.Icons.config.hidepoint,translation.dictionary('Hide annotation points'),@() segment('viewhidepoints_Callback'),2);
+%     analysisiconcell{1,end+1}=myicon('hideroi',g.Handles.configiconholder,g.Icons.config.hideroi,translation.dictionary('Hide ROI'),@() segment('viewhideroi_Callback'),2);
+%     analysisiconcell{1,end+1}=myicon('clearmeasure',g.Handles.configiconholder,g.Icons.config.clearmeasure,translation.dictionary('Clear all measurements'),@() segment('measureclearall_Callback'),0);  
+%     analysisiconcell{1,end+1}=myicon('clearpoint',g.Handles.configiconholder,g.Icons.config.clearpoint,translation.dictionary('Clear all annotation points'),@() annotationpoint('pointclearall_Callback'),0); 
+%     analysisiconcell{1,end+1}=myicon('clearroi',g.Handles.configiconholder,g.Icons.config.clearroi,translation.dictionary('Clear selected ROIs'),@() roi('roidelete_Callback'),0);  
+%     analysisiconcell{1,end+1}=myicon('clearallroi',g.Handles.configiconholder,g.Icons.config.clearallroi,translation.dictionary('Clear all ROIs'),@() roi('roiclearall_Callback'),0); 
+%     g.Icons.analysisiconcell=analysisiconcell;
+%     
+%     %Image
+%     imageiconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
+%     imageiconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'),@() updatetool('move'));
+%     imageiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
+%     imageiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
+%     imageiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set contrast and brightness to predefined values'),@() segment('autocontrast_Callback'),0);
+%     imageiconcell{1,end+1}=myicon('resetlight',g.Handles.configiconholder,g.Icons.config.resetlight,translation.dictionary('Reset contrast and brightness'),@() segment('resetlight_Callback'),0);
+%     imageiconcell{1,end+1}=myicon('autocontrastall',g.Handles.configiconholder,g.Icons.config.autocontrastall,translation.dictionary('Set contrast and brightness to predefined values for all images'),@() segment('autocontrastall_Callback'),0);
+%     imageiconcell{1,end+1}=myicon('crop',g.Handles.configiconholder,g.Icons.config.crop,translation.dictionary('Manual crop'),@() updatetool('crop'));
+%     imageiconcell{1,end+1}=myicon('cropall',g.Handles.configiconholder,g.Icons.config.cropall,translation.dictionary('Auto crop all'),@() updatetool('autocropall'),0);
+%     imageiconcell{1,end+1}=myicon('cineplay',g.Handles.configiconholder,g.Icons.config.cineplay,translation.dictionary('Open cine tool'),@() segment('cinetool_Callback'),2);
+%     imageiconcell{1,end+1}=myicon('movie',g.Handles.configiconholder,g.Icons.config.movie,translation.dictionary('Open movie tool'),@() export('exportmovierecorder_Callback'),0);
+%     imageiconcell{1,end+1}=myicon('click3d',g.Handles.configiconholder,g.Icons.config.click3d,translation.dictionary('Set 3D point'),@() updatetool('click3d'));
+%     imageiconcell{1,end+1}=myicon('rotate90',g.Handles.configiconholder,g.Icons.config.rotate90,translation.dictionary('Rotate 90 degrees clockwise'),@() tools('rotate90right_Callback'),0);
+%     imageiconcell{1,end+1}=myicon('mpr',g.Handles.configiconholder,g.Icons.config.mpr,translation.dictionary('Reconstruct image stack'),@() reformater,0);
+%     imageiconcell{1,end+1}=myicon('mergestacks',g.Handles.configiconholder,g.Icons.config.mergestacks,translation.dictionary('Merge stacks'),@() mergestacks,0);
+%     imageiconcell{1,end+1}=myicon('imageinfo',g.Handles.configiconholder,g.Icons.config.imageinfo,translation.dictionary('View and adjust image info'),@() tools('imageinfo_Callback'),0);
+%     imageiconcell{1,end+1}=myicon('patientinfo',g.Handles.configiconholder,g.Icons.config.patientinfo,translation.dictionary('View and adjust patient info'),@() tools('viewpatientinfo_Callback'),0);    
+%     imageiconcell{1,end+1}=myicon('hidetext',g.Handles.configiconholder,g.Icons.config.hidetext,translation.dictionary('Hide text'),@() segment('viewhidetext_Callback'),2);
+%     imageiconcell{1,end+1}=myicon('hideplus',g.Handles.configiconholder,g.Icons.config.hideplus,translation.dictionary('Hide center cross'),@() segment('viewhideplus_Callback'),2);
+%     imageiconcell{1,end+1}=myicon('hideintersections',g.Handles.configiconholder,g.Icons.config.hideintersections,translation.dictionary('Hide intersection lines'),@() segment('viewhideinterp_Callback'),2);
+%     imageiconcell{1,end+1}=myicon('hideothercontour',g.Handles.configiconholder,g.Icons.config.hideothercontour,translation.dictionary('Hide other contour points'),@() segment('viewhideothercontour_Callback'),2);
+%     g.Icons.imageiconcell=imageiconcell;
+%     end
     
     %-----------------------------------
     function togglebuttonLV_Callback(varargin)
@@ -900,61 +916,63 @@ classdef maingui < handle %Handle class
         end
         
       end
-    %----------------------------------------
-    function initpermanentplaceholder(varargin)
-      %--------------------------------------
-    g=varargin{1};
       
-    iconcell=cell(1,1);
-    iconcell{1,1}=myicon('database',g.Handles.permanenticonholder,g.Icons.config.database,'Open patient database',@() segment('fileopen_Callback'),0);
-    iconcell{1,end+1}=myicon('databaseadd',g.Handles.permanenticonholder,g.Icons.config.databaseadd,'Save to patient database',... 
-      @() filemenu('savetopatientdatabase_Callback'),0);
-%     iconcell{1,end+1}=myicon(g.Handles.permanenticonholder,g.Icons.config.connect,'Open PACS connection','pacs(''init_Callback'')',0);
-%     iconcell{1,end+1}=myicon(g.Handles.permanenticonholder,g.Icons.config.connectadd,'Save to PACS','filemenu(''savetopacs_Callback'')',0);
-    iconcell{1,end+1}=myicon('closeall',g.Handles.permanenticonholder,g.Icons.config.closeall,'Close all image stacks',@() segment('filecloseall_Callback'),0);
-    
-    iconcell{1,end+1}=myicon('panel1',g.Handles.permanenticonholder,g.Icons.config.panel1,'View one image panel',@() drawfunctions('drawall',1),1,1);
-    iconcell{1,end+1}=myicon('panel2',g.Handles.permanenticonholder,g.Icons.config.panel2,'View two image panels',@() drawfunctions('drawall',1,2),1,1);
-    iconcell{1,end+1}=myicon('panel2x1',g.Handles.permanenticonholder,g.Icons.config.panel2x1,'View two image panels',@() drawfunctions('drawall',2,1),1,1);
-    iconcell{1,end+1}=myicon('panel3x1',g.Handles.permanenticonholder,g.Icons.config.panel3x1,'View three image panels',@() drawfunctions('drawall',3,1),1,1);
-    iconcell{1,end+1}=myicon('panel3',g.Handles.permanenticonholder,g.Icons.config.panel3,'View three image panels',@() drawfunctions('drawall',1,3),1,1);
-    iconcell{1,end+1}=myicon('panel4',g.Handles.permanenticonholder,g.Icons.config.panel4,'View four image panels',@() drawfunctions('drawall',2,2),1,1);
-    iconcell{1,end+1}=myicon('panel6',g.Handles.permanenticonholder,g.Icons.config.panel6,'View six image panels',@() drawfunctions('drawall',6),1,1);
-    iconcell{1,end+1}=myicon('saveview',g.Handles.permanenticonholder,g.Icons.config.saveview,'Save view',@() segmentview,0);
-    
-    iconcell{1,end+1}=myicon('viewone',g.Handles.permanenticonholder,g.Icons.config.viewone,'View one slice',@() segment('viewimage_Callback','one'),1,2);
-    iconcell{1,end+1}=myicon('viewall',g.Handles.permanenticonholder,g.Icons.config.viewall,'View all slices',@() segment('viewimage_Callback','montage'),1,2);
-    iconcell{1,end+1}=myicon('viewrow',g.Handles.permanenticonholder,g.Icons.config.viewrow,'View all slices in 2 rows',@() segment('viewimage_Callback','montagerow'),1,2);
-    
-    iconcell{1,end+1}=myicon('undo',g.Handles.permanenticonholder,g.Icons.config.undo,'Undo last operation',@() tools('undosegmentation_Callback'),0);
-    iconcell{1,end+1}=myicon('refresh',g.Handles.permanenticonholder,g.Icons.config.refresh,'Refresh image view',@() segment('viewrefreshall_Callback'),0);
-    
-    iconcell{1,end+1}=myicon('play',g.Handles.permanenticonholder,g.Icons.config.play,'Play movie of all image stacks',@() segment('playall_Callback'),2);
-    iconcell{1,end+1}=myicon('next',g.Handles.permanenticonholder,g.Icons.config.next,'Next time frame for all image stacks',@() segment('nextallframe_Callback'),0);
-    iconcell{1,end+1}=myicon('prev',g.Handles.permanenticonholder,g.Icons.config.prev,'Previous time frame for all image stacks',@() segment('previousallframe_Callback'),0);
-    iconcell{1,end+1}=myicon('faster',g.Handles.permanenticonholder,g.Icons.config.faster,'Faster frame rate',@() segment('fasterframerate_Callback'),0);
-    iconcell{1,end+1}=myicon('slower',g.Handles.permanenticonholder,g.Icons.config.slower,'Slower frame rate',@() segment('slowerframerate_Callback'),0);
-    
-    iconcell{1,end+1}=myicon('hideall',g.Handles.permanenticonholder,g.Icons.config.hideall,'Hide all overlays (segmentation, point, text,...)',@() segment('viewhideall_Callback'),2);
-    iconcell{1,end+1}=myicon('clearall',g.Handles.permanenticonholder,g.Icons.config.clearall,'Clear all segmentation in current image stack',@() segment('segmentclearall_Callback'),0);
-    iconcell{1,end+1}=myicon('clearalledes',g.Handles.permanenticonholder,g.Icons.config.clearalledes,'Clear all segmentation except in ED and ES',@() segment('segmentclearalllvbutsystolediastole_Callback'),0); 
-    iconcell{1,end+1}=myicon('zoomin',g.Handles.permanenticonholder,g.Icons.config.zoomin,'Zoom in',@() segment('viewzoomin_Callback'),0);
-    iconcell{1,end+1}=myicon('zoomout',g.Handles.permanenticonholder,g.Icons.config.zoomout,'Zoom out',@() segment('viewzoomout_Callback'),0);
-    iconcell{1,end+1}=myicon('colorbar',g.Handles.permanenticonholder,g.Icons.config.colorbar,'Hide colorbar',@() segment('viewhidecolorbar_Callback'),2);
-    iconcell{1,end+1}=myicon('reportsheet',g.Handles.permanenticonholder,g.Icons.config.reportsheet,'Open Report sheet generation',@() reporter.reportsheet,0);
-    iconcell{1,end+1}=myicon('savescreen',g.Handles.permanenticonholder,g.Icons.config.savescreen,'Save screen shot',@() export('screenshot_Callback'),0);
-    
-    iconcell{1,end+1}=myicon('settingsgeneral',g.Handles.permanenticonholder,g.Icons.config.settingsgeneral,'Set general preferences',@() segpref,0);
-    iconcell{1,end+1}=myicon('settingssystem',g.Handles.permanenticonholder,g.Icons.config.settingssystem,'Set patient database preferences',@() segpref('advancedsettings_Callback'),0);
-    iconcell{1,end+1}=myicon('settingspacs',g.Handles.permanenticonholder,g.Icons.config.settingspacs,'Set PACS connection preferences',@() pacspref,0);
-    g.Handles.permanenticonholder.add(iconcell);
-    
-    pos=plotboxpos(g.Handles.permanenticonholder.axeshandle);
-    currentpos=get(g.Handles.permanenticonholder.axeshandle,'position');
-    set(g.Handles.permanenticonholder.axeshandle,'position',currentpos-[pos(1),0,0,0]);
-    set(g.Handles.iconuipanel,'visible','on')
-    
-    end
+%     %----------------------------------------
+%     function initpermanentplaceholder(varargin)
+%       %--------------------------------------
+%     g=varargin{1};
+%       
+%     iconcell=cell(1,1);
+%     iconcell{1,1}=myicon('database',g.Handles.permanenticonholder,g.Icons.config.database,'Open patient database',@() segment('fileopen_Callback'),0);
+%     iconcell{1,end+1}=myicon('databaseadd',g.Handles.permanenticonholder,g.Icons.config.databaseadd,'Save to patient database',... 
+%       @() filemenu('savetopatientdatabase_Callback'),0);
+% %     iconcell{1,end+1}=myicon(g.Handles.permanenticonholder,g.Icons.config.connect,'Open PACS connection','pacs(''init_Callback'')',0);
+% %     iconcell{1,end+1}=myicon(g.Handles.permanenticonholder,g.Icons.config.connectadd,'Save to PACS','filemenu(''savetopacs_Callback'')',0);
+%     iconcell{1,end+1}=myicon('closeall',g.Handles.permanenticonholder,g.Icons.config.closeall,'Close all image stacks',@() segment('filecloseall_Callback'),0);
+%     
+%     iconcell{1,end+1}=myicon('panel1',g.Handles.permanenticonholder,g.Icons.config.panel1,'View one image panel',@() drawfunctions('drawall',1),1,1);
+%     iconcell{1,end+1}=myicon('panel2',g.Handles.permanenticonholder,g.Icons.config.panel2,'View two image panels',@() drawfunctions('drawall',1,2),1,1);
+%     iconcell{1,end+1}=myicon('panel2x1',g.Handles.permanenticonholder,g.Icons.config.panel2x1,'View two image panels',@() drawfunctions('drawall',2,1),1,1);
+%     iconcell{1,end+1}=myicon('panel3x1',g.Handles.permanenticonholder,g.Icons.config.panel3x1,'View three image panels',@() drawfunctions('drawall',3,1),1,1);
+%     iconcell{1,end+1}=myicon('panel3',g.Handles.permanenticonholder,g.Icons.config.panel3,'View three image panels',@() drawfunctions('drawall',1,3),1,1);
+%     iconcell{1,end+1}=myicon('panel4',g.Handles.permanenticonholder,g.Icons.config.panel4,'View four image panels',@() drawfunctions('drawall',2,2),1,1);
+%     iconcell{1,end+1}=myicon('panel6',g.Handles.permanenticonholder,g.Icons.config.panel6,'View six image panels',@() drawfunctions('drawall',6),1,1);
+%     iconcell{1,end+1}=myicon('saveview',g.Handles.permanenticonholder,g.Icons.config.saveview,'Save view',@() segmentview,0);
+%     
+%     iconcell{1,end+1}=myicon('viewone',g.Handles.permanenticonholder,g.Icons.config.viewone,'View one slice',@() segment('viewimage_Callback','one'),1,2);
+%     iconcell{1,end+1}=myicon('viewall',g.Handles.permanenticonholder,g.Icons.config.viewall,'View all slices',@() segment('viewimage_Callback','montage'),1,2);
+%     iconcell{1,end+1}=myicon('viewrow',g.Handles.permanenticonholder,g.Icons.config.viewrow,'View all slices in 2 rows',@() segment('viewimage_Callback','montagerow'),1,2);
+%     
+%     iconcell{1,end+1}=myicon('undo',g.Handles.permanenticonholder,g.Icons.config.undo,'Undo last operation',@() tools('undosegmentation_Callback'),0);
+%     iconcell{1,end+1}=myicon('refresh',g.Handles.permanenticonholder,g.Icons.config.refresh,'Refresh image view',@() segment('viewrefreshall_Callback'),0);
+%     
+%     iconcell{1,end+1}=myicon('play',g.Handles.permanenticonholder,g.Icons.config.play,'Play movie of all image stacks',@() segment('playall_Callback'),2);
+%     iconcell{1,end+1}=myicon('next',g.Handles.permanenticonholder,g.Icons.config.next,'Next time frame for all image stacks',@() segment('nextallframe_Callback'),0);
+%     iconcell{1,end+1}=myicon('prev',g.Handles.permanenticonholder,g.Icons.config.prev,'Previous time frame for all image stacks',@() segment('previousallframe_Callback'),0);
+%     iconcell{1,end+1}=myicon('faster',g.Handles.permanenticonholder,g.Icons.config.faster,'Faster frame rate',@() segment('fasterframerate_Callback'),0);
+%     iconcell{1,end+1}=myicon('slower',g.Handles.permanenticonholder,g.Icons.config.slower,'Slower frame rate',@() segment('slowerframerate_Callback'),0);
+%     
+%     iconcell{1,end+1}=myicon('hideall',g.Handles.permanenticonholder,g.Icons.config.hideall,'Hide all overlays (segmentation, point, text,...)',@() segment('viewhideall_Callback'),2);
+%     iconcell{1,end+1}=myicon('clearall',g.Handles.permanenticonholder,g.Icons.config.clearall,'Clear all segmentation in current image stack',@() segment('segmentclearall_Callback'),0);
+%     iconcell{1,end+1}=myicon('clearalledes',g.Handles.permanenticonholder,g.Icons.config.clearalledes,'Clear all segmentation except in ED and ES',@() segment('segmentclearalllvbutsystolediastole_Callback'),0); 
+%     iconcell{1,end+1}=myicon('zoomin',g.Handles.permanenticonholder,g.Icons.config.zoomin,'Zoom in',@() segment('viewzoomin_Callback'),0);
+%     iconcell{1,end+1}=myicon('zoomout',g.Handles.permanenticonholder,g.Icons.config.zoomout,'Zoom out',@() segment('viewzoomout_Callback'),0);
+%     iconcell{1,end+1}=myicon('colorbar',g.Handles.permanenticonholder,g.Icons.config.colorbar,'Hide colorbar',@() segment('viewhidecolorbar_Callback'),2);
+%     iconcell{1,end+1}=myicon('viewpixels',g.Handles.permanenticonholder,g.Icons.config.viewpixels,'Show image pixels',@() segment('viewinterp_Callback'),2);
+%     iconcell{1,end+1}=myicon('reportsheet',g.Handles.permanenticonholder,g.Icons.config.reportsheet,'Open Report sheet generation',@() reporter.reportsheet,0);
+%     iconcell{1,end+1}=myicon('savescreen',g.Handles.permanenticonholder,g.Icons.config.savescreen,'Save screen shot',@() export('screenshot_Callback'),0);
+%     
+%     iconcell{1,end+1}=myicon('settingsgeneral',g.Handles.permanenticonholder,g.Icons.config.settingsgeneral,'Set general preferences',@() segpref,0);
+%     iconcell{1,end+1}=myicon('settingssystem',g.Handles.permanenticonholder,g.Icons.config.settingssystem,'Set patient database preferences',@() segpref('advancedsettings_Callback'),0);
+%     iconcell{1,end+1}=myicon('settingspacs',g.Handles.permanenticonholder,g.Icons.config.settingspacs,'Set PACS connection preferences',@() pacspref,0);
+%     g.Handles.permanenticonholder.add(iconcell);
+%     
+%     pos=plotboxpos(g.Handles.permanenticonholder.axeshandle);
+%     currentpos=get(g.Handles.permanenticonholder.axeshandle,'position');
+%     set(g.Handles.permanenticonholder.axeshandle,'position',currentpos-[pos(1),0,0,0]);
+%     set(g.Handles.iconuipanel,'visible','on')
+%     
+%     end
     
     %------------------------------------
     function startmodeplaceholders(varargin)
@@ -1110,6 +1128,10 @@ classdef maingui < handle %Handle class
     
     g.setviewbuttons(1);
     
+    %set so that default single frame mode is on
+     segment('framemode_Callback',1);%DATA.ThisFrameOnly = false;
+   %g.thisframeonly_Callback(1);   
+    
 %     %First the panel group is found
 %     str=sprintf('%d%d',g.ViewMatrix(1),g.ViewMatrix(2));
 %     switch str
@@ -1178,9 +1200,12 @@ classdef maingui < handle %Handle class
     
     set(g.Handles.hideallpanelscheckbox,'Visible','on');
     
-    if ~strcmp(class(g),'segmentmrgui')
-      set(g.Handles.thistimeframeonlycheckbox,'Visible','on');
-    end
+    %if ~strcmp(class(g),'segmentmrgui')
+     % set(g.Handles.thistimeframeonlycheckbox,'Visible','on');
+    %else
+      set(g.Handles.singleframemodepushbutton,'Visible','on');
+      set(g.Handles.multiframemodepushbutton,'Visible','on');
+    %end
     
     end
     
@@ -1342,7 +1367,8 @@ classdef maingui < handle %Handle class
 %     %Init toolbars;
 
 %    segment('initmenu');     
-g.inittoolbar;
+  g.inittoolbar;
+
 %    set(g.fig,'color',g.GUISettings.BackgroundColor); %Added EH:    
 
     %--- Checks all parameterfiles, and fills listbox
@@ -1631,35 +1657,56 @@ g.inittoolbar;
     end;
 
     %Try to find a more suitable place for the file
-    try
+    %try
       load([pathname filesep '.segment_guipositions.mat'],'GUIPositions');
-      g.GUIPositions = GUIPositions; %#ok<CPROP>
-      %check if only one monitor and positions outside this monitor
-      %then change guipositions to be inside the monitor
-      monitorpositions = get(0,'MonitorPositions');
-      numbermonitors = size(monitorpositions,1);
-      if numbermonitors == 1
-        for loop=1:length(g.GUIPositions)
-          pos = g.GUIPositions(loop).Position;
-          if pos(1)>=1 || pos(1)<0 || pos(2)>=1 || pos(2)<0
-            pos(1)=pos(1)-floor(pos(1));
-            pos(2)=pos(2)-floor(pos(2));
-            if pos(3)>1
-              pos(3)=1;
-            end
-            if pos(4)>1
-              pos(4)=1;
-            end
-            g.GUIPositions(loop).Position=pos;
-          end
-        end
+      %names={GUIPositions.FileName};  
+      %ind=find(strcmp(names,'monitor'));
+     
+      mp = get(0,'MonitorPositions');
+      %return to default and introduce new guipositions field monitor
+      if ~strcmp(GUIPositions(1).FileName,'monitor')
+        DATA.GUIPositions=[];
+        DATA.GUIPositions(1).FileName=monitor;
+        DATA.GUIPositions(1).Position=mp;
+        return;
       end
-    catch me
-      mydispexception(me);
-      mydisp('Could not read guipositions. Probably a new installation.');
-    end;
+      
+      prevmp=GUIPositions(1).Position;
+      
+      if all(size(mp)==size(prevmp)) && all(mp==prevmp)
+        g.GUIPositions = GUIPositions;  %#ok<CPROP> 
+      else
+        DATA.GUIPositions=[];
+        return
+      end
+%       
+%       if monitor
+%       %check if only one monitor and positions outside this monitor
+%       %then change guipositions to be inside the monitor
+%       monitorpositions = get(0,'MonitorPositions');
+%       numbermonitors = size(monitorpositions,1);
+%       if numbermonitors == 1
+%         for loop=1:length(g.GUIPositions)
+%           pos = g.GUIPositions(loop).Position;
+%           if pos(1)>=1 || pos(1)<0 || pos(2)>=1 || pos(2)<0
+%             pos(1)=pos(1)-floor(pos(1));
+%             pos(2)=pos(2)-floor(pos(2));
+%             if pos(3)>1
+%               pos(3)=1;
+%             end
+%             if pos(4)>1
+%               pos(4)=1;
+%             end
+%             g.GUIPositions(loop).Position=pos;
+%           end
+%         end
+%       end
+%     catch me
+%       mydispexception(me);
+%       mydisp('Could not read guipositions. Probably a new installation.');
+%     end;
+%     end
     end
-    
     
     %------------------------------------
     function enableplaceholders(varargin)
@@ -1915,9 +1962,8 @@ g.inittoolbar;
       g.Handles.datasetaxes ...
       g.Handles.reportpanel ...
       g.Handles.barpanel ...
-      g.Handles.thistimeframeonlycheckbox ... 
       g.Handles.flowaxes ... 
-      g.Handles.timebaraxes ... %g.Handles.excludepapilarscheckbox ... %g.Handles.uselightcheckbox ...
+      g.Handles.timebaraxes ... %g.Handles.excludepapilarscheckbox ... %g.Handles.uselightcheckbox ...g.Handles.thistimeframeonlycheckbox ... 
       ],...
       'visible','off');
 
@@ -1990,8 +2036,14 @@ g.inittoolbar;
     g.GUISettings.AxesColor=g.GUISettings.AxesColorDefault;
 %     set(g.Handles.thistimeframeonlycheckbox,'Value',0);
 
-    g.thisframeonly_Callback(g.ThisFrameOnly,true);%true is for silent ie no drawing
-%    g.CurrentTool = 'select';
+
+   %if ~strcmp(DATA.ProgramName,'Segment CMR')
+   % g.thisframeonly_Callback(g.ThisFrameOnly,true);%true is for silent ie no drawing
+   %else
+    set(g.Handles.singleframemodepushbutton,'visible','off')
+    set(g.Handles.multiframemodepushbutton,'visible','off')
+   %end
+    %    g.CurrentTool = 'select';
 
     %Close potentially open figs. More might be added to this list
     if isa(g.GUI.GreyZoneHistAlt,'mygui')
@@ -2077,16 +2129,33 @@ g.inittoolbar;
     function setthisframeonly(g,value)
     %---------------------------------
     %Callback to set this frame only mode.
-
+    global DATA
+    
     if nargin<2
       value=g.ThisFrameOnly;
     end
 		
 		g.ThisFrameOnly=value;
-
-%     set(g.Handles.thistimeframeonlycheckbox,'value',value);
+    
+%    if ~strcmp(DATA.ProgramName,'Segment CMR')
+%       set(g.Handles.thistimeframeonlycheckbox,'value',value);
+%     end
     
     end
+    
+%   -----------------------------
+%   function framemode_Callback(varargin)
+%   -----------------------------
+%   global DATA
+%   g=varargin{1};
+%   singlebutton=g.handles.singleframemodepushbutton;
+%   multibutton=g.handles.multiframemodepushbutton;
+%   if g.ThisFrameOnly
+%     thisframeonly_Callback(g,~val,silent)
+%   else
+%     
+%   end
+%   end
     
     %-----------------------------------------------
     function thisframeonly_Callback(g,thisframeonly,silent) 
@@ -2118,7 +2187,7 @@ g.inittoolbar;
       %color.
 			if not(silent)
         set(g.Handles.imageaxes(g.CurrentPanel), 'xcolor',g.GUISettings.AxesColor,...
-     'ycolor',g.GUISettings.AxesColor, 'linewidth',2.5, 'visible','on');
+          'ycolor',g.GUISettings.AxesColor, 'linewidth',2.5, 'visible','on');
 				%drawfunctions('drawimagepanel',g.CurrentPanel);
 			end
 		end
@@ -2292,12 +2361,15 @@ g.inittoolbar;
       end;
       drawfunctions('drawall',g.ViewMatrix);
       if isfield(SET(1).View,'ThisFrameOnly')
+        %Now default is always on.
+        SET(1).View.ThisFrameOnly=1;
         g.ThisFrameOnly = SET(1).View.ThisFrameOnly;
-        if g.ThisFrameOnly
-          g.GUISettings.AxesColor=[1 1 1];
-        else
-          g.GUISettings.AxesColor=g.GUISettings.AxesColorDefault;
-        end
+%          if g.ThisFrameOnly
+        g.GUISettings.AxesColor=[1 1 1];
+%          else
+%            g.GUISettings.AxesColor=g.GUISettings.AxesColorDefault;
+%          end
+        
         g.setthisframeonly(g.ThisFrameOnly);
       end;
       segment('switchtopanel',g.CurrentPanel);
@@ -3211,12 +3283,22 @@ g.inittoolbar;
         if isfield(SET(no).StrainTagging,'LVupdated') && strcmp(s,'AV plane')
           SET(no).StrainTagging.LVupdated=1;
         end
+        tvplanebool=strcmp(SET(no).Point.Label,'TV plane');
+        if strcmp(s,'TV plane') && sum(tvplanebool)==2
+          ind=find(tvplanebool,1);
+          SET(no).Point.X(ind)=[];
+          SET(no).Point.Y(ind)=[];
+          SET(no).Point.T(ind)=[];
+          SET(no).Point.Z(ind)=[];
+          SET(no).Point.Label(ind)=[];
+        end
         
         SET(no).Point.X = [SET(no).Point.X y];
         SET(no).Point.Y = [SET(no).Point.Y x];
         SET(no).Point.T = [SET(no).Point.T NaN]; %Default non time resolved.
         SET(no).Point.Z = [SET(no).Point.Z SET(no).CurrentSlice];
         SET(no).Point.Label = [SET(no).Point.Label s];
+        
         drawfunctions('drawimageno');
         
         %If placetimeresolved option is enable then show this in this frame
@@ -3849,7 +3931,6 @@ g.inittoolbar;
     %-----------------------------------
     %Initializes the openfile GUI. Optional output is the fig
     %Called by openfile (main). Overloaded in CVQgui
-    %#doprotect
 
     g.GUI.OpenFile = mygui('openfile.fig');
     fig=g.GUI.OpenFile.fig;
@@ -4150,8 +4231,10 @@ set([...
     %Overloaded in CVQgui and RVQgui
     global SET DATA
     
-    if strcmp(DATA.ProgramName,'Segment CMR')
-      DATA.ThisFrameOnly = false;
+    oldpref=DATA.ThisFrameOnly;
+    
+    if  ~isempty(SET(no).Flow)
+     DATA.ThisFrameOnly = false;
     end
     
     [y,x,slice] = segment('getclickedcoords');
@@ -4192,6 +4275,9 @@ set([...
     %Make as current
     SET(no).RoiCurrent = m;
     
+    if oldpref~=DATA.ThisFrameOnly;
+      DATA.ThisFrameOnly=oldpref;
+    end
     end
     
     %--------------------------------------------------
@@ -4325,10 +4411,14 @@ set([...
       no = DATA.FlowNO;
     else
       no = NO;
+%       if no>size(SET,2) %BUG FIX FELICIA
+%         no=1; NO=1;
+%       end
     end
     
     if isempty(no) || SET(no).TSize<2
       cla(g.Handles.timebaraxes);
+      set(g.Handles.timebaraxes,'Visible','off')
       g.Handles.timebar = [];
       g.Handles.timebaraxeshelpers=[];
       g.Handles.edtimebartext=[];
@@ -4337,6 +4427,7 @@ set([...
       g.Handles.estimebarline=[];
     else
       
+      set(g.Handles.timebaraxes,'Visible','on')
       %this is speed problem ... try to fix by checking if 
       lc = [55 119 106]/255; %[1 0.47 0]; %[1 0.6 0.2]; % [0.5 0.5 0];    %JU
       t = SET(no).TimeVector*1000;
@@ -4483,27 +4574,26 @@ set([...
       set(g.Handles.volumeaxes,'Visible','on');
       %LV and RV curve and lines
     t = SET(no).TimeVector*1000;
+    oldvolpeak=0;
+    oldrvpeak=0;
+    ylim(g.Handles.volumeaxes,'auto')
       
-%       volumehandles={g.Handles.timebarlv, g.Handles.volumecurve, g.Handles.masscurve,...
-%         g.Handles.volumeaxeshelpers, g.Handles.estext, g.Handles.edtext, g.Handles.esline, g.Handles.edline};
-%       
-      %Do plotting or
-%       if any(isempty(volumehandles)) || any(length(t)<find(g.Handles.volumeaxeshelpers))
-%         
-%       end
-%         
 
-
-        %This tells us if bar removal is needed. Needed being that if ylim roof is changed
+        %This tells us if bar removal is needed. Needed being that if masscurve max is changed or the borders have changed           
+        if ~isempty(g.Handles.masscurve)
+          %oldlvm=max(get(g.Handles.masscurve,'ydata'));
+        end
         yborders=get(g.Handles.volumeaxes,'ylim');
         yroofprecurves=yborders(2);
+        
         if isempty(g.Handles.volumecurve)||~ishandle(g.Handles.volumecurve)
           g.Handles.volumecurve = plot(g.Handles.volumeaxes,t,SET(no).LVV-SET(no).PV,'r.-');
           set(g.Handles.volumecurve,'markersize',5);
         else
+          oldvolpeak=max(get(g.Handles.volumecurve,'ydata'));
           set(g.Handles.volumecurve,'xdata',t,'ydata',SET(no).LVV-SET(no).PV)
         end
-        
+        newvolpeak=max(get(g.Handles.volumecurve,'ydata'));
       hold(g.Handles.volumeaxes,'on');
       lvmplot = SET(no).EPV-SET(no).LVV+SET(no).PV;
       if sum(~isnan(lvmplot)) == length(lvmplot)
@@ -4526,26 +4616,17 @@ set([...
 %          if ishandle(g.Handles.rvvcurve)
          g.Handles.rvvcurve = plot(g.Handles.volumeaxes,t,SET(no).RVV,'m.-');
          set(g.Handles.rvvcurve,'markersize',5);
-         
+
        else
+         oldrvpeak=max(get(g.Handles.rvvcurve,'ydata'));
          set(g.Handles.rvvcurve,'xdata',t,'ydata',SET(no).RVV);
        end
-%       temp = SET(no).RVV; %JU OK
-%       temp(isnan(temp)) = 0; %JU OK
-%       g.Handles.rvepvcurve = plot(g.Handles.volumeaxes,t,SET(no).RVEPV-temp,'c.-');
-%       set(g.Handles.rvepvcurve,'markersize',5);
-%       g.Handles.pcurve = plot(g.Handles.volumeaxes,t,SET(no).PV,'b.-');
-%       set(g.Handles.pcurve,'markersize',5);
-%       plot(g.Handles.volumeaxes,[t(1) t(end)],[mynanmean(SET(no).EPV-SET(no).LVV+SET(no).PV) mynanmean(SET(no).EPV-SET(no).LVV+SET(no).PV)],'g-');
-%       grid(g.Handles.volumeaxes,'on');
-%       plot(g.Handles.volumeaxes,[t(SET(no).PFRT) t(SET(no).PFRT)],get(g.Handles.volumeaxes,'ylim'),'c-');
-%       plot(g.Handles.volumeaxes,[t(SET(no).PERT) t(SET(no).PERT)],get(g.Handles.volumeaxes,'ylim'),'c-');
-      % time bar
       
+      newrvpeak=max(get(g.Handles.rvvcurve,'ydata'));
       yborders=get(g.Handles.volumeaxes,'ylim');
       yroofpostcurves=yborders(2);
       
-      if yroofprecurves~=yroofpostcurves;
+      if newvolpeak~=oldvolpeak || newrvpeak~=oldrvpeak || yroofprecurves~=yroofpostcurves || yborders(1)~=0
         %removeallbars
         delete(g.Handles.timebarlv);
         delete(g.Handles.volumeaxeshelpers);
@@ -4566,18 +4647,15 @@ set([...
         
       %Texts and
       %bars-----------------------------------------------------------------------------
-      if isempty(g.Handles.timebarlv) || ~ishandle(g.Handles.timebarlv)
-        g.Handles.timebarlv = plot(g.Handles.volumeaxes,...
-          [t(SET(no).CurrentTimeFrame) t(SET(no).CurrentTimeFrame)],...
-          get(g.Handles.volumeaxes,'ylim'),'-','Color',lc);
-        set(g.Handles.timebarlv,'linewidth',2);
-      else
-        set(g.Handles.timebarlv,'xdata',[t(SET(no).CurrentTimeFrame) t(SET(no).CurrentTimeFrame)],'ydata',get(g.Handles.volumeaxes,'ylim'))
-      end
       
+      % here we do not want to mess with upper limit this should be set by
+      % the curves plotted so fixate the top limit
       temp = get(g.Handles.volumeaxes,'ylim');
+      
+      ylim(g.Handles.volumeaxes,'manual')
+      ylim(g.Handles.volumeaxes,[0 temp(2)])
       ttemp = [t;t];
-      temp = [repmat(temp(1),size(t));repmat(temp(1)+0.1*(temp(2)-temp(1)),size(t))];
+      temp = [zeros(size(t)); repmat(0.1*(temp(2)-temp(1)),size(t))];
       
       if  length(g.Handles.volumeaxeshelpers)~=length(t)
         delete(g.Handles.volumeaxeshelpers)
@@ -4588,15 +4666,23 @@ set([...
         g.Handles.volumeaxeshelpers=plot(g.Handles.volumeaxes,ttemp,temp,'k-');
         %set(g.Handles.timebaraxes,'YTick',[]);
       else
-        if any(length(t)<find(g.Handles.volumeaxeshelpers))
-          delete(g.Handles.volumeaxeshelpers(length(t)+1:end))
-        end
+%         if length(t)~=length(g.Handles.volumeaxeshelpers)%find(~isempty(g.Handles.volumeaxeshelpers)))
+%           delete(g.Handles.volumeaxeshelpers(length(t)+1:end))
+%         end
         instr=ones(1,length(t));
         xcell=mat2cell(ttemp,2,instr)';
         ycell=mat2cell(temp,2,instr)';
         set(g.Handles.volumeaxeshelpers,{'XData'},xcell,{'YData'},ycell)
       end
       
+      if isempty(g.Handles.timebarlv) || ~ishandle(g.Handles.timebarlv)
+        g.Handles.timebarlv = plot(g.Handles.volumeaxes,...
+          [t(SET(no).CurrentTimeFrame) t(SET(no).CurrentTimeFrame)],...
+          get(g.Handles.volumeaxes,'ylim'),'-','Color',lc);
+        set(g.Handles.timebarlv,'linewidth',2);
+      else
+        set(g.Handles.timebarlv,'xdata',[t(SET(no).CurrentTimeFrame) t(SET(no).CurrentTimeFrame)],'ydata',get(g.Handles.volumeaxes,'ylim'))
+      end      
       %plot(g.Handles.volumeaxes,ttemp,temp,'k-');
       
       %ED and ES
@@ -4684,7 +4770,7 @@ set([...
     no = DATA.FlowNO;
     roinbr = DATA.FlowROI;
     
-    if isempty(no) || SET(no).TSize<2 || isempty(SET(no).Flow.Result) || isempty(roinbr) || length(SET(no).Flow.Result)< roinbr || isempty(SET(no).Flow.Result(roinbr)) 
+    if isempty(no) || SET(no).TSize<2 || isempty(SET(no).Flow.Result) || isempty(roinbr) || length(SET(no).Flow.Result)< roinbr || isempty(SET(no).Flow.Result(roinbr)) || isempty(SET(no).Flow.Result(roinbr).netflow) 
       cla(g.Handles.flowaxes);
       g.Handles.timebarflow = [];
       g.Handles.flowcurve = [];
@@ -4907,12 +4993,29 @@ set([...
       all(g.ViewPanels(1:3) == g.ViewPanels(1));
     end
     
+%     %-------------------------------
+%     function keyreleased(g)
+%     %------------------------------- 
+%     g.GUI.needrest = 1;
+%     end
+    
     %---------------------------------
     function keypressed(g,fignum,evnt)
     %---------------------------------
     %Called when key is pressed. Overloaded in Segment CT GUI.
     global SET NO DATA
-        
+    persistent buffer;
+    persistent starttime;  
+    tol=1e-6;
+    diff=rem(now,1)-starttime;
+    if ~isempty(diff) && diff<tol
+      starttime=[];
+      return
+    else
+      starttime = rem(now,1);
+    end
+
+    
     switch nargin
       case 1
         disp('No inputarguments.');
@@ -4939,18 +5042,6 @@ set([...
     switch key
       
       %Tools for changing image frame or slice
-      case '0' 
-        weightingslider('up'); 
-      case '9' 
-        weightingslider('down')
-%       case 'a'
-%         if ~isempty(g.GUI.T2Star)
-%           %Call t2star centerpoint move funtion:
-%           fcn = 't2star.t2star(''point_left'')';
-%           eval(fcn);
-%         else
-%           %Do nothing:
-%         end
       case 'd'
         if ~isempty(g.GUI.T2Star)
           %Call t2star centerpoint move funtion:
@@ -5017,9 +5108,9 @@ set([...
         DATA.Handles.permanenticonholder.render;
         segment('playall_Callback');%,'keypressed');
         %segment_main('playmovie_Callback','keypressed');
-      %case 'shift-p'
+      case 'shift-p'
         %Play all p
-        
+        segment_main('playmovie_Callback','keypressed');
         %Tools for viewing and selecting
       case 'l'
         iconcell=DATA.Handles.toggleiconholder.iconCell;
@@ -5049,6 +5140,35 @@ set([...
          iconcell{3}.isindented=1;
         DATA.Handles.toggleiconholder.render;
         DATA.togglebuttonROIFLOW_Callback;
+      
+      case 'u'
+        
+        if isfield(SET(NO).StrainTagging,'runningregistration') && SET(NO).StrainTagging.runningregistration
+          mywarning('Image enhancement not available during registration.')
+          return
+        end
+        
+        if isempty(SET(NO).IntensityMapping.Compression)
+        SET(NO).IntensityMapping.Compression=1;  
+        end
+        SET(NO).IntensityMapping.Compression=SET(NO).IntensityMapping.Compression+0.1;
+   
+        segment('makeviewim',DATA.CurrentPanel,NO)
+        drawfunctions('drawimageno')
+
+      case 'j'
+        if isfield(SET(NO).StrainTagging,'runningregistration') && SET(NO).StrainTagging.runningregistration
+          mywarning('Image enhancement not available during registration.')
+          return
+        end
+        
+        if isempty(SET(NO).IntensityMapping.Compression)
+        SET(NO).IntensityMapping.Compression=1;  
+        end
+        SET(NO).IntensityMapping.Compression=SET(NO).IntensityMapping.Compression-0.1;
+        segment('makeviewim',DATA.CurrentPanel,NO)
+
+        drawfunctions('drawimageno')
       case 'w'
         iconcell=DATA.Handles.toggleiconholder.iconCell;
         for i=1:numel(iconcell)
@@ -5222,6 +5342,8 @@ set([...
         %     tools('copydownward_Callback','epi',false,true); %LV epi %silent,dolv
       case 'ctrl-alt-d'
         tools('copydownward_Callback','endo',false,false); %RV endo %silent,dolv
+      case 'ctrl-alt-w'
+        viability('weightedsliderautopushbutton_Callback'); %Auto position weighted slider, internal use only
       case 'shift-alt-d'
         return; %reserved for copy downwards  for RV epi
       case 'ctrl-v'
@@ -5248,7 +5370,8 @@ set([...
         val=get(DATA.Handles.hideallpanelscheckbox,'Value');
         set(DATA.Handles.hideallpanelscheckbox,'Value',~val);
         segment('hideallpanels');
-        
+      case 'ctrl-h'
+        viability('removeholesthisslice_Callback'); %Fix for Sascha
         
       %Tools for translating contour
       case 'shift-alt-a'
@@ -5298,9 +5421,9 @@ set([...
           'drawmarrubberpen', 'drawmarpen', ...
           'select', 'drawscar');
         
-        if isequal(g.CurrentTool, 'drawendo')
+        %if isequal(g.CurrentTool, 'drawendo')
           drawnow;
-        end
+        %end
         if isequal(g.CurrentTool, 'select') && isempty(SET(NO).Scar)
           %Loop over stacks to find next
           for loop=1:(length(g.ViewPanels)+1)
@@ -5327,10 +5450,23 @@ set([...
 %             g.CurrentTool(1:4)=[];
 %             g.CurrentTool=[g.CurrentTool,'pen'];
 %           end
+%
+%      do buttonup before in case it didn't manage.
+          %set(DATA.imagefig,'WindowButtonMotionFcn','')
+%           buttonupfcn = get(DATA.imagefig,'WindowButtonUpFcn');
+%           set(DATA.imagefig,'WindowButtonUpFcn','')
+%           run(buttonupfcn);
 %           
-          g.guitoggletool(toolstruct.(g.CurrentTool),g.CurrentTool);
-          donotchangetfo = true;
-          updatetool(toolstruct.(g.CurrentTool), [], donotchangetfo);
+% %          this is safe since a buttonup will be toggled to!
+%           set(DATA.imagefig,'WindowButtonDownFcn','')
+%           
+%           set(DATA.imagefig,'WindowButtonMotionFcn','')
+%           set(DATA.imagefig,'WindowButtonUpFcn','')
+          oldtool=g.CurrentTool;
+          g.CurrentTool=toolstruct.(g.CurrentTool);
+          g.guitoggletool(g.CurrentTool,oldtool);
+%           donotchangetfo = true;
+%           updatetool(toolstruct.(g.CurrentTool), [], donotchangetfo);
         end
         
 %       case 'shift-l' 
@@ -5362,6 +5498,10 @@ set([...
 %         %g.updateicons('lv');
 %         updatetool('interpepi');       
 %         
+
+      case 'e'
+        %compress imagemapping
+        
         %Miscellaneous commands
       case 'q'
         fcn = get(g.Handles.imagehandle,'ButtonDownFcn');
@@ -5396,7 +5536,7 @@ set([...
       case 'ctrl-0'
         segment_main('viewzoomin_Callback');
       case 'ctrl-hyphen'
-        segment_main('viewzoomout_Callback');
+        segment_main('viewzoomout_Callback');        
       case 'shift-ctrl-b'
         segmenthelp('supportreq_Callback'); %Open supportreq GUI
       case 'ctrl-c'
@@ -5487,6 +5627,8 @@ set([...
       oldtool=[oldtool,'pen'];
     end
     
+    g.Handles.configiconholder.indent(tool2toggle2,1)
+    
 %     icons={g.Icons.lviconcell;g.Icons.rviconcell;g.Icons.roiflowiconcell;g.Icons.viabilityiconcell;...
 %       g.Icons.analysisiconcell; g.Icons.imageiconcell};
 %     n=length(icons);
@@ -5504,18 +5646,18 @@ set([...
 %         %end
 %       end
 %     end
-    icon2indent=[];
-    icon2undent=[];
-    iconcell=g.Handles.configiconholder.iconCell;
-    N=length(iconcell);
-    for i=1:N
-      if strcmp(iconcell{i}.name,tool2toggle2)
-      icon2indent=iconcell{i};
-      end
-      if strcmp(iconcell{i}.name,oldtool)
-        icon2undent=iconcell{i};
-      end
-    end
+%     icon2indent=[];
+%     icon2undent=[];
+%     iconcell=g.Handles.configiconholder.iconCell;
+%     N=length(iconcell);
+%     for i=1:N
+%       if strcmp(iconcell{i}.name,tool2toggle2)
+%       icon2indent=iconcell{i};
+%       end
+%       if strcmp(iconcell{i}.name,oldtool)
+%         icon2undent=iconcell{i};
+%       end
+%     end
     
    % if holderind==oldholderind
       %undent current tool this is safe since tools always are toggle
@@ -5527,16 +5669,18 @@ set([...
     
     %g.Handles.toggleiconholder.clickedicon=icon2indent;%g.Handles.toggleiconholder.iconCell{holderind};
       %we want to go to the toggle menu with the tool2toggle2
-      if ~isempty(icon2indent)
-        icon2indent.cdataDisplay=icon2indent.cdataIndent;%icons{holderind}{iconind}.cdataIndent;
-        icon2indent.isindented=1;
-      end
-      g.Handles.configiconholder.clickedicon=icon2indent;%{holderind}{iconind};
-      if ~isempty(icon2undent)
-        icon2undent.isindented=0;
-        icon2undent.cdataDisplay=icon2undent.cdata;
-      end
-    g.Handles.configiconholder.render;
+      
+%       
+%       if ~isempty(icon2indent)
+%         icon2indent.cdataDisplay=icon2indent.cdataIndent;%icons{holderind}{iconind}.cdataIndent;
+%         icon2indent.isindented=1;
+%       end
+%       g.Handles.configiconholder.clickedicon=icon2indent;%{holderind}{iconind};
+%       if ~isempty(icon2undent)
+%         icon2undent.isindented=0;
+%         icon2undent.cdataDisplay=icon2undent.cdata;
+%       end
+%     g.Handles.configiconholder.render;
     end
     
     %------------------------------------------------------
@@ -5696,8 +5840,8 @@ set([...
     %g.updatetimethings;
     %g.updateaxestables;
 %     %Update volumeaxes
-     %segment('updatevolume');
-     %segment('updateflow');
+     segment('updatevolume');
+     segment('updateflow');
 
     %Update title on window
     g.updatetitle;
@@ -6041,6 +6185,8 @@ set([...
         set(h.guihandle.waitbartext,'visible','on');
         set(h.guihandle.waitbarpatch,'visible','on');
         axis(h.guihandle.waitbaraxes,'off');
+        set(h.guihandle.waitbartext,'backgroundcolor',[0.94,0.94,0.94])
+        set(h.guihandle.waitbartext,'foregroundcolor',[0 0 0])
         set(h.guihandle.waitbartext,'string',stri);
         set(h.guihandle.waitbarpatch,'xdata',[0 0 0 0]);
         drawnow('expose');
@@ -6109,7 +6255,8 @@ set([...
     end;
 
     flushlog;
-    myworkoff;
+    %myworkoff; mainwaitbar only used for registration which doesn't mess
+    %with pointer
     end;
     
     

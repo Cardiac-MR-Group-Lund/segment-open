@@ -1,4 +1,4 @@
-function dicomconvert(infile,outfile,syntax)
+function dicomconvert(infile,outfile,dinfo)
 %DICOMCONVERT(INFILE,OUTFILE,[SYNTAX]);
 %
 %Reads the infile and writes the outfile with a new transfersyntax (default
@@ -10,11 +10,9 @@ function dicomconvert(infile,outfile,syntax)
 
 %Einar Heiberg
 
-usedcmtk = false;
-if nargin<3
-  syntax = '1.2.840.10008.1.2.1';
-end;
-usedcmtk = true; 
+outsyntax = '1.2.840.10008.1.2.1';
+
+usedcmtk = true;  %true for a start
 
 if nargin<2
   outfile = infile;
@@ -24,53 +22,48 @@ if ~exist(infile,'file')
   error('Input file does not exist.');
 end;
 
-%Read info from the dicom file
-try
-  dinfo = dicominfo(infile);
-catch me
-  mydispexception(me);
-  error(sprintf('Could not read DICOM file %s.',infile)); %#ok<SPERR>
+if nargin<3
+  try
+    dinfo = fastdicominfo(infile);
+  catch
+    try
+      dinfo = dicominfo(infile);
+    catch me
+        error(sprintf('Could not read DICOM file %s.',infile)); %#ok<SPERR>
+        mydispexception(me);
+    end
+  end;
 end;
 
-%Read the image
-% try
-%   X = dicomread(dinfo);
-% catch me
-%   mydispexception(me);
-%   error(sprintf('Could not read DICOM image in file %s',infile));   %#ok<SPERR>
-% end;
+if isequal(dinfo.TransferSyntaxUID,'jpeg') || isequal(dinfo.TransferSyntaxUID,'1.2.840.10008.1.2.4.90')
+  usedcmtk = false;
+end;
+
 if usedcmtk
   stri = sprintf('dcmconv%s +te "%s" "%s"',myexecutableext,infile,outfile); %+te write explicit VR little endian.
   [s,w] = system(stri);
   if ~isequal(s,0)
     error(w);
   end;
-else
-  %Read info from the dicom file
+else    
+  %Read the image
   try
-    dinfo = dicominfo(infile);
+    dinfo = dicominfo(infile); %re-read dinfo with stable loader to get all correctly read.
+    X = dicomread(dinfo);
   catch me
     mydispexception(me);
-    error(sprintf('Could not read DICOM file %s.',infile)); %#ok<SPERR>
+    error(sprintf('Could not read DICOM image in file %s',infile));   %#ok<SPERR>
   end;
   
-%   %Read the image
-%   try
-%     X = dicomread(dinfo);
-%   catch me
-%     mydispexception(me);
-%     error(sprintf('Could not read DICOM image in file %s',infile));   %#ok<SPERR>
-%   end;
-%   
-%Display information 
-if isequal(infile,outfile)
-  disp(sprintf('Converted encoding in file %s.',infile)); %#ok<DSPS>
-else
-  disp(sprintf('Converted encoding in files %s => %s.',infile,outfile)); %#ok<DSPS>
-end
+  %Display information
+  if isequal(infile,outfile)
+    disp(sprintf('Converted encoding in file %s.',infile)); %#ok<DSPS>
+  else
+    disp(sprintf('Converted encoding in files %s => %s.',infile,outfile)); %#ok<DSPS>
+  end
 
-%Set new transfersyntax
-dinfo.TransferSyntaxUID = syntax;
+  %Set new transfersyntax
+  dinfo.TransferSyntaxUID = outsyntax;
   
   %Write the dicom file
   try
@@ -82,16 +75,5 @@ dinfo.TransferSyntaxUID = syntax;
   end;
 end;
 
-% %Set new transfersyntax
-% dinfo.TransferSyntaxUID = syntax;
-% 
-% %Write the dicom file
-% try
-%   %dicomwrite(X,outfile,'WritePrivate',true,dinfo);
-%   dicomwrite(X,outfile,dinfo);
-% catch me
-%   mydispexception(me);
-%   error(sprintf('Could not write DICOM file to %s',outfile));   %#ok<SPERR>
-% end;
 
 

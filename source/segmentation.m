@@ -131,6 +131,8 @@ if ~isempty(SET(no).StrainTagging) && isfield(SET(no).StrainTagging, 'LVupdated'
   SET(no).StrainTagging.LVupdated = 1;
 end
 
+DATA.updatevolumeaxes
+
 segment('updatemodeldisplay');
 segment('updatevolume');
 if ~silent
@@ -165,7 +167,6 @@ SET(no).RVEpiInterpY = [];
 if ~isempty(SET(no).StrainTagging) && isfield(SET(no).StrainTagging, 'LVupdated')
   SET(no).StrainTagging.LVupdated = 1;
 end
-
 segment('updatemodeldisplay');
 segment('updatevolume');
 drawfunctions('drawimageno');
@@ -241,6 +242,8 @@ end
 if ~isempty(SET(no).StrainTagging) && isfield(SET(no).StrainTagging, 'LVupdated')
   SET(no).StrainTagging.LVupdated = 1;
 end
+
+DATA.updatevolumeaxes
 
 segment('updatemodeldisplay');
 segment('updatevolume');
@@ -331,7 +334,7 @@ clearslices(no,ind,1:SET(no).TSize,endo,epi,rvendo,rvepi);
 %--------------------------------------------------------------
 function clearslicesthis_Callback(endo,epi,rvendo,rvepi) %#ok<DEFNU>
 %--------------------------------------------------------------
-%Clear segmentation for slices in this timeframe.
+%Clear segmentation for selected slices according to mode.
 global DATA SET NO
 
 no = NO;
@@ -362,8 +365,12 @@ if sum(ind)==length(ind)
   myfailed('No slices selected.',DATA.GUI.Segment);
   return;
 end;
-
-clearslices(no,ind,SET(no).CurrentTimeFrame,endo,epi,rvendo,rvepi);
+if DATA.ThisFrameOnly
+  tf=SET(no).CurrentTimeFrame;
+else
+  tf=1:SET(no).TSize;
+end
+clearslices(no,ind,tf,endo,epi,rvendo,rvepi);
 
 %----------------------------------------------------------------
 function clearslices(no,ind,timeframes,endo,epi,rvendo,rvepi)
@@ -543,6 +550,7 @@ if ~isempty(SET(no).StrainTagging) && isfield(SET(no).StrainTagging, 'LVupdated'
   SET(no).StrainTagging.LVupdated = 1;
 end
 
+DATA.updatevolumeaxes
 segment('updatevolume');
 segment('updatemodeldisplay');
 drawfunctions('drawimageno');
@@ -1473,20 +1481,28 @@ end
 
 interpolationtype=mymenu('Linear or sinusoidal interpolation?', 'Sinusoidal', 'Linear')
 
-hasseg = squeeze(~isnan(X(1,:,:))); % hasseg(tf, sl)
-tf_hasseg = sum(hasseg,2) > 0; % timeframes with segmentation
+selectedslices=SET(no).StartSlice:SET(no).EndSlice;
 
-Nsl = SET(no).ZSize;
+hasseg = squeeze(~isnan(X(1,:,:)));%squeeze(~isnan(X(1,:,selectedslices))); % hasseg(tf, sl)
+if isrow(hasseg)
+  hasseg=hasseg';
+end
+%tf_hasseg = sum(hasseg,2) > 0; % timeframes with segmentation
+
+%Nsl = SET(no).ZSize;
 Ntf = SET(no).TSize;
 
 myworkon;
 
-for tloop = 1:Ntf
-  % no interpolation needed if we already have one
-  if tf_hasseg(tloop)
+%New scheme does only for selected slices % Perform interpolation for all slices
+for sloop = selectedslices%1:Nsl
+  
+tf_hasseg=hasseg(:,sloop);
+  for tloop = 1:Ntf
+  % no interpolation needed if we already have one  
+  if tf_hasseg(tloop);%tf_hasseg(tloop)
     continue
   end
-
   % Find lower and upper timeframes for interpolation
   tf_hasseg_ind = find(tf_hasseg)';
   tf_hasseg_ind_periodic = [tf_hasseg_ind-Ntf tf_hasseg_ind tf_hasseg_ind+Ntf];
@@ -1504,9 +1520,9 @@ for tloop = 1:Ntf
   if interpolationtype==1 %if sinusoidal interpolation is chosen
     iw = 0.5*(1-cos(pi*iw));
   end
-  
-  % Perform interpolation for all slices
-  for sloop = 1:Nsl
+%   
+%   New scheme does only for selected slices % Perform interpolation for all slices
+%   for sloop = selectedslices%1:Nsl
     % Convert segmentations to polar coordinates (R,Theta)
     lowerX = X(1:end-1,lowerind,sloop);
     lowerY = Y(1:end-1,lowerind,sloop);
@@ -1585,6 +1601,114 @@ for tloop = 1:Ntf
     
   end
 end
+
+
+
+% for sloop = selectedslices%1:Nsl
+% for tloop = 1:Ntf
+%   % no interpolation needed if we already have one  
+%   if hasseg(tloop,sloop-SET(no).StartSlice+1);%tf_hasseg(tloop)
+%     continue
+%   end
+% 
+%   % Find lower and upper timeframes for interpolation
+%   tf_hasseg_ind = find(tf_hasseg)';
+%   tf_hasseg_ind_periodic = [tf_hasseg_ind-Ntf tf_hasseg_ind tf_hasseg_ind+Ntf];
+%   tf_hasseg_ind_periodic_wrap = [tf_hasseg_ind tf_hasseg_ind tf_hasseg_ind];
+% 
+%   lowerindpos = find(tf_hasseg_ind_periodic < tloop, 1, 'last');
+%   upperindpos = find(tf_hasseg_ind_periodic > tloop, 1, 'first');
+% 
+%   lowerind = tf_hasseg_ind_periodic_wrap(lowerindpos);
+%   upperind = tf_hasseg_ind_periodic_wrap(upperindpos);
+% 
+%   % Interpolation weight
+%   
+%   iw = (tloop-tf_hasseg_ind_periodic(lowerindpos))/(tf_hasseg_ind_periodic(upperindpos)-tf_hasseg_ind_periodic(lowerindpos));
+%   if interpolationtype==1 %if sinusoidal interpolation is chosen
+%     iw = 0.5*(1-cos(pi*iw));
+%   end
+% %   
+% %   New scheme does only for selected slices % Perform interpolation for all slices
+% %   for sloop = selectedslices%1:Nsl
+%     % Convert segmentations to polar coordinates (R,Theta)
+%     lowerX = X(1:end-1,lowerind,sloop);
+%     lowerY = Y(1:end-1,lowerind,sloop);
+%     lower_mx = mean(lowerX);
+%     lower_my = mean(lowerY);
+%     lowerR = sqrt((lowerX - lower_mx).^2 + (lowerY - lower_my).^2);
+%     lowerT = atan2(lowerY-lower_my, lowerX-lower_mx);
+%     
+%     [~,I] = sort(lowerT);
+%     lowerRsort = lowerR(I);
+%     lowerTsort = lowerT(I);
+% 
+%     upperX = X(1:end-1,upperind,sloop);
+%     upperY = Y(1:end-1,upperind,sloop);
+%     upper_mx = mean(upperX);
+%     upper_my = mean(upperY);
+%     upperR = sqrt((upperX - upper_mx).^2 + (upperY - upper_my).^2);
+%     upperT = atan2(upperY-upper_my, upperX-upper_mx);
+%     
+%     [~,I] = sort(upperT);
+%     upperRsort = upperR(I);
+%     upperTsort = upperT(I);
+%     
+%     % Skip slices where we don't have stuff to interpolate from
+%     if any(isnan([lowerR' upperR' lowerT' upperT']))
+%       continue
+%     end
+%     
+%     % Interpolate to normalized Theta range
+%     Npts = size(X, 1);
+%     Tnorm = linspace(-pi,pi, Npts);
+%     Tnorm = Tnorm(1:end-1);
+%     
+%     lowerRint = interp1([lowerTsort-2*pi; lowerTsort; lowerTsort+2*pi], ...
+%       [lowerRsort; lowerRsort; lowerRsort], Tnorm, 'linear');
+%     upperRint = interp1([upperTsort-2*pi; upperTsort; upperTsort+2*pi], ...
+%       [upperRsort; upperRsort; upperRsort], Tnorm, 'linear');
+%     
+%     % Perform interpolation
+%     midR = (1-iw)*lowerRint + iw*upperRint;
+%     mid_mx = (1-iw)*lower_mx + iw*upper_mx;
+%     mid_my = (1-iw)*lower_my + iw*upper_my;
+% 
+%     % Go back to cartesian
+%     segoutX = mid_mx + midR.*cos(Tnorm);
+%     segoutY = mid_my + midR.*sin(Tnorm);
+% 
+%     % A little smoothing
+%     segoutX = conv([segoutX segoutX segoutX], [1 1 1]/3, 'same');
+%     segoutX = segoutX(Npts:(2*Npts-1));
+% 
+%     segoutY = conv([segoutY segoutY segoutY], [1 1 1]/3, 'same');
+%     segoutY = segoutY(Npts:(2*Npts-1));
+% 
+%     % Store as periodic
+%     segoutX(Npts) = segoutX(1);
+%     segoutY(Npts) = segoutY(1);
+% 
+%     % Store
+% 
+%     switch segtodo
+%       case 1 %LV endocardium
+%         SET(no).EndoX(:,tloop,sloop) = segoutX;
+%         SET(no).EndoY(:,tloop,sloop) = segoutY;
+%       case 2 %LV epicardium
+%         SET(no).EpiX(:,tloop,sloop) = segoutX;
+%         SET(no).EpiY(:,tloop,sloop) = segoutY;
+%       case 3 %RV endocardium
+%         SET(no).RVEndoX(:,tloop,sloop) = segoutX;
+%         SET(no).RVEndoY(:,tloop,sloop) = segoutY;
+%       case 4 %RV epicardium
+%         SET(no).RVEpiX(:,tloop,sloop) = segoutX;
+%         SET(no).RVEpiY(:,tloop,sloop) = segoutY;
+%     end
+%     
+%     
+%   end
+% end
 
 myworkoff;
 

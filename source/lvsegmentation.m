@@ -688,11 +688,18 @@ function dolv_Callback %#ok<DEFNU>
 global DATA
 gui = DATA.GUI.LVSegmentation;
 segment('switchtoimagestack',gui.saxno);
-segment('thisframeonly_Callback',false);
+oldpol=DATA.ThisFrameOnly;
+segment('framemode_Callback',2);%segment('thisframeonly_Callback',false);
 lvpeter('segmentfullyautomatic_Callback');
 close_Callback
 drawfunctions('drawall');
 figure(DATA.GUI.Segment.fig);
+switch oldpol
+  case 1
+    segment('framemode_Callback',1)
+  case 0
+    segment('framemode_Callback',2)
+end
 
 %----------------------
 function close_Callback  

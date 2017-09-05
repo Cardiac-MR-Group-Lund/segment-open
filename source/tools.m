@@ -112,9 +112,9 @@ for no=nos;
       SET(no).EpiInterpX(:,zloop) = circshift(SET(no).EpiInterpX(:,zloop),shiftvec1);
       SET(no).EpiInterpY(:,zloop) = circshift(SET(no).EpiInterpY(:,zloop),shiftvec1);
     end;
-    if ~isempty(SET(no).RVEndoInterpX)
-      SET(no).RVEndoInterpX(:,zloop) = circshift(SET(no).RVEndoPinX(:,zloop),shiftvec1);
-      SET(no).RVEndoInterpY(:,zloop) = circshift(SET(no).RVEndoPinY(:,zloop),shiftvec1);
+    if ~isempty(SET(no).RVEndoInterpX) 
+      SET(no).RVEndoInterpX(:,zloop) = circshift(SET(no).RVEndoInterpX(:,zloop),shiftvec1);
+      SET(no).RVEndoInterpY(:,zloop) = circshift(SET(no).RVEndoInterpY(:,zloop),shiftvec1);
     end;
     if ~isempty(SET(no).RVEpiInterpX)
       SET(no).RVEpiInterpX(:,zloop) = circshift(SET(no).RVEpiInterpX(:,zloop),shiftvec1);
@@ -2442,6 +2442,11 @@ if isequal(DATA.CurrentTool,'select')
   return;
 end
 
+if isfield(SET(NO).StrainTagging,'runningregistration') && SET(NO).StrainTagging.runningregistration 
+  myfailed('Can not crop while registration is running.',DATA.GUI.Segment);
+  return;
+end
+
 if isequal(DATA.ViewPanelsType{DATA.CurrentPanel},'mmodetemporal')
   myfailed('Can not crop in mmode temporal view.',DATA.GUI.Segment);
   return;
@@ -2736,7 +2741,7 @@ for no = nos
   end;
 
  % Interpolation points are lost, no big deal.
- segmentation('removeallinterp_Callback',true);
+ segmentation('removeallinterp_Callback',true,no);
   
 % pins 
   if ~isempty(SET(no).EndoPinX)
@@ -3846,12 +3851,13 @@ else
   end
 end;
 
-if strcmp(DATA.ProgramName,'Segment CMR')
-  DATA.ThisFrameOnly = false;
-  if not(existfunctions('existrvendoinselected',NO))
-    DATA.ThisFrameOnly = true;
-  end
-end
+% if strcmp(DATA.ProgramName,'Segment CMR')
+%   DATA.ThisFrameOnly = false;
+%   if not(existfunctions('existrvendoinselected',NO))
+%     DATA.ThisFrameOnly = true;
+%   end
+% end
+
 if DATA.ThisFrameOnly
   timeframes = SET(NO).CurrentTimeFrame;
 else
@@ -3981,14 +3987,14 @@ else
   end
 end;
 
-if strcmp(DATA.ProgramName,'Segment CMR')
+%if strcmp(DATA.ProgramName,'Segment CMR')
   % for Segment CMR, do it for all time frames if endo exist in all,
   % otherwise only in current time frame
-  DATA.ThisFrameOnly = false;
-  if not(existfunctions('existrvendoinselected',NO))
-    DATA.ThisFrameOnly = true;
-  end
-end
+%   DATA.ThisFrameOnly = false;
+%   if not(existfunctions('existrvendoinselected',NO))
+%     DATA.ThisFrameOnly = true;
+%   end
+%end
 if DATA.ThisFrameOnly
   timeframes = SET(NO).CurrentTimeFrame;
 else

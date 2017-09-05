@@ -47,7 +47,7 @@ function drawall(n,m)
 %  If called with n=[], then lookup from imagepanels
 %  When n,m specified draw n*m panels.
 
-global DATA SET
+global DATA SET NO
 
 gotrowscols = false;
 
@@ -306,7 +306,6 @@ else
     end;
 end;
 
-DATA.CurrentPanel = min(DATA.CurrentPanel,length(DATA.ViewPanels));
 
 %Reserve space for other handles.
 %xxx
@@ -362,13 +361,21 @@ panelstodo = find(DATA.ViewPanels>0);
 if (length(panelstodo)==1)&&(isequal(DATA.ViewPanelsType{1},'mmodespatial'))
     DATA.ViewPanelsType{1} = 'one';
 end;
-temppanel=DATA.CurrentPanel;
+
+%Weird but necessary switcheroo.
+temppanel=min(DATA.CurrentPanel,length(DATA.ViewPanels));
+temppanel2=DATA.CurrentPanel;
+DATA.CurrentPanel=temppanel;
+
 for panel=panelstodo;
     no = DATA.ViewPanels(panel);
     drawimagepanel(panel);
     showedits(no);
 end;
-segment('switchtopanel',temppanel);
+
+%DATA.CurrentPanel=temppanel2;
+segment('switchtopanel',temppanel2,1);
+%DATA.CurrentPanel=temppanel;
 
 %Draw intersections
 drawintersections;
@@ -737,6 +744,7 @@ DATA.Handles.datasetpreviewline =  plot(DATA.Handles.datasetaxes,...
 DATA.setviewbuttons(0)
 
 
+
 %------------------------
 function drawimageno(no)
 %------------------------
@@ -786,12 +794,12 @@ end;
 %DATA.setviewbuttons(0)
 
 %segment('updateviewicons');
-DATA.updateaxestables('measure');
 %DATA.updateaxestables('flowclearall');
 %DATA.updateaxestables('volumeclearall');
     
-DATA.updateaxestables('volume');
-DATA.updateaxestables('flow');
+%DATA.updateaxestables('measure');
+%DATA.updateaxestables('volume');
+%DATA.updateaxestables('flow');
 
 showedits(no);
 drawintersections;
@@ -1050,7 +1058,7 @@ if ~isempty(onepanels)
     updatecontours(no,onepanels);
     
     %--- Pins
-    updatepins(no,onepanels);
+    %updatepins(no,onepanels);
     
     %--- Interpolation points
     updateinterp(no,onepanels);
@@ -1229,7 +1237,7 @@ if SET(no).TSize>1
 end;
 
 showedits(no);
-updatetool(DATA.CurrentTool,panel)
+%updatetool(DATA.CurrentTool,panel)
 updatevisibility;
 
 %-----------------------------------------------
@@ -2285,41 +2293,93 @@ if nargin < 2
     panel = find(DATA.ViewPanels == no);
 end
 
-if ~isempty(SET(no).EndoInterpX) 
-    set(DATA.Handles.endointerp(panel),...
-        'xdata',SET(no).EndoInterpY{SET(no).CurrentTimeFrame,SET(no).CurrentSlice},...
-        'ydata',SET(no).EndoInterpX{SET(no).CurrentTimeFrame,SET(no).CurrentSlice});
+if ~isempty(SET(no).EndoInterpX)
+  if size(SET(no).EndoInterpX,1)~=SET(no).TSize
+    tmpX = cell(SET(no).TSize,SET(no).ZSize);
+    tmpY = tmpX;
+    for i=1:size(SET(no).EndoInterpX,1)
+      for j=1:size(SET(no).EndoInterpX,2)
+        tmpX{i,j}=SET(no).EndoInterpX{i,j};
+        tmpY{i,j}=SET(no).EndoInterpY{i,j};
+      end
+    end
+    SET(no).EndoInterpX=tmpX;
+    SET(no).EndoInterpY=tmpY;
+  end
+  
+  set(DATA.Handles.endointerp(panel),...
+    'xdata',SET(no).EndoInterpY{SET(no).CurrentTimeFrame,SET(no).CurrentSlice},...
+    'ydata',SET(no).EndoInterpX{SET(no).CurrentTimeFrame,SET(no).CurrentSlice});
 else
-    set(DATA.Handles.endointerp(panel),...
-        'xdata',[],...
-        'ydata',[]);
+  set(DATA.Handles.endointerp(panel),...
+    'xdata',[],...
+    'ydata',[]);
 end;
 if ~isempty(SET(no).EpiInterpX)
-    set(DATA.Handles.epiinterp(panel),...
-        'xdata',SET(no).EpiInterpY{SET(no).CurrentTimeFrame,SET(no).CurrentSlice},...
-        'ydata',SET(no).EpiInterpX{SET(no).CurrentTimeFrame,SET(no).CurrentSlice});
+  if size(SET(no).EpiInterpX,1)~=SET(no).TSize
+    tmpX = cell(SET(no).TSize,SET(no).ZSize);
+    tmpY = tmpX;
+    for i=1:size(SET(no).EpiInterpX,1)
+      for j=1:size(SET(no).EpiInterpX,2)
+        tmpX{i,j}=SET(no).EpiInterpX{i,j};
+        tmpY{i,j}=SET(no).EpiInterpY{i,j};
+      end
+    end
+    SET(no).EpiInterpX=tmpX;
+    SET(no).EpiInterpY=tmpY;
+  end
+  
+  set(DATA.Handles.epiinterp(panel),...
+    'xdata',SET(no).EpiInterpY{SET(no).CurrentTimeFrame,SET(no).CurrentSlice},...
+    'ydata',SET(no).EpiInterpX{SET(no).CurrentTimeFrame,SET(no).CurrentSlice});
 else
-    set(DATA.Handles.epiinterp(panel),...
-        'xdata',[],...
-        'ydata',[]);
+  set(DATA.Handles.epiinterp(panel),...
+    'xdata',[],...
+    'ydata',[]);
 end;
 if ~isempty(SET(no).RVEndoInterpX)
-    set(DATA.Handles.rvendointerp(panel),...
-        'xdata',SET(no).RVEndoInterpY{SET(no).CurrentTimeFrame,SET(no).CurrentSlice},...
-        'ydata',SET(no).RVEndoInterpX{SET(no).CurrentTimeFrame,SET(no).CurrentSlice});
+  if size(SET(no).RVEndoInterpX,1)~=SET(no).TSize
+    tmpX = cell(SET(no).TSize,SET(no).ZSize);
+    tmpY = tmpX;
+    for i=1:size(SET(no).RVEndoInterpX,1)
+      for j=1:size(SET(no).RVEndoInterpX,2)
+        tmpX{i,j}=SET(no).RVEndoInterpX{i,j};
+        tmpY{i,j}=SET(no).RVEndoInterpY{i,j};
+      end
+    end
+    SET(no).RVEndoInterpX=tmpX;
+    SET(no).RVEndoInterpY=tmpY;
+  end
+  
+  set(DATA.Handles.rvendointerp(panel),...
+    'xdata',SET(no).RVEndoInterpY{SET(no).CurrentTimeFrame,SET(no).CurrentSlice},...
+    'ydata',SET(no).RVEndoInterpX{SET(no).CurrentTimeFrame,SET(no).CurrentSlice});
 else
-    set(DATA.Handles.rvendointerp(panel),...
-        'xdata',[],...
-        'ydata',[]);
+  set(DATA.Handles.rvendointerp(panel),...
+    'xdata',[],...
+    'ydata',[]);
 end;
 if ~isempty(SET(no).RVEpiInterpX)
-    set(DATA.Handles.rvepiinterp(panel),...
-        'xdata',SET(no).RVEpiInterpY{SET(no).CurrentTimeFrame,SET(no).CurrentSlice},...
-        'ydata',SET(no).RVEpiInterpX{SET(no).CurrentTimeFrame,SET(no).CurrentSlice});
+  if size(SET(no).RVEpiInterpX,1)~=SET(no).TSize
+    tmpX = cell(SET(no).TSize,SET(no).ZSize);
+    tmpY = tmpX;
+    for i=1:size(SET(no).RVEpiInterpX,1)
+      for j=1:size(SET(no).RVEpiInterpX,2)
+        tmpX{i,j}=SET(no).RVEpiInterpX{i,j};
+        tmpY{i,j}=SET(no).RVEpiInterpY{i,j};
+      end
+    end
+    SET(no).RVEpiInterpX=tmpX;
+    SET(no).RVEpiInterpY=tmpY;
+  end
+  
+  set(DATA.Handles.rvepiinterp(panel),...
+    'xdata',SET(no).RVEpiInterpY{SET(no).CurrentTimeFrame,SET(no).CurrentSlice},...
+    'ydata',SET(no).RVEpiInterpX{SET(no).CurrentTimeFrame,SET(no).CurrentSlice});
 else
-    set(DATA.Handles.rvepiinterp(panel),...
-        'xdata',[],...
-        'ydata',[]);
+  set(DATA.Handles.rvepiinterp(panel),...
+    'xdata',[],...
+    'ydata',[]);
 end;
 
 %-----------------------------------
