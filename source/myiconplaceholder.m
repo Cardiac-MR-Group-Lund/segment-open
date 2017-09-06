@@ -560,7 +560,7 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
         xy = get(g.axeshandle, 'CurrentPoint');
         x=xy(1,1);
         y=xy(1,2);
-        set(g.texthandle,'Position',[x,y,0],'String',overicon.mouseovertext);%text(x,y,'blablabla','Parent',g.axeshandle);
+        set(g.texthandle,'Position',[x,y,0],'String',translation.dictionary(overicon.mouseovertext));%text(x,y,'blablabla','Parent',g.axeshandle);
         
         %Start kill text timer that checks for a while if we are over the axis if not kill text
         %if isempty(g.killtimer)

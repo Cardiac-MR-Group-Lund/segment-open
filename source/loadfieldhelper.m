@@ -808,6 +808,54 @@ end
 if isfield(setstruct,'StudyUid')
   setstruct = rmfield(setstruct,'StudyUid');
 end
+%Found case where Endo interp isn't full cell make sure that if there is
+%some segmentation the cell is (Tsize,Zsize) i.e pad
+%Found case where Endo interp is cell with empty matrix in it performing safety check for this.
+for no=1:length(setstruct)
+  if iscell(setstruct(no).EndoInterpX)
+    if all(cellfun(@isempty,setstruct(no).EndoInterpX))
+      setstruct(no).EndoInterpX=[];
+      setstruct(no).EndoInterpY=[];
+    elseif size(setstruct(no).EndoInterpX,1)~=setstruct(no).TSize %&& size(setstruct(no).EndoInterpX,2)==setstruct(no).ZSize)pad=cell(size(setstruct(no).TSize-setstruct(no).EndoInterpX,1),...
+      pad = cell(setstruct(no).TSize-size(setstruct(no).EndoInterpX,1),setstruct(no).ZSize);
+      setstruct(no).EndoInterpX=[setstruct(no).EndoInterpX;pad];
+      setstruct(no).EndoInterpY=[setstruct(no).EndoInterpY;pad];
+    end
+  end
+  
+  if iscell(setstruct(no).EpiInterpX)
+    if all(cellfun(@isempty,setstruct(no).EpiInterpX))
+      setstruct(no).EpiInterpX=[];
+      setstruct(no).EpiInterpY=[];
+    elseif size(setstruct(no).EpiInterpX,1)~=setstruct(no).TSize %&& size(setstruct(no).EndoInterpX,2)==setstruct(no).ZSize)pad=cell(size(setstruct(no).TSize-setstruct(no).EndoInterpX,1),...
+      pad = cell(setstruct(no).TSize-size(setstruct(no).EpiInterpX,1),setstruct(no).ZSize);
+      setstruct(no).EpiInterpX=[setstruct(no).EpiInterpX;pad];
+      setstruct(no).EpiInterpY=[setstruct(no).EpiInterpY;pad];
+    end
+  end
+  
+  if iscell(setstruct(no).RVEndoInterpX)
+    if all(cellfun(@isempty,setstruct(no).RVEndoInterpX))
+      setstruct(no).RVEndoInterpX=[];
+      setstruct(no).RVEndoInterpY=[];
+    elseif size(setstruct(no).RVEndoInterpX,1)~=setstruct(no).TSize %&& size(setstruct(no).EndoInterpX,2)==setstruct(no).ZSize)pad=cell(size(setstruct(no).TSize-setstruct(no).EndoInterpX,1),...
+      pad = cell(setstruct(no).TSize-size(setstruct(no).RVEndoInterpX,1),setstruct(no).ZSize);
+      setstruct(no).RVEndoInterpX=[setstruct(no).RVEndoInterpX;pad];
+      setstruct(no).RVEndoInterpY=[setstruct(no).RVEndoInterpY;pad];
+    end
+  end
+  
+  if iscell(setstruct(no).RVEpiInterpX)
+    if all(cellfun(@isempty,setstruct(no).RVEpiInterpX))
+      setstruct(no).RVEpiInterpX=[];
+      setstruct(no).RVEpiInterpY=[];
+    elseif size(setstruct(no).RVEpiInterpX,1)~=setstruct(no).TSize %&& size(setstruct(no).EndoInterpX,2)==setstruct(no).ZSize)pad=cell(size(setstruct(no).TSize-setstruct(no).EndoInterpX,1),...
+      pad = cell(setstruct(no).TSize-size(setstruct(no).RVEpiInterpX,1),setstruct(no).ZSize);
+      setstruct(no).RVEpiInterpX=[setstruct(no).RVEpiInterpX;pad];
+      setstruct(no).RVEpiInterpY=[setstruct(no).RVEpiInterpY;pad];
+    end
+  end
+end
 
 %Check if valid interpx
 for no = 1:length(setstruct)

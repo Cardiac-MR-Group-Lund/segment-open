@@ -1306,6 +1306,10 @@ if numfiles==0
   myfailed('Found no files to summarize.',DATA.GUI.Segment);
   return;
 end;
+
+%Store current work SET
+oldSET=SET;
+
 % 
 % includenormalized = yesno('Do you want to include BSA normalized values?');
 
@@ -1336,10 +1340,12 @@ outdata{1, 1}= 'FileName';
 outdata{1, 2}= 'Stack number';
 outdata{1, 3}= 'ImageViewPlane';
 outdata{1, 4}= 'RoiName';
-outdata{1, 5}= 'Area';
-outdata{1, 6}= 'Mean';
-outdata{1, 7}= 'StD';
-outdata{1, 8}= 'Flow';
+outdata{1, 5}= 'Mean Area';
+outdata{1, 6}= 'Min Area';
+outdata{1, 7}= 'Max Area';
+outdata{1, 8}= 'Mean';
+outdata{1, 9}= 'StD';
+outdata{1, 10}= 'Flow';
 
 
 %Loop over all files
@@ -1392,10 +1398,12 @@ for fileloop=1:numfiles
         for roi=Rois
           outdata{numrows+1,4}=roi.Name;
           outdata{numrows+1,5}=nanmean(roi.Area);
-          outdata{numrows+1,6}=nanmean(roi.Mean);
-          outdata{numrows+1,7}=nanmean(roi.StD);
-          if ~isempty(roi.Flow)
-            outdata{numrows+1,8}=nanmean(roi.Flow.meanflow);
+          outdata{numrows+1,6}=min(roi.Area);
+          outdata{numrows+1,7}=max(roi.Area);
+          outdata{numrows+1,8}=nanmean(roi.Mean);
+          outdata{numrows+1,9}=nanmean(roi.StD);
+          if isfield(roi, 'Flow') && ~isempty(roi.Flow)
+            outdata{numrows+1,10}=nanmean(roi.Flow.meanflow);
           end
           numrows=numrows+1;
         end
@@ -1432,7 +1440,9 @@ mywaitbarclose(h);
 segment('cell2clipboard',outdata);
 
 %Make sure starting with something fresh.
-segment('filecloseall_Callback',true);
+%segment('filecloseall_Callback',true);
+SET=oldSET;
+
 
 %Stop the silent mode.
 DATA.Silent = false;
@@ -2633,323 +2643,256 @@ mywaitbarclose(h);
 segment('cell2clipboard',outdata);
 %Stop the silent mode.
 DATA.Silent = currentsilent;
-      
+ 
+
+
+%-------------------------------------------
+function exportmultiplestrainRV_Callback(type) %#ok<DEFNU>
+%-------------------------------------------
+%Creaty summary of strain result (tagging or cine strain analysis)
+%from multiple matfiles in one folder.
+%This function is very useful for research. The user 
+%performs all strain analysis and then exports all data to
+%one spreadsheet.
+
+global DATA SET NO
+
+suffix = 'mat';
+
+%Ask if wnat to save before closing current image stack
+if ~isempty(SET)
+  if yesno('Would you like to store current open file before closing it?')
+    %store file
+    segment('filesaveallas_Callback');
+  end
+  %close current file
+  segment('filecloseall_Callback');
+end
+
+%Select path
+pathname = DATA.Pref.datapath;
+pathname = myuigetdir(pathname,sprintf('Select a folder with .%s files',suffix));
+if isequal(pathname,0)
+  myfailed('Aborted.',DATA.GUI.Segment);
+  return;
+end;
+
+%Find files to process
+files2load = dir([pathname filesep sprintf('*.%s',suffix)]);
+numfiles = length(files2load);
+
+if numfiles==0
+  myfailed('Found no files to summarize.',DATA.GUI.Segment);
+  return;
+end;
+
+% do strain?
+output=questdlg('Do you wish to redo strain analysis?');
+switch output
+  case 'Yes'
+    doStrain=1;
+  case 'No'
+    doStrain=0;
+  case 'Cancel'
+    return;
+end
+
+
+currentsilent = DATA.Silent;
+% %Create output matrix
+outdata = cell(1,1); %+1 since header, 58 since header size
+
+%Loop over all files
+h = mywaitbarstart(numfiles,'Please wait, loading and summarizing files.',1);
+
+% we need to do some roboclicking!
+import java.awt.*;
+import java.awt.event.*;
+%Create a Robot-object to do the key-pressing
+rob=Robot;
+
+line=2;
   
-
-
-%   outdata{1,8} = 'Radial strain rate';
-%   outdata{2,8} = 'Systole Max inclination [%/s]';
-%   outdata{2,9} = 'Time Systole Max inclination [s]';
-%   outdata{2,8} = 'Diastole Max inclination [%/s]';
-%   outdata{2,9} = 'Time Diastole Max inclination [s]';
-
-        
-%       %Get the different outputs depending on imageviewplane and
-%       %imagetype
-%       
-%       imageviewplane = SET(no).ImageViewPlane;
-%       if strcmp(imageviewplane,'Short-axis')
-%         outdata{end+1,1} =imageviewplane;
-%         hline=size(outdata,1);
-%         outdata{end+2,1} = 'Strain';
-%         saslices=['b','m','a'];
-%         
-%         %In order to get info on which segment are used
-%         for ahaloop=1:17
-%           [ahastri{ahaloop},pos(ahaloop)] = reportbullseye('aha17nameandpos',ahaloop); %Get name and position of export
+for fileloop=1:numfiles
+  %--- Load file
+  DATA.Silent = true; %Turn on "silent" mode to avoid to much update on screen when loading etc.
+  disp(dprintf('Loading %s.',files2load(fileloop).name));
+  
+  SET = []; % %Make sure a fresh start
+  load([pathname filesep files2load(fileloop).name],'-mat');
+  %Assign
+  SET = setstruct;
+  clear setstruct;
+  
+  openfile('setupstacksfrommat',1);
+  segment('renderstacksfrommat');
+  
+  %For long axis its sufficient to consider one of the images to obtain
+  %all information. therefore checked exists
+  checked=[];
+    
+  bullseyeradial = cell(1,1);
+  bullseyecirc = cell(1,1);
+  for no=1:length(SET)
+    if doStrain
+      if ~isfield(SET(no),'StrainTagging') || isempty(SET(no).StrainTagging) ||~isfield(SET(no).StrainTagging,'globalrad') %|| ismember(no,checked)
+        %Skip this no
+      else
+        try
+          %Do Strain calculations
+          switch SET(no).ImageViewPlane
+            case 'Short-axis'
+              imageviewplane = 'shortaxis';
+            case {'2CH','3CH','4CH'}
+              imageviewplane = 'longaxis';              
+            otherwise
+              disp('Unknown image view plane');
+          end
+          
+          switch SET(no).ImageType;
+            case {'Cine', 'Feature tracking'}
+              imagetype='cine';
+            case 'Strain from tagging'
+              imagetype='tagging';
+          end
+          
+          if isequal(type,imagetype)
+            NO=no;
+            SET(no).StrainTagging.LVupdated=1;
+            straintagging.straintagging('init',imagetype,imageviewplane);
+            disp(['Performed strain analysis on no=',num2str(no)]);
+            straintagging.straintagging('close_Callback');
+          end
+        catch
+          disp(['Failed to redo strain analysis, skipping no=',num2str(no)]);
+        end
+        if isfield(SET(NO).StrainTagging,'taggroup')
+          checked=[checked,SET(NO).StrainTagging.taggroup];
+        end
+      end
+    end %end of do calc strain
+  end %end of loop over image stacks
+  
+  for no=1:length(SET)
+    if ~isfield(SET(no),'StrainTagging')|| isempty(SET(no).StrainTagging) || ~isfield(SET(no).StrainTagging,'globalrad') %|| ismember(no,checked)
+      %Skip no
+    else
+      switch SET(no).ImageType;
+        case {'Cine', 'Feature tracking'}
+          imagetype='cine';
+        case 'Strain from tagging'
+          imagetype='tagging';
+      end
+    end
+  end
+  
+  for no=1:length(SET)
+    if isfield(SET(no).StrainTagging,'globalRVstrain') && ~isempty(SET(no).StrainTagging.globalRVstrain) %|| ismember(no,checked)
+      %--- output ---
+      %patient info
+      outdata{line,1} = 'Patient name';
+      outdata{line,2} = 'Patient ID';
+      outdata{line,3} = 'Heart Rate';
+      outdata{line,4} = 'Image Type';
+      
+      outdata{line,5}='Peak mean circ./longit. strain [%] (entire RV)';
+      line = line+1;
+      
+      switch SET(no).ImageType;
+        case {'Cine', 'Feature tracking'}
+          imagetype='cine';
+        case 'Strain from tagging'
+          imagetype='tagging';
+      end
+      
+      %if isequal(type,imagetype)
+      outdata{line,1} = SET(no).PatientInfo.Name;
+      outdata{line,2} = SET(no).PatientInfo.ID;
+      outdata{line,3} = SET(no).HeartRate;
+      outdata{line,4} = sprintf('%s %s',SET(no).ImageType,SET(no).ImageViewPlane);
+      
+      switch SET(no).ImageViewPlane
+        case 'Short-axis'
+          outdata{line,5} = mynanmean(SET(no).StrainTagging.globalRVstrain(1,SET(no).StrainTagging.peaktf,:));
+          nbrslices = length(SET(no).StrainTagging.saslices);
+          col=6;
+          outdata{line-2,col} = 'Peak circ. strain RV [%]';
+          for sliceloop = 1:nbrslices
+            outdata{line-1,col} = sprintf('Slice %d',sliceloop);
+            outdata{line,col} = SET(no).StrainTagging.globalRVstrain(1,SET(no).StrainTagging.peaktf,sliceloop);
+            col = col+1;
+          end
+          
+          segstr={'Lateral','Septum'};
+        case '4CH'
+          outdata{line,5} = mynanmean(SET(no).StrainTagging.globalRVstrain(1,SET(no).StrainTagging.peaktf,:));
+          col=6;
+          nbrslices=1;
+          segstr={'Basal Lateral','Mid Lateral','Apical Lateral','Apical Septum','Mid Septum','Basal Septum'};
+      end
+      
+      numseg=size(SET(no).StrainTagging.segmentalRVstrain,2);
+      
+      outdata{line-2,col}='RV Mean Sectional Peaks';
+        for i=1:numseg
+          outdata{line-1,col}=segstr{i};
+          outdata{line,col}=min(mynanmean(SET(no).StrainTagging.segmentalRVstrain(:,i,:),3));
+          col=col+1;
+        end
+      %Segmental RV
+%       for sliceloop = 1:nbrslices
+%       outdata{line-2,col}=sprintf('RV sectional peaks slice %d',sliceloop);
+%         for i=1:numseg
+%           outdata{line-1,col}=segstr{i};
+%           outdata{line,col}=min(SET(no).StrainTagging.segmentalRV(i,:,sliceloop));
+%           col=col+1;
 %         end
-%         
-%         hline=size(outdata,1);
-%         
-%         %Segmental radial strain peak
-%         segmentradptf=SET(no).StrainTagging.segmentrad(peaktf,:);
-%         outdata{hline+2,2} = 'Segmental Radial Strain';
-%         outdata{hline+3,1} = nan;
-%         
-%         for slice=1:SET(no).ZSize;
-%           outdata{hline+3,3+2*(slice-1)} = ['Slice', ' ', num2str(slice)];
-%         end
-%         
-%         line=size(outdata,1);
-%         for slice=1:SET(no).ZSize;
-%           if ismember(saslices(slice),'b')
-%             sectors = 1:6;
-%           elseif ismember(saslices(slice),'m') %mid or basal slices
-%             sectors = 7:12;
-%           else
-%             sectors = 13:16;
-%           end
-%           for i = 1:length(sectors)
-%             outdata{line+i,2+2*(slice-1)} = ahastri{sectors(i)};
-%             outdata{line+i,3+2*(slice-1)} = segmentradptf(i);
-%           end
-%         end
-%         
-%         
-%         vline=2*(length(sectors));
-%         %Segmental circumferential strain peak
-%         segmentcircptf=SET(no).StrainTagging.segmentcirc(peaktf,:);
-%         outdata{hline+2,vline+1} = 'Segmental Circumferential Strain';
-%         outdata{hline+3,vline} = nan;
-%         
-%         for slice=1:SET(no).ZSize;
-%           outdata{hline+3,vline+2+2*(slice-1)} = ['Slice', ' ', num2str(slice)];
-%         end
-%         
-%         for slice=1:SET(no).ZSize;
-%           if ismember(saslices(slice),'b')
-%             sectors = 1:6;
-%           elseif ismember(saslices(slice),'m') %mid or basal slices
-%             sectors = 7:12;
-%           else
-%             sectors = 13:16;
-%           end
-%           for i = 1:length(sectors)
-%             outdata{hline+3+i,vline+1+2*(slice-1)} = ahastri{sectors(i)};
-%             outdata{hline+3+i,vline+2+2*(slice-1)} = segmentcircptf(i);
-%           end
-%         end
-%         
-%         %outdataSR is radial outdataSRcirc circumferential
-%         %Strain rate
-%         vline=vline+2*(length(sectors)-1);
-%         outdata{hline+2,vline+2} = 'Radial Strain Rate';
-%         outdata{hline+3,vline+2} = 'Systole';
-%         outdata{end+1,1} = nan;
-%         for slice =1:SET(no).ZSize
-%           outdata{hline+3,vline+3+2*(slice-1)} = ['Slice', ' ', num2str(slice)];
-%         end
-%         outdata{hline+4,vline+2} = 'Max inclination [%/s]';
-%         for slice =1:SET(no).ZSize
-%           outdata{hline+4,vline+3+2*(slice-1)} = SET(no).StrainTagging.upsloperad(slice,1);
-%         end
-%         outdata{hline+5,vline+2} = 'Time [ms]';
-%         for slice =1:SET(no).ZSize
-%           outdata{hline+5,vline+3+2*(slice-1)} = SET(no).StrainTagging.upsloperad(slice,2);
-%         end
-%         outdata{hline+7,vline+2} = 'Diastole';        
-%         outdata{hline+8,vline+2} = 'Max inclination [%/s]';
-%         for slice =1:SET(no).ZSize
-%           outdata{hline+8,vline+3+2*(slice-1)} = SET(no).StrainTagging.downsloperad(slice,1);
-%         end
-%         
-%         outdata{hline+9,vline+2} = 'Time [ms]';
-%         
-%         for slice =1:SET(no).ZSize
-%           outdata{hline+9,vline+3+2*(slice-1)} = SET(no).StrainTagging.downsloperad(slice,2);
-%         end
-%         
-%         vline=vline+SET(no).ZSize*2+1;
-%         
-%         %Circumferential strainrate
-%         outdata{hline+2,vline+2} = 'Circumferential Strain Rate';
-%         outdata{hline+3,vline+2} = 'Systole';
-%         for slice =1:SET(no).ZSize
-%           outdata{hline+3,vline+3+2*(slice-1)} = ['Slice', ' ', num2str(slice)];
-%         end
-%         outdata{hline+4,vline+2} = 'Max inclination [%/s]';
-%         for slice =1:SET(no).ZSize
-%           outdata{hline+4,vline+3+2*(slice-1)} = SET(no).StrainTagging.downslopecircum(slice,1);
-%         end
-%         outdata{hline+5,vline+2} = 'Time [ms]';
-%         for slice =1:SET(no).ZSize
-%           outdata{hline+5,vline+3+2*(slice-1)} = SET(no).StrainTagging.downslopecircum(slice,2);
-%         end
-%         
-%         outdata{hline+7,vline+2} = 'Diastole';        
-%         outdata{hline+8,vline+2} = 'Max inclination [%/s]';
-%         
-%         for slice =1:SET(no).ZSize
-%           outdata{hline+8,vline+3+2*(slice-1)} = SET(no).StrainTagging.upslopecircum(slice,1);
-%         end
-%         
-%         outdata{hline+9,vline+2} = 'Time [ms]';
-%         
-%         for slice =1:SET(no).ZSize
-%           outdata{hline+9,vline+3+2*(slice-1)} = SET(no).StrainTagging.upslopecircum(slice,2);
-%         end
-%         
-%         vline=vline+2*SET(no).ZSize+2;
-%         
-% %         if strcmp(SET(no).ImageType,'Strain from tagging')
-% %           %torsion and rotation max values
-% %           [mRot,mRot_i] =  max(SET(no).StrainTagging.slice_rotation{end}-SET(no).StrainTagging.slice_rotation{1});
-% %           outdata{hline+2,vline+1} = 'Rotational Difference';
-% %           outdata{hline+3,vline+1} = 'Peak [R_a-R_b]';
-% %           outdata{hline+3,vline+2} = mRot;
-% %           %                       outdata{hline+4,vline+1} = 'Frame';
-% %           %                       outdata{hline+4,vline+2} = mRot_i;
-% %           outdata{hline+4,vline+1} = 'Time [ms]';
-% %           outdata{hline+4,vline+2} = SET(no).TimeVector(mRot_i)*1000;
-% %           
-% %           vline=vline+3;
-% %           [mTor,mTor_i] = max(SET(no).StrainTagging.globaltorsion);
-% %           outdata{hline+2,vline+1} = 'Mean Torsion';
-% %           outdata{hline+3,vline+1} = 'd = distance between slices in long axis direction, r = radius';
-% %           outdata{hline+4,vline+1} = 'Peak [(R_a-R_b)(r_a+r_b)/(2d)]';
-% %           outdata{hline+4,vline+2} = mTor;
-% %           %                       outdata{hline+5,vline+1} = 'Frame';
-% %           %                       outdata{hline+5,vline+2} = mTor_i;
-% %           outdata{hline+5,vline+1} = 'Time [ms]';
-% %           outdata{hline+5,vline+2} = SET(no).TimeVector(mTor_i)*1000;
-% %         end
-%         
-%         
-%         
-%         
-%         
-%         
-%       else
-%         outdata{end+1,1} = 'Long axis';
-%         outdata{end+2,1} = 'Strain';
-%         counter=1;
-%         
-%         ordered_taggroup = zeros(1,3);
-%         ch_i_rad=[];
-%         ch_i_circ=[];
-%         for tagno= SET(no).StrainTagging.taggroup
-%           peaktf=SET(tagno).StrainTagging.peaktf;
-%           ch_i_rad(counter) = SET(tagno).StrainTagging.globalrad(peaktf);%(1:floor(length(SET(tagno).StrainTagging.globalrad)*0.7));
-%           ch_i_circ(counter) = SET(tagno).StrainTagging.globalcirc(peaktf);%(1:floor(length(SET(tagno).StrainTagging.globalcirc)*0.7));
-%           
-%           %taggroup ordered as 2ch 3ch 4ch
-%           switch SET(tagno).ImageViewPlane
-%             case '2CH'
-%               ordered_taggroup(1) = tagno;
-%             case '3CH'
-%               ordered_taggroup(2) = tagno;
-%             case '4CH'
-%               ordered_taggroup(3) = tagno;
-%           end
-%           counter=counter+1;
-%         end
-%         
-%         outdata{end+1,2} ='Peak mean radial strain [%]';
-%         chmeanrad =mynanmean(ch_i_rad);
-%         outdata{end,3} = chmeanrad;
-%         %outdata{end+1,2} = 'Time [ms]';
-%         %outdata{end,3} = SET(tagno).TimeVector(peaktfrad)*1000;
-%         
-%         %Global circumferentiell strain peak
-%         outdata{end+1,2} = 'Peak mean circumferential strain [%]';
-%         %[chmeancirc, peaktfcirc] = min(mynanmean(ch_i_circ,2));
-%         chmeancirc = mynanmean(ch_i_circ);
-%         outdata{end,3} = chmeancirc;
-%         %outdata{end+1,2} = 'Time [ms]';
-%         %outdata{end,3} = SET(no).TimeVector(peaktfcirc)*1000;
-%         hline=7;
-%         vline=9;
-%         
-%         %Strain rate
-%         outdata{end+2,1} = 'Strain Rate';
-%         outdata{end+1,2} = 'Radial';
-%         outdata{end+1,3} = 'Systole';
-%         
-%         %                   for tagno =  SET(no).StrainTagging.taggroup
-%         %                         tmp_ind=find(ordered_taggroup==tagno)-1;
-%         %                       outdata{end,4+tmp_ind*2} = SET(tagno).ImageViewPlane;
-%         %                   end
-%         outdata{end,4} = '2CH';
-%         outdata{end,6} = '3CH';
-%         outdata{end,8} = '4CH';
-%         
-%         outdata{end+1,3} = 'Max inclination [%/s]';
-%         
-%         for tagno =  SET(no).StrainTagging.taggroup
-%           tmp_ind=find(ordered_taggroup==tagno)-1;
-%           outdata{end,4+tmp_ind*2} = SET(tagno).StrainTagging.upsloperad(1);
-%         end
-%         
-%         outdata{end+1,3} = 'Time [ms]';
-%         
-%         for tagno =  SET(no).StrainTagging.taggroup
-%           tmp_ind=find(ordered_taggroup==tagno)-1;
-%           outdata{end,4+tmp_ind*2} = SET(tagno).StrainTagging.upsloperad(2);
-%         end
-%         
-%         outdata{end+2,3} = 'Diastole';
-%         outdata{end+1,3} = 'Max inclination [%/s]';
-%         
-%         for tagno =  SET(no).StrainTagging.taggroup
-%           tmp_ind=find(ordered_taggroup==tagno)-1;
-%           outdata{end,4+tmp_ind*2} = SET(tagno).StrainTagging.downsloperad(1);
-%         end
-%         
-%         outdata{end+1,3} = 'Time [ms]';
-%         
-%         for tagno =  SET(no).StrainTagging.taggroup
-%           tmp_ind=find(ordered_taggroup==tagno)-1;
-%           outdata{end,4+2*tmp_ind} = SET(tagno).StrainTagging.downsloperad(2);
-%           counter = counter+1;
-%         end
-%         
-%         %horisontal and vertical line
-%         %hline=11;
-%         %hline=8;
-%         hline=11;
-%         vline=9;
-%         
-%         outdata{hline+2,vline+4} = '2CH';
-%         outdata{hline+2,vline+6} = '3CH';
-%         outdata{hline+2,vline+8} = '4CH';
-%         
-%         %Circumferential strainrate
-%         outdata{hline+1,vline+2} = 'Circumferential';
-%         outdata{hline+2,vline+3} = 'Systole';
-%         outdata{hline+3,vline+3} = 'Max inclination [%/s]';
-%         
-%         for tagno =  SET(no).StrainTagging.taggroup
-%           tmp_ind=find(ordered_taggroup==tagno)-1;
-%           outdata{hline+3,vline+4+2*tmp_ind} = SET(tagno).StrainTagging.downslopecircum(1);
-%         end
-%         
-%         outdata{hline+4,vline+3} = 'Time [ms]';
-%         
-%         for tagno =  SET(no).StrainTagging.taggroup
-%           tmp_ind=find(ordered_taggroup==tagno)-1;
-%           outdata{hline+4,vline+4+2*tmp_ind} = SET(tagno).StrainTagging.downslopecircum(2);
-%         end
-%         hline=16;
-%         %vline=vline+9;
-%         
-%         outdata{hline+1,vline+3} = 'Diastole';
-%         outdata{hline+2,vline+3} = 'Max inclination [%/s]';
-%         
-%         for tagno =  SET(no).StrainTagging.taggroup
-%           tmp_ind=find(ordered_taggroup==tagno)-1;
-%           outdata{hline+2,vline+4+2*tmp_ind} = SET(tagno).StrainTagging.upslopecircum(1);
-%         end
-%         
-%         outdata{hline+3,vline+3} = 'Time [ms]';
-%         
-%         for tagno =  SET(no).StrainTagging.taggroup
-%           tmp_ind=find(ordered_taggroup==tagno)-1;
-%           outdata{hline+3,vline+4+2*tmp_ind} = SET(tagno).StrainTagging.upslopecircum(2);
-%         end
-%         
-%         checked=[checked,SET(no).StrainTagging.taggroup];
 %       end
-%       outdata{end+1,1}=nan;
-%     end
-%   end
-% %   catch me
-% %     %--- Some thing went wrong
-% %     mydispexception(me);
-% %     outdata{fileloop+1,2} = 'FAILED.';
-% % end
-% % h = mywaitbarupdate(h);
-% % end; %loop over files
-% % mywaitbarclose(h);
-% % 
-% % %--- Output to a string
-% % segment('cell2clipboard',outdata);
-% % %Stop the silent mode.
-% % DATA.Silent = currentsilen;
-% % SET=oldSet;
-% % NO=oldNo;
-% %Make sure starting with something fresh.
-% %segment('filecloseall_Callback',true);
+line=line+3;
+    end
+  end; %loop over image stack
+  
+  
+  if doStrain
+    %store file
+    %Create thumbnails before storing.
+    calcfunctions('calcdatasetpreview');
+    
+    % Set view settings
+    DATA.ViewPanels = 1;
+    DATA.ViewPanelsType = {'one'};
+    DATA.ViewMatrix = [1 1];
+    DATA.ThisFrameOnly = 0;
+    DATA.CurrentPanel = 1;
+    DATA.CurrentTheme = 'lv';
+    DATA.CurrentTool = 'select';
 
+    %Save the file.
+    %segment('filesaveall_Callback');
+    corrupted=segment('checkcorrupteddataforautomaticsave');
+    if corrupted
+      corruptedfiles=sprintf('%s, %s',corruptedfiles,filename);
+      mywarning(dprintf('Image file %s seems to be corrupted from last save. Please load and manually re-analyse strain to ensure that the image is not corrupted before saving',filename));
+    else
+      filemenu('saveallas_helper',pathname,files2load(fileloop).name);
+      disp(sprintf('Saving %s',[pathname filesep files2load(fileloop).name]));
+    end    
+    
+    rob.keyPress(KeyEvent.VK_SPACE);
+    pause(0.1);
+    rob.keyRelease(KeyEvent.VK_SPACE);
+  end
+  h = mywaitbarupdate(h);  
+  %close current file
+  segment('filecloseall_Callback');
+end %loop over files
+mywaitbarclose(h);
+
+%--- Output to a string
+segment('cell2clipboard',outdata);
+%Stop the silent mode.
+DATA.Silent = currentsilent;
+  
 
 
 %---------------------------------

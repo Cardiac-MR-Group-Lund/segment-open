@@ -45,7 +45,7 @@ try
     dinfo = dicominfo(filename);
   else
     dinfo = fastdicominfo(filename);
-    if ischar(dinfo)
+    if ischar(dinfo) || isequal(dinfo.TransferSyntaxUID,'jpeg') || isequal(dinfo.TransferSyntaxUID,'1.2.840.10008.1.2.4.90')
       dicomconvert(filename); %try to convert on the fly
       dinfo = fastdicominfo(filename);
       if ischar(dinfo)

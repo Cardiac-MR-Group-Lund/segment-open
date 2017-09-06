@@ -1785,11 +1785,56 @@ if (nargin<5)
   if isempty(c)
     c = SET(SET(no).Parent).IntensityMapping.Contrast;
     b = SET(SET(no).Parent).IntensityMapping.Brightness;
+    
   end
 end
+
+if ~isempty(SET(no).IntensityMapping.Compression)
+  d = SET(no).IntensityMapping.Compression;
+else
+  d=1;
+end
+
+if isempty(d) && ~isempty(SET(SET(no).Parent))
+  if isempty(SET(SET(no).Parent).IntensityMapping.Compression)
+    d = SET(SET(no).Parent).IntensityMapping.Compression;
+  else
+    d=1;
+  end
+end
+
+if isempty(d)
+    d=1;
+end
+
+if d<0.1
+  d=0.1;
+  SET(no).IntensityMapping.Compression=0.1;
+end
+
+if d>20
+  d=0.1;
+  SET(no).IntensityMapping.Compression=0.1;
+end
+
 sz = [size(im,1) size(im,2) size(im,3) size(im,4)];
 if isa(im,'single')||isa(im,'double')
-  im = c*im(:)+(b-0.5);
+  %im = c*im(:)+(b-0.5);
+%   try
+if d~=1
+  try
+    im = c.*nthroot(im(:),d)+b-0.5;
+  catch
+    im = c.*im(:)+b-0.5;
+  end
+else
+  im = c.*im(:)+b-0.5;
+end%c*255.*(im(:)./255+b-0.5).^(1./d);
+%   catch
+%     %first lift im so that it is between 0 and 1
+%     im=abs(min(im(:)))+im;
+%     im = c.*nthroot(im(:),d)+b-0.5;%c*255.*(im(:)./255+b-0.5).^(1./d);
+%   end
   z = max(min(round(cmax*im),cmax),cmin);
   
 elseif isa(im,'int16'),
@@ -1805,7 +1850,7 @@ elseif isa(im,'int16'),
    %im=c*im+(b-0.5);%TODO: should scale
    
    z = floor((im-mi)/(ma-mi)*cmax);
-   z = uint8(c*z+(b-0.5)*256)+1; 
+   z = uint8(c.*nthroot(im(:),d)+b-0.5);%uint8(c*z+(b-0.5)*256)+1; 
    %z = max(min(round(c*z+(b-0.5)),cmax),cmin);   
 else
   myfailed(dprintf('Segment does not (yet) support type:%s',class(im)));
@@ -2669,7 +2714,7 @@ if nargin < 3
   end
 end
 
-if isa(SET(no).IM,'single')
+if isa(SET(no).IM,'single') || isa(SET(no).IM,'double')
   window = SET(no).IntensityScaling/contrast;
   level = SET(no).IntensityOffset + window*(1-brightness);
 else
@@ -2690,7 +2735,7 @@ if nargin < 3
   end
 end
 
-if isa(SET(no).IM,'single')
+if isa(SET(no).IM,'single') || isa(SET(no).IM,'double')
   contrast = SET(no).IntensityScaling/window;
   brightness = 1-(level-SET(no).IntensityOffset)/window;
 else
@@ -2814,7 +2859,7 @@ SET(nom).Flow.Result(roinbr).diameter = NaN;
 hr = (60/(SET(nom).TSize*SET(nom).TIncr));
 
 netflow = SET(nom).Flow.Result(roinbr).netflow;
-timeframes = 1:SET(nom).TSize;
+timeframes = SET(nom).Roi(roinbr).T;%1:SET(nom).TSize;
 TIncr = SET(nom).TIncr;
 %Sum
 SET(nom).Flow.Result(roinbr).nettotvol = nansum(netflow(timeframes))*TIncr;

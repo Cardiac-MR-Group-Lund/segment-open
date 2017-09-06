@@ -32,7 +32,7 @@ catch %#ok<CTCH>
 end;
   
 if ~filter
-  f = dir(pathname);
+  f = dir(pathname); %names = ls(pathname);
 else
   %--- Use filter(s)
   filtersstri = mygetedit(DATA.Preview.Handles.filteredit);
@@ -58,9 +58,13 @@ else
     f = cat(1,f,dir([pathname filesep filters{loop}]));
   end;
 
-end;
-
-% Windows 10(?) bugfix: Sometimes isdir is not set for . and ..
+ end;
+%  names=cellstr(names);
+%  names=strtrim(names);
+%  isd=num2cell(cellfun(@isempty,strfind(names,'.')));
+%  f=struct('name',names,'isdir',isd);
+%  
+% % Windows 10(?) bugfix: Sometimes isdir is not set for . and ..
 for floop = 1:length(f)
   fname = f(floop).name;
   if isequal(fname, '.') || isequal(fname, '..')
@@ -68,7 +72,7 @@ for floop = 1:length(f)
   end
 end
 
-%Sort so that folders comes first
+% Sort so that folders comes first
 [~,ind] = sort(-cat(1,f(:).isdir));
 f = cat(1,f(ind));
 
@@ -89,7 +93,16 @@ for loop=1:length(f)
   end;
 	if isequal(f(loop).name,'.svn'),
 		ind(loop) = false;
-	end
+  end
+ % if strcmp(f(loop).name,'..'),
+	%	ind(loop) = false;
+  %end
+  %if strcmp(f(loop).name,'.'),
+		%ind(loop) = false;
+%   %end
+%   if strcmp(f(loop).name,''),
+% 		ind(loop) = false;
+% 	end
 end;
 
 % Exclude hidden files on unix, i.e. starting with . but isn't . or ..

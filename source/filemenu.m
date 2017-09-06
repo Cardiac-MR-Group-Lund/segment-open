@@ -278,7 +278,7 @@ if not(DATA.Silent)
       stri = dprintf('Image stack and segmentation stored to %s.',...
         SET(NO).FileName);
     end;
-    msgbox(stri,'Save succesful.',DATA.GUI.Segment);
+    msgbox(stri,'Save successful.',DATA.GUI.Segment);
   end;
 end;
 

@@ -1015,6 +1015,44 @@ function installservices_Callback %#ok<DEFNU>
 if ~checkdatabaselicense
   return;
 end;
+forbidden={'segmentserversorter.exe', 'nssm.exe', 'storescu.exe'};
+
+isrunning=zeros(size(forbidden));
+
+for i=length(forbidden)
+  [~,result] = system(sprintf('tasklist /FI "imagename eq %s" /fo table /nh',forbidden{i}));
+  if ~isempty(regexp(lower(result),forbidden{i}, 'once'))%strcmp(lower(result(1:length(forbidden{i}))),forbidden{i})
+    isrunning(i)=1;
+  end
+end
+
+if any(isrunning)
+   answer=yesno(sprintf('To proceed with install, the following services need to shutdown:\n\n%s\n%s\n\n Do this now?','SegmentStorageServer' , 'SegmentSorterService'));
+   if answer
+     segpref('editservices_Callback')
+   else
+     return
+   end
+end
+
+% if any(isrunning)
+%   answer=yesno(sprintf('To install, the following services need to shutdown:\n\n%s\n%s\n%s\n\n Do this now?','segmentserversorter.exe', 'nssm.exe', 'storescu.exe'));
+%   if answer
+%     try
+%       tostop=find(isrunning);
+%       %To start and stop you need administrator priviliges, is pause sufficient?
+%       for i=tostop
+%         [~,result] = system(sprintf('sc stop %s',forbidden{isrunning(i)}(1:end-4)));
+%       end
+%     catch
+%       mywarning('Failed to stop ongoing process, are administrator priviliges on?')
+%       return;
+%     end
+%     mydisp('done')
+%   else
+%     return;
+%   end
+% end
 
 segmentpath = pwd;
 
@@ -1055,6 +1093,20 @@ statushelper('install service',status,result);
 if isequal(status,0)
   mymsgbox('SegmentSorterServer service have been installed. It is not yet running. Either start manually (under Edit), or restart computer.');
 end;
+
+% %isrunning=wasrunning
+% if any(isrunning)
+%     try
+%       tostart=find(isrunning);
+%       %To start and stop you need administrator priviliges, is pause sufficient?
+%       for i=tostart
+%         [~,result] = system(sprintf('net start %s',forbidden{isrunning(i)}));
+%       end
+%     catch
+%       mywarning('Failed to start previously ongoing process, are administrator priviliges on?')
+%       return;
+%     end
+% end
 
 %--------------------------------
 function deletestorageservice_Callback %#ok<DEFNU>
