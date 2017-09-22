@@ -15,7 +15,11 @@ This forms the basis for segment-open, the Segment Source Distribution, which ca
 Note that not all functionality in Segment is present in the Source Distribution, and the Source Distribution is neither FDA-approved nor CE-marked, and may not be used for clinical purposes.
 Some parts of the code is protected (Matlab p-files).
 
-**It is strongly recommended to use Matlab R2014a.** Performance of the GUI will be reduced with newer versions, as a new GUI framework was introduced in R2014b.
+**It is strongly recommended to use Matlab R2014a.**
+ * Performance of the GUI will be reduced with newer versions, as a new GUI framework was introduced in R2014b.
+ * Using older versions may produce bugs due to non-existent functionality.
+
+![r2014a](docs/images/matlab_r2014a.png)
 
 ## How do I use Segment?
 
@@ -23,7 +27,7 @@ Some parts of the code is protected (Matlab p-files).
  * The [user manual](source/Docs/manual.pdf) shows how to use the program. We also have some [tutorial videos on Medviso's Segment page](http://medviso.com/products/segment/).
  * If you want to develop your own plugins (or if you're just curious), the [tech manual](source/docs/techmanual.pdf) shows how Segment works internally.
 
-## Terms of use
+## License and Terms of use
 
 Segment is **freely available for academic research** in source and [binary](http://medviso.com/download2/) form, provided that you cite relevant publications and the usage of the software in your publications (see specific papers below).
 
@@ -35,7 +39,7 @@ Write your code as a Segment plugin and submit a pull request when you feel read
 
 ### What IS allowed?
 
-Provided that you give proper attribution, you can:
+Provided that you give proper attribution (see "Papers to cite" below), you can:
 
  * Use Segment for academic research
  * Publish results based on Segment
