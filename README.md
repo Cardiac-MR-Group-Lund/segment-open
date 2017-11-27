@@ -4,7 +4,8 @@
 
 ## What is Segment?
 
-Segment is a comprehensive software package for medical image analysis.
+Segment is a comprehensive software package for medical image analysis, [widely used in research](http://medviso.com/research/publication/).
+
 Segment is developed with cardiovascular MRI (CMR) in mind, but it has also been validated using Cardiac CT and Myocardial Perfusion SPECT. The software package can also be used for a wide range of Radiology and Cardiology applications.
 
 ## What is the Segment Source Distribution?
@@ -18,6 +19,7 @@ Some parts of the code is protected (Matlab p-files).
 **It is strongly recommended to use Matlab R2014a.**
  * Performance of the GUI will be reduced with newer versions, as a new GUI framework was introduced in R2014b.
  * Using older versions may produce bugs due to non-existent functionality.
+ * You can have several Matlab installations on the same computer at the same time.
 
 ![r2014a](docs/images/matlab_r2014a.png)
 
@@ -28,6 +30,8 @@ Some parts of the code is protected (Matlab p-files).
  * If you want to develop your own plugins (or if you're just curious), the [tech manual](source/docs/techmanual.pdf) shows how Segment works internally.
 
 ## License and Terms of use
+
+We recommend that you read the [full license agreement](LICSENSE.md) before starting to use Segment. This section is just a short summary.
 
 Segment is **freely available for academic research** in source and [binary](http://medviso.com/download2/) form, provided that you cite relevant publications and the usage of the software in your publications (see specific papers below).
 
@@ -51,24 +55,24 @@ Provided that you give proper attribution (see "Papers to cite" below), you can:
  * Clinical use
  * Commercial use
  * Distributing your own compiled version of Segment
+ * For any of these cases, please contact Helen Fransson (CEO, Medviso AB, see contact info below)
 
 ## Papers to cite
 
-| Use/part  | Paper |
-|-----------|-------|
-| All use   | [Heiberg et al. BMC Med Imag 2010](https://bmcmedimaging.biomedcentral.com/articles/10.1186/1471-2342-10-1) |
+According to the [license agreement](LICENSE.md), proper citation of required when you publish research based on Segment. A complete list is kept at the Medviso homepage: http://medviso.com/research/how-to-refer/
 
 
 ## Contributions
 
-We'd love to include your plugins in this repository.
+We'd love to include your plugins in this repository
 
  1. Start by [forking](https://help.github.com/articles/fork-a-repo/) this repository. Forking means that you create your own copy of Segment on Github.
  1. Happy hacking!
  1. When/if you want to submit your work to us, push your changes to a topic branch in your forked repository and submit a [pull request](https://help.github.com/articles/creating-a-pull-request-from-a-fork/) and we'll have a look at your code. If we think there is some more organization needed, we'll help.
 
-Things to keep in mind
+Things to keep in mind:
 
+ * Please read the official [Medviso AB stance on plug-ins](http://medviso.com/research/community/).
  * Found a bug? Please let us know by [opening an issue in the tracker](https://github.com/Cardiac-MR-Group-Lund/segment-open/issues)!
  * Please have a look at the coding standars in Chapter 6 of the [tech manual](source/Docs/techmanual.pdf).
  * The [tech manual](source/Docs/techmanual.pdf) and the [Segment paper](https://bmcmedimaging.biomedcentral.com/articles/10.1186/1471-2342-10-1) give you an overview on how things work internally.
