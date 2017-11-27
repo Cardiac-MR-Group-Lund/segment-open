@@ -31,7 +31,7 @@ Some parts of the code is protected (Matlab p-files).
 
 ## License and Terms of use
 
-We recommend that you read the [full license agreement](LICSENSE.md) before starting to use Segment. This section is just a short summary.
+We recommend that you read the [full license agreement](LICENSE.md) before starting to use Segment. This section is just a short summary.
 
 Segment is **freely available for academic research** in source and [binary](http://medviso.com/download2/) form, provided that you cite relevant publications and the usage of the software in your publications (see specific papers below).
 
