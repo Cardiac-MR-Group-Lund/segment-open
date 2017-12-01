@@ -83,7 +83,7 @@ Things to keep in mind:
 
 ## Frequently asked questions
 
-Q: What is the airspeed of an unladen swallow?
+Q: What is the airspeed velocity of an unladen swallow?
 
 A: African or European?
 
