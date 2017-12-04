@@ -1,12 +1,16 @@
 # segment-open -- Segment source distribution
 
+
 ![lvimage](docs/images/titlepage.jpg)
+
+[![newsletter](docs/images/newsletter.png)](http://medviso.com/signup_for_software/)
 
 ## What is Segment?
 
 Segment is a comprehensive software package for medical image analysis, [widely used in research](http://medviso.com/research/publication/).
 
 Segment is developed with cardiovascular MRI (CMR) in mind, but it has also been validated using Cardiac CT and Myocardial Perfusion SPECT. The software package can also be used for a wide range of Radiology and Cardiology applications.
+
 
 ## What is the Segment Source Distribution?
 
