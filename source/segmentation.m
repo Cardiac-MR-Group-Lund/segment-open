@@ -84,8 +84,8 @@ SET(no).EndoInterpY = [];
 SET(no).EpiInterpX = []; 
 SET(no).EpiInterpY = []; 
 
-SET(no).EST = 1;
-SET(no).EDT = 1;
+% SET(no).EST = 1;
+% SET(no).EDT = 1;
 
 %remove Strain tagging analysis
 if not(isempty(SET(no).StrainTagging))
@@ -101,15 +101,21 @@ if not(isempty(SET(no).StrainTagging))
   if isfield(SET(no).StrainTagging,'transformparameters')
     transformparameters = SET(no).StrainTagging.transformparameters;
   end
+  
   if isfield(SET(no).StrainTagging,'bwdtransformparameters')
     bwdtransformparameters = SET(no).StrainTagging.bwdtransformparameters;
   end
+  
   if isfield(SET(no).StrainTagging,'mhdframe1')
     mhdframe1 = SET(no).StrainTagging.mhdframe1;
     mhdframe2 = SET(no).StrainTagging.mhdframe2;
+  end
+  
+  if isfield(SET(no).StrainTagging,'mhdframe3')
     mhdframe3 = SET(no).StrainTagging.mhdframe3;
     mhdframe4 = SET(no).StrainTagging.mhdframe4;
   end
+  
   SET(no).StrainTagging = [];
   SET(no).StrainTagging.runningregistration = runningregistration;
   if ismember('transformparameters',who)
@@ -121,9 +127,13 @@ if not(isempty(SET(no).StrainTagging))
   if ismember('mhdframe1',who)
     SET(no).StrainTagging.mhdframe1 = mhdframe1;
     SET(no).StrainTagging.mhdframe2 = mhdframe2;
+  end
+  
+  if ismember('mhdframe3',who)
     SET(no).StrainTagging.mhdframe3 = mhdframe3;
     SET(no).StrainTagging.mhdframe4 = mhdframe4;
   end
+  
 end
 
 %If straintagging initiated adjust LVupdated
@@ -196,8 +206,8 @@ SET(no).RVEpiY = [];
 SET(no).EndoDraged = false([SET(no).TSize SET(no).ZSize]);
 SET(no).EpiDraged = false([SET(no).TSize SET(no).ZSize]);
 
-SET(no).EST = 1;
-SET(no).EDT = 1;
+% SET(no).EST = 1;
+% SET(no).EDT = 1;
 
 if not(isempty(SET(no).Scar))
   viability('viabilityclear_Callback');
@@ -959,12 +969,34 @@ if isempty(cineshortaxisno)
   return;
 end
 importtf = round(2/3*SET(cineshortaxisno).TSize); %approximately diastasis
-importsegmentation_Callback(cineshortaxisno,importtf);
+importsegmentationwithsnap_Callback(cineshortaxisno,importtf);
 
+%---------------------------------------------------------------
+function importsegmentationwithsnap_Callback(no,importtf) 
+%---------------------------------------------------------------
+%Same as importsegmentation but also snaps contour (rigid registration)
 
-%----------------------------------------------
-function importsegmentation_Callback(no,importtf) %#ok<DEFNU>
-%----------------------------------------------
+global NO
+
+switch nargin
+  case 0
+    importsegmentation_Callback;
+  case 1
+    importsegmentation_Callback(no);
+  case 2
+    importsegmentation_Callback(no,importtf);
+end;
+
+%Adjust to contours
+importadjust(NO);
+  
+segment('updatemodeldisplay');
+lvsegchanged = true; segment('updatevolume',lvsegchanged);
+drawfunctions('drawallslices');
+
+%-----------------------------------------------------
+function importsegmentation_Callback(no,importtf) 
+%-----------------------------------------------------
 %Import segmentation from another image stack.
 %Imports to current image stack NO from no or if called with no input
 %arguments user is asked.
@@ -1037,18 +1069,13 @@ else
   [~,~,sourceslices]=importsegmentationhelper(NO,no,doendo,doepi,dorvendo,dorvepi);
 end
 
-if ~isempty(sourceslices)
-  %Adjust to contours
-  importadjust(NO);
-  
-  segment('updatemodeldisplay');
-  lvsegchanged = true; segment('updatevolume',lvsegchanged);
-  drawfunctions('drawallslices');
-end
 %---------------------------
 function importadjust(no)
 %---------------------------
 %Snap segmentation to another frame 
+
+%Einar Heiberg
+
 global SET NO
 
 if nargin<1
@@ -1454,6 +1481,11 @@ no = NO;
 
 
 segtodo=mymenu('Select delineation to interpolate', 'LV endocardium', 'LV epicardium', 'RV endocardium', 'RV epicardium');
+
+if isequal(segtodo,0)
+  myfailed('Aborted.');
+  return;
+end;
 
 switch segtodo
   case 1 %LV endocardium

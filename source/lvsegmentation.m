@@ -52,80 +52,81 @@ if SET(saxno).ZSize < 5
   return
 end
 
-nostocrop = [];
-if SET(saxno).XSize * SET(saxno).ResolutionX > 210 || ...
-    SET(saxno).YSize * SET(saxno).ResolutionY > 210
-  nostocrop = saxno;
-end
-
-ch2no = [];
-ch3no = [];
-ch4no = [];
-for cham = 2:4
-  chno = find(strcmp({SET(:).ImageViewPlane},sprintf('%dCH',cham)));
-  if ~isempty(chno)
-    if length(chno) > 1
-      cinechno = find(strcmp({SET(cineno).ImageViewPlane},sprintf('%dCH',cham)));
-      if ~isempty(cinechno) && length(cinechno) == 1
-        chno = cineno(cinechno);
-      else
-        %ask user
-        nostri = '(';
-        for loop = 1:length(chno)
-          if loop == length(chno)
-            nostri = [nostri sprintf('%d)',chno(loop))];
-          else
-            nostri = [nostri sprintf('%d, ',chno(loop))];
-          end
-        end
-        uniquechno = inputdlg({dprintf('Select %dCH image stack out of %s.',cham,nostri)},'Image Stack',1,{sprintf('%d',chno(1))});
-        if ~ismember(str2num(uniquechno{1}),chno)
-          uniquechno = [];
-        end
-        if isempty(uniquechno)
-          myfailed('Invalid image stack.',DATA.GUI.Segment);
-          return;
-        else
-          [chno,ok] = str2num(uniquechno{1}); %#ok<ST2NM>
-          if not(ok)
-            myfailed('Invalid image stack.',DATA.GUI.Segment);
-            return;
-          end;
-        end;
-      end
-    end
-    if cham == 2
-      ch2no = chno;
-    elseif cham == 3
-      ch3no = chno;
-    elseif cham == 4
-      ch4no = chno;
-    end
-    %Check if image needs cropping
-    if SET(chno).XSize * SET(chno).ResolutionX > 260 || ...
-    SET(chno).YSize * SET(chno).ResolutionY > 260
-      nostocrop = [nostocrop chno]; %#ok<AGROW>
-    end
-  end
-end
-
-if ~isempty(nostocrop)
-  if ~autocropall(true,nostocrop)
-    if ismember(saxno,nostocrop)
-      myfailed('Need to crop short-axis stack in order to do LV segmentation');
-      return
-    end
-  elseif SET(saxno).XSize * SET(saxno).ResolutionX > 250 || ...
-      SET(saxno).YSize * SET(saxno).ResolutionY > 250
-    myfailed('Need to crop short-axis stack more in order to do LV segmentation');
-    autocropall(true,nostocrop)
-    if SET(saxno).XSize * SET(saxno).ResolutionX > 250 || ...
-        SET(saxno).YSize * SET(saxno).ResolutionY > 250
-      myfailed('Need to crop short-axis stack more in order to do LV segmentation');
-      return
-    end
-  end
-end
+[saxno,ch2no,ch3no,ch4no]=croplvall(1);
+% nostocrop = [];
+% if SET(saxno).XSize * SET(saxno).ResolutionX > 210 || ...
+%     SET(saxno).YSize * SET(saxno).ResolutionY > 210
+%   nostocrop = saxno;
+% end
+% 
+% ch2no = [];
+% ch3no = [];
+% ch4no = [];
+% for cham = 2:4
+%   chno = find(strcmp({SET(:).ImageViewPlane},sprintf('%dCH',cham)));
+%   if ~isempty(chno)
+%     if length(chno) > 1
+%       cinechno = find(strcmp({SET(cineno).ImageViewPlane},sprintf('%dCH',cham)));
+%       if ~isempty(cinechno) && length(cinechno) == 1
+%         chno = cineno(cinechno);
+%       else
+%         %ask user
+%         nostri = '(';
+%         for loop = 1:length(chno)
+%           if loop == length(chno)
+%             nostri = [nostri sprintf('%d)',chno(loop))];
+%           else
+%             nostri = [nostri sprintf('%d, ',chno(loop))];
+%           end
+%         end
+%         uniquechno = inputdlg({dprintf('Select %dCH image stack out of %s.',cham,nostri)},'Image Stack',1,{sprintf('%d',chno(1))});
+%         if ~ismember(str2num(uniquechno{1}),chno)
+%           uniquechno = [];
+%         end
+%         if isempty(uniquechno)
+%           myfailed('Invalid image stack.',DATA.GUI.Segment);
+%           return;
+%         else
+%           [chno,ok] = str2num(uniquechno{1}); %#ok<ST2NM>
+%           if not(ok)
+%             myfailed('Invalid image stack.',DATA.GUI.Segment);
+%             return;
+%           end;
+%         end;
+%       end
+%     end
+%     if cham == 2
+%       ch2no = chno;
+%     elseif cham == 3
+%       ch3no = chno;
+%     elseif cham == 4
+%       ch4no = chno;
+%     end
+%     %Check if image needs cropping
+%     if SET(chno).XSize * SET(chno).ResolutionX > 260 || ...
+%     SET(chno).YSize * SET(chno).ResolutionY > 260
+%       nostocrop = [nostocrop chno]; %#ok<AGROW>
+%     end
+%   end
+% end
+% 
+% if ~isempty(nostocrop)
+%   if ~autocropall(true,nostocrop)
+%     if ismember(saxno,nostocrop)
+%       myfailed('Need to crop short-axis stack in order to do LV segmentation');
+%       return
+%     end
+%   elseif SET(saxno).XSize * SET(saxno).ResolutionX > 250 || ...
+%       SET(saxno).YSize * SET(saxno).ResolutionY > 250
+%     myfailed('Need to crop short-axis stack more in order to do LV segmentation');
+%     autocropall(true,nostocrop)
+%     if SET(saxno).XSize * SET(saxno).ResolutionX > 250 || ...
+%         SET(saxno).YSize * SET(saxno).ResolutionY > 250
+%       myfailed('Need to crop short-axis stack more in order to do LV segmentation');
+%       return
+%     end
+%   end
+% end
 
 %Open LV wizard GUI
 gui = mygui('lvsegmentation.fig');
@@ -257,6 +258,150 @@ set(gui.fig,'KeyPressFcn', ...
 
 updateselectedslices;
 updatecenterpoint;
+
+%-------------------------------------
+function [saxno,ch2no,ch3no,ch4no]=croplvall(assertboundaries)
+%---------------------------------
+global SET DATA NO
+
+if nargin==0
+assertboundaries=0;
+end
+
+cineno = findfunctions('findno');
+saxno = find(strcmp({SET.ImageViewPlane},'Short-axis'));
+zno = find([SET.ZSize] > 1);
+saxno = intersect(cineno,union(saxno,zno));
+
+if isempty(saxno)
+  if ismember(NO,zno) && ...
+      yesno('Could not find image stack defined as Short-axis Cine. Use current stack?');
+    saxno = NO;
+    SET(saxno).ImageViewPlane = 'Short-axis';
+    SET(saxno).ImageType = 'Cine';
+    drawfunctions('updatenopanels',saxno);
+  else
+    myfailed('Could not find short-axis image stack');
+    return
+  end
+end
+
+if ismember(NO,saxno)
+  saxno = NO;
+else
+  nos = cellfun(@(x)dprintf('Short-axis stack %d',x), ...
+    num2cell(saxno),'UniformOutput',false);
+  m = mymenu('Do crop on short-axis stack?', ...
+    nos{:});
+  if m
+    saxno = saxno(m);
+  else
+    return;
+  end
+end
+
+
+nostocrop = [];
+
+% sz = zeros(size(saxno));
+% %then use biggest
+% if length(saxno)>1
+%   for i=1:length(saxno)
+%     no=saxno(i);
+%     sz(i) = SET(no).XSize * SET(no).ResolutionX * SET(no).YSize * SET(no).ResolutionY;  
+%   end
+%   [~,ind]=max(sz);
+%   saxno=saxno(ind);
+% end
+
+%only if assert boundaries can be done smarter but this always works
+if assertboundaries
+  if SET(saxno).XSize * SET(saxno).ResolutionX > 210 || ...
+      SET(saxno).YSize * SET(saxno).ResolutionY > 210
+    nostocrop = saxno;
+  end
+else
+  nostocrop = saxno;
+end
+
+
+ch2no = [];
+ch3no = [];
+ch4no = [];
+for cham = 2:4
+  chno = find(strcmp({SET(:).ImageViewPlane},sprintf('%dCH',cham)));
+  if ~isempty(chno)
+    if length(chno) > 1
+      cinechno = find(strcmp({SET(cineno).ImageViewPlane},sprintf('%dCH',cham)));
+      if ~isempty(cinechno) && length(cinechno) == 1
+        chno = cineno(cinechno);
+      else
+        %ask user
+        nostri = '(';
+        for loop = 1:length(chno)
+          if loop == length(chno)
+            nostri = [nostri sprintf('%d)',chno(loop))];
+          else
+            nostri = [nostri sprintf('%d, ',chno(loop))];
+          end
+        end
+        uniquechno = inputdlg({dprintf('Select %dCH image stack out of %s.',cham,nostri)},'Image Stack',1,{sprintf('%d',chno(1))});
+        if ~ismember(str2num(uniquechno{1}),chno)
+          uniquechno = [];
+        end
+        if isempty(uniquechno)
+          myfailed('Invalid image stack.',DATA.GUI.Segment);
+          return;
+        else
+          [chno,ok] = str2num(uniquechno{1}); %#ok<ST2NM>
+          if not(ok)
+            myfailed('Invalid image stack.',DATA.GUI.Segment);
+            return;
+          end;
+        end;
+      end
+    end
+    if cham == 2
+      ch2no = chno;
+    elseif cham == 3
+      ch3no = chno;
+    elseif cham == 4
+      ch4no = chno;
+    end
+    %Check if image needs cropping only if assert boundaries
+    if assertboundaries
+      if SET(chno).XSize * SET(chno).ResolutionX > 260 || ...
+          SET(chno).YSize * SET(chno).ResolutionY > 260
+        nostocrop = [nostocrop chno]; %#ok<AGROW>
+      end
+    else
+      nostocrop = [nostocrop chno];
+    end
+  end
+end
+
+
+if assertboundaries
+if ~isempty(nostocrop)
+  if ~autocropall(true,nostocrop)
+    if ismember(saxno,nostocrop)
+      myfailed('Need to crop short-axis stack in order to do LV segmentation');
+      return
+    end
+  elseif SET(saxno).XSize * SET(saxno).ResolutionX > 250 || ...
+      SET(saxno).YSize * SET(saxno).ResolutionY > 250
+    myfailed('Need to crop short-axis stack more in order to do LV segmentation');
+    autocropall(true,nostocrop)
+    if SET(saxno).XSize * SET(saxno).ResolutionX > 250 || ...
+        SET(saxno).YSize * SET(saxno).ResolutionY > 250
+      myfailed('Need to crop short-axis stack more in order to do LV segmentation');
+      return
+    end
+  end
+end
+else
+  autocropall(true,nostocrop)
+end
 
 %-------------------
 function inittimebar
@@ -689,17 +834,12 @@ global DATA
 gui = DATA.GUI.LVSegmentation;
 segment('switchtoimagestack',gui.saxno);
 oldpol=DATA.ThisFrameOnly;
-segment('framemode_Callback',2);%segment('thisframeonly_Callback',false);
+DATA.ThisFrameOnly=0;%segment('framemode_Callback',2);%segment('thisframeonly_Callback',false);
 lvpeter('segmentfullyautomatic_Callback');
 close_Callback
-drawfunctions('drawall');
+drawfunctions('drawall',DATA.ViewMatrix(1),DATA.ViewMatrix(2));
 figure(DATA.GUI.Segment.fig);
-switch oldpol
-  case 1
-    segment('framemode_Callback',1)
-  case 0
-    segment('framemode_Callback',2)
-end
+DATA.ThisFrameOnly=oldpol;
 
 %----------------------
 function close_Callback  

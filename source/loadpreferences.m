@@ -13,7 +13,8 @@ pathname = getpreferencespath;
 
 if ispc
   if not(exist([pathname filesep '.segment_preferences.mat'],'file'))
-    mywarning('Moving system preferences file to new user location.');
+    %mywarning('Moving system preferences file to new user location.');
+    mydisp('Moving system preferences file to new user location.');
     
     %Old old location
     if exist('preferences.mat','file')
@@ -333,6 +334,10 @@ DATA.Pref.AllowDicomCache = false; %EH: Set to false since obsoleted
 
 if not(isfield(DATA.Pref,'OpenGLSoftware'))
   DATA.Pref.OpenGLSoftware = false; %Klas: before hardware was default.
+end;
+
+if not(isfield(DATA.Pref,'GUIBackgroundColor'))
+    DATA.Pref.GUIBackgroundColor = [0.94 0.94 0.94]; 
 end;
 
 %--------------------

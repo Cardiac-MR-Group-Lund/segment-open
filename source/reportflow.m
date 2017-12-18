@@ -230,9 +230,17 @@ end
 %           'pointershapehotspot',[7 7]);
 set(gui.fig,'Name',translation.dictionary('Flow report'));
 
-
 gui.outsize = [SET(nom).XSize SET(nom).YSize];
-gui.hr = (60/(SET(nom).TSize*SET(nom).TIncr));
+if not(isfield(SET(nom).Flow,'HeartRate')) || isempty(SET(nom).Flow.HeartRate)
+  temphr = (60/(SET(nom).TSize*SET(nom).TIncr));
+  if temphr < 35
+    defineheartrate(nom);
+  else
+    SET(nom).Flow.HeartRate = temphr;
+  end
+  DATA.flowreportupdate; %update result panel
+end
+gui.hr = SET(nom).Flow.HeartRate;
 set(gui.handles.heartratetext,'String',dprintf('Heart rate: %0.3g [bpm]',gui.hr));
 
 DATA.initreportflow(gui.handles);
@@ -269,6 +277,32 @@ recalculate(no);
 ok = true;
 
 set(gui.fig,'pointer','arrow');
+
+%---------------------------
+function defineheartrate(no)
+%---------------------------
+%Ask user to manually define the heart reate by giving the number of heart
+%beats
+global SET DATA NO
+
+if nargin < 1
+  no = NO;
+end
+
+temphr = (60/(SET(no).TSize*SET(no).TIncr));
+%assume real time flow, aks user to define number of hearts beat
+nbrheartbeats = mygetnumber('Enter number of heart beats (decimal with .)','Heart beats',1.0,0,[]);
+if ~isempty(nbrheartbeats) && nbrheartbeats > 0 && isnumeric(nbrheartbeats)
+  SET(no).Flow.HeartRate = nbrheartbeats*temphr;
+else
+  myfailed('Incorrect input value for number of heart beats, using 1',DATA.GUI.Segment);
+  SET(no).Flow.HeartRate = temphr;
+end
+mymsgbox(dprintf('The heart rate is now set to %0.3g',SET(no).Flow.HeartRate),'Heart rate',DATA.GUI.Segment);
+
+if nargin < 1
+  DATA.flowreportupdate; %update result panel
+end
 
 %-----------------------
 function recalculate(no)

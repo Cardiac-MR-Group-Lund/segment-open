@@ -65,7 +65,7 @@ for cham = 2:4
 end
 
 %Initalize
-DATA.initbullseye; %Set start and end slice in GUI's with such fcnality
+DATA.initbullseyeslices; %Set start and end slice in GUI's with such fcnality
 if isempty(SET(NO).StartSlice)
   myfailed('No slices selected.',DATA.GUI.Segment);
 %   close_Callback;
@@ -132,6 +132,7 @@ gui = mygui('bullseye.fig');
 DATA.GUI.Bullseye = gui;
 gui.no = NO;
 set(gui.fig,'renderer','opengl');
+DATA.initbullseye;  %fix listbox for each software package
 gui.laxno = laxno;
 
 %Update
@@ -546,14 +547,15 @@ global SET
 %Find slices with RV insertion points
 slices = false(1,SET(no).ZSize);
 for loop = 1:length(SET(no).Point.Z)
-  if isequal(SET(no).Point.Label{loop},'RV insertion')
+  if isequal(SET(no).Point.Label{loop},'RV insertion') || isequal(SET(no).Point.Label{loop},'P1')|| isequal(SET(no).Point.Label{loop},'P2')
     slices(SET(no).Point.Z(loop)) = true;
   end;
 end;
-  
+
 %Find slices
 pos = find(slices);
 if isempty(pos)
+  disp(dprintf('No RV points found. Current sector rotation is %0.5g',SET(no).SectorRotation)); 
   return
 end
 
@@ -575,44 +577,43 @@ for loop = 1:length(pos)
     x = SET(no).EndoX(:,SET(no).EDT,pos(loop));
     y = SET(no).EndoY(:,SET(no).EDT,pos(loop));
   end;
-
+  
   mx = mean(x);
   my = mean(y);
   
   %Find RV insertion points for this contour
   ind = [];
   for rloop = 1:length(SET(no).Point.Z)
-    if isequal(SET(no).Point.Label{rloop},'RV insertion') && isequal(pos(loop),SET(no).Point.Z(rloop))
+    if (isequal(SET(no).Point.Label{rloop},'RV insertion') || isequal(SET(no).Point.Label{rloop},'P2') || isequal(SET(no).Point.Label{rloop},'P1')) && isequal(pos(loop),SET(no).Point.Z(rloop))
       ind = [ind rloop]; %#ok<AGROW>
     end;
   end;
   
   if length(ind) < 2
-     message = dprintf('Expected two insertion points, found %d.',length(ind)); 
-     disp(message)
-     myfailed(message);
+    message = dprintf('Expected two insertion points, found %d.',length(ind));
+    disp(message)
+    myfailed(message);
     return;
   end
   if ~isequal(length(ind),2)
-    message = dprintf('Expected two insertion points, found %d. Taking the two points with largest distance between.',length(ind)); 
+    message = dprintf('Expected two insertion points, found %d. Taking the two points with largest distance between.',length(ind));
     disp(message);
-%     mywarning(message);
+    %     mywarning(message);
     dist = nan(length(ind),length(ind));
     for indloop = 1:length(ind)
-        dist(:,indloop) = sqrt((SET(no).Point.X(ind(indloop))-SET(no).Point.X(ind)).^2+ ...
-            (SET(no).Point.Y(ind(indloop))-SET(no).Point.Y(ind)).^2);
+      dist(:,indloop) = sqrt((SET(no).Point.X(ind(indloop))-SET(no).Point.X(ind)).^2+ ...
+        (SET(no).Point.Y(ind(indloop))-SET(no).Point.Y(ind)).^2);
     end
     [~,largestdist] = max(dist(:));
     [ind1,ind2] = ind2sub([length(ind) length(ind)],largestdist);
     ind = sort([ind(ind1) ind(ind2)]);
-%     return;
+    %     return;
   end;
   
   p1x = SET(no).Point.X(ind(1));
   p1y = SET(no).Point.Y(ind(1));
   p2x = SET(no).Point.X(ind(2));
   p2y = SET(no).Point.Y(ind(2));
-  
   
   %Find points on contour that are closest
   dist1 = sqrt((p1x-x).^2+(p1y-y).^2);
@@ -621,15 +622,12 @@ for loop = 1:length(pos)
   [~,indp1] = min(dist1(:));
   [~,indp2] = min(dist2(:));
   
-  %Middle of them
-  indm = round((indp1+indp2)/2);
-  
   %Sort them in order
   temp = sort([indp1 indp2]);
   indp1 = temp(1);
   indp2 = temp(2);
   clear temp;
- 
+  
   %Extract contour
   if length(indp1:indp2)/length(x)<0.5
     xr = x(indp1:indp2); %this is then the closest
@@ -656,7 +654,7 @@ for loop = 1:length(pos)
   
   %Calculate angle to contour
   alpha = atan2(y-my,x-mx);
-  alpha = alpha*180/pi;  
+  alpha = alpha*180/pi;
   sectorrot = sectorrot-(90+alpha); %add all then divide
 end;
 
@@ -675,8 +673,11 @@ gui = DATA.GUI.Bullseye;
 
 v = get(gui.handles.rotationfromannotationcheckbox,'value');
 if v
-  sectorrotationhelper(gui.no)
-end;
+  pos = LVrotation('rotationfromannotationhelper',gui.no);
+  if isempty(pos) %No points for rotation found
+    set(gui.handles.rotationfromannotationcheckbox,'value',0)
+  end
+end
 
 %update slider
 set(gui.handles.rotationslider,'value',SET(gui.no).SectorRotation);

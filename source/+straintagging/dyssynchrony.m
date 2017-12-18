@@ -13,6 +13,23 @@ gui = mygui(fullfile('+straintagging','dyssynchrony.fig'));
 DATA.GUI.dyssynchrony = gui;
 gui.tvec=linspace(0,1,SET(taggroup(1)).TSize);%SET(taggroup(1)).TimeVector;
 gui.taggroup=taggroup;
+gui.cmap=[1 1 0;...
+    1 128/255 128/255;...
+    0 1 0;...
+    128/255 0 0;...
+    0 0 1;...
+    0 1 1;...
+    1 0 0;...
+    1 0 1;...
+    .8 .8 .8;...
+    240/255 120/255 0;...
+    64/255 0 128/255;...
+    128/255 64/255 0;...
+    0 64/255 0;...
+    128/255 128/255 128/255;...
+    128/255 128/255 1;...
+    0 128/255 128/255;...
+    .5 .5 0];
 
 if strcmp(type,'LAX')
  set(gui.handles.typepopupmenu,'String',{'Longitudinal Peak Time';'Longitudinal Strain';'Radial Peak Time';'Radial Strain'})
@@ -133,6 +150,18 @@ end
 gui.bullseyecirc_t=bullseyecirc_t;
 gui.bullseyerad_t=bullseyerad_t;
 
+if isfield(SET(taggroup(1)).StrainTagging,'dyssynchrony')
+   
+  gui.tfcirc=SET(taggroup(1)).StrainTagging.dyssynchrony.tfcirc;
+gui.indcirc=  SET(taggroup(1)).StrainTagging.dyssynchrony.indcirc;
+gui.tfrad = SET(taggroup(1)).StrainTagging.dyssynchrony.tfrad;
+gui.indrad = SET(taggroup(1)).StrainTagging.dyssynchrony.indrad;
+  gui.sections2show = SET(taggroup(1)).StrainTagging.dyssynchrony.include;
+  gui.globcircpeaktf=SET(taggroup(1)).StrainTagging.dyssynchrony.globcircpeaktf;
+  gui.globradpeaktf=SET(taggroup(1)).StrainTagging.dyssynchrony.globradpeaktf;
+
+else
+
 [~,indcirc]=min(bullseyecirc_t');
 [~,indrad]=max(bullseyerad_t');
 
@@ -148,6 +177,9 @@ gui.tfrad=gui.tvec(indrad);%SET(no).TimeVector(indrad);
 gui.globcircpeaktf=meancircstrain_ind./SET(no).TSize;%gui.tvec(meancircstrain_ind);
 gui.globradpeaktf=meanradstrain_ind./SET(no).TSize;%gui.tvec(meanradstrain_ind);
 
+gui.sections2show =1:17;
+end
+
 %do graphical stuff to gui
 
 for ahaloop=1:17
@@ -155,11 +187,14 @@ for ahaloop=1:17
 end
 
 
+for i=gui.sections2show
+  set(gui.handles.(['radiobutton',num2str(i)]),'Value',1);
+end
 
 for i=1:17
 set(gui.handles.(['radiobutton',num2str(i)]),'String',ahastri{i})
-set(gui.handles.(['radiobutton',num2str(i)]),'Value',1);
 set(gui.handles.(['radiobutton',num2str(i)]),'Callback','straintagging.dyssynchrony(''radio_Callback'')');
+set(gui.handles.(['radiobutton',num2str(i)]),'backgroundcolor',gui.cmap(i,:))
 end
 
 gui.handles.peakscirc=nan(1,17);
@@ -175,24 +210,6 @@ else
   set(gui.handles.unittext,'String', 'longit./rad. [s/T]')
   set(gui.handles.dyssynctext,'String','longit./rad. [std]')
 end
-
-gui.cmap=[1 1 0;...
-    0 0 0;...
-    0 0 1;...
-    0 1 0;...
-    0 1 1;...
-    1 0 0;...
-    1 0 1;...
-    .8 .8 .8;...
-    240/255 120/255 0;...
-    64/255 0 128/255;...
-    128/255 64/255 0;...
-    0 64/255 0;...
-    128/255 128/255 128/255;...
-    128/255 128/255 1;...
-    0 128/255 128/255;...
-    128/255 0 0;...
-    1 128/255 128/255];
   
 radio_Callback;
 
@@ -251,7 +268,7 @@ set(peakhandle,'Xdata',x(ind),'Ydata',y(ind))
 
 for i=gui.sections2show
   %set(gui.handles.(['edit',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i)-gui.globcircpeaktf,gui.tfrad(i)-gui.globradpeaktf))
-  set(gui.handles.(['edit',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i),gui.tfrad(i)))
+  set(gui.handles.(['text',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i),gui.tfrad(i)))
 end
 
 switch type
@@ -290,7 +307,7 @@ set(gui.handles.fig,'windowbuttonupfcn',[])
 
 for i=gui.sections2show
   %set(gui.handles.(['edit',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i)-gui.globcircpeaktf,gui.tfrad(i)-gui.globradpeaktf))
-  set(gui.handles.(['edit',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i),gui.tfrad(i)))
+  set(gui.handles.(['text',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i),gui.tfrad(i)))
 end
 set(gui.handles.dyssyncedit,'String',sprintf('%0.2f/%0.2f',std(gui.tfcirc(gui.sections2show)),std(gui.tfrad(gui.sections2show))));
 
@@ -378,6 +395,92 @@ for i=13:17
 end
 radio_Callback
 
+function anterior_Callback
+global DATA
+gui = DATA.GUI.dyssynchrony ;
+
+if gui.oneatatime
+  val=get(gui.handles.oneatatimecheckbox,'value');
+  set(gui.handles.oneatatimecheckbox,'value',~val)
+  oneatatime_Callback;
+end
+
+for i=1:17
+  myset(gui.handles.(['radiobutton',num2str(i)]),'Value',0);
+end
+
+anteriorinds=[2 8 14];
+
+for i=anteriorinds
+  myset(gui.handles.(['radiobutton',num2str(i)]),'Value',1);
+end
+radio_Callback
+
+function inferior_Callback
+global DATA
+gui = DATA.GUI.dyssynchrony ;
+
+if gui.oneatatime
+  val=get(gui.handles.oneatatimecheckbox,'value');
+  set(gui.handles.oneatatimecheckbox,'value',~val)
+  oneatatime_Callback;
+end
+
+for i=1:17
+  myset(gui.handles.(['radiobutton',num2str(i)]),'Value',0);
+end
+
+inferiorinds=[5 11 16];
+
+for i=inferiorinds
+  myset(gui.handles.(['radiobutton',num2str(i)]),'Value',1);
+end
+radio_Callback
+
+function lateral_Callback
+global DATA
+gui = DATA.GUI.dyssynchrony ;
+
+if gui.oneatatime
+  val=get(gui.handles.oneatatimecheckbox,'value');
+  set(gui.handles.oneatatimecheckbox,'value',~val)
+  oneatatime_Callback;
+end
+
+for i=1:17
+  myset(gui.handles.(['radiobutton',num2str(i)]),'Value',0);
+end
+
+lateralinds=[3 4 9 10 15];
+
+for i=lateralinds
+  myset(gui.handles.(['radiobutton',num2str(i)]),'Value',1);
+end
+radio_Callback
+
+function septal_Callback
+global DATA
+gui = DATA.GUI.dyssynchrony ;
+
+if gui.oneatatime
+  val=get(gui.handles.oneatatimecheckbox,'value');
+  set(gui.handles.oneatatimecheckbox,'value',~val)
+  oneatatime_Callback;
+end
+
+for i=1:17
+  myset(gui.handles.(['radiobutton',num2str(i)]),'Value',0);
+end
+
+septalinds=[1 6 7 12 13];
+
+for i=septalinds
+  myset(gui.handles.(['radiobutton',num2str(i)]),'Value',1);
+end
+radio_Callback
+
+
+
 function oneatatime_Callback
 global DATA
 gui = DATA.GUI.dyssynchrony;
@@ -441,6 +544,7 @@ legend(h,'off')
 
 cla(h)
 %cla(gui.handles.reportaxes)
+
 set(h,'yticklabelmode','auto')
 set(h,'ytickmode','auto')
 ylim(h,'auto')
@@ -452,7 +556,7 @@ for ahaloop=1:17
 end
 
 for i=gui.sections2show
-set(gui.handles.(['edit',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i),gui.tfrad(i)))
+set(gui.handles.(['text',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i),gui.tfrad(i)))
 %set(gui.handles.(['edit',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i)-gui.globcircpeaktf,gui.tfrad(i)-gui.globradpeaktf))
 end
 set(gui.handles.dyssyncedit,'String',sprintf('%0.2f/%0.2f',std(gui.tfcirc(gui.sections2show)),std(gui.tfrad(gui.sections2show))));
@@ -465,6 +569,7 @@ hold(h,'on')
 grid(h,'on');
 switch str
   case {'Circumferential Peak Time','Longitudinal Peak Time'}
+    set(h,'Ydir','reverse')
     for i=gui.sections2show%1:17
       plot(h,gui.tfcirc(i),i,'k+','markersize',10,'linewidth',3)
     end
@@ -476,6 +581,7 @@ switch str
     ylabel(h,'')
     
   case 'Radial Peak Time'
+    set(h,'Ydir','reverse')
     for i=gui.sections2show%1:17
       plot(h,gui.tfrad(i),i,'k+','markersize',10,'linewidth',3)
     end
@@ -488,6 +594,7 @@ switch str
     
   case {'Circumferential Strain','Longitudinal Strain'}
     %myset(gui.handles.fig,'ButtonDownFcn',sprintf('straintagging.dyssynchrony(''setpeak_Callback'',%s)','circ'))
+    set(h,'Ydir','Normal')
     for i=gui.sections2show
       gui.handles.graphscirc(i)=plot(h,gui.tvec,gui.bullseyecirc_t(i,:),'.-','linewidth',2,'Color',gui.cmap(i,:));
       gui.handles.peakscirc(i)=plot(h,gui.tfcirc(i),gui.bullseyecirc_t(i,gui.indcirc(i)),'k+','markersize',10,'linewidth',3);
@@ -498,6 +605,7 @@ switch str
     xlim(h,[0,gui.tvec(end)])
     ylabel(h,'%')
   case 'Radial Strain'
+    set(h,'Ydir','Normal')
     %myset(gui.handles.fig,'ButtonDownFcn',sprintf('straintagging.dyssynchrony(''setpeak_Callback'',%s)','rad'))
     for i=gui.sections2show
       gui.handles.graphsrad(i)=plot(h,gui.tvec,gui.bullseyerad_t(i,:),'.-','linewidth',2,'Color',gui.cmap(i,:));
@@ -509,9 +617,81 @@ switch str
     xlim(h,[0,gui.tvec(end)])
     ylabel(h,'%')
 end
-xlabel(h,'normalised time [s/T]')
+xlabel(h,'Heart Cycle [s/T]')
 hold(h,'off')
- 
+
+
+
+function export_Callback
+global DATA SET
+%store and close
+gui = DATA.GUI.dyssynchrony;
+no = gui.taggroup(1);
+
+col=1;
+line=1;
+
+outdata{1,1} = 'Patient Name';
+outdata{2,1} = 'Patient ID';
+outdata{3,1} = 'Heart Rate';
+outdata{4,1} = 'Image Type';
+
+outdata{1,2} = SET(no).PatientInfo.Name;
+outdata{2,2} = SET(no).PatientInfo.ID;
+outdata{3,2} = SET(no).HeartRate;
+outdata{4,2} = sprintf('%s %s',SET(no).ImageType,SET(no).ImageViewPlane);
+
+line = 6;
+
+outdata{line,2}='Circ. Peak Time [s/T]';
+outdata{line,3}='Rad. Peak Time [s/T]';
+outdata{line,4}='Circ. Peak [%]';
+outdata{line,5}='Rad. Peak [%]';
+
+for ahaloop=1:17
+    [ahastri{ahaloop},pos(ahaloop)] = reportbullseye('aha17nameandpos',ahaloop); %Get name and position of export
+end
+
+for i = 1:17
+  outdata{line+i,1}=ahastri{i};
+end
+
+for i=gui.sections2show;
+  outdata{line+i,2}=gui.tfcirc(i);
+  outdata{line+i,3}=gui.tfrad(i);
+  outdata{line+i,4}=gui.bullseyecirc_t(i,gui.indcirc(i));
+  outdata{line+i,5}=gui.bullseyerad_t(i,gui.indrad(i));
+end
+
+outdata{line+19,2}='Dyssynchrony [std]';
+outdata{line+20,1}='Circ. Peak Time';
+outdata{line+21,1}='Rad. Peak Time';
+outdata{line+20,2}=std(gui.tfcirc(gui.sections2show));
+outdata{line+21,2}=std(gui.tfrad(gui.sections2show));
+
+segment('cell2clipboard',outdata);
+
+function save_Callback
+global DATA SET
+%store and close
+gui = DATA.GUI.dyssynchrony;
+for no = gui.taggroup
+  SET(no).StrainTagging.dyssynchrony.tfcirc=gui.tfcirc;
+  SET(no).StrainTagging.dyssynchrony.indcirc=gui.indcirc;
+  SET(no).StrainTagging.dyssynchrony.tfrad=gui.tfrad;
+  SET(no).StrainTagging.dyssynchrony.indrad=gui.indrad;
+  SET(no).StrainTagging.dyssynchrony.include=gui.sections2show;
+  SET(no).StrainTagging.dyssynchrony.globcircpeaktf = gui.globcircpeaktf;
+  SET(no).StrainTagging.dyssynchrony.globradpeaktf=gui.globradpeaktf;
+end
+
+try
+  DATA.GUI.dyssynchrony = close(DATA.GUI.dyssynchrony );
+catch   %#ok<CTCH>
+  DATA.GUI.dyssynchrony =[];
+  delete(gcbf);
+end 
+
 function close_Callback
 global DATA
 

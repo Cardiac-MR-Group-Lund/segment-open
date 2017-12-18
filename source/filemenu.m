@@ -278,7 +278,7 @@ if not(DATA.Silent)
       stri = dprintf('Image stack and segmentation stored to %s.',...
         SET(NO).FileName);
     end;
-    msgbox(stri,'Save successful.',DATA.GUI.Segment);
+    mymsgbox(stri,'Save successful.',DATA.GUI.Segment);
   end;
 end;
 
@@ -622,7 +622,7 @@ end;
 
 if ~DATA.Silent
   if (DATA.NeedToSave)
-    if ~yesno('Unsaved changes: are you sure you want to close the current image stack?',[],DATA.GUI.Segment);
+    if ~yesno('Unsaved changes: are you sure you want to delete the current image stack?',[],DATA.GUI.Segment);
       return;
     end;
   end
@@ -699,6 +699,10 @@ end
 %Make sure report is preserved, if removing stack number 1
 if no == 1
   SET(2).Report = SET(1).Report;
+end
+
+if ~isempty(SET(no).Flow)
+  SET(no).Flow=[];
 end
 
 %Close all associated GUIs
@@ -838,7 +842,6 @@ if resetLVNO
   else
     DATA.LVNO = [];
   end
-  DATA.updateaxestables('volume')
 end
 
 if resetRVNO
@@ -847,12 +850,21 @@ if resetRVNO
   else
     DATA.RVNO = [];
   end
-  DATA.updateaxestables('volume')
 end
 
 if resetFlowNO
   [DATA.FlowNO, DATA.FlowROI] = findfunctions('findflowaxisno');
 end
+
+if resetLVNO
+  DATA.updateaxestables('volume')
+end
+
+
+if resetRVNO
+  DATA.updateaxestables('volume')
+end
+
 
 DATA.ViewMatrix=[1 1];
 drawfunctions('drawall',1);

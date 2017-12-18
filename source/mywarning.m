@@ -24,7 +24,7 @@ end;
 keystroke = popfrombuffer('KeyStroke');
 
 if isempty(keystroke)
-  mydisp(dprintf('Warning:%s\n',stri));
+  disp(dprintf('Warning:%s\n',stri));
   h = warndlg(stri,'Warning:');
 
   %Adjust horisontally
@@ -42,7 +42,7 @@ if isempty(keystroke)
     %Ignore if failed, likely due to DATA is cleared or not present
   end;
 else
-  mydisp(dprintf('Warning:%s\n',stri));  
+  disp(dprintf('Warning:%s\n',stri));  
   if isequal(lower(keystroke),'ok')
     pushtobuffer('Warnings',stri);
     macro_helper('put','pushtobuffer(''KeyStroke'',''ok''); %ok from mywarning');

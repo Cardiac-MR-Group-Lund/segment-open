@@ -1,6 +1,12 @@
 function reportradvel
+%--------------------
 %GUI for radial velocity.
 global DATA SET NO
+
+if SET(NO).TSize < 2
+  myfailed('Data needs to be time resolved.',DATA.GUI.Segment);
+  return;
+end
 
 if isempty(SET(NO).EndoX)
   myfailed('No LV endocardium available.',DATA.GUI.Segment);
@@ -41,13 +47,13 @@ handles = guihandles(fig);
 maxv = max(abs(meanradvel(:)));
 konst = 32/maxv;
 
-axes(handles.coloraxes); %#ok<MAXES>
+axes(handles.coloraxes); 
 h = imagesc([-maxv maxv]);
 colorbar;
 set(h,'visible','off');
 axis off;
 
-axes(handles.imageaxes); %#ok<MAXES>
+axes(handles.imageaxes); 
 tf = SET(NO).CurrentTimeFrame;
 
 %Calculate "current slice"
@@ -77,22 +83,22 @@ hold off;
 axis off;
 axis image;
 
-axes(handles.axes1); %#ok<MAXES>
+axes(handles.axes1); 
 helpimageposneg(meanradvel,1,konst);
 
-axes(handles.axes2); %#ok<MAXES>
+axes(handles.axes2); 
 helpimageposneg(meanradvel,2,konst);
 
-axes(handles.axes3); %#ok<MAXES>
+axes(handles.axes3); 
 helpimageposneg(meanradvel,3,konst);
 
-axes(handles.axes4); %#ok<MAXES>
+axes(handles.axes4);
 helpimageposneg(meanradvel,4,konst);
 
-axes(handles.axes5); %#ok<MAXES>
+axes(handles.axes5); 
 helpimageposneg(meanradvel,5,konst);
 
-axes(handles.axes6); %#ok<MAXES>
+axes(handles.axes6); 
 helpimageposneg(meanradvel,6,konst);
 
 %---------------------------------------

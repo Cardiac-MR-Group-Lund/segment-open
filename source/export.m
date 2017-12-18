@@ -444,29 +444,72 @@ end;
 
 switch filterindex
   case 1
-    imwrite(im,f,'png','bitdepth',8,'software','Segment',...
-      'creationtime',datestr(now));
+    try
+      imwrite(im,f,'png','bitdepth',8,'software','Segment',...
+        'creationtime',datestr(now));
+      mydisp('Export successful');
+    catch
+      mydisp('Export failed');
+    end
   case 2
-    imwrite(im,f,'jpg','quality',100);
+    try
+      imwrite(im,f,'jpg','quality',100);
+      mydisp('Export successful');
+    catch
+      mydisp('Export failed');
+    end
   case 3
-    imwrite(im,f,'bmp');
+    try
+      imwrite(im,f,'bmp');
+      mydisp('Export successful');
+    catch
+      mydisp('Export failed');
+    end
   case 4
-    imwrite(im,f,'tif');
+    try
+      imwrite(im,f,'tif');
+      mydisp('Export successful');
+    catch
+      mydisp('Export failed');
+    end
+    
   case 5
     makeimagedicom(im,f,DATA.ViewPanels(DATA.CurrentPanel));
     try
-      pacs('savetopacs_helper',{f},getpreferencespath);
+      successful=pacs('savetopacs_helper',{f},getpreferencespath);
     catch me
+      successful=0;
       mydispexception(me);
       myfailed(me.message);
     end
+    try
+      status=1;
+      delete(f)
+    catch
+      status=0;
+    end
+    
+    stri='';
+    if successful
+      stri='Save to PACS success';
+    else
+      stri='Save to PACS failed';
+    end
+    
+    if status==1
+      stri=[stri,' and succesfully removed report from computer.'];
+    else
+      stri=[stri,' and failed to remove report from computer.'];
+    end
+    
+    mydisp(translation.dictionary(stri))
 end;
 %catch
 %  myfailed('Export of image failed.');
 %  return;
 %end
 
-mymsgbox('Export successful.','Done!');
+%mymsgbox('Export successful.','Done!');
 
 %--------------------------------------------------------
 function ok = exportsavemovie(mov,left,right,up,down,fps)
@@ -478,7 +521,7 @@ function ok = exportsavemovie(mov,left,right,up,down,fps)
 %
 %Allows user to select different codecs.
 
-global DATA 
+global DATA
 
 if exist(DATA.Pref.exportpath,'dir')
   epath = DATA.Pref.exportpath;
@@ -584,7 +627,7 @@ switch m
     
     myworkon;
     h = mywaitbarstart(length(mov),'Please wait, storing movie.');
-    myadjust(h,DATA.GUI.Segment)
+    myadjust(h.h,DATA.GUI.Segment.fig)
     for loop=1:length(mov)
       [temp] = frame2im(mov(loop));
       if nargin>1
@@ -1474,7 +1517,7 @@ if numfiles==0
 end;
 
 %Create output matrix
-nbrdataperstack = 18;
+nbrdataperstack = 19;
 outdata = cell(numfiles+1,nbrdataperstack*6); %6 is just a guess, 18 is data per image stack
 maxno = 1;
 
@@ -1527,23 +1570,24 @@ for fileloop=1:numfiles
       coloffset = 1+(sloop-1)*nbrdataperstack;
       row = fileloop+1;
       outdata{row, 1+coloffset} = SET(sloop).ImageType;
-      outdata{row, 2+coloffset} = SET(sloop).XSize;
-      outdata{row, 3+coloffset} = SET(sloop).YSize;
-      outdata{row, 4+coloffset} = SET(sloop).ZSize;
-      outdata{row, 5+coloffset} = SET(sloop).TSize;
-      outdata{row, 6+coloffset} = SET(sloop).ResolutionX;
-      outdata{row, 7+coloffset} = SET(sloop).ResolutionY;
-      outdata{row, 8+coloffset} = SET(sloop).SliceThickness;
-      outdata{row, 9+coloffset} = SET(sloop).SliceGap;
-      outdata{row,10+coloffset} = SET(sloop).TIncr;
-      outdata{row,11+coloffset} = isscar;
-      outdata{row,12+coloffset} = isflow;      
-      outdata{row,13+coloffset} = isseg;
-      outdata{row,14+coloffset} = SET(sloop).FlipAngle;
-      outdata{row,15+coloffset} = SET(sloop).EchoTime;
-      outdata{row,16+coloffset} = SET(sloop).RepetitionTime;
-      outdata{row,17+coloffset} = SET(sloop).InversionTime;
-      outdata{row,18+coloffset} = SET(sloop).HeartRate;
+      outdata{row, 2+coloffset} = SET(sloop).SeriesDescription;
+      outdata{row, 3+coloffset} = SET(sloop).XSize;
+      outdata{row, 4+coloffset} = SET(sloop).YSize;
+      outdata{row, 5+coloffset} = SET(sloop).ZSize;
+      outdata{row, 6+coloffset} = SET(sloop).TSize;
+      outdata{row, 7+coloffset} = SET(sloop).ResolutionX;
+      outdata{row, 8+coloffset} = SET(sloop).ResolutionY;
+      outdata{row, 9+coloffset} = SET(sloop).SliceThickness;
+      outdata{row, 10+coloffset} = SET(sloop).SliceGap;
+      outdata{row,11+coloffset} = SET(sloop).TIncr;
+      outdata{row,12+coloffset} = isscar;
+      outdata{row,13+coloffset} = isflow;      
+      outdata{row,14+coloffset} = isseg;
+      outdata{row,15+coloffset} = SET(sloop).FlipAngle;
+      outdata{row,16+coloffset} = num2str(SET(sloop).EchoTime);
+      outdata{row,17+coloffset} = SET(sloop).RepetitionTime;
+      outdata{row,18+coloffset} = num2str(SET(sloop).InversionTime);
+      outdata{row,19+coloffset} = SET(sloop).HeartRate;
     end;
     
   %catch
@@ -1559,23 +1603,24 @@ for sloop=1:maxno
   coloffset = 1+(sloop-1)*nbrdataperstack;
   row = 1; %First line is header line  
   outdata{row, 1+coloffset} = 'ImageType';
-  outdata{row, 2+coloffset} = 'XSize';
-  outdata{row, 3+coloffset} = 'YSize';
-  outdata{row, 4+coloffset} = 'ZSize';
-  outdata{row, 5+coloffset} = 'TSize';
-  outdata{row, 6+coloffset} = 'ResX';
-  outdata{row, 7+coloffset} = 'ResY';
-  outdata{row, 8+coloffset} = 'SliceThickness';
-  outdata{row, 9+coloffset} = 'SliceGap';
-  outdata{row,10+coloffset} = 'TIncr';
-  outdata{row,11+coloffset} = 'ScarData';
-  outdata{row,12+coloffset} = 'FlowData';
-  outdata{row,13+coloffset} = 'Segmentation';
-  outdata{row,14+coloffset} = 'FlipAngle';
-  outdata{row,15+coloffset} = 'EchoTime';
-  outdata{row,16+coloffset} = 'RepetitionTime';
-  outdata{row,17+coloffset} = 'InversionTime';
-  outdata{row,18+coloffset} = 'HeartRate';
+  outdata{row, 2+coloffset} = 'SeriesDescription';
+  outdata{row, 3+coloffset} = 'XSize';
+  outdata{row, 4+coloffset} = 'YSize';
+  outdata{row, 5+coloffset} = 'ZSize';
+  outdata{row, 6+coloffset} = 'TSize';
+  outdata{row, 7+coloffset} = 'ResX';
+  outdata{row, 8+coloffset} = 'ResY';
+  outdata{row, 9+coloffset} = 'SliceThickness';
+  outdata{row, 10+coloffset} = 'SliceGap';
+  outdata{row,11+coloffset} = 'TIncr';
+  outdata{row,12+coloffset} = 'ScarData';
+  outdata{row,13+coloffset} = 'FlowData';
+  outdata{row,14+coloffset} = 'Segmentation';
+  outdata{row,15+coloffset} = 'FlipAngle';
+  outdata{row,16+coloffset} = 'EchoTime';
+  outdata{row,17+coloffset} = 'RepetitionTime';
+  outdata{row,18+coloffset} = 'InversionTime';
+  outdata{row,19+coloffset} = 'HeartRate';
 end;
 
 %--- Output to a string
@@ -2054,7 +2099,6 @@ switch output
     return;
 end
 
-
 currentsilent = DATA.Silent;
 % %Create output matrix
 outdata = cell(1,1); %+1 since header, 58 since header size
@@ -2067,29 +2111,6 @@ import java.awt.*;
 import java.awt.event.*;
 %Create a Robot-object to do the key-pressing
 rob=Robot;
-
-% %--- output ---
-% %patient info
-% outdata{2,1} = 'Patient name';
-% outdata{2,2} = 'Patient ID';
-% outdata{2,3} = 'Heart Rate';
-% outdata{2,4} = 'Image Type';
-% %global strain values
-% outdata{2,5} = 'Peak mean radial strain [%]';
-% outdata{2,6} = 'Peak mean circ./longit. strain [%]';
-% outdata{2,7} = 'Peak Time [ms]';
-% outdata{2,8} = 'Peak mean radial strain [%] (entire LV)';
-% outdata{2,9} = 'Peak mean circ./longit. strain [%] (entire LV)';
-% %segmental strain values from bullseye
-% outdata{1,10} = 'Segmental peak radial strain [%]';
-% outdata{1,27} = 'Segmental peak circ./longit. strain [%]';
-% %aha sections
-% for loop=1:17
-%   [stri,pos] = reportbullseye('aha17nameandpos',loop); %Get name and position of export
-%   outdata{2,9+pos} = stri;
-%   outdata{2,26+pos} = stri;
-% end
-% line = 3;
 
 line=2;
   
@@ -2177,9 +2198,6 @@ for fileloop=1:numfiles
   tf2ch = 1;
   tf3ch = 1;
   tf4ch = 1;
-%   no2ch=[];
-%   no3ch=[];
-%   no4ch=[];
   
   for no=1:length(SET)
     if ~isfield(SET(no),'StrainTagging')|| isempty(SET(no).StrainTagging) || ~isfield(SET(no).StrainTagging,'globalrad') %|| ismember(no,checked)
@@ -2202,97 +2220,26 @@ for fileloop=1:numfiles
             globalrad2ch = mynanmean(SET(no).StrainTagging.globalrad(tf2ch,:));
             segmentalcirc2ch = SET(no).StrainTagging.segmentcirc;
             segmentalrad2ch = SET(no).StrainTagging.segmentrad;
-%             if isfield(SET(no).StrainTagging,'strainratecircum') && ~isempty(SET(no).StrainTagging.strainratecircum)
-%               segmentalcircSR2CH = SET(no).StrainTagging.strainratecircum;
-%               [~, tfcirc2chdown]=min(abs(SET(no).StrainTagging.strainrateTvect-mean(SET(no).StrainTagging.downslopecircum(:,2)/1000)));
-%               [~, tfcirc2chup]=min(abs(SET(no).StrainTagging.strainrateTvect-mean(SET(no).StrainTagging.upslopecircum(:,2)/1000)));
-%               
-%               segmentalradSR2CH = SET(no).StrainTagging.strainraterad;
-%               [~, tfrad2chdown]=min(abs(SET(no).StrainTagging.strainrateTvect-mean(SET(no).StrainTagging.downsloperad(:,2)/1000)));
-%               [~, tfrad2chup]=min(abs(SET(no).StrainTagging.strainrateTvect-mean(SET(no).StrainTagging.upsloperad(:,2)/1000)));
-%               no2ch=no;
-%             else
-%               segmentalcircSR2CH = nan(SET(no).ZSize,1);
-%               tfcirc2chup=1;
-%               tfcirc2chdown=1;
-%               
-%                segmentalradSR2CH = nan(SET(no).ZSize,1);
-%                tfrad2chup=1;
-%                tfrad2chdown=1;
-%             end
            case '3CH'
              tf3ch = SET(no).StrainTagging.peaktf;
              globalcirc3ch = mynanmean(SET(no).StrainTagging.globalcirc(tf3ch,:));
              globalrad3ch = mynanmean(SET(no).StrainTagging.globalrad(tf3ch,:));
              segmentalcirc3ch = SET(no).StrainTagging.segmentcirc;
              segmentalrad3ch = SET(no).StrainTagging.segmentrad;
-%              if isfield(SET(no).StrainTagging,'strainratecircum') && ~isempty(SET(no).StrainTagging.strainratecircum)
-%                segmentalcircSR3CH = SET(no).StrainTagging.strainratecircum;
-%                [~, tfcirc3chdown]=min(abs(SET(no).StrainTagging.strainrateTvect-mean(SET(no).StrainTagging.downslopecircum(:,2)/1000)));
-%                [~, tfcirc3chup]=min(abs(SET(no).StrainTagging.strainrateTvect-mean(SET(no).StrainTagging.upslopecircum(:,2)/1000)));
-%               
-%                segmentalradSR3CH = SET(no).StrainTagging.strainraterad;
-%               [~, tfrad3chdown]=min(abs(SET(no).StrainTagging.strainrateTvect-mean(SET(no).StrainTagging.downsloperad(:,2)/1000)));
-%               [~, tfrad3chup]=min(abs(SET(no).StrainTagging.strainrateTvect-mean(SET(no).StrainTagging.upsloperad(:,2)/1000)));
-%               
-%                no3ch=no;
-%              else
-%                segmentalcircSR3CH = nan(SET(no).ZSize,1);
-%                tfcirc3chup=1;
-%                tfcirc3chdown=1;
-%                segmentalradSR3CH = nan(SET(no).ZSize,1);
-%                tfrad3chup=1;
-%                tfrad3chdown=1;
-%              
-%              end
            case '4CH'
              tf4ch = SET(no).StrainTagging.peaktf;
              globalcirc4ch = mynanmean(SET(no).StrainTagging.globalcirc(tf4ch,:));
              globalrad4ch = mynanmean(SET(no).StrainTagging.globalrad(tf4ch,:));
              segmentalcirc4ch = SET(no).StrainTagging.segmentcirc;
              segmentalrad4ch = SET(no).StrainTagging.segmentrad;
-%              if isfield(SET(no).StrainTagging,'strainratecircum') && ~isempty(SET(no).StrainTagging.strainratecircum)
-%                segmentalcircSR4CH = SET(no).StrainTagging.strainratecircum;
-%                [~, tfcirc4chdown]=min(abs(SET(no).StrainTagging.strainrateTvect-mean(SET(no).StrainTagging.downslopecircum(:,2)/1000)));
-%                [~, tfcirc4chup]=min(abs(SET(no).StrainTagging.strainrateTvect-mean(SET(no).StrainTagging.upslopecircum(:,2)/1000)));
-%                
-%                segmentalradSR4CH = SET(no).StrainTagging.strainraterad;
-%                [~, tfrad4chdown]=min(abs(SET(no).StrainTagging.strainrateTvect-mean(SET(no).StrainTagging.downsloperad(:,2)/1000)));
-%                [~, tfrad4chup]=min(abs(SET(no).StrainTagging.strainrateTvect-mean(SET(no).StrainTagging.upsloperad(:,2)/1000)));
-%                no4ch=no;
-%              else
-%                segmentalcircSR4CH = nan(SET(no).ZSize,1);
-%                tfcirc4chup=1;
-%                tfcirc4chdown=1;
-%                segmentalradSR4CH = nan(SET(no).ZSize,1);
-%                tfrad4chup=1;
-%                tfrad4chdown=1;
-%              end
          end
       end
     end
   end
   bullseyecirclax = straintagging.straintagging('getbullseyevalueslax',segmentalcirc2ch,segmentalcirc3ch,segmentalcirc4ch,tf2ch,tf3ch,tf4ch);
   bullseyeradiallax = straintagging.straintagging('getbullseyevalueslax',segmentalrad2ch,segmentalrad3ch,segmentalrad4ch,tf2ch,tf3ch,tf4ch);
-  
-%   bullseyeSRcirclaxdown=nan(1,2);
-%   bullseyeSRcirclaxup=nan(1,2);
-%   bullseyeSRradlaxdown=nan(1,2);
-%   bullseyeSRradlaxup=nan(1,2);
-%   
-%   bullseyeSRcirclaxdown = straintagging.straintagging('getbullseyevalueslax',segmentalcircSR2CH,segmentalcircSR3CH,segmentalcircSR4CH,...
-%     tfcirc2chdown,tfcirc3chdown,tfcirc4chdown);
-%   bullseyeSRcirclaxup = straintagging.straintagging('getbullseyevalueslax',segmentalcircSR2CH,segmentalcircSR3CH,segmentalcircSR4CH,...
-%     tfcirc2chup,tfcirc3chup,tfcirc4chup);
-%   
-%   bullseyeSRradlaxdown = straintagging.straintagging('getbullseyevalueslax',segmentalradSR2CH,segmentalradSR3CH,segmentalradSR4CH,...
-%     tfrad2chdown,tfrad3chdown,tfrad4chdown);
-%   bullseyeSRradlaxup = straintagging.straintagging('getbullseyevalueslax',segmentalradSR2CH,segmentalradSR3CH,segmentalradSR4CH,...
-%     tfrad2chup,tfrad3chup,tfrad4chup);
-%   line=2;
-%   %output
   for no=1:length(SET)    
-    if ~isfield(SET(no),'StrainTagging')|| isempty(SET(no).StrainTagging) || ~isfield(SET(no).StrainTagging,'globalrad') %|| ismember(no,checked) 
+    if ~isfield(SET(no),'StrainTagging')|| isempty(SET(no).StrainTagging) || ~isfield(SET(no).StrainTagging,'globalrad') || ~isfield(SET(no).StrainTagging,'SR')  %|| ismember(no,checked) 
       %Skip no
     else
           %--- output ---
@@ -2444,52 +2391,64 @@ for fileloop=1:numfiles
             outdata{line-2,col} = 'Radial strain rate [%/s]';
             
             outdata{line-1,col} ='Mean Upslope';
-            outdata{line,col}=nanmean(SET(no).StrainTagging.upsloperad(:,1));
+            outdata{line,col}=SET(no).StrainTagging.SR.globalradup;%nanmean(SET(no).StrainTagging.SR.radup);%nanmean(SET(no).StrainTagging.upsloperad(:,1));
             col=col+1;
             outdata{line-1,col} ='Mean Upslope time';
-            outdata{line,col}=nanmean(SET(no).StrainTagging.upsloperad(:,2));
+            outdata{line,col}=SET(no).TimeVector(SET(no).StrainTagging.SR.globalradupind+1);
             col=col+1;
             outdata{line-1,col} ='Mean Downslope ';
-            outdata{line,col}=nanmean(SET(no).StrainTagging.downsloperad(:,1));
+            outdata{line,col}=SET(no).StrainTagging.SR.globalraddown;%nanmean(SET(no).StrainTagging.downsloperad(:,1));
             col=col+1;
             outdata{line-1,col} ='Mean Downslope time';
-            outdata{line,col}=nanmean(SET(no).StrainTagging.downsloperad(:,2));
+            outdata{line,col}=SET(no).TimeVector(SET(no).StrainTagging.SR.globalraddownind+1);
             col=col+1;
+            
+            used=find(SET(no).StrainTagging.SR.include);
             for sliceloop = 1:nbrslices
-              outdata{line-1,col} = sprintf('Slice %d Upslope',sliceloop);
-              outdata{line,col} = SET(no).StrainTagging.upsloperad(sliceloop,1);
-              outdata{line-1,col+1} = sprintf('Slice %d Upslope time',sliceloop);
-              outdata{line,col+1} = SET(no).StrainTagging.upsloperad(sliceloop,2);
-              outdata{line-1,col+2} = sprintf('Slice %d Downslope',sliceloop);
-              outdata{line,col+2} = SET(no).StrainTagging.downsloperad(sliceloop,1);
-              outdata{line-1,col+3} = sprintf('Slice %d Downslope time',sliceloop);
-              outdata{line,col+3} = SET(no).StrainTagging.downsloperad(sliceloop,2);
+              outdata{line-1,col} = sprintf('Slice %d Upslope',used(sliceloop));
+              outdata{line,col} = SET(no).StrainTagging.SR.radup(sliceloop);%SET(no).StrainTagging.upsloperad(sliceloop,1);
+              outdata{line-1,col+1} = sprintf('Slice %d Upslope time',used(sliceloop));
+              outdata{line,col+1} =  SET(no).TimeVector(1+SET(no).StrainTagging.SR.radupind(sliceloop));%SET(no).StrainTagging.upsloperad(sliceloop,2);
+              outdata{line-1,col+2} = sprintf('Slice %d Downslope',used(sliceloop));
+              outdata{line,col+2} =  SET(no).StrainTagging.SR.raddown(sliceloop);%SET(no).StrainTagging.downsloperad(sliceloop,1);
+              outdata{line-1,col+3} = sprintf('Slice %d Downslope time',used(sliceloop));
+              outdata{line,col+3} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.raddownind(sliceloop));%SET(no).StrainTagging.downsloperad(sliceloop,2);
               col = col+4;
             end
             outdata{line-2,col} = 'Circ. strain rate [%/s]';
             outdata{line-1,col} ='Mean Upslope';
-            outdata{line,col}=nanmean(SET(no).StrainTagging.upslopecircum(:,1));
+            outdata{line,col}=SET(no).StrainTagging.SR.globalcircup;
             col=col+1;
             outdata{line-1,col} ='Mean Upslope time';
-            outdata{line,col}=nanmean(SET(no).StrainTagging.upslopecircum(:,2));
+            outdata{line,col}=SET(no).TimeVector(SET(no).StrainTagging.SR.globalcircupind+1);
             col=col+1;
-            outdata{line-1,col} ='Mean Downslope ';
-            outdata{line,col}=nanmean(SET(no).StrainTagging.downslopecircum(:,1));
+            outdata{line-1,col} ='Mean Downslope';
+            outdata{line,col}= SET(no).StrainTagging.SR.globalcircdown;
             col=col+1;
             outdata{line-1,col} ='Mean Downslope time';
-            outdata{line,col}=nanmean(SET(no).StrainTagging.downslopecircum(:,2));
+            outdata{line,col}=SET(no).TimeVector(SET(no).StrainTagging.SR.globalcircdownind+1);
             col=col+1;
             
             for sliceloop = 1:nbrslices
-              outdata{line-1,col} = sprintf('Slice %d Upslope',sliceloop);
-              outdata{line,col} = SET(no).StrainTagging.upslopecircum(sliceloop,1);
-              outdata{line-1,col+1} = sprintf('Slice %d Upslope time',sliceloop);  
-              outdata{line,col+1} = SET(no).StrainTagging.upslopecircum(sliceloop,2);            
-              outdata{line-1,col+2} = sprintf('Slice %d Downslope',sliceloop);
-              outdata{line,col+2} = SET(no).StrainTagging.downslopecircum(sliceloop,1);
-              outdata{line-1,col+3} = sprintf('Slice %d Downslope time',sliceloop);
-              outdata{line,col+3} = SET(no).StrainTagging.downslopecircum(sliceloop,2);
+              outdata{line-1,col} = sprintf('Slice %d Upslope',used(sliceloop));
+              outdata{line,col} =SET(no).StrainTagging.SR.circup(sliceloop);% SET(no).StrainTagging.upslopecircum(sliceloop,1);
+              outdata{line-1,col+1} = sprintf('Slice %d Upslope time',used(sliceloop));  
+              outdata{line,col+1} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.circupind(sliceloop));%SET(no).StrainTagging.upslopecircum(sliceloop,2);            
+              outdata{line-1,col+2} = sprintf('Slice %d Downslope',used(sliceloop));
+              outdata{line,col+2} = SET(no).StrainTagging.SR.circdown(sliceloop);%SET(no).StrainTagging.downslopecircum(sliceloop,1);
+              outdata{line-1,col+3} = sprintf('Slice %d Downslope time',used(sliceloop));
+              outdata{line,col+3} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.circdownind(sliceloop));%SET(no).StrainTagging.downslopecircum(sliceloop,2);
               col = col+4;
+            end
+            
+            if strcmp(imagetype,'tagging') && isfield(SET(no).StrainTagging,'slice_rotation')
+              outdata{line-1,col} = 'Peak Rotational Difference [R_a-R_b]';
+              outdata{line-1,col+1} = 'Torsion [(R_a-R_b)/d]';
+              [mRot,mRoti] = max(SET(no).StrainTagging.slice_rotation{end}-SET(no).StrainTagging.slice_rotation{1});
+              [mTor,mTor_i] = max(SET(no).StrainTagging.globaltorsion);
+              outdata{line,col} = mRot;
+              outdata{line,col+1} = mTor;
+              col=col+2;
             end
             
             line=line+3;
@@ -2570,34 +2529,57 @@ for fileloop=1:numfiles
               outdata{line,col} = SET(no).StrainTagging.globalrad(SET(no).StrainTagging.peaktf,1);
               col = col+1;
            % end
-            outdata{line-2,col} = 'Peak circ. strain [%]';
+            outdata{line-2,col} = 'Peak longit. strain [%]';
             %for sliceloop = 1:nbrslices
               %outdata{line-1,col} = sprintf('Slice %d',sliceloop);
               outdata{line,col} = SET(no).StrainTagging.globalcirc(SET(no).StrainTagging.peaktf,1);
               col = col+1;
             %end
             outdata{line-2,col} = 'Radial strain rate [%/s]';
+            %ind=find(SET(no).StrainTagging.taggroup==no);
+            switch SET(no).ImageViewPlane
+              case '2CH'
+                if SET(no).StrainTagging.SR.include(1)
+                ind=1;
+                end
+              case '3CH'
+                if SET(no).StrainTagging.SR.include(2)
+                if strcmp(SET(SET(no).StrainTagging.taggroup(end)).ImageViewPlane,'4CH')
+                  ind=length(SET(no).StrainTagging.taggroup)-1;
+                else
+                  ind=length(SET(no).StrainTagging.taggroup);
+                end
+                end
+              case '4CH'
+                if SET(no).StrainTagging.SR.include(3)
+                  ind=length(SET(no).StrainTagging.taggroup);
+                end
+              otherwise
+                ind=[];
+            end
+            
+            if ~isempty(ind)
               outdata{line-1,col} = 'Upslope';
-              outdata{line,col} = SET(no).StrainTagging.upsloperad(1,1);
+              outdata{line,col} = SET(no).StrainTagging.SR.radup(ind);%SET(no).StrainTagging.upsloperad(1,1);
               outdata{line-1,col+1} = 'Upslope time';
-              outdata{line,col+1} = SET(no).StrainTagging.upsloperad(1,2);
+              outdata{line,col+1} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.radupind(ind));%StrainTagging.upsloperad(1,2);
               outdata{line-1,col+2} = 'Downslope';
-              outdata{line,col+2} = SET(no).StrainTagging.downsloperad(1,1);
+              outdata{line,col+2} = SET(no).StrainTagging.SR.raddown(ind);%SET(no).StrainTagging.downsloperad(1,1);
               outdata{line-1,col+3} = 'Downslope time';
-              outdata{line,col+3} = SET(no).StrainTagging.downsloperad(1,2);
+              outdata{line,col+3} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.raddownind(ind));%SET(no).StrainTagging.downsloperad(1,2);
               col = col+4;
             outdata{line-2,col} = 'Longit. strain rate [%/s]';
               outdata{line-1,col} = 'Upslope';
-              outdata{line,col} = SET(no).StrainTagging.upslopecircum(1,1);
+              outdata{line,col} = SET(no).StrainTagging.SR.circup(ind);%SET(no).StrainTagging.upslopecircum(1,1);
               outdata{line-1,col+1} = 'Upslope time';  
-              outdata{line,col+1} = SET(no).StrainTagging.upslopecircum(1,2);            
+              outdata{line,col+1} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.circupind(ind));%SET(no).StrainTagging.upslopecircum(1,2);            
               outdata{line-1,col+2} = 'Downslope';
-              outdata{line,col+2} = SET(no).StrainTagging.downslopecircum(1,1);
+              outdata{line,col+2} = SET(no).StrainTagging.SR.circdown(ind);%SET(no).StrainTagging.downslopecircum(1,1);
               outdata{line-1,col+3} = 'Downslope time';
-              outdata{line,col+3} = SET(no).StrainTagging.downslopecircum(1,2);
+              outdata{line,col+3} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.circdownind(ind));%SET(no).StrainTagging.downslopecircum(1,2);
             col = col+4; 
             line=line+3;
-            
+            end
         end
         %line = line+1;
       %end
@@ -2644,7 +2626,287 @@ segment('cell2clipboard',outdata);
 %Stop the silent mode.
 DATA.Silent = currentsilent;
  
+%-------------------------------------------
+function exportmultiplePerfsplit_Callback %#ok<DEFNU>
+%-------------------------------------------
+%Creaty summary of Perfusion split
+%from multiple matfiles in one folder.
+%This function is very useful for research. 
 
+global DATA SET NO
+
+suffix = 'mat';
+
+%Ask if wnat to save before closing current image stack
+if ~isempty(SET)
+  if yesno('Would you like to store current open file before closing it?')
+    %store file
+    segment('filesaveallas_Callback');
+  end
+  %close current file
+  segment('filecloseall_Callback');
+end
+
+%Select path
+pathname = DATA.Pref.datapath;
+pathname = myuigetdir(pathname,sprintf('Select a folder with .%s files',suffix));
+if isequal(pathname,0)
+  myfailed('Aborted.',DATA.GUI.Segment);
+  return;
+end;
+
+%Find files to process
+files2load = dir([pathname filesep sprintf('*.%s',suffix)]);
+numfiles = length(files2load);
+
+if numfiles==0
+  myfailed('Found no files to summarize.',DATA.GUI.Segment);
+  return;
+end;
+
+currentsilent = DATA.Silent;
+% %Create output matrix
+outdata = cell(1,1); %+1 since header, 58 since header size
+
+%Loop over all files
+%h = mywaitbarstart(numfiles,'Please wait, loading and summarizing files.',1);
+
+% we need to do some roboclicking!
+import java.awt.*;
+import java.awt.event.*;
+%Create a Robot-object to do the key-pressing
+rob=Robot;
+
+line=2;
+  
+for fileloop=1:numfiles
+  %--- Load file
+  DATA.Silent = true; %Turn on "silent" mode to avoid to much update on screen when loading etc.
+  disp(dprintf('Loading %s.',files2load(fileloop).name));
+  
+  SET = []; % %Make sure a fresh start
+  load([pathname filesep files2load(fileloop).name],'-mat');
+  %Assign
+  SET = setstruct;
+  clear setstruct;
+  
+  openfile('setupstacksfrommat',1);
+  segment('renderstacksfrommat');
+  doperf=0;
+  for tagno=1:length(SET)
+    if ~isempty(SET(tagno).Perfusion)
+      doperf=1;
+      perfno=tagno;
+    end
+  end
+  if doperf
+  %--- output ---
+      %patient info
+      outdata{line,1} = 'Patient name';
+      outdata{line,2} = 'Patient ID';
+      outdata{line,3} = 'Heart Rate';
+      outdata{line,4} = 'Image Type';
+      
+      outdata{line+1,1} = SET(perfno).PatientInfo.Name;
+      outdata{line+1,2} = SET(perfno).PatientInfo.ID;
+      outdata{line+1,3} = SET(perfno).HeartRate;
+      outdata{line+1,4} = sprintf('%s %s',SET(perfno).ImageType,SET(perfno).ImageViewPlane);
+      
+      
+      perfusion.perfusion('init',1)
+
+      %       gui = DATA.GUI.Perfusion;
+% 
+%       if ~gui.restonly
+%         strh = gui.handles.stressupslopes;
+%         tstress = get(strh(1),'XData');
+%       else
+%         tstress = [];
+%       end
+%       
+%       if ~gui.stressonly
+%         rsth = gui.handles.restupslopes;
+%         trest = get(rsth(2),'XData');
+%       else
+%         trest = [];
+%       end
+%       
+%       strlen = length(tstress);
+%       rstlen = length(trest);
+%       
+%       if strlen + rstlen>maxlen
+%         maxcols = strlen + rstlen;
+%       end
+%       
+%       c = cell(19,7+strlen+rstlen);
+      
+      c=perfusion.perfusion('exportsplitsector',1);
+      perfusion.perfusion('close_Callback')
+      
+      
+      
+      %not possible to preallocate
+      for i =1:size(c,1)
+        for j =1:size(c,2)
+          outdata{line+i-1,5+j}=c{i,j};
+        end
+      end
+      
+  end
+  
+line=line+36;
+
+  %close current file
+  segment('filecloseall_Callback');
+end
+
+%mywaitbarclose(h);
+
+%--- Output to a string
+segment('cell2clipboard',outdata);
+%Stop the silent mode.
+DATA.Silent = currentsilent;
+
+%-------------------------------------------
+function exportmultiplePerf_Callback %#ok<DEFNU>
+%-------------------------------------------
+%Creaty summary of Perfusion
+%from multiple matfiles in one folder.
+%This function is very useful for research. 
+
+global DATA SET NO
+
+suffix = 'mat';
+
+%Ask if wnat to save before closing current image stack
+if ~isempty(SET)
+  if yesno('Would you like to store current open file before closing it?')
+    %store file
+    segment('filesaveallas_Callback');
+  end
+  %close current file
+  segment('filecloseall_Callback');
+end
+
+%Select path
+pathname = DATA.Pref.datapath;
+pathname = myuigetdir(pathname,sprintf('Select a folder with .%s files',suffix));
+if isequal(pathname,0)
+  myfailed('Aborted.',DATA.GUI.Segment);
+  return;
+end;
+
+%Find files to process
+files2load = dir([pathname filesep sprintf('*.%s',suffix)]);
+numfiles = length(files2load);
+
+if numfiles==0
+  myfailed('Found no files to summarize.',DATA.GUI.Segment);
+  return;
+end;
+
+currentsilent = DATA.Silent;
+% %Create output matrix
+outdata = cell(1,1); %+1 since header, 58 since header size
+
+%Loop over all files
+%h = mywaitbarstart(numfiles,'Please wait, loading and summarizing files.',1);
+
+% we need to do some roboclicking!
+import java.awt.*;
+import java.awt.event.*;
+%Create a Robot-object to do the key-pressing
+rob=Robot;
+
+line=2;
+  
+for fileloop=1:numfiles
+  %--- Load file
+  DATA.Silent = true; %Turn on "silent" mode to avoid to much update on screen when loading etc.
+  disp(dprintf('Loading %s.',files2load(fileloop).name));
+  
+  SET = []; % %Make sure a fresh start
+  load([pathname filesep files2load(fileloop).name],'-mat');
+  %Assign
+  SET = setstruct;
+  clear setstruct;
+  
+  openfile('setupstacksfrommat',1);
+  segment('renderstacksfrommat');
+  doperf=0;
+  for tagno=1:length(SET)
+    if ~isempty(SET(tagno).Perfusion)
+      doperf=1;
+      perfno=tagno;
+    end
+  end
+  if doperf
+  %--- output ---
+      %patient info
+      outdata{line,1} = 'Patient name';
+      outdata{line,2} = 'Patient ID';
+      outdata{line,3} = 'Heart Rate';
+      outdata{line,4} = 'Image Type';
+      
+      outdata{line+1,1} = SET(perfno).PatientInfo.Name;
+      outdata{line+1,2} = SET(perfno).PatientInfo.ID;
+      outdata{line+1,3} = SET(perfno).HeartRate;
+      outdata{line+1,4} = sprintf('%s %s',SET(perfno).ImageType,SET(perfno).ImageViewPlane);
+      
+      
+      perfusion.perfusion('init',1)
+
+      %       gui = DATA.GUI.Perfusion;
+% 
+%       if ~gui.restonly
+%         strh = gui.handles.stressupslopes;
+%         tstress = get(strh(1),'XData');
+%       else
+%         tstress = [];
+%       end
+%       
+%       if ~gui.stressonly
+%         rsth = gui.handles.restupslopes;
+%         trest = get(rsth(2),'XData');
+%       else
+%         trest = [];
+%       end
+%       
+%       strlen = length(tstress);
+%       rstlen = length(trest);
+%       
+%       if strlen + rstlen>maxlen
+%         maxcols = strlen + rstlen;
+%       end
+%       
+%       c = cell(19,7+strlen+rstlen);
+      
+      c=perfusion.perfusion('export',1);
+      perfusion.perfusion('close_Callback')
+      
+      
+      
+      %not possible to preallocate
+      for i =1:size(c,1)
+        for j =1:size(c,2)
+          outdata{line+i-1,5+j}=c{i,j};
+        end
+      end
+      
+  end
+  
+line=line+21;
+
+  %close current file
+  segment('filecloseall_Callback');
+end
+
+%mywaitbarclose(h);
+
+%--- Output to a string
+segment('cell2clipboard',outdata);
+%Stop the silent mode.
+DATA.Silent = currentsilent;
 
 %-------------------------------------------
 function exportmultiplestrainRV_Callback(type) %#ok<DEFNU>
@@ -2893,7 +3155,241 @@ segment('cell2clipboard',outdata);
 %Stop the silent mode.
 DATA.Silent = currentsilent;
   
+%-------------------------------------------
+function exportmultiplestrainRVgraphs_Callback(type) %#ok<DEFNU>
+%-------------------------------------------
+%Creaty summary of strain result (tagging or cine strain analysis)
+%from multiple matfiles in one folder.
+%This function is very useful for research. The user 
+%performs all strain analysis and then exports all data to
+%one spreadsheet.
 
+global DATA SET NO
+
+suffix = 'mat';
+
+%Ask if wnat to save before closing current image stack
+if ~isempty(SET)
+  if yesno('Would you like to store current open file before closing it?')
+    %store file
+    segment('filesaveallas_Callback');
+  end
+  %close current file
+  segment('filecloseall_Callback');
+end
+
+%Select path
+pathname = DATA.Pref.datapath;
+pathname = myuigetdir(pathname,sprintf('Select a folder with .%s files',suffix));
+if isequal(pathname,0)
+  myfailed('Aborted.',DATA.GUI.Segment);
+  return;
+end;
+
+%Find files to process
+files2load = dir([pathname filesep sprintf('*.%s',suffix)]);
+numfiles = length(files2load);
+
+if numfiles==0
+  myfailed('Found no files to summarize.',DATA.GUI.Segment);
+  return;
+end;
+
+% do strain?
+output=questdlg('Do you wish to redo strain analysis?');
+switch output
+  case 'Yes'
+    doStrain=1;
+  case 'No'
+    doStrain=0;
+  case 'Cancel'
+    return;
+end
+
+
+currentsilent = DATA.Silent;
+% %Create output matrix
+outdata = cell(1,1); %+1 since header, 58 since header size
+
+%Loop over all files
+h = mywaitbarstart(numfiles,'Please wait, loading and summarizing files.',1);
+
+% we need to do some roboclicking!
+import java.awt.*;
+import java.awt.event.*;
+%Create a Robot-object to do the key-pressing
+rob=Robot;
+
+line=2;
+  
+for fileloop=1:numfiles
+  %--- Load file
+  DATA.Silent = true; %Turn on "silent" mode to avoid to much update on screen when loading etc.
+  disp(dprintf('Loading %s.',files2load(fileloop).name));
+  
+  SET = []; % %Make sure a fresh start
+  load([pathname filesep files2load(fileloop).name],'-mat');
+  %Assign
+  SET = setstruct;
+  clear setstruct;
+  
+  openfile('setupstacksfrommat',1);
+  segment('renderstacksfrommat');
+  
+  %For long axis its sufficient to consider one of the images to obtain
+  %all information. therefore checked exists
+  checked=[];
+    
+  bullseyeradial = cell(1,1);
+  bullseyecirc = cell(1,1);
+  for no=1:length(SET)
+    if doStrain
+      if ~isfield(SET(no),'StrainTagging') || isempty(SET(no).StrainTagging) ||~isfield(SET(no).StrainTagging,'globalrad') %|| ismember(no,checked)
+        %Skip this no
+      else
+        try
+          %Do Strain calculations
+          switch SET(no).ImageViewPlane
+            case 'Short-axis'
+              imageviewplane = 'shortaxis';
+            case {'2CH','3CH','4CH'}
+              imageviewplane = 'longaxis';              
+            otherwise
+              disp('Unknown image view plane');
+          end
+          
+          switch SET(no).ImageType;
+            case {'Cine', 'Feature tracking'}
+              imagetype='cine';
+            case 'Strain from tagging'
+              imagetype='tagging';
+          end
+          
+          if isequal(type,imagetype)
+            NO=no;
+            SET(no).StrainTagging.LVupdated=1;
+            straintagging.straintagging('init',imagetype,imageviewplane);
+            disp(['Performed strain analysis on no=',num2str(no)]);
+            straintagging.straintagging('close_Callback');
+          end
+        catch
+          disp(['Failed to redo strain analysis, skipping no=',num2str(no)]);
+        end
+        if isfield(SET(NO).StrainTagging,'taggroup')
+          checked=[checked,SET(NO).StrainTagging.taggroup];
+        end
+      end
+    end %end of do calc strain
+  end %end of loop over image stacks
+  
+  for no=1:length(SET)
+    if ~isfield(SET(no),'StrainTagging')|| isempty(SET(no).StrainTagging) || ~isfield(SET(no).StrainTagging,'globalrad') %|| ismember(no,checked)
+      %Skip no
+    else
+      switch SET(no).ImageType;
+        case {'Cine', 'Feature tracking'}
+          imagetype='cine';
+        case 'Strain from tagging'
+          imagetype='tagging';
+      end
+    end
+  end
+  
+  for no=1:length(SET)
+    if isfield(SET(no).StrainTagging,'globalRVstrain') && ~isempty(SET(no).StrainTagging.globalRVstrain) %|| ismember(no,checked)
+      %--- output ---
+      %patient info
+      outdata{line,1} = 'Patient name';
+      outdata{line,2} = 'Patient ID';
+      outdata{line,3} = 'Heart Rate';
+      outdata{line,4} = 'Image Type';
+      line = line+1;
+      
+      switch SET(no).ImageType;
+        case {'Cine', 'Feature tracking'}
+          imagetype='cine';
+        case 'Strain from tagging'
+          imagetype='tagging';
+      end
+      
+      %if isequal(type,imagetype)
+      outdata{line,1} = SET(no).PatientInfo.Name;
+      outdata{line,2} = SET(no).PatientInfo.ID;
+      outdata{line,3} = SET(no).HeartRate;
+      outdata{line,4} = sprintf('%s %s',SET(no).ImageType,SET(no).ImageViewPlane);
+      switch SET(no).ImageViewPlane
+        case 'Short-axis'
+          segstr={'Lateral' 'Septum'};
+          nbrslices = length(SET(no).StrainTagging.saslices);
+        case '4CH'
+          segstr={'Basal Lateral','Mid Lateral','Apical Lateral','Apical Septum','Mid Septum','Basal Septum'};
+          nbrslices = 1;
+      end
+      col=6;
+      outdata{line-2,col+1} = 'circ./longit. strain RV [%]';
+      for sliceloop = 1:nbrslices
+        outdata{line-1,col+1} = sprintf('Slice %d',sliceloop);
+        for t=1:SET(no).TSize
+          outdata{line,col+t} = SET(no).StrainTagging.globalRVstrain(1,t,sliceloop);
+        end
+        col = col+SET(no).TSize+1;
+      end
+      
+      numseg=size(SET(no).StrainTagging.segmentalRVstrain,2);
+      
+      outdata{line-2,col+1}='RV Mean Sectional circ./longit. strain [%]';
+      for i=1:numseg
+        outdata{line-1,col+1}=segstr{i};
+        for t = 1:SET(no).TSize
+          outdata{line,col+t}=mynanmean(SET(no).StrainTagging.segmentalRVstrain(t,i,:),3);
+        end
+        col=col+SET(no).TSize+1;
+      end
+      line=line+3;
+    end
+  end; %loop over image stack
+  
+  
+  if doStrain
+    %store file
+    %Create thumbnails before storing.
+    calcfunctions('calcdatasetpreview');
+    
+    % Set view settings
+    DATA.ViewPanels = 1;
+    DATA.ViewPanelsType = {'one'};
+    DATA.ViewMatrix = [1 1];
+    DATA.ThisFrameOnly = 0;
+    DATA.CurrentPanel = 1;
+    DATA.CurrentTheme = 'lv';
+    DATA.CurrentTool = 'select';
+
+    %Save the file.
+    %segment('filesaveall_Callback');
+    corrupted=segment('checkcorrupteddataforautomaticsave');
+    if corrupted
+      corruptedfiles=sprintf('%s, %s',corruptedfiles,filename);
+      mywarning(dprintf('Image file %s seems to be corrupted from last save. Please load and manually re-analyse strain to ensure that the image is not corrupted before saving',filename));
+    else
+      filemenu('saveallas_helper',pathname,files2load(fileloop).name);
+      disp(sprintf('Saving %s',[pathname filesep files2load(fileloop).name]));
+    end    
+    
+    rob.keyPress(KeyEvent.VK_SPACE);
+    pause(0.1);
+    rob.keyRelease(KeyEvent.VK_SPACE);
+  end
+  h = mywaitbarupdate(h);  
+  %close current file
+  segment('filecloseall_Callback');
+end %loop over files
+mywaitbarclose(h);
+
+%--- Output to a string
+segment('cell2clipboard',outdata);
+%Stop the silent mode.
+DATA.Silent = currentsilent;
+  
 
 %---------------------------------
 function exportthisstack(doheader) %#ok<DEFNU>

@@ -130,7 +130,7 @@ SET(no).EDV = SET(no).LVV(SET(no).EDT);
 if ~isequal(SET(no).EDT,SET(no).EST)
   SET(no).ESV = SET(no).LVV(SET(no).EST);
 else
-  SET(no).ESV = 0;
+  SET(no).ESV = NaN;
 end
 
 if (SET(no).ZSize>2)&&docomp
@@ -548,15 +548,15 @@ if ~isequal(SET(no).EDT,SET(no).EST)
   SET(no).ESV = SET(no).LVV(SET(no).EST)-SET(no).PV(SET(no).EST);
   SET(no).SV = SET(no).EDV-SET(no).ESV; %Stroke volume
 else
-  SET(no).ESV=0;
-  SET(no).SV=0;
+  SET(no).ESV=NaN;
+  SET(no).SV=NaN;
 end
 
 %LV-EF
 if SET(no).EDV>0
   SET(no).EF = SET(no).SV/SET(no).EDV; %Ejection fraction
 else
-  SET(no).EF = 0;
+  SET(no).EF = NaN;
 end;
 
 if ~isempty(SET(no).RVEndoX)
@@ -566,7 +566,7 @@ if ~isempty(SET(no).RVEndoX)
   SET(no).RVSV = SET(no).RVEDV-SET(no).RVESV; %Stroke volume
   
   %RV-EF
-  if SET(no).RVEDV==0
+  if SET(no).RVEDV==0 || isnan(SET(no).RVEDV) || isempty(SET(no).RVEDV)
     SET(no).RVEF = 0;
   else
     SET(no).RVEF = SET(no).RVSV/SET(no).RVEDV; %Ejection fraction
@@ -585,6 +585,11 @@ end;
 if isnan(SET(no).RVEF)
   SET(no).RVEF = 0;
 end;
+if isequal(SET(no).EDT,SET(no).EST)
+  SET(no).RVESV=NaN;
+  SET(no).RVSV=NaN;
+  SET(no).RVEF=NaN;
+end
 
 %-------------------------------------
 function bsa = calcbsa(weight,height) %#ok<DEFNU>
@@ -1078,7 +1083,14 @@ for loop=1:length(noseg)
 
     if ~isempty(x)
       %calculate corresponding timeframe
-      if SET(no).TSize>1
+      if SET(no).TSize == 2
+        if SET(no).CurrentTimeFrame == SET(noseg(loop)).CurrentTimeFrame
+          tfs = SET(no).CurrentTimeFrame;
+        else
+          tfs = [];
+          tfdiff = [];
+        end
+      elseif SET(no).TSize>2
         %find a corresponding (closest) tf in no, for each tf in noseg
         alltf = (1+((1:40)-1)/(SET(noseg(loop)).TSize-1)*(SET(no).TSize-1));
         tfs = find(SET(no).CurrentTimeFrame==round(alltf));
@@ -1850,7 +1862,7 @@ elseif isa(im,'int16'),
    %im=c*im+(b-0.5);%TODO: should scale
    
    z = floor((im-mi)/(ma-mi)*cmax);
-   z = uint8(c.*nthroot(im(:),d)+b-0.5);%uint8(c*z+(b-0.5)*256)+1; 
+   z = uint8(c.*nthroot(z(:),d)+b-0.5)+1;%uint8(c*z+(b-0.5)*256)+1; %  
    %z = max(min(round(c*z+(b-0.5)),cmax),cmin);   
 else
   myfailed(dprintf('Segment does not (yet) support type:%s',class(im)));

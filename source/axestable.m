@@ -207,7 +207,7 @@ classdef axestable < handle % inherrit from handle to have persistant objects
       end
       
       for loop=1:length(obj.Table) %Update all titles
-        stri = obj.Table{loop}.Title;
+        stri = translation.dictionary(obj.Table{loop}.Title);
         set(obj.Table{loop}.Handle,'String',stri)
       end
       for loop=1:length(obj.Key) %Update all values.
@@ -218,9 +218,9 @@ classdef axestable < handle % inherrit from handle to have persistant objects
             'Position',[obj.Key{loop}.valuesXpos(vloop) obj.FigHeight-obj.Key{loop}.valuesYpos(vloop)]);
 %           stri=obj.parseValue(obj.Key{loop}.Name);
           if ~isempty(obj.Key{loop}.Unit)
-            stri=sprintf('%s (%s)',obj.Key{loop}.Name,obj.Key{loop}.Unit);
+            stri=sprintf('%s (%s)',translation.dictionary(obj.Key{loop}.Name),obj.Key{loop}.Unit);
           else
-            stri=obj.Key{loop}.Name;
+            stri=translation.dictionary(obj.Key{loop}.Name);
           end
           set(obj.Key{loop}.keyHandle,'String',stri);
         end

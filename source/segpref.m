@@ -49,6 +49,73 @@ if isopengui('segprefadvanced.fig')
   updateadvanced;
 end
 
+%----------------------------
+function setbackgroundcolor(backgroundcolor) %#ok<DEFNU>
+%----------------------------
+global DATA
+
+if nargin == 0
+  mode = mygetvalue(DATA.PrefHandles.backgroundcolorpopupmenu);
+  switch mode
+    case 1 %Light gray
+      backgroundcolor=[0.94,0.94,0.94];
+    case 2
+      backgroundcolor=[0.34,0.34,0.34];
+    case 3
+      backgroundcolor=[0 0 0];
+  end
+else
+  %this is default if not used new addon.
+  mode = 1;
+  
+  if all(backgroundcolor == [0.94,0.94,0.94])
+    mode=1;
+  end
+  
+  if all(backgroundcolor == [0.34,0.34,0.34])
+    mode=2;
+  end
+  
+  if all(backgroundcolor == [0,0,0])
+    mode=3;
+  end
+end
+DATA.Pref.GUIBackgroundColor = backgroundcolor; 
+DATA.GUISettings.BackgroundColor=DATA.Pref.GUIBackgroundColor;
+DATA.GUISettings.BoxAxesColor=[0.1 0.1 0.1];
+
+set(DATA.fig,'Color',backgroundcolor);
+set(DATA.Handles.barpanel,'BackgroundColor',backgroundcolor)
+%set(DATA.Handles.reportpanel,'BackgroundColor',backgroundcolor)
+set(DATA.Handles.distancetext,'BackgroundColor',backgroundcolor)
+
+if mode==3
+  set(DATA.Handles.distancetext,'Foreground',[1,1,1])
+  set(get(DATA.Handles.timebaraxes,'Xlabel'),'Color','white');
+  set(DATA.Handles.timebaraxes,'XColor','white');
+  DATA.GUISettings.TimebarAxesColor='white';
+else
+  DATA.GUISettings.TimebarAxesColor='black';
+  set(get(DATA.Handles.timebaraxes,'Xlabel'),'Color','black');
+   set(DATA.Handles.timebaraxes,'XColor','black');
+end
+% set(DATA.Handles.flowuipanel,'BackgroundColor',backgroundcolor)
+% set(DATA.Handles.lvuipanel,'BackgroundColor',backgroundcolor)
+% set(DATA.Handles.measurementuipanel,'BackgroundColor',backgroundcolor)
+
+
+
+% setallchildrentextcolor(DATA.Handles.barpanel)
+% setallchildrentextcolor(DATA.Handles.reportpanel)
+% %set(DATA.Handles.reportpanel,'Color',backgroundcolor)
+% 
+% %--------------------------------------
+% function setallchildrentextcolor(parent)
+% %--------------------------------------
+
+
+
+
 %------------------------
 function default_Callback %#ok<DEFNU>
 %------------------------
@@ -797,9 +864,9 @@ end
 if isfield(DATA.Handles,'svenskamenu')
   set(DATA.Handles.svenskamenu,'Checked','off');
 end
-if isfield(DATA.Handles,'italianomenu')
-  set(DATA.Handles.italianomenu,'Checked','off');
-end
+% if isfield(DATA.Handles,'italianomenu')
+%   set(DATA.Handles.italianomenu,'Checked','off');
+% end
 if isfield(DATA.Handles,'deutschmenu')
   set(DATA.Handles.deutschmenu,'Checked','off');
 end
@@ -811,6 +878,28 @@ if strcmp(prevlanguage,language)
   prevlanguage = 'English';
 end
 
+if isfield(DATA.Handles,'toggleiconholder');
+  DATA.setribbonimages(language);
+end
+set(get(DATA.Handles.volumeaxes,'xlabel'),'string',translation.dictionary(...
+  'Time [ms]'))%get(get(DATA.Handles.volumeaxes,'xlabel'),'string')))
+set(get(DATA.Handles.volumeaxes,'ylabel'),'string',translation.dictionary(...
+  'Volume [ml]'))%get(get(DATA.Handles.volumeaxes,'ylabel'),'string')))
+set(get(DATA.Handles.flowaxes,'xlabel'),'string',translation.dictionary(...
+  'Time [ms]'))%get(get(DATA.Handles.flowaxes,'xlabel'),'string')))
+set(get(DATA.Handles.flowaxes,'ylabel'),'string',translation.dictionary(...
+  'Flow [ml/s]'))%get(get(DATA.Handles.flowaxes,'ylabel'),'string')))
+set(get(DATA.Handles.timebaraxes,'xlabel'),'string',translation.dictionary(...
+  'Time [ms]'))%get(get(DATA.Handles.timebaraxes,'xlabel'),'string')))
+
+%DATA.flowreportupdate
+if isfield(DATA.AxesTables,'flow')
+DATA.AxesTables.flow.draw();
+%DATA.AxesTables.flow.updateName('Backward','Backward',true);
+%DATA.AxesTables.flow.updateName('Forward','Forward',true);
+%DATA.AxesTables.flow.updateTitle('Flow',true);
+end
+
 guis = fieldnames(DATA.GUI);
 for i = 1:numel(guis)
   if isa(DATA.GUI.(guis{i}),'mygui')
@@ -818,6 +907,7 @@ for i = 1:numel(guis)
   end
 end
 save_Callback; %Always save
+
 
 %---------------------------
 function webbrowser_Callback %#ok<DEFNU> Callback from segpref.fig

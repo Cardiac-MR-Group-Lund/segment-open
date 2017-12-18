@@ -148,7 +148,8 @@ if ismember(newtype, autolist)
     end
   end
   
-  DATA.CurrentTool = 'select';
+  %DATA.CurrentTool = 'select';
+DATA.CurrentTool = oldtype;
 
   switch newtype
     case 'autolv'
@@ -176,6 +177,10 @@ if ismember(newtype, autolist)
       autocropall(ask);
   end
 end
+
+%suspect graphics occasionally hindering tool update  this should fix it
+drawnow
+pause(0.05)
 
 %Set callbacks and highlight tool for all panels
 for loop=panelstodo
@@ -370,6 +375,8 @@ for loop=panelstodo
           end
           pause(0.05); %Sometimes does not get set properly without pause
         else
+%           drawnow
+%           pause(0.05)
           myset(h,'ButtonDownFcn',...
             sprintf('%s(''normal_Buttondown'',%d)','segment',panel));
           for roiloop = 1:numel(DATA.Handles.roicontour{panel})
@@ -882,6 +889,8 @@ for loop=panelstodo
 %         else
 %           segment('highlighttool',DATA.Tools.selectslices);
 %         end
+
+
         myset([...
           DATA.Handles.imagehandle(panel) ...
           DATA.Handles.center{panel} ...

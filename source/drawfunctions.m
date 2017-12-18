@@ -55,6 +55,7 @@ if DATA.Silent
     return;
 end;
 
+%this is a bit cryptic------------- Klas
 if nargin==0
     pos = find(DATA.ViewPanels==0);
     if isempty(pos)
@@ -81,20 +82,7 @@ if nargin==2
     n = n*m;
     gotrowscols = true;
 end;
-
-% set([...
-%     DATA.Handles.view1panelicon ...
-%     DATA.Handles.view2panelicon ...
-%     DATA.Handles.view2x1panelicon ...
-%     DATA.Handles.view3panelicon ...
-%     DATA.Handles.view1x3panelicon ...
-%     DATA.Handles.view4panelicon ...
-%     DATA.Handles.orthoviewicon ...
-%     DATA.Handles.mipicon ...
-%     DATA.Handles.view6panelicon ...
-%     DATA.Handles.view9panelicon ...
-%     DATA.Handles.view12panelicon ...
-%     DATA.Handles.view16panelicon],'state','off');
+%------------------------------------------
 
 %Delete the old ones first
 try
@@ -158,34 +146,6 @@ else
     cols = m;
 end;
 
-%Sets viewicon 
-%DATA.setviewbuttons
-% 
-% %Fix icons
-% if (rows==1)&&(cols==1)
-%     set(DATA.Handles.view1panelicon,'state','on');
-% elseif (rows==1)&&(cols==2)
-%     set(DATA.Handles.view2panelicon,'state','on');
-% elseif (rows==2)&&(cols==1)
-%     set(DATA.Handles.view2x1panelicon,'state','on');
-% elseif (rows==3)&&(cols==1)
-%     set(DATA.Handles.view3panelicon,'state','on');
-% elseif (rows==1)&&(cols==3)
-%     set(DATA.Handles.view1x3panelicon,'state','on');
-% elseif (rows==2)&&(cols==2)
-%     set(DATA.Handles.view4panelicon,'state','on');
-% elseif (rows==2)&&(cols==3)
-%     set(DATA.Handles.view6panelicon,'state','on');
-% elseif (rows==3)&&(cols==3)
-%     set(DATA.Handles.view9panelicon,'state','on');
-% elseif (rows==3)&&(cols==4)
-%     set(DATA.Handles.view12panelicon,'state','on');
-% elseif (rows==4)&&(cols==4)
-%     set(DATA.Handles.view16panelicon,'state','on');
-% end;
-%Updates viewbuttons zero is crucial else stack overflow
-%DATA.setviewbuttons(0)
-
 %Layout has changed, reset zoom.
 if ~isequal([rows cols],DATA.ViewMatrix)
     for loop=1:length(SET)
@@ -210,7 +170,7 @@ height = top-bottom;
 %Create image area with grid for boxes.
 DATA.Handles.boxaxes = axes('position',...
     [left bottom width height],...
-    'parent',DATA.imagefig);
+    'parent',DATA.imagefig,'visible','off');
 
 %2 => 0.5
 %3 => 0.333 0.666
@@ -235,7 +195,7 @@ for rloop=(rows-1):-1:0;
     for cloop=0:(cols-1);
         h = [h axes('position',...
             [left+cloop*width/cols bottom+rloop*height/rows width/cols height/rows],...
-            'parent',DATA.imagefig)]; %#ok<AGROW>
+            'parent',DATA.imagefig,'visible','off')]; %#ok<AGROW>
     end;
 end;
 
@@ -377,11 +337,12 @@ end;
 segment('switchtopanel',temppanel2,1);
 %DATA.CurrentPanel=temppanel;
 
+segment('updateselectedslices');
 %Draw intersections
 drawintersections;
 
 %Enable/Disable play icon etc
-DATA.updatetimethings;
+% DATA.updatetimethings;
 
 % %assure DATA.LVNO is set when updating flow table
 % findfunctions('setglobalstacks');
@@ -499,34 +460,13 @@ if isequal(DATA.ViewPanelsType{panel},'mmodetemporal')
     end;
 end;
 
-%Make the panel visible
-set(DATA.Handles.imageaxes(panel),'visible','on');
+% %Make the panel visible
+% set(DATA.Handles.imageaxes(panel),'visible','on');
 
 %--- Check if normal/montage
 switch DATA.ViewPanelsType{panel}
     case {'one','mmodespatial','ortho','orthomip'}
         drawimageone(panel,viashow,marshow,olshow)
-        %     if strcmp(DATA.ViewPanelsType{panel},'hla')
-        %      updatelongaxiscontours('HLA',no,panel);
-        %       set(DATA.Handles.imageaxes(panel),'plotboxaspectratio',[...
-        %         SET(no).ZSize*(SET(no).SliceThickness+SET(no).SliceGap) ...
-        %         SET(no).YSize*SET(no).ResolutionY ...
-        %         1]);
-        %       set(DATA.Handles.imageaxes(panel),'plotboxaspectratio',[...
-        %         size(SET(no).HLA.IM,1)*(SET(no).SliceThickness+SET(no).SliceGap) ...
-        %         size(SET(no).HLA.IM,2)*SET(no).ResolutionX ...
-        %         1]);
-        %     elseif strcmp(DATA.ViewPanelsType{panel},'vla')
-        %      updatelongaxiscontours('VLA',no,panel)
-        %       set(DATA.Handles.imageaxes(panel),'plotboxaspectratio',[...
-        %         SET(no).ZSize*(SET(no).SliceThickness+SET(no).SliceGap) ...
-        %         SET(no).XSize*SET(no).ResolutionX ...
-        %         1]);
-        %       set(DATA.Handles.imageaxes(panel),'plotboxaspectratio',[...
-        %         size(SET(no).VLA.IM,1)*SET(no).ResolutionY ...
-        %         size(SET(no).VLA.IM,2)*(SET(no).SliceThickness+SET(no).SliceGap) ...
-        %         1]);
-        %     end
     case {'hla','vla','gla','hlamip','vlamip','glamip'}
         drawimagehlavla(panel,viashow,marshow,olshow)
     case {'montage','montagerow','montagefit','sax3','montagesegmented'}
@@ -536,6 +476,9 @@ switch DATA.ViewPanelsType{panel}
     otherwise
         myfailed(dprintf('Unknown image viewmode %s.',DATA.ViewPanelsType{panel}),DATA.GUI.Segment);
 end;
+
+%Make the panel visible
+set(DATA.Handles.imageaxes(panel),'visible','on');
 
 %If is this panel is the current image panel then highlight
 if isequal(DATA.CurrentPanel,panel)&&...
@@ -604,7 +547,7 @@ function drawcontrastimage(no) %#ok<DEFNU>
 global DATA NO
 
 if nargin < 1
-    no = NO;
+  no = NO;
 end
 
 panels = DATA.ViewPanels == no;
@@ -614,7 +557,7 @@ panels = DATA.ViewPanels == no;
 drawimageno(no);
 segment('update_thumbnail',no);
 if DATA.Pref.UseLight
-    DATA.BalloonLevel = -1; %Force update of ballonimage
+  DATA.BalloonLevel = -1; %Force update of ballonimage
 end;
 
 
@@ -903,7 +846,7 @@ end
 updatenopanels(no);
 
 %--------------------------
-function updatenopanels(no)
+function updatenopanels(no,stateandicon)
 %--------------------------
 %Update panels containing image stack no
 global DATA SET
@@ -929,7 +872,12 @@ vlapanels = panel(strcmp(panelstype,'vla'));
 vlamippanels = panel(strcmp(panelstype,'vlamip'));
 glapanels = panel(strcmp(panelstype,'gla'));
 
-stateandicon=segment('iconson',{'hidescar','hidemar','hideall','play'});
+%Can supply state and icon for enhanced speed for example when dragging
+%timebar.
+if nargin <2
+  stateandicon=segment('iconson',{'hidescar','hidemar','hideall','play'});
+end
+
 %Find if viability, for drawing contour only.
 viashow = false;
 if not(isempty(SET(no).Scar))
@@ -1978,6 +1926,12 @@ set(DATA.Handles.dicomimagetypetext(panel),...
     [size(DATA.ViewIM{panel},2)-extent(3) ...
     size(DATA.ViewIM{panel},1)-2*extent(4) 0]);
 
+  if isnan(SET(no).CurrentTimeFrame)
+    %guess that 1 is the currenttimeframe
+    SET(no).CurrentTimeFrame=1;
+    
+  end
+  
 %slicetimeframetext
 if strcmp(DATA.ViewPanelsType{panel},'hla')
     stri = dprintf('Slice:%02d Time:%03d ms',SET(no).HLA.slice,round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
@@ -3030,7 +2984,7 @@ if not(isempty(SET(no).Measure))
             %'parent',DATA.Handles.imageaxes(panel),...
             DATA.measurefontsize(panel,loop);
         else
-            set(lineh(:,loop),'XData',nan,'YData',nan);
+            set(lineh{:,loop},'XData',nan,'YData',nan);
             set(texth(:,loop),'Position',[nan nan]);
         end;
     end;
@@ -3459,11 +3413,30 @@ if sum(SET(no).Scar.NoReflow(:))>0
     if doit
         %If we need to do, then doit.
         
+          %--- Find suitable threshold
+            
+          if isequal(SET(no).Scar.mthreshold,0)
+            %Manual mode
+            mthreshold = 1;
+            logslice = SET(no).Scar.Result(:,:,SET(no).CurrentSlice);
+            logslice = logslice & (~SET(no).Scar.NoReflow(:,:,SET(no).CurrentSlice));
+            if sum(logslice(:))>0
+              im = SET(no).Scar.IM(:,:,SET(no).CurrentSlice);
+              mthreshold = min(im(logslice(:)));
+              if mthreshold<0.01
+                mthreshold=0.01;
+              end
+            end;            
+          else
+            %Some automated mode
+            mthreshold = SET(no).Scar.mthreshold;
+          end;
+        
         %Use remote intensity to calculate good threshold
-        if length(SET(no).Scar.mthreshold)<2
-            thres=SET(no).Scar.mthreshold;
+        if length(mthreshold)<2
+            thres = mthreshold;
         else
-            thres = SET(no).Scar.mthreshold(SET(no).CurrentSlice);
+            thres = mthreshold(SET(no).CurrentSlice);
         end
         thres = thres*SET(no).Scar.MOThreshold; %OBS if you change here, you need ALSO to change in viabilitycalcvolume.
         
@@ -3572,6 +3545,7 @@ for panel=panelstodo
     %Ok lets draw it
     switch DATA.ViewPanelsType{panel}
         case {'one','mmodespatial','ortho'}
+          scale=2;
             temp = SET(no).IM(:,:,SET(no).CurrentTimeFrame,SET(no).CurrentSlice);
             if showgreyzone
                 temp = imresize(temp,size(SET(no).Scar.GreyZone.map(:,:,1)),'bilinear');
@@ -3622,9 +3596,11 @@ for panel=panelstodo
             end
             scarimrgb=reshape(scarimrgb,[sz(1:2) 3]); %EH: added 3
             
+
+            
         case {'montage','montagerow','montagefit','sax3'}
             % Convert to 2D and layout
-            
+            scale=1;
             if isrgbimage  %RGB iamge
                 colmap = SET(no).Colormap;
                 if isempty(colmap)
@@ -3677,8 +3653,15 @@ for panel=panelstodo
             scarimrgb=reshape(scarimrgb,sz);
     end
     if not(DATA.Silent)
-        set(DATA.Handles.imagehandle(panel),'CData',scarimrgb);
-    end
+      if DATA.Pref.ViewInterpolated
+        imxsz = size(scarimrgb,1)*scale;
+        imysz = size(scarimrgb,2)*scale;
+        im = imresize(scarimrgb,[imxsz imysz],'bilinear');
+      else
+        im=scarimrgb;
+      end
+      set(DATA.Handles.imagehandle(panel),'CData',im);
+      end
 end
 
 %Update menu. Seems unnecessary.
@@ -3830,11 +3813,13 @@ global DATA SET
 if isequal(DATA.CurrentTheme,'scar') || ...
         ~isempty(SET(no).Scar) && ~isempty(SET(no).Scar.GreyZone.map) && ...
         max(SET(no).Scar.GreyZone.map(:)) > 0
-    if isequal(get(DATA.Handles.hidescaricon,'state'),'off')
+    stateandicon = segment('iconson','hidescarmanual');
+      if ~stateandicon{1}%isequal(get(DATA.Handles.hidescaricon,'state'),'off')
         showviabilityedits(no);
     end
 elseif isequal(DATA.CurrentTheme,'mar')
-    if isequal(get(DATA.Handles.hidemaricon,'state'),'off')
+    stateandicon = segment('iconson','hidescarmanual');
+    if ~stateandicon{1}%isequal(get(DATA.Handles.hidemaricon,'state'),'off')
         showmaredits(no);
     end
 end

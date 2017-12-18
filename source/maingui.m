@@ -45,6 +45,7 @@ classdef maingui < handle %Handle class
     PrefHandles = [];
     PrefHandlesAdvanced = [];
     PrefHandlesPacs = [];
+    Synchonize = 0;
 
     Preview = [];
     
@@ -63,7 +64,8 @@ classdef maingui < handle %Handle class
     ImagingTechniques = [];
     ImagingTechniquesFullNames = [];
     
-    ThisFrameOnly = false;
+    ThisFrameOnly = 1;
+    Synchronize=0;
     StartFrame = 1;
         
     SegIntersection = [];
@@ -113,14 +115,6 @@ classdef maingui < handle %Handle class
     CursorYOfs = [];
     
     NeedToSave = 0;
-    
-%     %added by Klas for usability upgrade 
-%     toggleaxes=[];
-%     toggleiconplaceholder=[];
-%     configiconplaceholder=[];
-%     permiconplaceholder=[];
-%     configaxes=[];
-%     permanentaxes=[];
     
     Testing = false; %This property is used by maketest only.
     RecordMacro = false; %Used by macro_helper;
@@ -282,11 +276,12 @@ classdef maingui < handle %Handle class
     g.GUISettings.RightGapWidth=0.21;
     g.GUISettings.ReportPanelPixelMax=220;
     g.GUISettings.ThumbnailPanelWidth=100;
-    g.GUISettings.BackgroundColor=[0.94 0.94 0.94];%[0 0 0]; %0.25 0.25 0.25]; %EH:
+    g.GUISettings.BackgroundColor=[0.94 0.94 0.94];%Will later be overwritten by preferences.
     g.GUISettings.ButtonColor = [0.94 0.94 0.94];%[0.92 0.91 0.84];
     g.GUISettings.ButtonSelectedColor = [0.5 0.5 1]; %sometimes [0.6 0.6 0.6]
     g.GUISettings.AxesColorDefault=[1 0.6 0.2];
-    g.GUISettings.AxesColor = g.GUISettings.AxesColorDefault;
+    g.GUISettings.AxesColor = [1,1,1];%g.GUISettings.AxesColorDefault;
+    g.GUISettings.TimebarAxesColor = [0,0,0];
 
     g.GUISettings.ThumbLineColor = [1 0.6 0.2];
     g.GUISettings.ThumbFlowLineColor = [0.9 0.9 0.9];
@@ -299,7 +294,7 @@ classdef maingui < handle %Handle class
     g.GUISettings.SliceLineSpecOneSlice='y-';
     g.GUISettings.MeasureLineSpec='w+-';
     g.GUISettings.MeasureLineMarkerSize=6;
-    g.GUISettings.BoxAxesColor=[0 0 0]; %[0.7 0.2 0.2];
+    g.GUISettings.BoxAxesColor=[0.1 0.1 0.1];%[0 0 0]; %[0.7 0.2 0.2];
     g.GUISettings.VolumeAxesColor = [0 0 0];
     g.GUISettings.ViewPanelsTypeDefault='one';
     g.GUISettings.AskToExitProgram = true;
@@ -333,269 +328,184 @@ classdef maingui < handle %Handle class
 
     end
     
+    
+    %-------------------------------------------------------
+    function hidetimebar_Callback(varargin)
+    %-------------------------------------------------------
+    end
+    
+    %-------------------------------------------------------
+    function hideresult_Callback(varargin)
+    %-------------------------------------------------------
+    
+    end
+    
+    %-------------------------------------------------------
+    function hideicons_Callback(varargin)
+    %-------------------------------------------------------
+    end
+    
+    %--------------------------------------------------------------
+    function inithideplaceholder(varargin)
+    %-----------------------------------------------------------
+    g=varargin{1};
+    
+    hideiconcell={};
+    hideiconcell{1,end+1}=myicon('synchronize',g.Handles.hideiconholder,g.Icons.config.syncronize,'Synchronize',@() segment('synchronize'),2);
+    hideiconcell{1,end+1}=myicon('singleframemode',g.Handles.hideiconholder,g.Icons.config.singleframemode,'Single frame mode',@() segment('thisframeonly_Callback',1,0) ,1,1);
+    hideiconcell{1,end+1}=myicon('allframesmode',g.Handles.hideiconholder,g.Icons.config.allframesmode,'All frames mode',@()  segment('thisframeonly_Callback',0,0),1,1);
+    hideiconcell{1,end+1}=myicon('hideicons',g.Handles.hideiconholder,g.Icons.config.hideiconpanel,'Hide icons',@() segment('hidepanels'),2);
+    hideiconcell{1,end+1}=myicon('hideresult',g.Handles.hideiconholder,g.Icons.config.hideresultpanel,'Hide result panel',@() segment('hidepanels'),2);
+    g.Handles.hideiconholder.add(hideiconcell);
+    pos=plotboxpos(g.Handles.hideiconholder.axeshandle);
+    currentpos=get(g.Handles.hideiconholder.axeshandle,'position');
+    currentpos(1)=currentpos(1)+1-(pos(1)+pos(3));
+    set(g.Handles.hideiconholder.axeshandle,'position',currentpos);%-[pos(3),0,0,0]);
+    g.Icons.hidecell=hideiconcell;
+    end
+    
     %--------------------------------------------
-    function hideallpanels(varargin)
+    function hidepanels(varargin)
     %----------------------------------------------
     %The function hide all panels hides all panels and displays only image
     %you can use the current tool
 
     g=varargin{1};
     %First check which state we want to toggle to
-   
-    if get(g.Handles.hideallpanelscheckbox,'value')==1 
-      state2toggle2  = 'off';
+    stateandicon = segment('iconson',{'hideresult','hideicons'});
+    
+%     if get(g.Handles.hideallpanelscheckbox,'value')==1 
+%       state2toggle2  = 'off';
+%     else
+%       state2toggle2  = 'on';
+%     end
+    
+    if stateandicon{1,1}
+      %Start setting the visible command
+      set(g.Handles.barpanel,'Visible','off')
+      set(g.Handles.flowuipanel,'Visible','off')
+      %datasetaxeschildren=get(g.Handles.datasetaxes,'children');
+      %set(datasetaxeschildren,'Visible','off')
+      %set(g.Handles.datasetaxes,'Visible','off')
+      set(g.Handles.lvuipanel,'Visible','off')
+      set(g.Handles.reportpanel,'Visible','off')
+      g.GUISettings.BottomGapHeight = 0.02;
+      g.GUISettings.RightGapWidth = 0.02;
     else
-      state2toggle2  = 'on';
-    end
-    
-    %g.initpermanentplaceholder;
-    
-    if strcmp(state2toggle2,'on')
-      %default
-      g.GUISettings.TopGapHeight = 0.135;
+      set(g.Handles.barpanel,'Visible','on')
+      set(g.Handles.flowuipanel,'Visible','on')
+      %datasetaxeschildren=get(g.Handles.datasetaxes,'children');
+      %set(datasetaxeschildren,'Visible','on')
+      %set(g.Handles.datasetaxes,'Visible','on')
+      set(g.Handles.lvuipanel,'Visible','on')
+      set(g.Handles.reportpanel,'Visible','on')
       g.GUISettings.BottomGapHeight = 0.133;
       g.GUISettings.RightGapWidth = 0.21;
-    else
-      g.GUISettings.TopGapHeight = 0.05;
-      g.GUISettings.BottomGapHeight = 0.05;
-      g.GUISettings.RightGapWidth = 0.05;
     end
     
-    %Start setting the visible command
-    set(g.Handles.barpanel,'Visible',state2toggle2)
-    set(g.Handles.flowuipanel,'Visible',state2toggle2)
-    datasetaxeschildren=get(g.Handles.datasetaxes,'children');
-    set(datasetaxeschildren,'Visible',state2toggle2)
-    set(g.Handles.datasetaxes,'Visible','off')
-    %if strcmp(get(g.Handles.thumbnailslider,'Enable'),'on')
-    %  set(g.Handles.thumbnailslider,'Visible',state2toggle2)
-    %end
-    set(g.Handles.iconuipanel,'Visible',state2toggle2)
-    set(g.Handles.lvuipanel,'Visible',state2toggle2)
-    %we dont want the user to see the checkbox moving
-    set(g.Handles.hideallpanelscheckbox,'Visible','off')
-    rows=g.ViewMatrix(1);
-    cols=g.ViewMatrix(2);
-    drawfunctions('drawall',rows,cols)
-    currentpos=get(g.Handles.hideallpanelscheckbox,'Position');
-    currentWidth=currentpos(3);
-    
-    if strcmp(state2toggle2,'off')
-      %     thumbnailpos=get(g.Handles.datasetaxes,'Position');
-      %       thumbnailpos(4)=0.9;
-      %       thumbnailpos(3)=0.05;
-      %       set(g.Handles.datasetaxes,'Position',thumbnailpos);
+    if stateandicon{2,1}
+      currentconfigpos = get(g.Handles.configaxes,'position');
+      currenthidepos = get(g.Handles.hideaxes,'position');
+      currentdatasetaxespos = get(g.Handles.datasetaxes,'position');
+      currentreportpanelpos = get(g.Handles.reportpanel,'position');
+      currentthumbnailsliderpos = get(g.Handles.thumbnailslider,'position');
+     
+      currentreportpanelpos(4)=1-currentconfigpos(4);
+      currentconfigpos(2)=1-currentconfigpos(4);
+      currenthidepos(2)=1-currentconfigpos(4);
+      currentdatasetaxespos(4)=1-currentconfigpos(4);     
+      currentthumbnailsliderpos(4) = 1-currentconfigpos(4);
       
-      %Set so that hideallpanels
-      %set(g.Handles.hideallpanelscheckbox,'Parent',1)
-      set(g.Handles.hideallpanelscheckbox,'Position',[currentpos(1),1-currentpos(4),currentpos(3),currentpos(4)]);  %[1-currentWidth,1-currentpos(4),currentpos(3),currentpos(4)]);
-    else
+      set(g.Handles.configaxes,'position',currentconfigpos)
+      set(g.Handles.hideaxes,'position',currenthidepos)
+      set(g.Handles.datasetaxes,'position',currentdatasetaxespos)
+      set(g.Handles.reportpanel,'position',currentreportpanelpos);
+      set(g.Handles.thumbnailslider,'position',currentthumbnailsliderpos);
+      g.GUISettings.TopGapHeight = 0.06;  
+    set(g.Handles.iconuipanel,'Visible','off')
       
-      %       iconpanelpos=get(g.Handles.iconuipanel,'position');
-%       thumbnailpos=get(g.Handles.datasetaxes,'Position');
-%       thumbnailpos(4)=1-iconpanelpos(4);
-%       thumbnailpos(3)=iconpanelpos(4);
-%       set(g.Handles.datasetaxes,'Position',thumbnailpos);
-     %set(g.Handles.hideallpanelscheckbox,'Parent',g.Handles.iconuipanel)
-      panelpos=get(g.Handles.reportpanel,'Position');
-      set(g.Handles.hideallpanelscheckbox,'Position',[currentpos(1),panelpos(2)+panelpos(4)+currentpos(4)/4,currentpos(3),currentpos(4)]); %[panelpos(1)-currentWidth,panelpos(4)-currentpos(4),currentpos(3),currentpos(4)]);
+    else
+      currentpanelpos = get(g.Handles.iconuipanel,'position');
+      currentconfigpos = get(g.Handles.configaxes,'position');
+      currenthidepos = get(g.Handles.hideaxes,'position');
+      currentdatasetaxespos = get(g.Handles.datasetaxes,'position');
+      currentreportpanelpos = get(g.Handles.reportpanel,'position');
+      currentthumbnailsliderpos = get(g.Handles.thumbnailslider,'position');
+      
+      currentdatasetaxespos(4)=currentpanelpos(2);     
+      currentreportpanelpos(4)=currentpanelpos(2);
+      currentthumbnailsliderpos(4)=currentpanelpos(2);
+      currentconfigpos(2)=currentpanelpos(2);
+      currenthidepos(2)=currentpanelpos(2);
+      set(g.Handles.configaxes,'position',currentconfigpos)
+      set(g.Handles.hideaxes,'position',currenthidepos)
+      set(g.Handles.datasetaxes,'position',currentdatasetaxespos)
+      set(g.Handles.reportpanel,'position',currentreportpanelpos);
+      set(g.Handles.thumbnailslider,'position',currentthumbnailsliderpos);
+      g.GUISettings.TopGapHeight = 0.135;
+      set(g.Handles.iconuipanel,'Visible','on')
     end
-    set(g.Handles.hideallpanelscheckbox,'Visible','on')
+    drawfunctions('drawall',g.ViewMatrix(1),g.ViewMatrix(2))
+    %updatetool
+    
     end
     
-%  %---------------------------------------------
-%     function initconfigplaceholder(varargin)
-%       %--------------------------------------------
-%       g=varargin{1};
-%       
-%       %check if using new gui version
-% %       if all([isfield(g.Icons,'lviconcell'),isfield(g.Icons,'rviconcell'),...
-% %         isfield(g.Icons,'analysisviconcell'),isfield(g.Icons,'roiflowiconcell'),...
-% %         isfield(g.Icons,'viabilityiconcell'),isfield(g.Icons,'imageiconcell')]);
-% %        
-% %       g.lviconcell=cell(1,1);
-% %     g.rviconcell=cell(1,1);
-% %     g.analysisiconcell=cell(1,1);
-% %     g.roiflowiconcell=cell(1,1);
-% %     g.viabilityiconcell=cell(1,1);
-% %     g.imageiconcell=cell(1,1);
-% %       else
-%     %initcells
-%     lviconcell=cell(1,1);
-%     rviconcell=cell(1,1);
-%     analysisiconcell=cell(1,1);
-%     roiflowiconcell=cell(1,1);
-%     viabilityiconcell=cell(1,1);
-%     imageiconcell=cell(1,1);
-%     %LV
-%     lviconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
-%     lviconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'),@() updatetool('move'));
-%     lviconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
-%     lviconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
-%     lviconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set light to predefined values'),@() segment('autocontrast_Callback'),0);
-%     lviconcell{1,end+1}=myicon('lvstack',g.Handles.configiconholder,g.Icons.config.lvstack,translation.dictionary('Go to LV stack'),@() segment('viewspecial_Callback','lv'),0);
-%      lviconcell{1,end+1}=myicon('moveall',g.Handles.configiconholder,g.Icons.config.moveall,translation.dictionary('Translate all contours'),@() updatetool('moveall'));    
-%     lviconcell{1,end+1}=myicon('autolv',g.Handles.configiconholder,g.Icons.config.autolv,translation.dictionary('Automatic LV segmentation'),@() updatetool('autolv'),0);
-%     lviconcell{1,end+1}=myicon('endopen',g.Handles.configiconholder,g.Icons.config.endopen,translation.dictionary('Endo pen'),@() updatetool('drawendo'));
-%     lviconcell{1,end+1}=myicon('epipen',g.Handles.configiconholder,g.Icons.config.epipen,translation.dictionary('Epi pen'),@() updatetool('drawepi'));
-%     lviconcell{1,end+1}=myicon('interpendo',g.Handles.configiconholder,g.Icons.config.interpendo,translation.dictionary('Set interpolation points for Endo'),@() updatetool('interpendo'));
-%     lviconcell{1,end+1}=myicon('interpepi',g.Handles.configiconholder,g.Icons.config.interpepi,translation.dictionary('Set interpolation points for Epi'),@() updatetool('interpepi'));
-%     
-%     lviconcell{1,end+1}=myicon('refineendo',g.Handles.configiconholder,g.Icons.config.refineendo,translation.dictionary('Refine Endo'),@() lvpeter('segmentrefineendo_Callback'),0);
-%     lviconcell{1,end+1}=myicon('refineepi',g.Handles.configiconholder,g.Icons.config.refineepi,translation.dictionary('Refine Epi'),@() lvpeter('segmentrefineepi_Callback'),0);
-%     lviconcell{1,end+1}=myicon('propagateendo',g.Handles.configiconholder,g.Icons.config.propagateendo,translation.dictionary('Propagate endo forward in time'), @() lvpeter('segmentpropagateendo_Callback'),0);
-%     lviconcell{1,end+1}=myicon('propagateepi',g.Handles.configiconholder,g.Icons.config.propagateepi,translation.dictionary('Propagate epi forward in time'),@() lvpeter('segmentpropagateepi_Callback'),0);
-%     
-%     lviconcell{1,end+1}=myicon('contractendo',g.Handles.configiconholder,g.Icons.config.contractendo,translation.dictionary('Contract Endo segmentation'),@() lv('segmentexpandcontract_Callback',-1,'endo'),0);
-%     lviconcell{1,end+1}=myicon('expandendo',g.Handles.configiconholder,g.Icons.config.expandendo,translation.dictionary('Expand Endo segmentation'),@() lv('segmentexpandcontract_Callback',1,'endo'),0);
-%     lviconcell{1,end+1}=myicon('contractepi',g.Handles.configiconholder,g.Icons.config.contractepi,translation.dictionary('Contract Epi segmentation'),@() lv('segmentexpandcontract_Callback',-1,'epi'),0);
-%     lviconcell{1,end+1}=myicon('expandepi',g.Handles.configiconholder,g.Icons.config.expandepi,translation.dictionary('Expand Epi segmentation'),@() lv('segmentexpandcontract_Callback',1,'epi'),0);
-%     lviconcell{1,end+1}=myicon('copylvup',g.Handles.configiconholder,g.Icons.config.copylvup,translation.dictionary('Copy LV upwards'),@()tools('copyupward_Callback'),0);
-%     lviconcell{1,end+1}=myicon('copylvdown',g.Handles.configiconholder,g.Icons.config.copylvdown,translation.dictionary('Copy LV downwards'),@()tools('copydownward_Callback'),0);
-%     
-%     
-%     lviconcell{1,end+1}=myicon('interpsegintime',g.Handles.configiconholder,g.Icons.config.interpsegintime,translation.dictionary('Interpolate segmentation in time'),@() segmentation('interpolatedelineationovertime_Callback'),0);
-%      lviconcell{1,end+1}=myicon('interpseginslice',g.Handles.configiconholder,g.Icons.config.interpseginslice,translation.dictionary('Interpolate segmentation over slices'),@() lv('interpolatedelineation_Callback'),0);
+    
+%     %--------------------------------------------
+%     function hideallpanels(varargin)
+%     %----------------------------------------------
+%     %The function hide all panels hides all panels and displays only image
+%     %you can use the current tool
+% 
+%     g=varargin{1};
+%     %First check which state we want to toggle to
 %    
-%     lviconcell{1,end+1}=myicon('hidelv',g.Handles.configiconholder,g.Icons.config.hidelv,translation.dictionary('Hide LV segmentation'),@() segment('viewhidelv_Callback'),2);
-%     lviconcell{1,end+1}=myicon('hideinterp',g.Handles.configiconholder,g.Icons.config.hideinterp,translation.dictionary('Hide interpolation points'),@() segment('viewhideinterp_Callback'),2);
-%     lviconcell{1,end+1}=myicon('clearalllv',g.Handles.configiconholder,g.Icons.config.clearalllv,translation.dictionary('Clear all LV segmentation'),@() segment('segmentclearalllv_Callback'),0);
-%     lviconcell{1,end+1}=myicon('clearalllv',g.Handles.configiconholder,g.Icons.config.clearendo,translation.dictionary('Clear LV endo in selected slices this time frame'),@() segmentation('clearslicesthis_Callback',1,0,0,0),0);
-%     lviconcell{1,end+1}=myicon('clearepi',g.Handles.configiconholder,g.Icons.config.clearepi,translation.dictionary('Clear LV epi in selected slices this time frame'),@() segmentation('clearslicesthis_Callback',0,1,0,0),0);
-%     lviconcell{1,end+1}=myicon('volumecurve',g.Handles.configiconholder,g.Icons.config.volumecurve,translation.dictionary('Plot Volume Curve'),@() lvpeter('plotvolumecurve'),0);
+%     if get(g.Handles.hideallpanelscheckbox,'value')==1 
+%       state2toggle2  = 'off';
+%     else
+%       state2toggle2  = 'on';
+%     end
 %     
-%     g.Icons.lviconcell=lviconcell;
+%     if strcmp(state2toggle2,'on')
+%       %default
+%       g.GUISettings.TopGapHeight = 0.135;
+%       g.GUISettings.BottomGapHeight = 0.133;
+%       g.GUISettings.RightGapWidth = 0.21;
+%     else
+%       g.GUISettings.TopGapHeight = 0.05;
+%       g.GUISettings.BottomGapHeight = 0.05;
+%       g.GUISettings.RightGapWidth = 0.05;
+%     end
 %     
-%     %RV
-%     rviconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
-%     rviconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'), @() updatetool('move'));
-%     rviconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
-%     rviconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
-%     rviconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set light to predefined values'),@() segment('autocontrast_Callback'),0);
-%     rviconcell{1,end+1}=myicon('rvstack',g.Handles.configiconholder,g.Icons.config.rvstack,translation.dictionary('Go to RV stack'),@() segment('viewspecial_Callback','rv'),0);
-%     rviconcell{1,end+1}=myicon('autorvendo',g.Handles.configiconholder,g.Icons.config.autorvendo,translation.dictionary('Automatic RV Endo segmentation'),@() updatetool('autorvendo'),0);
-%     rviconcell{1,end+1}=myicon('rvendopen',g.Handles.configiconholder,g.Icons.config.rvendopen,translation.dictionary('RV Endo pen'),@() updatetool('drawrvendo'));
-%     rviconcell{1,end+1}=myicon('rvepipen',g.Handles.configiconholder,g.Icons.config.rvepipen,translation.dictionary('RV Epi pen'),@() updatetool('drawrvepi'));
-%     rviconcell{1,end+1}=myicon('interprvendo',g.Handles.configiconholder,g.Icons.config.interprvendo,translation.dictionary('Set interpolation points for RV Endo'),@() updatetool('interprvendo'));
-%     rviconcell{1,end+1}=myicon('interprvepi',g.Handles.configiconholder,g.Icons.config.interprvepi,translation.dictionary('Set interpolation points for RV Epi'),@() updatetool('interprvepi'));
-%     rviconcell{1,end+1}=myicon('refinervendo',g.Handles.configiconholder,g.Icons.config.refinervendo,translation.dictionary('Refine RV Endo'),@() rv('segmentrefinervendo_Callback'),0);
-%     %need icon
-%     rviconcell{1,end+1}=myicon('copyrvup',g.Handles.configiconholder,g.Icons.config.copyrvup,translation.dictionary('Copy RV upwards'),@()tools('copyupward_Callback','endo',false,false),0);
-%     rviconcell{1,end+1}=myicon('copyrvdown',g.Handles.configiconholder,g.Icons.config.copyrvdown,translation.dictionary('Copy RV downwards'),@()tools('copydownward_Callback','endo',false,false),0);
+%     %Start setting the visible command
+%     set(g.Handles.barpanel,'Visible',state2toggle2)
+%     set(g.Handles.flowuipanel,'Visible',state2toggle2)
+%     datasetaxeschildren=get(g.Handles.datasetaxes,'children');
+%     set(datasetaxeschildren,'Visible',state2toggle2)
+%     set(g.Handles.datasetaxes,'Visible','off')
+%     set(g.Handles.iconuipanel,'Visible',state2toggle2)
+%     set(g.Handles.lvuipanel,'Visible',state2toggle2)
+%      set(g.Handles.reportpanel,'Visible',state2toggle2)
+%    
+%     %we dont want the user to see the checkbox moving
+%     set(g.Handles.hideallpanelscheckbox,'Visible','off')
+%     rows=g.ViewMatrix(1);
+%     cols=g.ViewMatrix(2);
+%     drawfunctions('drawall',rows,cols)
+%     currentpos=get(g.Handles.hideallpanelscheckbox,'Position');
+%     currentWidth=currentpos(3);
 %     
-%     rviconcell{1,end+1}=myicon('interpsegintime',g.Handles.configiconholder,g.Icons.config.interpsegintime,translation.dictionary('Interpolate segmentation in time'),@() segmentation('interpolatedelineationovertime_Callback'),0);
-%      rviconcell{1,end+1}=myicon('interpseginslice',g.Handles.configiconholder,g.Icons.config.interpseginslice,translation.dictionary('Interpolate segmentation over slices'),@() lv('interpolatedelineation_Callback'),0);
-%     
-%     rviconcell{1,end+1}=myicon('hiderv',g.Handles.configiconholder,g.Icons.config.hiderv,translation.dictionary('Hide RV segmentation'), @() segment('viewhiderv_Callback'),2);
-%     rviconcell{1,end+1}=lviconcell{end-4};%myicon('hideinterp',g.Handles.configiconholder,g.Icons.config.hideinterp,'Hide interpolation points',@() segment('viewhideinterp_Callback'),2);
-%     rviconcell{1,end+1}=myicon('clearallrv',g.Handles.configiconholder,g.Icons.config.clearallrv,translation.dictionary('Clear all RV segmentation'),@() segment('segmentclearallrv_Callback'),0);
-%     rviconcell{1,end+1}=myicon('clearrv',g.Handles.configiconholder,g.Icons.config.clearrv,translation.dictionary('Clear RV in selected slices this time frame'),@() segmentation('clearslicesthis_Callback',0,0,1,1),0);
-%     rviconcell{1,end+1}=myicon('volumecurve',g.Handles.configiconholder,g.Icons.config.volumecurve,translation.dictionary('Plot Volume Curve'),@() lvpeter('plotvolumecurve'),0);
-%     
-%     g.Icons.rviconcell=rviconcell;
-%     
-%     %ROIFLOW
-%     
-%     roiflowiconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
-%     roiflowiconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'),@() updatetool('move'));
-%     roiflowiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
-%     %roiflowiconcell{1,end+1}=myicon('scaleROI',g.Handles.configiconholder,g.Icons.config.scaleROI,'Scale ROI',@() updatetool('scaleROI'));
-%     roiflowiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
-%     roiflowiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set light to predefined values'),@() segment('autocontrast_Callback'),0);
-%     roiflowiconcell{1,end+1}=myicon('flowstack',g.Handles.configiconholder,g.Icons.config.flowstack,translation.dictionary('Go to flow stack'),@() segment('viewspecial_Callback','flow'),0);
-%     roiflowiconcell{1,end+1}=myicon('putroi',g.Handles.configiconholder,g.Icons.config.putroi,translation.dictionary('Place ROI'),@() updatetool('putroi'));
-%     roiflowiconcell{1,end+1}=myicon('roipen',g.Handles.configiconholder,g.Icons.config.roipen,translation.dictionary('ROI pen'),@() updatetool('drawroi'));
-%     roiflowiconcell{1,end+1}=myicon('roipen',g.Handles.configiconholder,g.Icons.config.trackingvessel,translation.dictionary('Track vessel in all time frames'),@() vesselsnake_flowtrackroi('flowtrackroi'),0);
-%     roiflowiconcell{1,end+1}=myicon('refineroi',g.Handles.configiconholder,g.Icons.config.refineroi,translation.dictionary('Refine ROI'),@() flow('flowrefine_Callback'),0);
-%     roiflowiconcell{1,end+1}=myicon('refineroinext',g.Handles.configiconholder,g.Icons.config.refineroinext,translation.dictionary('Propagate ROI to next timeframe'),@() flow('flowpropagate_Callback'),0);
-%     roiflowiconcell{1,end+1}=myicon('unwrap',g.Handles.configiconholder,g.Icons.config.unwrap,translation.dictionary('Unwrap flow'),@() flowunwrap,0);
-%     roiflowiconcell{1,end+1}=myicon('palette',g.Handles.configiconholder,g.Icons.config.palette,translation.dictionary('Set ROI color'),@() roi('roisetcolor_Callback'),0);
-%     roiflowiconcell{1,end+1}=myicon('text',g.Handles.configiconholder,g.Icons.config.text,translation.dictionary('Set ROI label'),@() roi('roisetlabel_Callback'),0);
-%     roiflowiconcell{1,end+1}=myicon('plotflow',g.Handles.configiconholder,g.Icons.config.plotflow,translation.dictionary('Plot flow'),@() reportflow,0);
-%     roiflowiconcell{1,end+1}=myicon('hideroi',g.Handles.configiconholder,g.Icons.config.hideroi,translation.dictionary('Hide ROI'),@() segment('viewhideroi_Callback'),2);
-%     roiflowiconcell{1,end+1}=myicon('clearroi',g.Handles.configiconholder,g.Icons.config.clearroi,translation.dictionary('Clear selected ROIs'),@() roi('roidelete_Callback'),0);  
-%     roiflowiconcell{1,end+1}=myicon('clearallroi',g.Handles.configiconholder,g.Icons.config.clearallroi,translation.dictionary('Clear all ROIs'),@() roi('roiclearall_Callback'),0); 
-%     g.Icons.roiflowiconcell=roiflowiconcell;
-%     
-%     %Viablility
-%     viabilityiconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
-%     viabilityiconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'),@() updatetool('move'));
-%     viabilityiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
-%     viabilityiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
-%     viabilityiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set light to predefined values'),@() segment('autocontrast_Callback'),0);
-%     viabilityiconcell{1,end+1}=myicon('scarstack',g.Handles.configiconholder,g.Icons.config.scarstack,translation.dictionary('Go to scar stack'),@() segment('viewspecial_Callback','cinescar'),0);
-%     viabilityiconcell{1,end+1}=myicon('importfromother',g.Handles.configiconholder,g.Icons.config.importfromother,translation.dictionary('Import LV segmentation from cine to scar image stack'),@() segmentation('importfromcine2scar_Callback'),0);
-%     viabilityiconcell{1,end+1}=myicon('endopen',g.Handles.configiconholder,g.Icons.config.endopen,translation.dictionary('Endo pen'),@() updatetool('drawendo'));
-%     viabilityiconcell{1,end+1}=myicon('epipen',g.Handles.configiconholder,g.Icons.config.epipen,translation.dictionary('Epi pen'),@() updatetool('drawepi'));
-%     viabilityiconcell{1,end+1}=myicon('interpendo',g.Handles.configiconholder,g.Icons.config.interpendo,translation.dictionary('Set interpolation points for Endo'),@() updatetool('interpendo'));
-%     viabilityiconcell{1,end+1}=myicon('interpepi',g.Handles.configiconholder,g.Icons.config.interpepi,translation.dictionary('Set interpolation points for Epi'),@() updatetool('interpepi'));
-%     viabilityiconcell{1,end+1}=myicon('autoscar',g.Handles.configiconholder,g.Icons.config.autoscar,translation.dictionary('Auto scar'),@() updatetool('autoscar'),0);
-%     viabilityiconcell{1,end+1}=myicon('scarpen',g.Handles.configiconholder,g.Icons.config.scarpen,translation.dictionary('Draw scar'),@() updatetool('drawscar'));
-%     viabilityiconcell{1,end+1}=myicon('mopen',g.Handles.configiconholder,g.Icons.config.mopen,translation.dictionary('Draw MO'),@() updatetool('drawmo'));
-%     viabilityiconcell{1,end+1}=myicon('rubberscar',g.Handles.configiconholder,g.Icons.config.rubberscar,translation.dictionary('Remove interaction with scar segmentation'),@() updatetool('drawrubberpen'));
-%     viabilityiconcell{1,end+1}=myicon('automar',g.Handles.configiconholder,g.Icons.config.automar,translation.dictionary('Auto MaR'),@() updatetool('automar'),0);
-%     viabilityiconcell{1,end+1}=myicon('marpen',g.Handles.configiconholder,g.Icons.config.marpen,translation.dictionary('Draw MaR'),@() updatetool('drawmarpen'));
-%     viabilityiconcell{1,end+1}=myicon('rubbermar',g.Handles.configiconholder,g.Icons.config.rubbermar,translation.dictionary('Remove interaction with MaR segmentation'),@() updatetool('drawmarrubberpen'));
-%     viabilityiconcell{1,end+1}=myicon('hidescar',g.Handles.configiconholder,g.Icons.config.hidescar,translation.dictionary('Hide scar segmentation'),@() segment('viewhidescar_Callback'),2);
-%     viabilityiconcell{1,end+1}=myicon('hidemar',g.Handles.configiconholder,g.Icons.config.hidemar,translation.dictionary('Hide MaR segmentation'),@() segment('viewhidemar_Callback'),2);
-%     viabilityiconcell{1,end+1}=myicon('clearscar',g.Handles.configiconholder,g.Icons.config.clearscar,translation.dictionary('Clear scar segmentation'),@() viability('viabilityclear_Callback'),0);  
-%     viabilityiconcell{1,end+1}=myicon('clearmar',g.Handles.configiconholder,g.Icons.config.clearmar,translation.dictionary('Clear MaR segmentation'),@() mar('clearall_Callback'),0);  
-%     g.Icons.viabilityiconcell=viabilityiconcell;
-%     
-%     %Analysis
-%     analysisiconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
-%     analysisiconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'),@() updatetool('move'));
-%     analysisiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
-%     analysisiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
-%     analysisiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set light to predefined values'),@() segment('autocontrast_Callback'),0);
-%     analysisiconcell{1,end+1}=myicon('importfromother',g.Handles.configiconholder,g.Icons.config.importfromother,translation.dictionary('Import LV segmentation from other image stack'),@() segmentation('importsegmentation_Callback'),0);
-%     analysisiconcell{1,end+1}=myicon('measure',g.Handles.configiconholder,g.Icons.config.measure,translation.dictionary('Place Measurement'),@() updatetool('measure'));
-%     analysisiconcell{1,end+1}=myicon('point',g.Handles.configiconholder,g.Icons.config.point,translation.dictionary('Place Annotation point'),@() updatetool('point'));
-%     analysisiconcell{1,end+1}=myicon('roipen',g.Handles.configiconholder,g.Icons.config.roipen,translation.dictionary('ROI pen'),@() updatetool('drawroi'));
-%     analysisiconcell{1,end+1}=myicon('addroiinlv',g.Handles.configiconholder,g.Icons.config.addroiinlv,translation.dictionary('Add ROIs to sector of LV wall in selected slices'),@() roi('roiaddinsector_Callback'),0);
-%     analysisiconcell{1,end+1}=myicon('bullseye',g.Handles.configiconholder,g.Icons.config.bullseye,translation.dictionary('Bullseye plot interface'),@() reportbullseye,0);
-%     analysisiconcell{1,end+1}=myicon('bullseye',g.Handles.configiconholder,g.Icons.config.AVPD,translation.dictionary('AV plane displacement'),@() avplane,0);
-%     
-%     analysisiconcell{1,end+1}=myicon('T1',g.Handles.configiconholder,g.Icons.config.T1, translation.dictionary('T1 analysis'),@() txmap('init',1),0);
-%     analysisiconcell{1,end+1}=myicon('T2',g.Handles.configiconholder,g.Icons.config.T2, translation.dictionary('T2 analysis'),@() txmap('init',2),0);
-%     analysisiconcell{1,end+1}=myicon('T2star',g.Handles.configiconholder,g.Icons.config.T2star, translation.dictionary('T2* analysis'),@() t2star.t2star,0);
-%     analysisiconcell{1,end+1}=myicon('perfusion',g.Handles.configiconholder,g.Icons.config.perfusion, translation.dictionary('Perfusion analysis'),@() perfusion.perfusion,0);
-%     analysisiconcell{1,end+1}=myicon('ecv',g.Handles.configiconholder,g.Icons.config.ecv, translation.dictionary('ECV analysis'),@() ecv('init_Callback'),0);
-%     analysisiconcell{1,end+1}=myicon('reportperslice',g.Handles.configiconholder,g.Icons.config.reportperslice, translation.dictionary('Report per slice'),@() slicereport,0);
-%     analysisiconcell{1,end+1}=myicon('model3d',g.Handles.configiconholder,g.Icons.config.model3d, translation.dictionary('Show 3D model'),@() report3dmodel,0);
-%     analysisiconcell{1,end+1}=myicon('generalsegment',g.Handles.configiconholder,g.Icons.config.generalsegment,translation.dictionary('General Segmentation'),@() levelset,0);
-%     analysisiconcell{1,end+1}=myicon('hidemeasure',g.Handles.configiconholder,g.Icons.config.hidemeasure,translation.dictionary('Hide measurements'),@() segment('viewhidemeasures_Callback'),2);
-%     analysisiconcell{1,end+1}=myicon('hidepoint',g.Handles.configiconholder,g.Icons.config.hidepoint,translation.dictionary('Hide annotation points'),@() segment('viewhidepoints_Callback'),2);
-%     analysisiconcell{1,end+1}=myicon('hideroi',g.Handles.configiconholder,g.Icons.config.hideroi,translation.dictionary('Hide ROI'),@() segment('viewhideroi_Callback'),2);
-%     analysisiconcell{1,end+1}=myicon('clearmeasure',g.Handles.configiconholder,g.Icons.config.clearmeasure,translation.dictionary('Clear all measurements'),@() segment('measureclearall_Callback'),0);  
-%     analysisiconcell{1,end+1}=myicon('clearpoint',g.Handles.configiconholder,g.Icons.config.clearpoint,translation.dictionary('Clear all annotation points'),@() annotationpoint('pointclearall_Callback'),0); 
-%     analysisiconcell{1,end+1}=myicon('clearroi',g.Handles.configiconholder,g.Icons.config.clearroi,translation.dictionary('Clear selected ROIs'),@() roi('roidelete_Callback'),0);  
-%     analysisiconcell{1,end+1}=myicon('clearallroi',g.Handles.configiconholder,g.Icons.config.clearallroi,translation.dictionary('Clear all ROIs'),@() roi('roiclearall_Callback'),0); 
-%     g.Icons.analysisiconcell=analysisiconcell;
-%     
-%     %Image
-%     imageiconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,translation.dictionary('Select image stack or object'),@() updatetool('select'));
-%     imageiconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,translation.dictionary('Translate contour'),@() updatetool('move'));
-%     imageiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,translation.dictionary('Scale object'),@() updatetool('scale'));
-%     imageiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,translation.dictionary('Manually change contrast and brightness'),@() updatetool('contrast'));
-%     imageiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,translation.dictionary('Set contrast and brightness to predefined values'),@() segment('autocontrast_Callback'),0);
-%     imageiconcell{1,end+1}=myicon('resetlight',g.Handles.configiconholder,g.Icons.config.resetlight,translation.dictionary('Reset contrast and brightness'),@() segment('resetlight_Callback'),0);
-%     imageiconcell{1,end+1}=myicon('autocontrastall',g.Handles.configiconholder,g.Icons.config.autocontrastall,translation.dictionary('Set contrast and brightness to predefined values for all images'),@() segment('autocontrastall_Callback'),0);
-%     imageiconcell{1,end+1}=myicon('crop',g.Handles.configiconholder,g.Icons.config.crop,translation.dictionary('Manual crop'),@() updatetool('crop'));
-%     imageiconcell{1,end+1}=myicon('cropall',g.Handles.configiconholder,g.Icons.config.cropall,translation.dictionary('Auto crop all'),@() updatetool('autocropall'),0);
-%     imageiconcell{1,end+1}=myicon('cineplay',g.Handles.configiconholder,g.Icons.config.cineplay,translation.dictionary('Open cine tool'),@() segment('cinetool_Callback'),2);
-%     imageiconcell{1,end+1}=myicon('movie',g.Handles.configiconholder,g.Icons.config.movie,translation.dictionary('Open movie tool'),@() export('exportmovierecorder_Callback'),0);
-%     imageiconcell{1,end+1}=myicon('click3d',g.Handles.configiconholder,g.Icons.config.click3d,translation.dictionary('Set 3D point'),@() updatetool('click3d'));
-%     imageiconcell{1,end+1}=myicon('rotate90',g.Handles.configiconholder,g.Icons.config.rotate90,translation.dictionary('Rotate 90 degrees clockwise'),@() tools('rotate90right_Callback'),0);
-%     imageiconcell{1,end+1}=myicon('mpr',g.Handles.configiconholder,g.Icons.config.mpr,translation.dictionary('Reconstruct image stack'),@() reformater,0);
-%     imageiconcell{1,end+1}=myicon('mergestacks',g.Handles.configiconholder,g.Icons.config.mergestacks,translation.dictionary('Merge stacks'),@() mergestacks,0);
-%     imageiconcell{1,end+1}=myicon('imageinfo',g.Handles.configiconholder,g.Icons.config.imageinfo,translation.dictionary('View and adjust image info'),@() tools('imageinfo_Callback'),0);
-%     imageiconcell{1,end+1}=myicon('patientinfo',g.Handles.configiconholder,g.Icons.config.patientinfo,translation.dictionary('View and adjust patient info'),@() tools('viewpatientinfo_Callback'),0);    
-%     imageiconcell{1,end+1}=myicon('hidetext',g.Handles.configiconholder,g.Icons.config.hidetext,translation.dictionary('Hide text'),@() segment('viewhidetext_Callback'),2);
-%     imageiconcell{1,end+1}=myicon('hideplus',g.Handles.configiconholder,g.Icons.config.hideplus,translation.dictionary('Hide center cross'),@() segment('viewhideplus_Callback'),2);
-%     imageiconcell{1,end+1}=myicon('hideintersections',g.Handles.configiconholder,g.Icons.config.hideintersections,translation.dictionary('Hide intersection lines'),@() segment('viewhideinterp_Callback'),2);
-%     imageiconcell{1,end+1}=myicon('hideothercontour',g.Handles.configiconholder,g.Icons.config.hideothercontour,translation.dictionary('Hide other contour points'),@() segment('viewhideothercontour_Callback'),2);
-%     g.Icons.imageiconcell=imageiconcell;
+%     if strcmp(state2toggle2,'off')
+%       %Set so that hideallpanels
+%       set(g.Handles.hideallpanelscheckbox,'Position',[currentpos(1),1-currentpos(4),currentpos(3),currentpos(4)]);  %[1-currentWidth,1-currentpos(4),currentpos(3),currentpos(4)]);
+%      set(g.Handles.hideallpanelscheckbox,'Visible','on','BackgroundColor',g.GUISettings.BackgroundColor) 
+%     set(g.Handles.hideallpanelscheckbox,'Visible','on','ForegroundColor',g.GUISettings.TimebarAxesColor) 
+%     else
+%       panelpos=get(g.Handles.reportpanel,'Position');
+%       set(g.Handles.hideallpanelscheckbox,'Position',[currentpos(1),panelpos(2)+panelpos(4)+currentpos(4)/4,currentpos(3),currentpos(4)]); %[panelpos(1)-currentWidth,panelpos(4)-currentpos(4),currentpos(3),currentpos(4)]);
+%      set(g.Handles.hideallpanelscheckbox,'Visible','on','BackgroundColor',get(g.Handles.iconuipanel,'BackgroundColor'))
+%     set(g.Handles.hideallpanelscheckbox,'Visible','on','ForegroundColor','black')
+%      end
 %     end
     
     %-----------------------------------
@@ -915,6 +825,13 @@ classdef maingui < handle %Handle class
           g.Handles.toggleiconholder.notover
         end
         
+        if ~isempty(get(g.Handles.hideaxes,'Children'))
+        if isequal(handleAddress,g.Handles.hideiconholder.imagehandle)
+          g.Handles.hideiconholder.motion
+        else
+          g.Handles.hideiconholder.notover
+        end
+        end
       end
       
 %     %----------------------------------------
@@ -981,16 +898,18 @@ classdef maingui < handle %Handle class
     %are loaded
     
     g=varargin{1};
-    
-    set(g.Handles.hideallpanelscheckbox,'Visible','off');
-    
-%    updatetool('selectslices');
-    
+
     %empty config and permanent iconplaceholder
     if isfield(g.Handles,'configiconholder')
        delete(get(g.Handles.configaxes,'Children'))
        g.Handles.configiconholder.cdata=[];
     end
+    
+    if isfield(g.Handles,'hideiconholder')
+       delete(get(g.Handles.hideaxes,'Children'))
+       g.Handles.hideiconholder.cdata=[];
+    end
+    
     g.initpermanentplaceholder;
     iconcell=g.Handles.permanenticonholder.iconCell;
     
@@ -1001,6 +920,14 @@ classdef maingui < handle %Handle class
     end
    
         iconcell=g.Handles.toggleiconholder.iconCell;
+    
+    for i = 1:numel(iconcell)
+      iconcell{i}.disable;
+    end
+    g.Handles.toggleiconholder.disablepad=1;
+    g.Handles.toggleiconholder.render;
+    
+           iconcell=g.Handles.toggleiconholder.iconCell;
     
     for i = 1:numel(iconcell)
       iconcell{i}.disable;
@@ -1125,64 +1052,10 @@ classdef maingui < handle %Handle class
     updatetool('select');
 
     g.initpermanentplaceholder;
+    g.inithideplaceholder;
     
     g.setviewbuttons(1);
-    
-    %set so that default single frame mode is on
-     segment('framemode_Callback',1);%DATA.ThisFrameOnly = false;
-   %g.thisframeonly_Callback(1);   
-    
-%     %First the panel group is found
-%     str=sprintf('%d%d',g.ViewMatrix(1),g.ViewMatrix(2));
-%     switch str
-%       case '11'
-%       name='panel1';
-%       case '12'
-%       name='panel2';
-%       case '21'
-%       name='panel2x1';
-%       case '13'
-%       name='panel3';
-%       case '31'
-%       name='panel3x1';
-%       case '22'
-%         name='panel4';
-%       case '23'
-%         name='panel6';
-%     end
-%     
-%     iconcell=g.Handles.permanenticonholder.iconCell;
-%     for i= 1:g.Handles.permanenticonholder.numberoficons  
-%       if strcmp(iconcell{i}.name,name)
-%         ind=i;
-%       end
-%     end
-%     
-%     iconcell{ind}.cdataDisplay=iconcell{ind}.cdataIndent;
-%     iconcell{ind}.isindented=1;
-%     %run(iconcell{ind}.execute);
-%     feval(iconcell{ind}.execute);
-%     
-%     %Then view mode
-%     switch g.ViewPanelsType{g.CurrentPanel}
-%       case 'montage'
-%         name='viewall';
-%       case 'one'
-%         name='viewone';
-%     end
-%     
-%     for i= 1:g.Handles.permanenticonholder.numberoficons  
-%       if strcmp(iconcell{i}.name,name)
-%         ind=i;
-%       end
-%     end
-%     
-%     iconcell{ind}.cdataDisplay=iconcell{ind}.cdataIndent;
-%     iconcell{ind}.isindented=1;
-%     %run(iconcell{ind}.execute);
-%     feval(iconcell{ind}.execute);
-%     g.Handles.permanenticonholder.render;
-%     
+
     iconcell=g.Handles.toggleiconholder.iconCell;
     for i = 1:numel(iconcell)
       iconcell{i}.enable;
@@ -1193,21 +1066,46 @@ classdef maingui < handle %Handle class
     %asserts that first button is toggle button.
     iconcell{1}.cdataDisplay=iconcell{1}.cdataIndent;
     iconcell{1}.isindented=1;
-%    run(iconcell{1}.execute);
     feval(iconcell{1}.execute);
     g.Handles.toggleiconholder.clickedicon=iconcell{1};
     g.Handles.toggleiconholder.render;
     
-    set(g.Handles.hideallpanelscheckbox,'Visible','on');
-    
-    %if ~strcmp(class(g),'segmentmrgui')
-     % set(g.Handles.thistimeframeonlycheckbox,'Visible','on');
-    %else
-      set(g.Handles.singleframemodepushbutton,'Visible','on');
-      set(g.Handles.multiframemodepushbutton,'Visible','on');
-    %end
+    %Click the single frame mode button
+    stateandicon = segment('iconson','singleframemode');
+    icon = stateandicon{1,2};
+    icon.cdataDisplay=icon.cdataIndent;
+    icon.isindented=1;
+    g.ThisFrameOnly = true;
+    g.Handles.hideiconholder.render
+    %g.thisframeonly(1)
     
     end
+    
+%     %----------------------------------------
+%     function initribbonplaceholder(varargin)
+%     %--------------------------------------
+% 
+%     g=varargin{1};
+%      %initiate iconholder for toggle axes 
+%     iconCell=cell(1,6);
+%     iconCell{1}=myicon('ribbonlv',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonlvoff,...
+%       'Select LV tools', @() segment('togglebuttonLV_Callback'),1,1,g.Icons.toggleicons.ribbonlvon);
+%     iconCell{2}=myicon('ribbonrv',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonrvoff,...
+%       'Select RV tools',@() segment('togglebuttonRV_Callback'),1,1,g.Icons.toggleicons.ribbonrvon);
+%     iconCell{3}=myicon('ribbonflow',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonflowoff,...
+%       'Select ROI/FLOW tools',@() segment('togglebuttonROIFLOW_Callback'),1,1,g.Icons.toggleicons.ribbonflowon);
+%         iconCell{4}=myicon('ribbonviability',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonviabilityoff,...
+%       'Select Viability tools',@() segment('togglebuttonVia_Callback'),1,1,g.Icons.toggleicons.ribbonviabilityon);
+%     iconCell{5}=myicon('ribbonanalysis',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonanalysisoff,...
+%       'Select Analysis tools',@() segment('togglebuttonAnalysis_Callback'),1,1,g.Icons.toggleicons.ribbonanalysison);
+%     iconCell{6}=myicon('ribbonimage',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonimageoff,...
+%       'Select Image tools',@() segment('togglebuttonImage_Callback'),1,1,g.Icons.toggleicons.ribbonimageon);
+% %   
+%      g.Handles.toggleiconholder.add(iconCell);   
+%     pos=plotboxpos(g.Handles.toggleiconholder.axeshandle);
+%     currentpos=get(g.Handles.toggleiconholder.axeshandle,'position');
+%     set(g.Handles.toggleiconholder.axeshandle,'position',currentpos-[pos(1),0,0,0]);
+%     end
     
     %---------------
     function init(g)
@@ -1246,19 +1144,14 @@ classdef maingui < handle %Handle class
     %Install icons
     try
       load('newicons.mat','newicons')
-      %load('permanenticons.mat','permanenticons');
-%       load('toggleicons.mat','toggleicons');
     catch me
       myfailed('Critical error: Could not read icons.',g);
       mydispexception(me);
     end;
     
-    %Set so that hideallpanels
-    %set(g.Handles.hideallpanelscheckbox,'Parent',1)
-    
+    %not used but idea is to speed up searching for active icons
     g.Icons.permanent = newicons;
     g.Icons.config = newicons;
-    %g.permanenticons = permanenticons;
     g.Icons.toggleicons = newicons;
     
     %added by eriks
@@ -1266,110 +1159,19 @@ classdef maingui < handle %Handle class
 
     %Create icon cell in which we place icons for desired appearance
     g.Handles.toggleiconholder = myiconplaceholder(g.Handles.ribbonaxes,1);
-    %g.Handles.configiconholder = myiconplaceholder(g.Handles.configaxes);
     g.Handles.permanenticonholder = myiconplaceholder(g.Handles.permanentaxes);
     g.Handles.configiconholder = myiconplaceholder(g.Handles.configaxes);
+    g.Handles.hideiconholder = myiconplaceholder(g.Handles.hideaxes,0,2);%2 is that it drags to right
     
     %we must manage multiple axes so we need a hittest check for all
     %available axeses
     set(g.fig,'WindowButtonMotionFcn',@g.toggleplaceholdermotion);
-% %     
-%     %initiate iconholder for toggle axes with upsampling of images.
-%     iconCell=cell(1,6);
-%     iconCell{1}=myicon('ribbonlv',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonlvoff,2),...
-%       'Select LV tools', @() segment('togglebuttonLV_Callback'),1,1,imresize(g.Icons.toggleicons.ribbonlvon,2));
-%     iconCell{2}=myicon('ribbonrv',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonrvoff,2),...
-%       'Select RV tools',@() segment('togglebuttonRV_Callback'),1,1,imresize(g.Icons.toggleicons.ribbonrvon,2));
-%     iconCell{3}=myicon('ribbonflow',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonflowoff,2),...
-%       'Select ROI/FLOW tools',@() segment('togglebuttonROIFLOW_Callback'),1,1,imresize(g.Icons.toggleicons.ribbonflowon,2));
-%         iconCell{4}=myicon('ribbonviability',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonviabilityoff,2),...
-%       'Select Viability tools',@() segment('togglebuttonVia_Callback'),1,1,g.Icons.toggleicons.ribbonviabilityon2);
-%     iconCell{5}=myicon('ribbonanalysis',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonanalysisoff,2),...
-%       'Select Analysis tools',@() segment('togglebuttonAnalysis_Callback'),1,1,imresize(g.Icons.toggleicons.ribbonanalysison,2));
-%     iconCell{6}=myicon('ribbonimage',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonimageoff,2),...
-%       'Select Image tools',@() segment('togglebuttonImage_Callback'),1,1,imresize(g.Icons.toggleicons.ribbonimageon,2));
-% %            
-
-%     iconCell=cell(1,6);
-%     iconCell{1}=myicon('ribbonlv',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonlvoff,7),...
-%       'Select LV tools', @() segment('togglebuttonLV_Callback'),1,1,imresize(g.Icons.toggleicons.ribbonlvon,7));
-%     iconCell{2}=myicon('ribbonrv',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonrvoff,7),...
-%       'Select RV tools',@() segment('togglebuttonRV_Callback'),1,1,imresize(g.Icons.toggleicons.ribbonrvon,7));
-%     iconCell{3}=myicon('ribbonflow',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonflowoff,7),...
-%       'Select ROI/FLOW tools',@() segment('togglebuttonROIFLOW_Callback'),1,1,imresize(g.Icons.toggleicons.ribbonflowon,7));
-%         iconCell{4}=myicon('ribbonviability',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonviabilityoff,7),...
-%       'Select Viability tools',@() segment('togglebuttonVia_Callback'),1,1,g.Icons.toggleicons.ribbonviabilityon7);
-%     iconCell{5}=myicon('ribbonanalysis',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonanalysisoff,7),...
-%       'Select Analysis tools',@() segment('togglebuttonAnalysis_Callback'),1,1,imresize(g.Icons.toggleicons.ribbonanalysison,7));
-%     iconCell{6}=myicon('ribbonimage',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonimageoff,7),...
-%       'Select Image tools',@() segment('togglebuttonImage_Callback'),1,1,imresize(g.Icons.toggleicons.ribbonimageon,7));
-% %            
-%     iconCell=cell(1,6);
-%     iconCell{1}=myicon('ribbonlv',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonlvoff,4),...
-%       'Select LV tools', @() segment('togglebuttonLV_Callback'),1,1,imresize(g.Icons.toggleicons.ribbonlvon,4));
-%     iconCell{2}=myicon('ribbonrv',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonrvoff,4),...
-%       'Select RV tools',@() segment('togglebuttonRV_Callback'),1,1,imresize(g.Icons.toggleicons.ribbonrvon,4));
-%     iconCell{3}=myicon('ribbonflow',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonflowoff,4),...
-%       'Select ROI/FLOW tools',@() segment('togglebuttonROIFLOW_Callback'),1,1,imresize(g.Icons.toggleicons.ribbonflowon,4));
-%         iconCell{4}=myicon('ribbonviability',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonviabilityoff,4),...
-%       'Select Viability tools',@() segment('togglebuttonVia_Callback'),1,1,g.Icons.toggleicons.ribbonviabilityon4);
-%     iconCell{5}=myicon('ribbonanalysis',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonanalysisoff,4),...
-%       'Select Analysis tools',@() segment('togglebuttonAnalysis_Callback'),1,1,imresize(g.Icons.toggleicons.ribbonanalysison,4));
-%     iconCell{6}=myicon('ribbonimage',g.Handles.toggleiconholder,imresize(g.Icons.toggleicons.ribbonimageoff,4),...
-%       'Select Image tools',@() segment('togglebuttonImage_Callback'),1,1,imresize(g.Icons.toggleicons.ribbonimageon,4));
-%            
-% 
-    %initiate iconholder for toggle axes 
-    iconCell=cell(1,6);
-    iconCell{1}=myicon('ribbonlv',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonlvoff,...
-      'Select LV tools', @() segment('togglebuttonLV_Callback'),1,1,g.Icons.toggleicons.ribbonlvon);
-    iconCell{2}=myicon('ribbonrv',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonrvoff,...
-      'Select RV tools',@() segment('togglebuttonRV_Callback'),1,1,g.Icons.toggleicons.ribbonrvon);
-    iconCell{3}=myicon('ribbonflow',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonflowoff,...
-      'Select ROI/FLOW tools',@() segment('togglebuttonROIFLOW_Callback'),1,1,g.Icons.toggleicons.ribbonflowon);
-        iconCell{4}=myicon('ribbonviability',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonviabilityoff,...
-      'Select Viability tools',@() segment('togglebuttonVia_Callback'),1,1,g.Icons.toggleicons.ribbonviabilityon);
-    iconCell{5}=myicon('ribbonanalysis',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonanalysisoff,...
-      'Select Analysis tools',@() segment('togglebuttonAnalysis_Callback'),1,1,g.Icons.toggleicons.ribbonanalysison);
-    iconCell{6}=myicon('ribbonimage',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonimageoff,...
-      'Select Image tools',@() segment('togglebuttonImage_Callback'),1,1,g.Icons.toggleicons.ribbonimageon);
-%   
-     g.Handles.toggleiconholder.add(iconCell);   
-    pos=plotboxpos(g.Handles.toggleiconholder.axeshandle);
-    currentpos=get(g.Handles.toggleiconholder.axeshandle,'position');
-    set(g.Handles.toggleiconholder.axeshandle,'position',currentpos-[pos(1),0,0,0]);
-    
+   
+    g.initribbonplaceholder;
     g.initconfigplaceholder;
-    g.startmodeplaceholders
-
-%     
-%     %togglebuttons
-%     set(g.Handles.selectslicespushbutton,'cdata',g.Icons.selectslices);
-%     set(g.Handles.contrastbrightnesspushbutton,'cdata',g.Icons.contrastbrightness);
-%     set(g.Handles.movepushbutton,'cdata',g.Icons.move);
-%     set(g.Handles.scalepushbutton,'cdata',g.Icons.scale);
-%     if isfield(g.Handles,'undopushbutton')
-%       set(g.Handles.undopushbutton,'cdata',g.Icons.undo);
-%       set(g.Handles.croppushbutton,'cdata',g.Icons.crop);
-%       set(g.Handles.measurepushbutton,'cdata',g.Icons.measure);
-%     else
-%       g.Handles.undopushbutton=[];
-%       g.Handles.croppushbutton=[];
-%       g.Handles.measurepushbutton=[];
-%       g.Handles.tipushbutton=[];
-%       g.Handles.nopropagationpushbutton=[];
-%     end
-%     set([...
-%       g.Handles.filesaveicon ...
-%       g.Handles.pacsaddicon ...
-%       g.Handles.databaseaddicon],'enable','off');
-%        
-%     %Init toolbars;
-
-%    segment('initmenu');     
-  g.inittoolbar;
-
-%    set(g.fig,'color',g.GUISettings.BackgroundColor); %Added EH:    
+    g.inithideplaceholder;
+    g.startmodeplaceholders 
+    g.inittoolbar;
 
     %--- Checks all parameterfiles, and fills listbox
     if isdeployed
@@ -1465,6 +1267,8 @@ classdef maingui < handle %Handle class
       %Start externalpacsmodule
       externalpacs('initexternalpacs');
     end;
+    
+    segpref('setbackgroundcolor',g.Pref.GUIBackgroundColor)
     
     end
     
@@ -1652,7 +1456,8 @@ classdef maingui < handle %Handle class
 
     if ispc
       if not(exist([pathname filesep '.segment_guipositions.mat'],'file'))
-        mywarning('Moving system preferences file to new user location.');
+        %mywarning('Moving system preferences file to new user location.');
+        mydisp('Moving system preferences file to new user location.');
       end;
     end;
 
@@ -1663,6 +1468,11 @@ classdef maingui < handle %Handle class
       %ind=find(strcmp(names,'monitor'));
      
       mp = get(0,'MonitorPositions');
+%       ss = get(0,'ScreenSize');
+%       for mploop = 1:4, sameposition(mploop) = mp(1,mploop) == ss(1,mploop); end
+%       if sum(sameposition) < 4
+%           mp = ss;
+%       end
       %return to default and introduce new guipositions field monitor
       if ~strcmp(GUIPositions(1).FileName,'monitor')
         DATA.GUIPositions=[];
@@ -1728,7 +1538,7 @@ classdef maingui < handle %Handle class
     %------------------------------------
     %Deletes all image stacks and resets Segment to original state.
     %Overloaded in CVQgui and RVQgui
-    global SET NO DATA
+    global SET NO 
 
     if (g.NeedToSave)&&(nargin==1)
       if ~yesno('Unsaved changes: are you sure you want to close all image stacks?',[],g.GUI.Segment);
@@ -1736,12 +1546,6 @@ classdef maingui < handle %Handle class
       end;
     end;
     
-    %Change from scar mode to LV mode if scar mode is selected (to avoid
-    %error in opening DICOM files)
-%     if isequal(DATA.CurrentTheme,'scar')
-%       g.updateicons('lv');
-%     end %tools are no more in segment - klas
-
 %Undent and disable all the toggle buttons
 
     g.startmodeplaceholders
@@ -1766,9 +1570,6 @@ classdef maingui < handle %Handle class
     %Close all associated GUIs
     g.closeallnoguis(1:numel(SET));
 
-    %this messes up new icons -Klas
-    %set(g.fig,'WindowButtonMotionFcn','');
-
     %clear functions; %EH: Removed 2010-08-22
 
     %Delete window
@@ -1778,121 +1579,8 @@ classdef maingui < handle %Handle class
     catch %#ok<CTCH>
     end;
 
-%     %Disable non-valid options.
-%      set([...
-% %       g.Handles.filesaveicon ...
-% %       g.Handles.pacsaddicon ...
-% %       g.Handles.databaseaddicon ...
-% %       g.Handles.movierecordericon ...
-% %       g.Handles.screenshoticon ...
-% %       g.Handles.reportsheeticon ...
-% %       g.Handles.patientinfoicon ...
-% %       g.Handles.refreshicon ...
-% %       g.Handles.resetlighticon ...
-% %       g.Handles.autocontrasticon ...
-%        g.Handles.toolsmenu ...
-%        g.Handles.roimenu ...
-%        g.Handles.perfusionmenu ...
-%        g.Handles.measuremenu ...
-%        g.Handles.editmenu ...
-%        g.Handles.exportmenu ...
-%        g.Handles.viewmenu ....
-%        g.Handles.reportmenu ...
-%        g.Handles.segmentmenu ...
-%        g.Handles.mrmenu ...
-%        g.Handles.viabilitymenu ...
-%        g.Handles.flowmenu ...
-%        g.Handles.fusionmenu ...
-%        g.Handles.strainmenu ...
-%        g.Handles.t1t2menu ...
-%        g.Handles.t2starmenu ...
-%        g.Handles.t1analysismenu ...
-%        g.Handles.t2analysismenu ...
-%        g.Handles.ctmenu ...
-%        g.Handles.spectmenu ...
-%        g.Handles.lvmenu ...
-%        g.Handles.rvmenu ...
-%        g.Handles.marmenu ...
-%        g.Handles.analysismenu ...
-% %       g.Handles.playmovieicon ...
-% %       g.Handles.playallicon ...
-% %       g.Handles.nextframeicon ...
-% %       g.Handles.nextallframeicon ...
-% %       g.Handles.previousframeicon ...
-% %       g.Handles.previousallframeicon ...
-% %       g.Handles.fasterframerateicon ...
-% %       g.Handles.slowerframerateicon ...
-% %       g.Handles.cinetoolicon ...
-% %       g.Handles.mpricon ...
-% %       g.Handles.fusionicon ...
-% %       g.Handles.undosegmentationicon ...
-% %       g.Handles.imageinfoicon ...
-% %       g.Handles.hidepinsicon ...
-% %       g.Handles.hideothercontouricon ...
-% %       g.Handles.hideinterpicon ...
-% %       g.Handles.hidelvicon ...
-% %       g.Handles.hidervicon ...
-% %       g.Handles.hideroiicon ...
-% %       g.Handles.hidepapicon ...
-% %       g.Handles.hidescaricon ...
-% %       g.Handles.hidemaricon...
-% %       g.Handles.hidemeasuresicon ...
-% %       g.Handles.hidepointsicon ...
-% %       g.Handles.hideintersectionsicon ...
-% %       g.Handles.hideplusicon  ...
-% %       g.Handles.hidesectorgridicon ...
-% %       g.Handles.hidetexticon  ...
-% %       g.Handles.hideoverlayicon ...
-% %       g.Handles.colorbaricon ...
-% %       g.Handles.viewpixelyicon ...
-% %       g.Handles.viewoneicon ...
-% %       g.Handles.mmodeviewicon ...
-% %       g.Handles.viewallicon ...
-% %       g.Handles.montagerowicon ...
-% %       g.Handles.montagefiticon ...
-% %       g.Handles.view1panelicon ...
-% %       g.Handles.view2panelicon ...
-% %       g.Handles.view2x1panelicon ...
-% %       g.Handles.view3panelicon ...
-% %       g.Handles.view1x3panelicon ...
-% %       g.Handles.view4panelicon ...
-% %       g.Handles.view6panelicon ...
-% %       g.Handles.view9panelicon ...
-% %       g.Handles.view12panelicon ...
-% %       g.Handles.view16panelicon ...
-% %       g.Handles.panelallicon ...
-% %       g.Handles.orthoviewicon ...
-% %       g.Handles.mipicon ...
-% %       g.Handles.saveviewicon ...
-% %       g.Handles.generalsegmenticon ...
-% %       g.Handles.viewzoominicon ...
-% %       g.Handles.viewzoomouticon ...
-% %       g.Handles.reportflowicon ...
-% %       g.Handles.reportpersliceicon ...
-% %       g.Handles.reportbullseyeicon ...
-% %       g.Handles.reportlongaxisicon ...
-% %       g.Handles.model3icon ...
-% %       g.Handles.volrendicon ...
-%        g.Handles.fileloadsegmentationmenu ...
-%        g.Handles.fileloadnextmenu ...
-%        g.Handles.filesavesegmentationmenu ...
-%        g.Handles.filesavecurrentmenu ...
-%        g.Handles.filesaveallmenu ...
-%        g.Handles.filesaveallasmenu ...
-%        g.Handles.filesavetodatabasemenu ...
-%        g.Handles.filesavetopacsmenu ...
-%        g.Handles.filesavesegdicom ...
-%        g.Handles.fileclosecurrentimagestack ...
-%        g.Handles.filecloseallmenu ...
-%        g.Handles.fileclosemultiplemenu ...
-%        g.Handles.filesavesubmenu ...
-%        g.Handles.thumbnailslider...
-%   %     g.Handles.autocontrastallicon ...
-%        ],'enable','off');
-
     %Disable non-valid options.
-     set([...
-       g.Handles.reportmenu ...
+     set([... 
        g.Handles.measuremenu ...
        g.Handles.toolsmenu ...
        g.Handles.roimenu ...
@@ -1903,10 +1591,6 @@ classdef maingui < handle %Handle class
        g.Handles.mrmenu ...
        g.Handles.viabilitymenu ...
        g.Handles.flowmenu ...
-       g.Handles.fusionmenu ...
-       g.Handles.t2starmenu ...
-       g.Handles.t1analysismenu ...
-       g.Handles.t2analysismenu ...
        g.Handles.ctmenu ...
        g.Handles.spectmenu ...
        g.Handles.lvmenu ...
@@ -1931,34 +1615,7 @@ classdef maingui < handle %Handle class
     set(g.imagefig,'keypressfcn','','name',...
       sprintf(strcat([g.ProgramName ' v' g.ProgramVersion])));
 
-
-%     set(g.Handles.playmovieicon,'state','off');
-% 
-%     set([...
-%       g.Handles.viewoneicon ...
-%       g.Handles.viewallicon ...
-%       g.Handles.montagerowicon ...
-%       g.Handles.montagefiticon ...
-%       g.Handles.view1panelicon ...
-%       g.Handles.view2panelicon ...
-%       g.Handles.view2x1panelicon ...
-%       g.Handles.view3panelicon ...
-%       g.Handles.view1x3panelicon ...
-%       g.Handles.view4panelicon ...
-%       g.Handles.view6panelicon ...
-%       g.Handles.view9panelicon ...
-%       g.Handles.view12panelicon ...
-%       g.Handles.view16panelicon ...
-%       g.Handles.orthoviewicon ...
-%       g.Handles.mipicon ...
-%       ],'State','off');
-
     set([...
-      %g.Handles.volumeaxes ...
-      %g.Handles.volumereporttext ...
-      %g.Handles.lvvolumereporttext ...
-      %g.Handles.rvvolumereporttext ...
-      %g.Handles.distancetext ...
       g.Handles.datasetaxes ...
       g.Handles.reportpanel ...
       g.Handles.barpanel ...
@@ -1968,39 +1625,6 @@ classdef maingui < handle %Handle class
       'visible','off');
 
      set([...
-%       g.Handles.leftventriclepushbutton, ...
-%       g.Handles.rightventriclepushbutton, ...
-%       g.Handles.scarpushbutton, ...
-%       g.Handles.marpushbutton, ...
-%       g.Handles.reservedpushbutton, ...
-%       g.Handles.annotationspushbutton, ...
-%       g.Handles.roipushbutton, ...
-%       g.Handles.tipushbutton, ...
-%       g.Handles.perfusionpushbutton, ...
-%       g.Handles.t2starpushbutton, ...
-%       g.Handles.selectslicespushbutton, ...
-%       g.Handles.contrastbrightnesspushbutton, ...
-%       g.Handles.movepushbutton, ...
-%       g.Handles.scalepushbutton, ...
-%       g.Handles.undopushbutton, ...
-%       g.Handles.croppushbutton, ...
-%       g.Handles.measurepushbutton, ...
-%       g.Handles.nopropagationpushbutton...
-%       g.Handles.icon01, ...
-%       g.Handles.icon02, ...
-%       g.Handles.icon03, ...
-%       g.Handles.icon04, ...
-%       g.Handles.icon05, ...
-%       g.Handles.icon06, ...
-%       g.Handles.icon07, ...
-%       g.Handles.icon08, ...
-%       g.Handles.icon09, ...
-%       g.Handles.icon10, ...
-%       g.Handles.icon11, ...
-%       g.Handles.icon12, ...
-%       g.Handles.icon13, ...
-%       g.Handles.icon14, ...
-%       g.Handles.icon15, ...
        g.Handles.thumbnailslider...
        ],'visible','off');
      
@@ -2032,29 +1656,15 @@ classdef maingui < handle %Handle class
       set(get(g.Handles.timebaraxes,'Children'),'visible','off');
     end;
 
-    g.ThisFrameOnly = false;
-    g.GUISettings.AxesColor=g.GUISettings.AxesColorDefault;
-%     set(g.Handles.thistimeframeonlycheckbox,'Value',0);
-
-
-   %if ~strcmp(DATA.ProgramName,'Segment CMR')
-   % g.thisframeonly_Callback(g.ThisFrameOnly,true);%true is for silent ie no drawing
-   %else
-    set(g.Handles.singleframemodepushbutton,'visible','off')
-    set(g.Handles.multiframemodepushbutton,'visible','off')
-   %end
-    %    g.CurrentTool = 'select';
+    g.ThisFrameOnly = true;
+    g.Synchronize=0;
+    g.GUISettings.AxesColor=[1,1,1];%g.GUISettings.AxesColorDefault;
 
     %Close potentially open figs. More might be added to this list
     if isa(g.GUI.GreyZoneHistAlt,'mygui')
       greyzonehist_alt('close_Callback');
     end
     
-    %g.ExcludePapilars = g.Pref.ExcludePapilars ;%<--- should be pref here
-    %g.UseLight = g.Pref.UseLight;
-    %set(g.Handles.excludepapilarscheckbox,'value',g.ExcludePapilars);
-    %set(g.Handles.uselightcheckbox,'value',g.UseLight);
-
     %Setup preferences
     g.DataLoaded = 0;
     g.Run = 0;
@@ -2129,7 +1739,6 @@ classdef maingui < handle %Handle class
     function setthisframeonly(g,value)
     %---------------------------------
     %Callback to set this frame only mode.
-    global DATA
     
     if nargin<2
       value=g.ThisFrameOnly;
@@ -2163,10 +1772,6 @@ classdef maingui < handle %Handle class
     %Sets segment in 'this frame only' mode. Changes made to segmentation,
     %copying etc are performed only for the current timeframe.
             
-    %If not specified then look at checkbox value
-    if nargin<2 || isempty(thisframeonly)
-			thisframeonly=g.getthisframeonly;
-    end
     if nargin<3
       silent=false;
     end
@@ -2174,32 +1779,27 @@ classdef maingui < handle %Handle class
     %We should change setting
 		if not(isequal(thisframeonly,g.ThisFrameOnly))
 			g.ThisFrameOnly=thisframeonly;
-			if g.ThisFrameOnly
-				g.GUISettings.AxesColor=[1 1 1];
-				g.GUISettings.SliceLineSpec=g.GUISettings.SliceLineSpecOneSlice;
-			else
-				g.GUISettings.AxesColor=g.GUISettings.AxesColorDefault;
-				g.GUISettings.SliceLineSpec=g.GUISettings.SliceLineSpecMultiSlice;
-			end
+
+      if g.ThisFrameOnly
+        g.GUISettings.AxesColor=[1 1 1];
+        g.GUISettings.SliceLineSpec=g.GUISettings.SliceLineSpecOneSlice;
+      else
+        g.GUISettings.AxesColor=g.GUISettings.AxesColorDefault;
+        g.GUISettings.SliceLineSpec=g.GUISettings.SliceLineSpecMultiSlice;
+      end
+
+
 			g.setthisframeonly(g.ThisFrameOnly);
-			
+			 
+ 
       %Call to update drawimage to get frame around panel with correct
       %color.
 			if not(silent)
         set(g.Handles.imageaxes(g.CurrentPanel), 'xcolor',g.GUISettings.AxesColor,...
           'ycolor',g.GUISettings.AxesColor, 'linewidth',2.5, 'visible','on');
-				%drawfunctions('drawimagepanel',g.CurrentPanel);
 			end
 		end
 
-    end
-    
-    %---------------------------------
-    function value=getthisframeonly(g)
-    %---------------------------------
-    %Function to check thisframe onlye mode or not.
-
-    value = get(g.Handles.thistimeframeonlycheckbox,'value');
     end
     
     %-------------------------
@@ -3050,9 +2650,9 @@ classdef maingui < handle %Handle class
       end;
     end;
     
+    viability('viabilityclear_Callback'); 
     roi('roiclearall_Callback')
-    segmentation('clearall_Callback');
-    viability('viabilityclear_Callback');  
+    segmentation('clearall_Callback'); 
     mar('clearall_Callback');
     end
     
@@ -3805,7 +3405,16 @@ classdef maingui < handle %Handle class
     set(g.PrefHandles.anonymcheckbox,'Value',g.Pref.AnonymMode);
     set(g.PrefHandles.viewinterpolatedcheckbox,'Value',g.Pref.ViewInterpolated);
     set(g.PrefHandles.bgcolorcheckbox,'Value',g.Pref.BackgroundColor);
-
+    
+    switch g.Pref.GUIBackgroundColor(1)
+      case 0.94
+        set(g.PrefHandles.backgroundcolorpopupmenu,'Value',1);
+      case 0.34
+        set(g.PrefHandles.backgroundcolorpopupmenu,'Value',2);
+      case 0
+        set(g.PrefHandles.backgroundcolorpopupmenu,'Value',3);
+    end
+    
     %Analysis
     set(g.PrefHandles.endocenterradiobutton,'Value',g.Pref.EndoCenter);
     set(g.PrefHandles.epicenterradiobutton,'Value',not(g.Pref.EndoCenter));
@@ -4011,115 +3620,10 @@ classdef maingui < handle %Handle class
     function enableopenfile(g)
     %-------------------------
     %Called by openfile('enablesegmentgui'). Overloaded in CVQgui and RVQgui.
-    
-    %Enable options
-%      set([...
-% %       g.Handles.filesaveicon ...
-% %       g.Handles.pacsaddicon ...
-% %       g.Handles.databaseaddicon ...
-% %       g.Handles.movierecordericon ...
-% %       g.Handles.screenshoticon ...
-% %       g.Handles.reportsheeticon ...
-% %       g.Handles.patientinfoicon ...
-% %       g.Handles.refreshicon ...
-% %       g.Handles.resetlighticon ...
-% %       g.Handles.autocontrasticon ...
-% %       g.Handles.view1panelicon ...
-% %       g.Handles.view2panelicon ... 
-% %       g.Handles.view2x1panelicon ...
-% %       g.Handles.view3panelicon ...
-% %       g.Handles.view1x3panelicon ...
-% %       g.Handles.view4panelicon ...
-% %       g.Handles.view6panelicon ...
-% %       g.Handles.view9panelicon ...
-% %       g.Handles.view12panelicon ...
-% %       g.Handles.view16panelicon ...
-% %       g.Handles.panelallicon ...
-% %       g.Handles.orthoviewicon ...
-% %       g.Handles.mipicon ...
-% %       g.Handles.saveviewicon ...
-% %       g.Handles.generalsegmenticon ...
-% %       g.Handles.mpricon ...
-% %       g.Handles.fusionicon ...
-% %       g.Handles.imageinfoicon ...
-%        g.Handles.fileloadnextmenu ...
-%       g.Handles.toolsmenu ...
-%       g.Handles.roimenu ...
-%       g.Handles.perfusionmenu ...
-%       g.Handles.measuremenu ...
-%       g.Handles.reportmenu ...
-%       g.Handles.editmenu ...
-%       g.Handles.exportmenu ...
-%       g.Handles.segmentmenu ...
-%       g.Handles.mrmenu ...
-%       g.Handles.viabilitymenu ...
-%       g.Handles.flowmenu ...
-%       g.Handles.fusionmenu ...
-%       g.Handles.strainmenu ...
-%       g.Handles.t1t2menu ...
-%       g.Handles.t2starmenu ...
-%       g.Handles.t1analysismenu ...
-%       g.Handles.t2analysismenu ...
-%       g.Handles.ctmenu ...
-%       g.Handles.spectmenu ...
-%       g.Handles.viewmenu ...
-%       g.Handles.lvmenu ...
-%       g.Handles.rvmenu ...
-%       g.Handles.marmenu ...
-%       g.Handles.analysismenu ...
-% %       g.Handles.viewoneicon ...
-% %       g.Handles.mmodeviewicon ...
-% %       g.Handles.viewallicon ...
-% %       g.Handles.montagerowicon ...
-% %       g.Handles.montagefiticon ...
-% %       g.Handles.viewzoominicon ...
-% %       g.Handles.viewzoomouticon ...
-% %       g.Handles.reportflowicon ...
-% %       g.Handles.reportpersliceicon ...
-% %       g.Handles.reportbullseyeicon ...
-% %       g.Handles.reportlongaxisicon ...
-% %       g.Handles.model3icon ...
-% %       g.Handles.volrendicon ...
-% %       g.Handles.hidepinsicon ...
-% %       g.Handles.hideothercontouricon ...
-% %       g.Handles.hideinterpicon ...
-% %       g.Handles.hidelvicon ...
-% %       g.Handles.hidervicon ...
-% %       g.Handles.hideroiicon ...
-% %       g.Handles.hidescaricon ...
-% %       g.Handles.hidemaricon ...
-% %       g.Handles.hidemeasuresicon ...
-% %       g.Handles.hidepointsicon ...
-% %       g.Handles.hideintersectionsicon ...
-% %       g.Handles.hideplusicon  ...
-% %       g.Handles.hidetexticon  ...
-% %       g.Handles.hidepapicon ...
-% %       g.Handles.hideoverlayicon ...
-% %       g.Handles.colorbaricon ...
-% %       g.Handles.viewpixelyicon ...
-% %       g.Handles.hidesectorgridicon ...
-%       g.Handles.fileloadsegmentationmenu ...
-%       g.Handles.fileloadnextmenu ...
-%       g.Handles.filesavesegmentationmenu ...
-%       g.Handles.filesavesubmenu ...
-%       g.Handles.filesavecurrentmenu ...
-%       g.Handles.filesaveallmenu ...
-%       g.Handles.filesaveallasmenu ...
-%       g.Handles.filesavetodatabasemenu ...
-%       g.Handles.filesavetopacsmenu ...
-%       g.Handles.filesavesegdicom ...
-%       g.Handles.fileclosecurrentimagestack ...
-%       g.Handles.filecloseallmenu ...
-%       g.Handles.fileclosemultiplemenu ...
-%       g.Handles.thumbnailslider...
-% %      g.Handles.autocontrastallicon ...
-%       ],...
-%       'enable','on');
 
-set([...
-       g.Handles.reportmenu ...
-       g.Handles.measuremenu ...
-       g.Handles.fileloadnextmenu ...
+set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysismenu ...g.Handles.t2analysismenu ...
+      g.Handles.measuremenu ...
+      g.Handles.fileloadnextmenu ...
       g.Handles.toolsmenu ...
       g.Handles.roimenu ...
       g.Handles.editmenu ...
@@ -4128,10 +3632,6 @@ set([...
       g.Handles.mrmenu ...
       g.Handles.viabilitymenu ...
       g.Handles.flowmenu ...
-      g.Handles.fusionmenu ...
-      g.Handles.t2starmenu ...
-      g.Handles.t1analysismenu ...
-      g.Handles.t2analysismenu ...
       g.Handles.ctmenu ...
       g.Handles.spectmenu ...
       g.Handles.viewmenu ...
@@ -4154,54 +3654,6 @@ set([...
       g.Handles.thumbnailslider...
       ],...
       'enable','on');
-
-%     set([...
-%       g.Handles.reportpanel ...
-%       g.Handles.barpanel ...
-%       g.Handles.thistimeframeonlycheckbox ...%g.Handles.excludepapilarscheckbox ...%g.Handles.uselightcheckbox ...
-%       g.Handles.leftventriclepushbutton ...
-%       g.Handles.rightventriclepushbutton ...
-%       g.Handles.viapushbutton ...
-%       g.Handles.analysispushbutton ...
-% %      g.Handles.scarpushbutton ...
-% %      g.Handles.marpushbutton ...
-%       %g.Handles.reservedpushbutton ...
-% %       g.Handles.annotationspushbutton ...
-% %       g.Handles.roipushbutton ...
-% %       g.Handles.tipushbutton...
-% %       g.Handles.viewpushbutton ...
-% %       g.Handles.t2starpushbutton ...
-% %       g.Handles.perfusionpushbutton ...
-% %       g.Handles.contrastbrightnesspushbutton ...
-% %       g.Handles.selectslicespushbutton ...
-% %       g.Handles.movepushbutton ...
-% %       g.Handles.scalepushbutton ...
-% %       g.Handles.undopushbutton ...
-% %       g.Handles.croppushbutton ...
-% %       g.Handles.measurepushbutton ...
-% %       g.Handles.nopropagationpushbutton...
-% %       g.Handles.icon01 ...
-% %       g.Handles.icon02 ...
-% %       g.Handles.icon03 ...
-% %       g.Handles.icon04 ...
-% %       g.Handles.icon05 ...
-% %       g.Handles.icon06 ...
-% %       g.Handles.icon07 ...
-% %       g.Handles.icon08 ...
-% %       g.Handles.icon09 ...
-% %       g.Handles.icon10 ...
-% %       g.Handles.icon11 ...
-% %       g.Handles.icon12 ...
-% %       g.Handles.icon13 ...
-% %       g.Handles.icon14 ...
-% %       g.Handles.icon15 ...
-%       g.Handles.thumbnailslider...
-%       ],...
-%       'visible','on');
-%g.Handles.leftventriclepushbutton ...
-      %g.Handles.rightventriclepushbutton ...
-      %g.Handles.viabilitypushbutton ...
-      %g.Handles.analysispushbutton ...
       
     set([...
       g.Handles.reportpanel ...
@@ -4345,7 +3797,7 @@ set([...
     if nargin<3
       m = mymenu('Select a name',temp,g.GUI.Segment);
     else
-      m = mymenu(strcat(['Select a new name for "' roinamein '"']),temp,g.GUI.Segment);
+      m = mymenu(strcat([translation.dictionary('Select a new name for "') roinamein '"']),temp,g.GUI.Segment);
     end
 
     if useroinname
@@ -4411,9 +3863,6 @@ set([...
       no = DATA.FlowNO;
     else
       no = NO;
-%       if no>size(SET,2) %BUG FIX FELICIA
-%         no=1; NO=1;
-%       end
     end
     
     if isempty(no) || SET(no).TSize<2
@@ -4453,17 +3902,10 @@ set([...
         g.Handles.timebaraxeshelpers=plot(g.Handles.timebaraxes,ttemp,temp,'k-');
         set(g.Handles.timebaraxes,'YTick',[]);
       else
-%         if any(length(t)<find(g.Handles.timebaraxeshelpers))
-%           delete(g.Handles.timebaraxeshelpers(length(t)+1:end))
-%         end
         instr=ones(1,length(t));
         xcell=mat2cell(ttemp,2,instr)';
         ycell=mat2cell(temp,2,instr)';
         set(g.Handles.timebaraxeshelpers,{'XData'},xcell,{'YData'},ycell)
-        %set(handlecell,'xdata',xcell,'ydata',ycell)
-%         for i=1:length(t); 
-%           set(g.Handles.timebaraxeshelpers,'xdata',ttemp(:,i),'ydata',temp(:,i)); 
-%         end
       end
       
       set(g.Handles.timebaraxes,'ButtonDownFcn','segment(''timebaraxes_Buttondown'')');
@@ -4517,10 +3959,10 @@ set([...
       set(g.Handles.timebar,'buttondownFcn','segment(''timebar_Buttondown'')');
       set(g.Handles.timebaraxes,'xlim',[t(1) t(end)]); 
       
-      xlabel(g.Handles.timebaraxes,translation.dictionary('Time [ms]'),'color',g.GUISettings.VolumeAxesColor);
-      set(g.Handles.timebaraxes,...
-        'XColor',g.GUISettings.VolumeAxesColor,...
-        'YColor',g.GUISettings.VolumeAxesColor);
+      xlabel(g.Handles.timebaraxes,translation.dictionary('Time [ms]'),'color',g.GUISettings.TimebarAxesColor);
+       set(g.Handles.timebaraxes,...
+         'XColor',g.GUISettings.TimebarAxesColor,...
+         'YColor',g.GUISettings.TimebarAxesColor);
       set(g.Handles.timebaraxes, ...
         'Color',g.GUISettings.VolumeColorGraph);
     
@@ -4533,11 +3975,6 @@ set([...
         t(SET(no).CurrentTimeFrame)*[1 1])
     end
     end
-%     if no == DATA.LVNO
-%       DATA.updatevolumeaxes;
-%     elseif no == DATA.FlowNO
-%       DATA.updateflowaxes;
-%     end
     end
     
     
@@ -4554,7 +3991,6 @@ set([...
     else
       no = [];
     end
-    
     
     if isempty(no) || SET(no).TSize<2
       cla(g.Handles.volumeaxes);
@@ -4573,27 +4009,27 @@ set([...
       lc = [55 119 106]/255;
       set(g.Handles.volumeaxes,'Visible','on');
       %LV and RV curve and lines
-    t = SET(no).TimeVector*1000;
-    oldvolpeak=0;
-    oldrvpeak=0;
-    ylim(g.Handles.volumeaxes,'auto')
-      
+      t = SET(no).TimeVector*1000;
+      oldvolpeak=0;
+      oldrvpeak=0;
+      ylim(g.Handles.volumeaxes,'auto')
 
-        %This tells us if bar removal is needed. Needed being that if masscurve max is changed or the borders have changed           
-        if ~isempty(g.Handles.masscurve)
+      %This tells us if bar removal is needed. Needed being that if masscurve max is changed or the borders have changed
+      if ~isempty(g.Handles.masscurve)
           %oldlvm=max(get(g.Handles.masscurve,'ydata'));
-        end
-        yborders=get(g.Handles.volumeaxes,'ylim');
-        yroofprecurves=yborders(2);
-        
-        if isempty(g.Handles.volumecurve)||~ishandle(g.Handles.volumecurve)
+      end
+      yborders=get(g.Handles.volumeaxes,'ylim');
+      yroofprecurves=yborders(2);
+      
+      if isempty(g.Handles.volumecurve)||~ishandle(g.Handles.volumecurve)
           g.Handles.volumecurve = plot(g.Handles.volumeaxes,t,SET(no).LVV-SET(no).PV,'r.-');
           set(g.Handles.volumecurve,'markersize',5);
-        else
+      else
           oldvolpeak=max(get(g.Handles.volumecurve,'ydata'));
           set(g.Handles.volumecurve,'xdata',t,'ydata',SET(no).LVV-SET(no).PV)
-        end
-        newvolpeak=max(get(g.Handles.volumecurve,'ydata'));
+      end
+  
+      newvolpeak=max(get(g.Handles.volumecurve,'ydata'));
       hold(g.Handles.volumeaxes,'on');
       lvmplot = SET(no).EPV-SET(no).LVV+SET(no).PV;
       if sum(~isnan(lvmplot)) == length(lvmplot)
@@ -4604,23 +4040,23 @@ set([...
         markersize = 5;
       end
       
-       if isempty(g.Handles.masscurve) || ~ishandle(g.Handles.masscurve)
-      g.Handles.masscurve = plot(g.Handles.volumeaxes,t,lvmplot,linespec);
-      set(g.Handles.masscurve,'markersize',markersize);
-       else
-         set(g.Handles.masscurve,'xdata',t,'ydata',lvmplot)
-       end
-       
-       if   isempty(g.Handles.rvvcurve) || ~ishandle(g.Handles.rvvcurve)
-       %if ~isfield(g.Handles,'rvvcurve') || isempty(g.Handles.rvvcurve)
-%          if ishandle(g.Handles.rvvcurve)
-         g.Handles.rvvcurve = plot(g.Handles.volumeaxes,t,SET(no).RVV,'m.-');
-         set(g.Handles.rvvcurve,'markersize',5);
-
-       else
-         oldrvpeak=max(get(g.Handles.rvvcurve,'ydata'));
-         set(g.Handles.rvvcurve,'xdata',t,'ydata',SET(no).RVV);
-       end
+      if isempty(g.Handles.masscurve) || ~ishandle(g.Handles.masscurve)
+        g.Handles.masscurve = plot(g.Handles.volumeaxes,t,lvmplot,linespec);
+        set(g.Handles.masscurve,'markersize',markersize);
+      else
+        set(g.Handles.masscurve,'xdata',t,'ydata',lvmplot)
+      end
+      
+      if   isempty(g.Handles.rvvcurve) || ~ishandle(g.Handles.rvvcurve)
+        %if ~isfield(g.Handles,'rvvcurve') || isempty(g.Handles.rvvcurve)
+        %          if ishandle(g.Handles.rvvcurve)
+        g.Handles.rvvcurve = plot(g.Handles.volumeaxes,t,SET(no).RVV,'m.-');
+        set(g.Handles.rvvcurve,'markersize',5);
+        
+      else
+        oldrvpeak=max(get(g.Handles.rvvcurve,'ydata'));
+        set(g.Handles.rvvcurve,'xdata',t,'ydata',SET(no).RVV);
+      end
       
       newrvpeak=max(get(g.Handles.rvvcurve,'ydata'));
       yborders=get(g.Handles.volumeaxes,'ylim');
@@ -4690,37 +4126,37 @@ set([...
       tempmax = temp(end); %JU
       tempmin = temp(1);   %JU
       
-        if isempty(g.Handles.edtext) || ~ishandle(g.Handles.edtext) 
-          g.Handles.edtext = text(...
-            'position',[t(SET(no).EDT)-t(end)*0.05 tempmax-0.2*(tempmax-tempmin)],...
-            'string','ED',...
-            'parent',g.Handles.volumeaxes,...
-            'color',lc,'FontWeight','bold');
-        else
-          set(g.Handles.edtext,'position',[t(SET(no).EDT)-t(end)*0.05 tempmax-0.2*(tempmax-tempmin)]);
-        end
-        
-        if isempty(g.Handles.edline) || ~ishandle(g.Handles.edline)
-          g.Handles.edline = plot(g.Handles.volumeaxes,...
-            [t(SET(no).EDT) t(SET(no).EDT)],[tempmax tempmax*0.8],'color',lc);
-        else
-          set(g.Handles.edline,'xdata',[t(SET(no).EDT) t(SET(no).EDT)],'ydata',[tempmax tempmax*0.8])
-        end
-        
+      if isempty(g.Handles.edtext) || ~ishandle(g.Handles.edtext)
+        g.Handles.edtext = text(...
+          'position',[t(SET(no).EDT)-t(end)*0.05 tempmax-0.2*(tempmax-tempmin)],...
+          'string','ED',...
+          'parent',g.Handles.volumeaxes,...
+          'color',lc,'FontWeight','bold');
+      else
+        set(g.Handles.edtext,'position',[t(SET(no).EDT)-t(end)*0.05 tempmax-0.2*(tempmax-tempmin)]);
+      end
+      
+      if isempty(g.Handles.edline) || ~ishandle(g.Handles.edline)
+        g.Handles.edline = plot(g.Handles.volumeaxes,...
+          [t(SET(no).EDT) t(SET(no).EDT)],[tempmax tempmax*0.8],'color',lc);
+      else
+        set(g.Handles.edline,'xdata',[t(SET(no).EDT) t(SET(no).EDT)],'ydata',[tempmax tempmax*0.8])
+      end
+      
       set([g.Handles.edtext g.Handles.edline],'ButtonDownFcn','segment(''esed_Buttondown'',''ed'')',...
         'color',lc,'linewidth',2);
       set(g.Handles.volumeaxes,'ButtonDownFcn','segment(''volumeaxes_Buttondown'')');
       
       
-        if isempty(g.Handles.estext) || ~ishandle(g.Handles.estext) 
-      g.Handles.estext = text(...
-        'parent',g.Handles.volumeaxes,...
-        'position',[t(SET(no).EST)-0.05*t(end) tempmin+0.2*(tempmax-tempmin)],...
-        'string','ES',...
-        'color',lc,'FontWeight','bold');
-              else
-          set(g.Handles.estext,'position',[t(SET(no).EST)-0.05*t(end) tempmin+0.2*(tempmax-tempmin)]);
-        end
+      if isempty(g.Handles.estext) || ~ishandle(g.Handles.estext)
+        g.Handles.estext = text(...
+          'parent',g.Handles.volumeaxes,...
+          'position',[t(SET(no).EST)-0.05*t(end) tempmin+0.2*(tempmax-tempmin)],...
+          'string','ES',...
+          'color',lc,'FontWeight','bold');
+      else
+        set(g.Handles.estext,'position',[t(SET(no).EST)-0.05*t(end) tempmin+0.2*(tempmax-tempmin)]);
+      end
         
      if isempty(g.Handles.esline) || ~ishandle(g.Handles.esline) 
        g.Handles.esline = plot(g.Handles.volumeaxes,[t(SET(no).EST) t(SET(no).EST)],...
@@ -4731,21 +4167,21 @@ set([...
      
       set([g.Handles.estext g.Handles.esline],'ButtonDownFcn','segment(''esed_Buttondown'',''es'')');
       maxlvm = max(SET(no).EPV-SET(no).LVV+SET(no).PV);
-      if ~isnan(maxlvm) 
+      if ~isnan(maxlvm)
         if ~isempty(g.Handles.lvmtext)
-        set(g.Handles.lvmtext,'position',[0.85*t(end) maxlvm+0.06*(tempmax-tempmin)])
+          set(g.Handles.lvmtext,'position',[0.85*t(end) maxlvm+0.06*(tempmax-tempmin)])
         else
-      g.Handles.lvmtext = text(...
-        'parent',g.Handles.volumeaxes,...
-        'position',[0.85*t(end) maxlvm+0.06*(tempmax-tempmin)],...
-        'string','LVM',...
-        'color','blue','fontsize',8);
+          g.Handles.lvmtext = text(...
+            'parent',g.Handles.volumeaxes,...
+            'position',[0.85*t(end) maxlvm+0.06*(tempmax-tempmin)],...
+            'string','LVM',...
+            'color','blue','fontsize',8);
         end
       else
-         delete(g.Handles.lvmtext)
-         g.Handles.lvmtext=[];
-       end
-%       %------------------------------------------------------------------------------------------------------------
+        delete(g.Handles.lvmtext)
+        g.Handles.lvmtext=[];
+      end
+%------------------------------------------------------------------------------------------------------------
       
       hold(g.Handles.volumeaxes,'off');
       set(g.Handles.timebarlv,'buttondownFcn','segment(''timebarlv_Buttondown'')');
@@ -4758,6 +4194,7 @@ set([...
       set(g.Handles.volumeaxes, ...
         'Color',g.GUISettings.VolumeColorGraph);
     end
+
     end
     
     
@@ -4775,9 +4212,14 @@ set([...
       g.Handles.timebarflow = [];
       g.Handles.flowcurve = [];
       set(g.Handles.flowaxes,'Visible','off');
+      %set(g.Handles.flowuipanel,'Visible','off');
+      %set(g.Handles.flowresultaxes,'Visible','off');
     else
       lc = [55 119 106]/255;
+      
+      %set(g.Handles.flowuipanel,'Visible','on');
       set(g.Handles.flowaxes,'Visible','on');
+      %set(g.Handles.flowresultaxes,'Visible','on');
       %Time resolved
       t = SET(no).TimeVector*1000;
       %flow curve
@@ -4881,19 +4323,67 @@ set([...
     %-----------------------------------------
     %Overloaded in RVQ GUI
     global SET
-    fontsize = thumbsize/20;
-    margin = fontsize;
+    fontsize = thumbsize/23;
+    
     g.Handles.datasetnumber = [];
+   
+    numletters=8;%thumbsize/fontsize;
     for loop=1:length(SET)
+      dosplit=0;
+      margin = fontsize;
+      str = strtrim(SET(loop).ImageType);
+      if length(str)>numletters
+        %group into cell of strings
+        %check for spaces close to 10 line
+        formatstring='%d. %s';
+        strcell={};
+        str_tmp=str;
+        numbreaks=0;
+        
+        while true
+          if numbreaks>0
+            numletters=12;
+          end
+          
+          ind = find(isspace(strtrim(str_tmp)));
+          tmp=ind(find((ind>floor(1/2*numletters)).*(ind<numletters)));
+          if length(str_tmp)<=numletters
+            strcell = [strcell,str_tmp];
+            break;
+          elseif ~isempty(tmp)
+            formatstring=[formatstring,'\n%s'];
+            strcell = [strcell,str_tmp(1:tmp(end))];
+            str_tmp = str_tmp(tmp(end)+1:end);
+          else
+            formatstring=[formatstring,'\n%s'];
+            strcell = [strcell,str_tmp(1:numletters)];
+            str_tmp=str_tmp(numletters+1:end);
+          end
+          numbreaks = numbreaks + 1;
+          end
+        margin=(numbreaks+1)*fontsize;
+        dosplit=1;
+      end
+
       ypos = (loop-1)*thumbsize+1+2*margin;
       xpos = margin;
+      if dosplit
       g.Handles.datasetnumber =  ...
         [g.Handles.datasetnumber  ...
-        text(xpos,ypos,sprintf('%d',loop),...
+        text(xpos,ypos,sprintf(formatstring,loop,strcell{:}),...
         'parent',g.Handles.datasetaxes,...
         'color',g.GUISettings.ThumbFlowLineColor,...
         'fontsize',fontsize)...
         ];
+      else
+      g.Handles.datasetnumber =  ...
+        [g.Handles.datasetnumber  ...
+        text(xpos,ypos,sprintf('%d. %s',loop, str),...
+        'parent',g.Handles.datasetaxes,...
+        'color',g.GUISettings.ThumbFlowLineColor,...
+        'fontsize',fontsize)...
+        ];
+      end
     end;
     
     end
@@ -4978,11 +4468,35 @@ set([...
     %Overloaded in Segment SPECT GUI
     end
     
+    %------------------------
+    function setglobalstacks(g)
+    %------------------------
+      %Find the best stacks for report LV, RV and Flow in main result
+      
+      global DATA
+      
+      cinestacks = findfunctions('findcineshortaxisno',true);
+      if ~isempty(cinestacks)
+        DATA.LVNO = cinestacks(1);
+        DATA.RVNO = cinestacks(2);
+      else
+        DATA.LVNO = [];
+        DATA.RVNO = [];
+      end
+      [DATA.FlowNO, DATA.FlowROI] = findfunctions('findflowaxisno');
+    end
+    
     
     %-----------------------
-    function initbullseye(g) %#ok<MANU>
+    function initbullseyeslices(g) %#ok<MANU>
     %-----------------------
     %Overloaded in Segment CMR GUI, Segment CT GUI and Segment Spect GUI
+    end
+    
+    %-----------------------
+    function initbullseyes(g) %#ok<MANU>
+    %-----------------------
+    %Overloaded in Segment CT GUI
     end
     
     %--------------------------
@@ -4998,7 +4512,19 @@ set([...
 %     %------------------------------- 
 %     g.GUI.needrest = 1;
 %     end
+    %----------------------
+    function synchronize(g)
+    %-----------------------
+    %toggle synchronize option currently makes 
+    %slice toggling 
+    %time toggling
+    %go to ed
+    %go to es
+    %execute for all stacks.
     
+    stateandicon = segment('iconson','synchronize');
+    g.Synchronize=stateandicon{1};
+    end
     %---------------------------------
     function keypressed(g,fignum,evnt)
     %---------------------------------
@@ -5049,7 +4575,11 @@ set([...
           eval(fcn);
         else
           %Diastole (d)
-          tools('enddiastole_Callback');
+          if DATA.Synchronize
+            tools('enddiastoleall_Callback');
+          else
+            tools('enddiastole_Callback');
+          end
         end
       case 'n'
         if DATA.CurrentPanel-1~=0
@@ -5070,21 +4600,42 @@ set([...
           eval(fcn);
         else
           %Systole (s)
-          tools('endsystole_Callback');
+          if DATA.Synchronize
+           tools('endsystoleall_Callback');
+          else
+           tools('endsystole_Callback');
+          end
         end
       case 'shift-d'
         tools('enddiastoleall_Callback');
       case 'shift-s'
         tools('endsystoleall_Callback');
       case 'leftarrow' %Left
-        segment_main('previousframe_Callback');
+        if DATA.Synchronize
+          segment_main('previousallframe_Callback');
+        else
+          segment_main('previousframe_Callback');
+        end
+        
       case 'rightarrow' %Right
-        segment_main('nextframe_Callback');
-      case 'uparrow' %Arrow up
-        segment_main('movetowardsbase_Callback');
+        if DATA.Synchronize
+          segment_main('nextallframe_Callback');
+        else
+          segment_main('nextframe_Callback');
+        end
+       case 'uparrow' %Arrow up
+       if DATA.Synchronize
+         segment_main('movealltowardsbase_Callback');
+       else
+         segment_main('movetowardsbase_Callback');
+       end
       case 'downarrow' %Arrow down
-        segment_main('movetowardsapex_Callback');
-      case 'shift-leftarrow'
+        if DATA.Synchronize
+          segment_main('movealltowardsapex_Callback');
+        else
+          segment_main('movetowardsapex_Callback');
+        end
+        case 'shift-leftarrow'
         segment_main('previousallframe_Callback');
       case 'shift-rightarrow'
         segment_main('nextallframe_Callback');
@@ -5121,7 +4672,7 @@ set([...
          iconcell{1}.isindented=1;
         DATA.Handles.toggleiconholder.render;
         DATA.togglebuttonLV_Callback;
-        case 'r' %(r)
+      case 'r'
         iconcell=DATA.Handles.toggleiconholder.iconCell;
         for i=1:numel(iconcell)
           iconcell{i}.undent
@@ -5178,13 +4729,14 @@ set([...
          iconcell{4}.isindented=1;
         DATA.Handles.toggleiconholder.render;
         DATA.togglebuttonVia_Callback;
-        case 'a'
+      case 'a'
           iconcell=DATA.Handles.toggleiconholder.iconCell;
         for i=1:numel(iconcell)
           iconcell{i}.undent
         end
-         iconcell{5}.cdataDisplay=iconcell{5}.cdataIndent;
-         iconcell{5}.isindented=1;
+        modenbr = length(iconcell)-1;
+        iconcell{modenbr}.cdataDisplay=iconcell{modenbr}.cdataIndent;
+        iconcell{modenbr}.isindented=1;
         DATA.Handles.toggleiconholder.render;
         DATA.togglebuttonAnalysis_Callback;
       case 'i'
@@ -5192,8 +4744,9 @@ set([...
         for i=1:numel(iconcell)
           iconcell{i}.undent
         end
-         iconcell{6}.cdataDisplay=iconcell{6}.cdataIndent;
-         iconcell{6}.isindented=1;
+        modenbr = length(iconcell);
+        iconcell{modenbr}.cdataDisplay=iconcell{modenbr}.cdataIndent;
+        iconcell{modenbr}.isindented=1;
         DATA.Handles.toggleiconholder.render;
         DATA.togglebuttonImage_Callback;  
       case 'h'
@@ -5369,10 +4922,7 @@ set([...
       case 'alt-h'
         val=get(DATA.Handles.hideallpanelscheckbox,'Value');
         set(DATA.Handles.hideallpanelscheckbox,'Value',~val);
-        segment('hideallpanels');
-      case 'ctrl-h'
-        viability('removeholesthisslice_Callback'); %Fix for Sascha
-        
+        segment('hideallpanels');        
       %Tools for translating contour
       case 'shift-alt-a'
         tools('translatecontoursandimage',0,-1); %left
@@ -5567,7 +5117,9 @@ set([...
         vesselsnake_overview('segmentaorta')
       case 'ctrl-alt-v'
         %New method for semi-Automatic Vessel Segmentation in 2D PC-MRI:
+        oldpref=DATA.ThisFrameOnly;
         vesselsnake_flowtrackroi('flowtrackroi');
+        DATA.ThisFrameOnly=oldpref;
       case 'ctrl-alt-space'
         %Import T1map:
         cxt1map2segment()
@@ -5840,8 +5392,9 @@ set([...
     %g.updatetimethings;
     %g.updateaxestables;
 %     %Update volumeaxes
-     segment('updatevolume');
-     segment('updateflow');
+    g.updateaxestables('allreports');
+%     segment('updatevolume');
+%     segment('updateflow');
 
     %Update title on window
     g.updatetitle;
@@ -5968,7 +5521,62 @@ set([...
     SET(no).RoiCurrent = SET(no).RoiN;
     
     end
-        
+    %-------------------------------------    
+    function setribbonimages(language)
+    %-------------------------------
+    global DATA    
+    g=DATA;
+     
+     if strcmp(language,'English')
+       if strcmp(g.ProgramName,'Segment CMR')
+         g.Handles.toggleiconholder.iconCell{3}.cdata=g.Icons.toggleicons.ribbonflowoff;
+         g.Handles.toggleiconholder.iconCell{3}.cdataIndent=g.Icons.toggleicons.ribbonflowon;
+         g.Handles.toggleiconholder.iconCell{4}.cdata=g.Icons.toggleicons.ribbonviabilityoff;
+         g.Handles.toggleiconholder.iconCell{4}.cdataIndent=g.Icons.toggleicons.ribbonviabilityon;
+         g.Handles.toggleiconholder.iconCell{5}.cdata=g.Icons.toggleicons.ribbonanalysisoff;
+         g.Handles.toggleiconholder.iconCell{5}.cdataIndent=g.Icons.toggleicons.ribbonanalysison;
+         g.Handles.toggleiconholder.iconCell{6}.cdata=g.Icons.toggleicons.ribbonimageoff;
+         g.Handles.toggleiconholder.iconCell{6}.cdataIndent=g.Icons.toggleicons.ribbonimageon;
+       else 
+         g.Handles.toggleiconholder.iconCell{4}.cdata=g.Icons.toggleicons.ribbonanalysisoff;
+         g.Handles.toggleiconholder.iconCell{4}.cdataIndent=g.Icons.toggleicons.ribbonanalysison;
+         g.Handles.toggleiconholder.iconCell{5}.cdata=g.Icons.toggleicons.ribbonimageoff;
+         g.Handles.toggleiconholder.iconCell{5}.cdataIndent=g.Icons.toggleicons.ribbonimageon;
+       end
+         
+     
+     else
+       if strcmp(g.ProgramName,'Segment CMR')
+         g.Handles.toggleiconholder.iconCell{3}.cdataIndent=g.Icons.toggleicons.(['ribbonflowon_',language]);
+         g.Handles.toggleiconholder.iconCell{3}.cdata=g.Icons.toggleicons.(['ribbonflowoff_',language]);
+         g.Handles.toggleiconholder.iconCell{4}.cdata=g.Icons.toggleicons.(['ribbonviabilityoff_',language]);
+         g.Handles.toggleiconholder.iconCell{4}.cdataIndent=g.Icons.toggleicons.(['ribbonviabilityon_',language]);
+         g.Handles.toggleiconholder.iconCell{5}.cdata=g.Icons.toggleicons.(['ribbonanalysisoff_',language]);
+         g.Handles.toggleiconholder.iconCell{5}.cdataIndent=g.Icons.toggleicons.(['ribbonanalysison_',language]);
+         g.Handles.toggleiconholder.iconCell{6}.cdata=g.Icons.toggleicons.(['ribbonimageoff_',language]);
+         g.Handles.toggleiconholder.iconCell{6}.cdataIndent=g.Icons.toggleicons.(['ribbonimageon_',language]);
+       else
+         g.Handles.toggleiconholder.iconCell{4}.cdata=g.Icons.toggleicons.(['ribbonanalysisoff_',language]);
+         g.Handles.toggleiconholder.iconCell{4}.cdataIndent=g.Icons.toggleicons.(['ribbonanalysison_',language]);
+         g.Handles.toggleiconholder.iconCell{5}.cdata=g.Icons.toggleicons.(['ribbonimageoff_',language]);
+         g.Handles.toggleiconholder.iconCell{5}.cdataIndent=g.Icons.toggleicons.(['ribbonimageon_',language]);
+       end
+     end
+     for i = 1:length(g.Handles.toggleiconholder.iconCell)
+       cdataIndent=g.Handles.toggleiconholder.iconCell{i}.cdataIndent;
+       cdata=g.Handles.toggleiconholder.iconCell{i}.cdata;
+       g.Handles.toggleiconholder.iconCell{i}.generateclickeddisabledandindent(cdata,cdataIndent);
+       if ~g.Handles.toggleiconholder.iconCell{i}.enabled
+         g.Handles.toggleiconholder.iconCell{i}.cdataDisplay=g.Handles.toggleiconholder.iconCell{i}.cdataDisabled;
+       elseif g.Handles.toggleiconholder.iconCell{i}.isindented
+         g.Handles.toggleiconholder.iconCell{i}.cdataDisplay=g.Handles.toggleiconholder.iconCell{i}.cdataIndent;
+       else
+         g.Handles.toggleiconholder.iconCell{i}.cdataDisplay=g.Handles.toggleiconholder.iconCell{i}.cdata;
+       end
+       
+     end
+     g.Handles.toggleiconholder.render;
+    end
     %----------------------------------------------------------
     function handle = iconcdatahelper(handle,icondata,tiptext)
     %----------------------------------------------------------
@@ -6129,7 +5737,7 @@ set([...
     
     %-----------------------------------------------------------
     function h = mywaitbarmainstart(iter,stri,ignorelimit,waitbarfigure)
-    %-----------------------------------------------------------
+   %-----------------------------------------------------------
     %Overloaded functions to have the waitbar in the bottom of the main GUI
         
     global DATA
@@ -6185,8 +5793,8 @@ set([...
         set(h.guihandle.waitbartext,'visible','on');
         set(h.guihandle.waitbarpatch,'visible','on');
         axis(h.guihandle.waitbaraxes,'off');
-        set(h.guihandle.waitbartext,'backgroundcolor',[0.94,0.94,0.94])
-        set(h.guihandle.waitbartext,'foregroundcolor',[0 0 0])
+        set(h.guihandle.waitbartext,'backgroundcolor',DATA.GUISettings.BackgroundColor)
+        set(h.guihandle.waitbartext,'foregroundcolor',DATA.GUISettings.TimebarAxesColor)
         set(h.guihandle.waitbartext,'string',stri);
         set(h.guihandle.waitbarpatch,'xdata',[0 0 0 0]);
         drawnow('expose');

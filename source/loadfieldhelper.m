@@ -202,6 +202,14 @@ if not(isfield(setstruct,'Flow'))
   end;
 end;
 
+for no = 1:length(setstruct)
+  if not(isempty(setstruct(no).Flow))
+    if not(isfield(setstruct(no).Flow,'PhaseCorrTimeResolved'))    
+      setstruct(no).Flow.PhaseCorrTimeResolved = false;
+    end
+  end
+end
+
 if not(isfield(setstruct,'VENC'))
   for no = 1:length(setstruct)
     setstruct(no).VENC = 0;
@@ -433,6 +441,12 @@ if not(isfield(setstruct,'Longaxis'))
   end;
 end;
 
+for no = 1:length(setstruct)
+  if isempty(setstruct(no).Longaxis)
+    setstruct(no).Longaxis = 1; %Remove this from default, EH: 2017-06-19, 1=>first choice in listbox => 0. Was 1 before as well...
+  end;
+end;
+
 if not(isfield(setstruct,'AutoLongaxis'))
   for no = 1:length(setstruct)
     setstruct(no).AutoLongaxis = false; %Remove this from default, EH: 2017-06-19
@@ -591,7 +605,28 @@ for no = 1:length(setstruct)
       setstruct(no).Flow.PhaseNo = [];
     end;   
     if not(isfield(setstruct(no).Flow,'Result'))
-      setstruct(no).Flow.Result = [];
+      if isfield(setstruct(no).Flow,'nettotvol')
+        try
+          setstruct(no).Flow.Result.nettotvol = setstruct(no).Flow.nettotvol;
+          setstruct(no).Flow.Result.velmean = setstruct(no).Flow.velmean;
+          setstruct(no).Flow.Result.velstd = setstruct(no).Flow.velstd;
+          setstruct(no).Flow.Result.velmax = setstruct(no).Flow.velmax;
+          setstruct(no).Flow.Result.velmin = setstruct(no).Flow.velmin;
+          setstruct(no).Flow.Result.kenergy = setstruct(no).Flow.kenergy;
+          setstruct(no).Flow.Result.area = setstruct(no).Flow.area;
+          setstruct(no).Flow.Result.netflow = setstruct(no).Flow.netflow;
+          setstruct(no).Flow.Result.posflow = setstruct(no).Flow.posflow;
+          setstruct(no).Flow.Result.negflow = setstruct(no).Flow.negflow;
+          setstruct(no).Flow.Result.diameter = setstruct(no).Flow.diameter;
+          setstruct(no).Flow.Result.netforwardvol = setstruct(no).Flow.netforwardvol;
+          setstruct(no).Flow.Result.netbackwardvol = setstruct(no).Flow.netbackwardvol;
+          setstruct(no).Flow.Result.regfrac = setstruct(no).Flow.regfrac;
+          setstruct(no).Flow.Result.sv = setstruct(no).Flow.sv;
+        catch
+        end
+      else
+        setstruct(no).Flow.Result = [];
+      end
     end;         
     if isfield(setstruct(no).Flow,'parameter')
       if not(isfield(setstruct(no).Flow.parameter,'expandoutward'))
@@ -1119,9 +1154,22 @@ if not(isfield(setstruct,'Intersection'))
   end;
 end;
 
+%Bug check for EST and EDT if its zero
+for no = 1:length(setstruct)
+  if setstruct(no).EST==0
+    setstruct(no).EST=1;
+  end
+  if setstruct(no).EDT==0
+    setstruct(no).EDT=1;  
+  end
+end
+
 %--- TimeVector
 for no = 1:length(setstruct) 
-  if not(isfield(setstruct,'TimeVector')) || isempty(setstruct(no).TimeVector)
+  if not(isfield(setstruct,'TimeVector')) || isempty(setstruct(no).TimeVector) || all(setstruct(no).TimeVector==0) 
+    if isnan(setstruct(no).TIncr)
+      setstruct(no).TIncr=1/(SET(no).TSize-1); %Normalised time
+    end
     tvec = 0:setstruct(no).TIncr:(setstruct(no).TSize-1) * setstruct(no).TIncr;
     if isempty(tvec)
       tvec = 0;

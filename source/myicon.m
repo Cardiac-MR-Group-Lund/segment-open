@@ -46,37 +46,30 @@ classdef myicon < handle %Inherits from handles to get persistent objects.
       g.cdata = cdata;
       g.cdataDisplay=cdata;
       g.execute=execute;
-      %if nargin==2
-      %Generate click image
-%       %first alternative using gaussian to give indented look
-%       x=size(cdata,1);
-%       y=size(cdata,2);
-%       [X1,X2]=meshgrid(1:x,1:y);
-%       F = mvnpdf([X1(:) X2(:)],round([x,y]/2),20*x*eye(2));
-%       F = reshape(F,x,y)/max(F);
-%       F=repmat(F,1,1,3);
-%       g.cdataClicked=uint8(double(cdata).*F);
-
-      %g.cdataClicked=uint8(cdata*3/4);
-      tmp=g.cdata;
-      tmp(g.cdata==240)=100;
-    g.cdataClicked=uint8(tmp);
-      %if nargin<6
-        cdataDisabled=rgb2gray(cdata)/5;
-        cdataDisabled=cdataDisabled+(240-max(max(cdataDisabled)));%(cdataDisabled>240)=240;
-        g.cdataDisabled=uint8(repmat(cdataDisabled,1,1,3));
-      %else
-      %  g.cdataDisabled=g.cdataDisabled;
-      %end
+      if nargin<8
+        g.generateclickeddisabledandindent(cdata)
+      else
+        g.generateclickeddisabledandindent(cdata,cdataIndent)
+      end
+    end
+    
+    function generateclickeddisabledandindent(varargin)
+      g=varargin{1};
+      cdata=varargin{2};
+      tmp=cdata;
+      tmp(cdata==240)=100;
+      g.cdataClicked=uint8(tmp);
+      cdataDisabled=rgb2gray(cdata)/5;
+      cdataDisabled=cdataDisabled+(240-max(max(cdataDisabled)));%(cdataDisabled>240)=240;
+      g.cdataDisabled=uint8(repmat(cdataDisabled,1,1,3));
       
       %Allows user to specify how indented button should look like
-      if nargin<8
-        %g.cdataIndent=uint8(cdata*2.8/3);
+      if nargin<3
         tmp=g.cdata;
         tmp(g.cdata==240)=160;
         g.cdataIndent=uint8(tmp);
       else
-        g.cdataIndent=cdataIndent;
+        g.cdataIndent=varargin{3};
       end
     end
     

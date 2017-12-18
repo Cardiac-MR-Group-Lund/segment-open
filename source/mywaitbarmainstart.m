@@ -17,7 +17,7 @@ function h = mywaitbarmainstart(varargin)
 
 global DATA
 
-if ismethod(DATA,'mywaitbarmainstart')
+if ismethod(DATA,'mywaitbarstart')
   h = DATA.mywaitbarmainstart(varargin{:}); %Call the potentially overloaded method.
 else
   %Well seems not to be overloaded => 
