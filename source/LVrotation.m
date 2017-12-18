@@ -1,4 +1,4 @@
-function LVrotation(varargin)
+function [varargout] = LVrotation(varargin)
 %function to define the LV rotation
 
 
@@ -157,7 +157,10 @@ gui = DATA.GUI.LVrotation;
 
 v = get(gui.handles.rotationfromannotationcheckbox,'value');
 if v
-  reportbullseye('sectorrotationhelper',gui.no)
+  pos = rotationfromannotationhelper(gui.no);
+  if isempty(pos)
+    set(gui.handles.rotationfromannotationcheckbox,'value',0);
+  end
 end
 
 %update slider
@@ -165,6 +168,28 @@ set(gui.handles.rotationslider,'value',SET(gui.no).SectorRotation);
 %call to graphically update rotation & bullseye
 plotimage;
 
+%--------------------------------------
+function pos = rotationfromannotationhelper(no)
+%--------------------------------------
+%Find suitable sector rotation based on RV insertion points
+
+global SET
+
+%Find slices with RV insertion points
+slices = false(1,SET(no).ZSize);
+for loop = 1:length(SET(no).Point.Z)
+  if isequal(SET(no).Point.Label{loop},'RV insertion') || isequal(SET(no).Point.Label{loop},'P1')|| isequal(SET(no).Point.Label{loop},'P2')
+    slices(SET(no).Point.Z(loop)) = true;
+  end;
+end;
+
+%Find slices
+pos = find(slices);
+if isempty(pos)
+  mywarning(sprintf('No RV points found. Current sector rotation is %0.5g',SET(no).SectorRotation)); 
+  return
+end
+pos = reportbullseye('sectorrotationhelper',no);
 
 
 %-------------------

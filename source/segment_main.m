@@ -135,10 +135,10 @@ DATA.Preview = genemptypreview(DATA.Pref.datapath);
   switch type
     case 1
       set(singlebutton, 'backgroundcolor','g');
-      set(multibutton, 'backgroundcolor','r');
+      set(multibutton, 'backgroundcolor',[0.8 0.8 0.8]);
       DATA.thisframeonly_Callback(1)
     case  2
-      set(singlebutton, 'backgroundcolor','r');
+      set(singlebutton, 'backgroundcolor',[0.8 0.8 0.8]);
       set(multibutton, 'backgroundcolor','g');
       DATA.thisframeonly_Callback(0)
   end
@@ -573,181 +573,14 @@ else
   cinewindow;
 end;
 
-%---------------------------
-function updateviewicons(no)
-%---------------------------
-%Enables/Disables icons depending on image data (nbr timeframes etc)
-
-global DATA SET NO 
-
-if nargin < 1
-  no = NO;
-end
-
-%Active correct icon
-set([DATA.Handles.viewoneicon ...
-     DATA.Handles.mmodeviewicon ...
-     DATA.Handles.viewallicon ...
-     DATA.Handles.montagerowicon ...
-     DATA.Handles.montagefiticon ...
-     DATA.Handles.orthoviewicon ...
-     DATA.Handles.mipicon],'state','off');
-
-set([DATA.Handles.viewoneimage ...
-     DATA.Handles.viewmmodeimage ...
-     DATA.Handles.viewmontageimage ...
-     DATA.Handles.viewmontagerowimage ...
-     DATA.Handles.viewonecontext ...
-     DATA.Handles.viewmmodecontext ...
-     DATA.Handles.viewmontagecontext ...
-     DATA.Handles.viewmontagerowcontext],'checked','off');
-
-%Disable things
-set([...
-  DATA.Handles.distancetext],'visible','off');
-
-% No zoom for montage/montagerow/mmode, only for one
-%set([DATA.Handles.viewzoominicon...
-%     DATA.Handles.viewzoomouticon...
-%     DATA.Handles.viewzoominmenu...
-%     DATA.Handles.viewzoomoutmenu],'enable','off');
-
-%--- Update icons
-switch DATA.ViewPanelsType{DATA.CurrentPanel}
-  case 'one'
-    set(DATA.Handles.viewoneicon,'state','on');
-    set([DATA.Handles.viewoneimage...
-         DATA.Handles.viewonecontext],'checked','on');
-%    set([DATA.Handles.viewzoominicon...
-%         DATA.Handles.viewzoomouticon...
-%         DATA.Handles.viewzoominmenu...
-%         DATA.Handles.viewzoomoutmenu],'enable','on');
-  case {'mmodespatial','mmodetemporal'}
-    set(DATA.Handles.mmodeviewicon,'state','on');
-    set([DATA.Handles.viewmmodeimage...
-         DATA.Handles.viewmmodecontext],'checked','on');
-%     set([...
-%       DATA.Handles.distancetext],'visible','on');
-  case {'montage','montagesegmented'}
-    set(DATA.Handles.viewallicon,'state','on');
-    set([DATA.Handles.viewmontageimage...
-         DATA.Handles.viewmontagecontext],'checked','on');
-  case 'montagerow'
-    set(DATA.Handles.montagerowicon,'state','on');
-    set([DATA.Handles.viewmontagerowimage...
-         DATA.Handles.viewmontagerowcontext],'checked','on');
-  case 'montagefit'
-    set(DATA.Handles.montagefiticon,'state','on');
-  case {'ortho','hla','gla','vla'}
-    set(DATA.Handles.orthoviewicon,'state','on');
-  case {'orthomip','hlamip','vlamip'}
-    set(DATA.Handles.mipicon,'state','on');
-end;
-
-if (SET(no).ZSize == 1)
-  set([DATA.Handles.viewallicon ...
-       DATA.Handles.montagerowicon ...
-       DATA.Handles.montagefiticon ...
-       DATA.Handles.orthoviewicon ...
-       DATA.Handles.mipicon ...
-       DATA.Handles.viewmontageimage ...
-       DATA.Handles.viewmontagerowimage ...
-       DATA.Handles.viewmontagecontext ...
-       DATA.Handles.viewmontagerowcontext],'enable','off')
-  % update menus...
-elseif (SET(no).ZSize > 1)
-  set([DATA.Handles.viewallicon ...
-       DATA.Handles.montagerowicon ...
-       DATA.Handles.montagefiticon ...
-       DATA.Handles.orthoviewicon ...
-       DATA.Handles.mipicon ...
-       DATA.Handles.viewmontageimage ...
-       DATA.Handles.viewmontagerowimage ...
-       DATA.Handles.viewmontagecontext ...
-       DATA.Handles.viewmontagerowcontext],'enable','on')
-  % update menus...
-end
-
-if (SET(no).TSize == 1)
-  set([DATA.Handles.mmodeviewicon ...
-       DATA.Handles.viewmmodeimage ...
-       DATA.Handles.viewmmodecontext],'enable','off')
-  % update menus...
-elseif (SET(no).TSize > 1)
-  set([DATA.Handles.mmodeviewicon ...
-       DATA.Handles.viewmmodeimage ...
-       DATA.Handles.viewmmodecontext],'enable','on')
-  % update menus...
-end
-
-% Also toggle scar...
-DATA.togglescar;
-
-%SPECT only when NM
-if isequal(SET(no).Modality,'NM')
-  set(get(DATA.Handles.spectmenu,'children'),'enable','on');  
-else
-  set(get(DATA.Handles.spectmenu,'children'),'enable','off');
-end
-  
-%CT functionality only for CT
-if isequal(SET(no).Modality(1:2),'CT') || isequal(SET(no).Modality(1:2),'SC')
-  set(get(DATA.Handles.ctmenu,'children'),'enable','on'); 
-else
-  set(get(DATA.Handles.ctmenu,'children'),'enable','off');
-end;
-
-%Flow and Strain
-if ~isempty(SET(no).Flow)
-  set(get(DATA.Handles.flowmenu,'children'),'enable','on');
-%   if ~isempty(SET(no).Flow.PhaseX) && ~isempty(SET(no).Flow.PhaseY)
-%     set(DATA.Handles.strainvelmenu,'enable','on');
-%   else
-%     set(DATA.Handles.strainvelmenu,'enable','off');    
-%   end;
-  if ~isempty(SET(no).Flow.Angio)
-    set(DATA.Handles.flowcreateangio,'enable','off');
-    set(DATA.Handles.flowdeleteangio,'enable','on');    
-  else
-    set(DATA.Handles.flowcreateangio,'enable','on');
-    set(DATA.Handles.flowdeleteangio,'enable','off');
-  end
-  if ~isempty(SET(no).Flow.VelMag)
-    set(DATA.Handles.flowcreatevelmag,'enable','off');
-    set(DATA.Handles.flowdeletevelmag,'enable','on');    
-  else
-    set(DATA.Handles.flowcreatevelmag,'enable','on');
-    set(DATA.Handles.flowdeletevelmag,'enable','off');
-  end
-else
-  set(get(DATA.Handles.flowmenu,'children'),'enable','off');
-  set(DATA.Handles.flowcouplestacks,'enable','on');
-%   set(DATA.Handles.strainvelmenu,'enable','off');
-end
-
-if any(strcmp({SET.ImageType},'Strain from tagging'))  
-  temph = [DATA.Handles.straintagginglaxmenu DATA.Handles.straintaggingsaxmenu DATA.Handles.taggingdrawguidemenu DATA.Handles.cleartaggingstrainmenu];
-  set(temph,'enable','on');
-else
-  temph = [DATA.Handles.straintagginglaxmenu DATA.Handles.straintaggingsaxmenu DATA.Handles.taggingdrawguidemenu DATA.Handles.cleartaggingstrainmenu];  
-  set(temph,'enable','off');    
-  %  strainftlaxmenu
-%strainftsaxmenu
-   %clearftstrainmenu
-
-end;
-
-if length(SET)>0
-  set(get(DATA.Handles.fusionmenu,'children'),'enable','on');
-else
-  set(get(DATA.Handles.fusionmenu,'children'),'enable','off');  
-end;
 
 %---------------------------------------------
-function switchtopanel(panel,updateimagestack)
+function killbuttondown=switchtopanel(panel,updateimagestack)
 %---------------------------------------------
 %Make panel the currentpanel
-global DATA 
+global DATA SET
+
+killbuttondown=0;
 
 if DATA.Silent
   return;
@@ -780,20 +613,48 @@ set(DATA.Handles.imageaxes(DATA.CurrentPanel),...
   'xcolor',DATA.GUISettings.AxesColor,'ycolor',DATA.GUISettings.AxesColor,...
   'linewidth',2.5,...
   'visible','on');
+
+
+updateselectedslices
+% for loop=1:prod(DATA.ViewMatrix)
+%   no=DATA.ViewPanels(loop);
+%   set(DATA.Handles.selectslicehandle{loop},'visible','off');
+%   switch DATA.ViewPanelsType{loop}
+%     case {'montage','montagerow','montagefit','montagesegmented'}
+%       if loop~=DATA.CurrentPanel
+%         set(DATA.Handles.selectslicehandle{loop}(SET(no).StartSlice:SET(no).EndSlice),'linestyle','--')%'color',[0.7843  0.7843 0.5]);
+%       else
+%         set(DATA.Handles.selectslicehandle{loop}(SET(no).StartSlice:SET(no).EndSlice),'color',[1 1 0],'linestyle','-');
+%       end
+%       set(DATA.Handles.selectslicehandle{loop}(SET(no).StartSlice:SET(no).EndSlice),'visible','on');
+%     otherwise
+%       %nothing for now.
+%   end;
+% end;
+
 %Update intersection lines
 drawfunctions('drawintersections');
 
 %if any drawing tool or crop tool is selcted, change to pointer and do not
 %perform any drawing or cropping
+
 switch DATA.CurrentTool
   case {'drawendo','drawepi','drawrvendo','drawrvepi',...
       'interpendo','interpepi','interprvendo','interprvepi',...
       'drawmarpen','drawmarrubberpen','drawmarrubber',...
       'drawroi','putroi','crop'}
-    
-    DATA.guitoggletool('select',DATA.CurrentTool);
-    updatetool('select');
+    killbuttondown=1;
 end
+
+% switch DATA.CurrentTool
+%   case {'drawendo','drawepi','drawrvendo','drawrvepi',...
+%       'interpendo','interpepi','interprvendo','interprvepi',...
+%       'drawmarpen','drawmarrubberpen','drawmarrubber',...
+%       'drawroi','putroi','crop'}
+%     
+%     DATA.guitoggletool('select',DATA.CurrentTool);
+%     updatetool('select');
+% end
 
 DATA.updateaxestables('measure');    
 DATA.updateaxestables('volume');
@@ -917,7 +778,12 @@ try
     if ~isempty(DATA.Handles.configiconholder.cdata) 
       DATA.Handles.configiconholder.render
     end
-  try 
+    
+    if ~isempty(DATA.Handles.hideiconholder.cdata) 
+      DATA.Handles.hideiconholder.render
+    end
+    
+    try
     rows=DATA.ViewMatrix(1);
     cols=DATA.ViewMatrix(2);
     drawfunctions('drawall',rows,cols);
@@ -999,21 +865,6 @@ if ~DATA.Silent
     drawfunctions('drawall',DATA.ViewMatrix);
   end;
 
-  set([...
-    DATA.Handles.viewoneicon ...
-    DATA.Handles.mmodeviewicon ...
-    DATA.Handles.viewallicon ...
-    DATA.Handles.montagerowicon ...
-    DATA.Handles.montagefiticon],'enable','on');
-  set([...
-    DATA.Handles.viewoneimage ...
-    DATA.Handles.viewmmodeimage ...
-    DATA.Handles.viewmontageimage ...
-    DATA.Handles.viewmontagerowimage],...
-    'enable','on');
-
-  %updateviewicons;
-    %segment('viewhidecolorbar_Callback')
 end;
 %Not great position as it triggers for ever stack
 %DATA.dataloadedplaceholders
@@ -1221,12 +1072,64 @@ if ~isempty(ind)
   
 end
 
+%-------------------------
+function addnotopanel(no) %#ok<DEFNU>
+%-------------------------
+    global DATA NO SET
+    
+    ind=find(DATA.ViewPanels==0,1);
+    
+    if ~isempty(ind)
+      DATA.ViewPanels(ind) = no;
+      if (SET(no).ZSize==1)
+        DATA.ViewPanelsType{ind} = 'one';
+      else
+        DATA.ViewPanelsType{ind} = DATA.GUISettings.ViewPanelsTypeDefault;
+      end
+      DATA.ViewIM{ind} = [];
+      DATA.Overlay(ind) = struct('alphadata', [], 'cdata', []);
+      DATA.CurrentPanel = ind;
+      
+      oldnos=SET(NO).Linked;
+      NO = no;
+      
+      % This is to ensure that linkaxes is removed when a non-linked stack is
+      % moved into a panel that was previously linked. /JU
+      panel=find(ismember(DATA.ViewPanels,NO));
+      if ~isempty(panel)&&...
+          isappdata(DATA.Handles.imageaxes(panel(1)),'graphics_linkaxes')&&...
+          ~ismember(NO,oldnos);
+        %isempty(SET(NO).Flow)
+        linkaxes(DATA.Handles.imageaxes(panel),'off');
+      end
+      drawfunctions('drawimageno',NO);
+      drawfunctions('drawallslices');
+      DATA.switchtoimagestack(NO,true); %force
+    end
+
 %----------------------------
 function updateselectedslices
 %----------------------------
 %Graphically updates which slices are selected.
 global DATA SET NO
 
+for loop=1:prod(DATA.ViewMatrix)
+  no=DATA.ViewPanels(loop);
+  set(DATA.Handles.selectslicehandle{loop},'visible','off');
+  switch DATA.ViewPanelsType{loop}
+    case {'montage','montagerow','montagefit','montagesegmented'}
+      if loop~=DATA.CurrentPanel
+        set(DATA.Handles.selectslicehandle{loop}(SET(no).StartSlice:SET(no).EndSlice),'linestyle','--')%'color',[0.7843  0.7843 0.5]);
+      else
+        set(DATA.Handles.selectslicehandle{loop}(SET(no).StartSlice:SET(no).EndSlice),'color',[1 1 0],'linestyle','-');
+      end
+      set(DATA.Handles.selectslicehandle{loop}(SET(no).StartSlice:SET(no).EndSlice),'visible','on');
+    otherwise
+      %nothing for now.
+  end;
+end;
+
+%fix so that linked images are connected
 nos = SET(NO).Linked;
 
 panelstodo=find(ismember(DATA.ViewPanels,nos));
@@ -1424,9 +1327,9 @@ if ismember(SET(NO).ImageViewPlane,{'2CH','3CH','4CH'})
     calcd = 0;
   end
 end
-
+ DATA.AxesTables.volume.updateName('INFO','',true);
 if calcd > 0
-  specstring = dprintf(translation.dictionary('Volumes from %d longaxis views\n'), calcd);
+  DATA.AxesTables.volume.updateName('INFO',translation.dictionary(sprintf('Volume from %d LAX stacks',calcd)),true);
   calcfunctions('volume_helper',NO);
 elseif calcd == -1
   calcfunctions('calcvolume',NO);
@@ -1684,7 +1587,7 @@ global DATA SET NO
 panel = DATA.CurrentPanel;
 type = DATA.ViewPanelsType{panel};
 
-if ismember(type,{'montage','montagerow','montagefit','sax3','montagesegmented'})
+if any(strcmp(type,{'montage','montagerow','montagefit','sax3','montagesegmented'}))%ismember(type,{'montage','montagerow','montagefit','sax3','montagesegmented'})
   %Find slice
   col = 1+floor((x-0.5)/SET(NO).YSize);
   row = 1+floor((y-0.5)/SET(NO).XSize);
@@ -1830,7 +1733,7 @@ end
 %--------------------------------
 function updateoneim(no)
 %--------------------------------
-%Updates viewim for 'one view' or 'mmodespatial'
+%Updates viewim for 'one view' or 'mmodespatial' 
 %Called when changed currentslice
 global DATA SET
 
@@ -1842,9 +1745,9 @@ for loop=1:length(DATA.ViewPanels)
 %  if ...
   if (ismember(DATA.ViewPanels(loop),nos))&&... 
   ismember(DATA.ViewPanelsType{loop},{'one','mmodespatial','ortho','hla','vla','gla'})
-    
     makeviewim(loop,DATA.ViewPanels(loop));
   end;
+
 end;
 
 if ismember('mmodetemporal',DATA.ViewPanelsType)
@@ -1972,6 +1875,8 @@ if not(isempty(parallel))
   % disp(sprintf('SET(NO).CurrentSlice z-distance: %d mm', currzdist));
 
   oldNO = NO;
+  oldlink=SET(NO).Linked;
+  domontageupdate=0;
   for i = 1:length(parallel)
     % Calculate closest slice in parallel SETs and change their
     % CurrentSlice
@@ -1982,15 +1887,34 @@ if not(isempty(parallel))
     zdistances =  zdistances - zdiff;
     [~,slice] = min(abs(zdistances - currzdist));
     SET(parallel(i)).CurrentSlice = slice;
+    SET(parallel(i)).StartSlice = slice;
+    SET(parallel(i)).EndSlice = slice;
 
     % DEBUG
     %disp(sprintf('SET(%d).CurrentSlice z-distance: %d mm', parallel(i), round(zdistances(slice))));
 
     % Update images
+    
+   if  any(strcmp({DATA.ViewPanelsType{DATA.ViewPanels==parallel(i)}},'montage'))
+%     updateselectedslices;
+    %Trick it claiming that the images are linked for a short wile
+   SET(NO).Linked=[SET(NO).Linked parallel(i)];
+      domontageupdate=1;
+   end
+   
+   if any(~strcmp({DATA.ViewPanelsType{DATA.ViewPanels==parallel(i)}},'montage'))
     updateoneim(parallel(i)); % this fcn changes NO !!!
-    NO = oldNO;
     drawfunctions('drawsliceno',parallel(i));
+   end
+   
+    %drawfunctions('drawsliceno',parallel(i));
+    NO = oldNO;
   end;
+  if domontageupdate
+    updateselectedslices
+  end
+  SET(NO).Linked=oldlink;
+    
 end;
 
 %----------------------------------------------------
@@ -2127,56 +2051,27 @@ end
 %----------------------------------
 function playall_Callback(keypress) %#ok<INUSD>
 %----------------------------------
+global DATA
+DATA.Run = 0;
+
+stateandicon=iconson('play');
+
+icon=stateandicon{2};
+
+if icon.isindented==0
+  stopmovie_Callback;
+  return;
+else
+  playall_Helper
+end
+
+%----------------------------------
+function playall_Helper %#ok<INUSD>
+%----------------------------------
 %Starts movie display of all visible image stacks.
 global DATA SET NO
 
-% if nargin > 0
-%   if isequal(get(DATA.Handles.playallicon,'enable'),'off')
-%     return
-%   end
-%   if isequal(get(DATA.Handles.playallicon,'state'),'off')
-%     set(DATA.Handles.playallicon,'state','on');
-%   elseif isequal(get(DATA.Handles.playallicon,'state'),'on')
-%     set(DATA.Handles.playallicon,'state','off');
-%   end
-% end
-
-  stateandicon=iconson('play');
-  state=stateandicon{1};
-  icon=stateandicon{2};
-  
-%if nargin > 0
-%   stateandicon=iconson('play');
-%   state=stateandicon{1};
-%   icon=stateandicon{2};
- % if ~state%isequal(get(DATA.Handles.playallicon,'enable'),'off')
-   % return
-  %end
-  %if ~state%isequal(get(DATA.Handles.playallicon,'state'),'off')
-    %icon.isindented=0;
-    
-  %elseif state%isequal(get(DATA.Handles.playallicon,'state'),'on')
-    % icon.isindented=1;
-   %set(DATA.Handles.playallicon,'state','off');
-  %end
-%end
-
-%Opposide since it toggles when pressed
-if ~state%isequal(get(DATA.Handles.playallicon,'state'),'off')
-  icon.isindented=0;
-  icon.cdataDisplay=icon.cdata;
-  DATA.Handles.permanenticonholder.render;
-  stopmovie_Callback;
-  return;
-end;
-
-% %Check if play only one is running.
-% if state%isequal(get(DATA.Handles.playmovieicon,'state'),'on')
-%   stopmovie_Callback;
-% end;
-
 DATA.Run = 1; %Start the movie :-)
-%set(DATA.Handles.playallicon,'state','on');
 
 %find what NO's to use
 nos = unique(DATA.ViewPanels(:));
@@ -2200,8 +2095,13 @@ if DATA.Record
     nextallframe_Callback;
     DATA.MovieFrame = mygetframe(DATA.imagefig);
     export('exportmovierecorder_Callback','newframe');
+    
   end;
-else
+  return;
+end;
+
+%If not record then try to run according to beattime.
+if ~DATA.Record
   while true
     ind = find(cat(1,SET(:).TSize)>1);
     if isempty(ind)
@@ -2210,18 +2110,18 @@ else
       ind = ind(1); %Take first
     end;
     beattime = SET(ind).BeatTime;
-
+    
     %Not recording just play along as fast as possible
     nos = unique(DATA.ViewPanels(DATA.ViewPanels > 0));
-    for no=nos([SET(nos).TSize] > 1)
-      if ~DATA.Record
-        t = 1+mod(floor(rem(now-DATA.StartTime,1)*24*3600/(beattime/maxt)+DATA.StartFrame),maxt);
-      else
-        t = 1+mod(t+1,maxt);
-      end;
-      SET(no).CurrentTimeFrame = max(min(round(SET(no).TSize*(t/maxt)),SET(no).TSize),1);
+    for no=nos([SET(nos).TSize] > 1)      
+      t = 1+mod(floor(rem(now-DATA.StartTime,1)*24*3600/(beattime/maxt)+DATA.StartFrame),maxt);
+      %SET(no).CurrentTimeFrame = max(min(round(SET(no).TSize*(t/maxt)),SET(no).TSize),1);
+      
+      for linkno = SET(no).Linked
+        SET(linkno).CurrentTimeFrame = max(min(round(SET(no).TSize*(t/maxt)),SET(no).TSize),1);
+      end
+      
       drawfunctions('updatenopanels',no);
-
       %Some error checking
       if isempty(DATA)
         return; %Someone has exited.
@@ -2234,9 +2134,11 @@ else
         end;
         return;
       end;
-     %drawnow; %Not expose since want to be able to run callbacks
+      
+     
     end; %Loop over panels
-     pause(0.01)
+    drawnow%
+    pause(0.01)
     
   end; %not recording clause
 
@@ -2309,14 +2211,10 @@ function stopmovie_Callback
 %--------------------------
 %End movie display.
 global DATA 
+DATA.Run = 0;
 stateandicon=segment('iconson','play');
 stateandicon{2}.undent;
 DATA.Handles.permanenticonholder.render;
-
- DATA.Run = 0;
-% set([...
-%   DATA.Handles.playmovieicon ...
-%   DATA.Handles.playallicon],'state','off');
 
 
 %--------------------------
@@ -2341,26 +2239,32 @@ stateandicon=iconson('hideall');
 state=stateandicon{1};
 hidecell={'hideplus','hidemar','hidescar',... 'hidepins',
   'hideintersections','hideothercontour','hideinterp','hidelv','hiderv','hideroi','hidemeasure','hidepoint','hidetext'};%,'colorbar'};
-
+stateandicon = iconson(hidecell);
+availableicons = find(cellfun(@(x) isa(x,'myicon'),stateandicon(:,2)))';
 if state
-  for name=hidecell
-    stateandicon=iconson(name);
-    icon=stateandicon{1,2};
+  for i=availableicons
+    icon = stateandicon{i,2};
     icon.cdataDisplay=icon.cdataIndent;
     icon.isindented=1;
-    %checkforduplicatehide(name,state)
-
-    %feval(icon.execute);
   end
+  %   for name=hidecell
+%     stateandicon=iconson(name);
+%     icon=stateandicon{1,2};
+%     icon.cdataDisplay=icon.cdataIndent;
+%     icon.isindented=1;
+%   end
 else
-  for name=hidecell
-    stateandicon=iconson(name);
-    icon=stateandicon{1,2};
+  for i=availableicons
+    icon = stateandicon{i,2};
     icon.cdataDisplay=icon.cdata;
     icon.isindented=0;
-    %checkforduplicatehide(name,state)
-    %feval(icon.execute);
   end
+  %   for name=hidecell
+%     stateandicon=iconson(name);
+%     icon=stateandicon{1,2};
+%     icon.cdataDisplay=icon.cdata;
+%     icon.isindented=0;
+%   end
 end
 drawfunctions('updatevisibility');
 DATA.Handles.configiconholder.render;
@@ -2375,12 +2279,14 @@ hideallicon=stateandicon{2};
 if hideallstate
 hidecell={'hideplus','hidemar','hidescar',...'hidepins',
   'hideintersections','hideothercontour','hideinterp','hidelv','hiderv','hideroi','hidemeasure','hidepoint','hidetext'};%,'colorbar'};
-  state=[];
- for name=hidecell
-    stateandicon=iconson(name);
-    state=[state;stateandicon{1}];
- end
-  if any(state==0)
+  stateandicon = iconson(hidecell);
+  availableicons = cellfun(@(x) isa(x,'myicon'),stateandicon(:,2));
+  state=[stateandicon{availableicons,1}];
+%   for name=hidecell
+%     stateandicon=iconson(name);
+%     state=[state;stateandicon{1}];
+%   end
+   if any(state==0)
     hideallicon.undent
     DATA.Handles.permanenticonholder.render;
   end
@@ -2635,7 +2541,7 @@ drawfunctions('drawthumbnails')
       DATA.Overlay = struct('alphadata',[],'cdata',[]);
     end
     DATA.CurrentPanel = 1;
-    NO=no;
+    NO=DATA.ViewPanels(DATA.CurrentPanel);
     drawfunctions('drawall',DATA.ViewMatrix);
   case 'cinescarperf'
   case 'stress'
@@ -3440,9 +3346,11 @@ global DATA SET NO
 if NO == DATA.LVNO
   
   [x,y] = mygetcurrentpoint(gca);
-  t = round((x/1000+1.5*SET(NO).TIncr)/(SET(NO).TIncr));
-  t = max(min(t,SET(NO).TSize),1);
-  SET(NO).CurrentTimeFrame = t;
+%   t = round((x/1000+1.5*SET(NO).TIncr)/(SET(NO).TIncr));
+%   t = max(min(t,SET(NO).TSize),1);
+xlim=get(DATA.Handles.timebaraxes,'xlim');
+[~,t]=min((SET(NO).TimeVector/SET(NO).TimeVector(end)-x/xlim(2)).^2);
+SET(NO).CurrentTimeFrame = t;
   
   %Check if close to ED or ES.
   ylim = get(DATA.Handles.volumeaxes,'ylim');
@@ -3472,9 +3380,11 @@ no = DATA.LVNO;
 if NO == no
   %Get position
   [x] = mygetcurrentpoint(gca);
-  t = round((x/1000+1.5*SET(NO).TIncr)/(SET(NO).TIncr));
-  t = max(min(t,SET(NO).TSize),1);
-  
+%   t = round((x/1000+1.5*SET(NO).TIncr)/(SET(NO).TIncr));
+%   t = max(min(t,SET(NO).TSize),1);
+xlim=get(DATA.Handles.timebaraxes,'xlim');
+[~,t]=min((SET(NO).TimeVector/SET(NO).TimeVector(end)-x/xlim(2)).^2);  
+t=max([t,1]);
   %Store position
   switch type
     case 'es'
@@ -3491,7 +3401,7 @@ if NO == no
   SET(NO).CurrentTimeFrame = t;
   DATA.updatevolumeaxes
   DATA.measurementreportupdate
-  %updatevolume;
+  updatevolume;
   drawfunctions('drawsliceno');
 end
 
@@ -3504,9 +3414,11 @@ no = DATA.LVNO;
 
 if NO == no
   [x] = mygetcurrentpoint(gca);
-  t = round((x/1000+1.5*SET(NO).TIncr)/(SET(NO).TIncr));
-  t = max(min(t,SET(NO).TSize),1);
-  
+%   t = round((x/1000+1.5*SET(NO).TIncr)/(SET(NO).TIncr));
+%   t = max(min(t,SET(NO).TSize),1);
+xlim=get(DATA.Handles.timebaraxes,'xlim');
+[~,t]=min((SET(NO).TimeVector/SET(NO).TimeVector(end)-x/xlim(2)).^2);
+  t=max([t,1]);
   switch type
     case 'es'
       p = get(DATA.Handles.estext,'position');
@@ -3558,8 +3470,10 @@ function timebaraxes_Buttondown %#ok<DEFNU>
 global DATA SET NO
 
 [x,y] = mygetcurrentpoint(gca);
-t = round((x/1000+1.5*SET(NO).TIncr)/(SET(NO).TIncr));
-t = max(min(t,SET(NO).TSize),1);
+xlim=get(DATA.Handles.timebaraxes,'xlim');
+[~,t]=min((SET(NO).TimeVector/SET(NO).TimeVector(end)-x/xlim(2)).^2);
+%t = round(((x-xlim(1))/1000+1.5*SET(NO).TIncr)/(SET(NO).TIncr));
+%t = max(min(t,SET(NO).TSize),1);
 SET(NO).CurrentTimeFrame = t;
 
 %Check if close to ED or ES.
@@ -3599,8 +3513,11 @@ global DATA SET NO
 
 %Get position
 [x] = mygetcurrentpoint(gca);
-t = round((x/1000+1.5*SET(NO).TIncr)/(SET(NO).TIncr));
-t = max(min(t,SET(NO).TSize),1);
+% t = round((x/1000+1.5*SET(NO).TIncr)/(SET(NO).TIncr));
+% t = max(min(t,SET(NO).TSize),1);
+xlim=get(DATA.Handles.timebaraxes,'xlim');
+[~,t]=min((SET(NO).TimeVector/SET(NO).TimeVector(end)-x/xlim(2)).^2);
+t=max([t,1]);
 
 %Store position
 switch type
@@ -3624,8 +3541,11 @@ function esedtimebar_Motion(type) %#ok<DEFNU>
 global DATA SET NO
 
 [x] = mygetcurrentpoint(gca);
-t = round((x/1000+1.5*SET(NO).TIncr)/(SET(NO).TIncr));
-t = max(min(t,SET(NO).TSize),1);
+% t = round((x/1000+1.5*SET(NO).TIncr)/(SET(NO).TIncr));
+% t = max(min(t,SET(NO).TSize),1);
+xlim=get(DATA.Handles.timebaraxes,'xlim');
+[~,t]=min((SET(NO).TimeVector/SET(NO).TimeVector(end)-x/xlim(2)).^2);
+t=max([t,1]);
 
 switch type
   case 'es'
@@ -3675,9 +3595,11 @@ global DATA SET NO
 if ismember(NO,SET(DATA.FlowNO).Linked)
   
   [x,y] = mygetcurrentpoint(gca);
-  t = round((x/1000+1.5*SET(NO).TIncr)/(SET(NO).TIncr));
-  t = max(min(t,SET(NO).TSize),1);
-  SET(NO).CurrentTimeFrame = t;
+%   t = round((x/1000+1.5*SET(NO).TIncr)/(SET(NO).TIncr));
+%   t = max(min(t,SET(NO).TSize),1);
+xlim=get(DATA.Handles.timebaraxes,'xlim');
+[~,t]=min((SET(NO).TimeVector/SET(NO).TimeVector(end)-x/xlim(2)).^2);
+SET(NO).CurrentTimeFrame = t;
   
   nos = SET(NO).Linked;
   for loop=setdiff(nos,NO)
@@ -3820,14 +3742,6 @@ end;
 
 try
   oldNO = NO;
-
-  set([...
-    DATA.Handles.refreshicon ...
-    DATA.Handles.hideroiicon ...
-    DATA.Handles.hidelvicon ...
-    DATA.Handles.hidervicon ...
-    DATA.Handles.hidescaricon ...
-    DATA.Handles.hidemaricon],'state','off');
 
   for loop=1:length(SET)
     SET(loop).NormalZoomState = [];
@@ -4346,7 +4260,7 @@ end;
 drawnow('expose'); %Expose does not other callbacks to evaluate.
 
 %--------------------------
-function nextframe_Callback
+function nextframe_Callback %#ok<DEFNU>
 %--------------------------
 %Displays next timeframe of current image panel. Sideeffect is that the
 %movie display is stopped if running.
@@ -4361,6 +4275,11 @@ stateandicon=segment('iconson','play');
 stateandicon{2}.undent;
 DATA.Handles.permanenticonholder.render;
 DATA.Run = 0;
+
+if SET(NO).TSize<=1
+  return;
+end;
+
 SET(NO).CurrentTimeFrame = 1+mod(SET(NO).CurrentTimeFrame,SET(NO).TSize);
 
 nos = SET(NO).Linked;
@@ -4400,6 +4319,11 @@ stateandicon{2}.undent;
 DATA.Handles.permanenticonholder.render;
 DATA.Run = 0;
 
+%if not timeresolved then return
+if SET(NO).TSize<=1
+  return;
+end;
+
 %Increase one
 SET(NO).CurrentTimeFrame = SET(NO).CurrentTimeFrame+1;
 if SET(NO).CurrentTimeFrame>SET(NO).TSize
@@ -4429,7 +4353,7 @@ end;
 drawnow('expose'); %Expose does not other callbacks to evaluate.
 
 %------------------------------
-function previousframe_Callback
+function previousframe_Callback %#ok<DEFNU>
 %------------------------------
 %Displays previous time frame of current panel. 
 global DATA SET NO
@@ -4443,6 +4367,11 @@ stateandicon=segment('iconson','play');
 stateandicon{2}.undent;
 DATA.Handles.permanenticonholder.render;
 DATA.Run = 0;
+
+if SET(NO).TSize<=1
+  return;
+end;
+
 SET(NO).CurrentTimeFrame = 1+mod(SET(NO).CurrentTimeFrame-2,SET(NO).TSize);
 
 nos = SET(NO).Linked;
@@ -4470,6 +4399,7 @@ function previousallframe_Callback
 %Displays previous time frame in current image panel. For all other visible
 %image stacks they are adjusted to show correspondig part of the cardiac
 %cycle.
+
 global DATA SET NO
 % 
 % set([...
@@ -4481,6 +4411,11 @@ stateandicon{2}.undent;
 DATA.Handles.permanenticonholder.render;
 
 DATA.Run = 0;
+
+%if not timeresolved then return
+if SET(NO).TSize<=1
+  return;
+end;
 
 %Decrease one
 SET(NO).CurrentTimeFrame = SET(NO).CurrentTimeFrame-1;
@@ -4801,6 +4736,8 @@ persistent handles
 %  arg = 'init';
 %end;
 
+%switchtopanel(panel);
+
 seltype = get(DATA.imagefig,'SelectionType');
 switch seltype
   case 'alt'
@@ -4923,19 +4860,26 @@ switch seltype
           panels = 1:numel(DATA.ViewPanels);
           panels = panels(DATA.ViewPanels > 0);
         end
-        [x,y] = mygetcurrentpoint(gca);
+        h = DATA.Handles.imageaxes(DATA.CurrentPanel);
+        [x,y] = mygetcurrentpoint(h);
         handles.deltacontrast = (x-handles.xstart)/handles.xsize;
         handles.deltabrightness = (handles.ystart-y)/handles.ysize;
         for panel = panels
           no = DATA.ViewPanels(panel);
           if ~isempty(SET(no).IntensityScaling) && ~isempty(SET(no).IntensityMapping)
+%             [window,level] = calcfunctions('con2win',...
+%               SET(NO).IntensityMapping.Contrast+handles.deltacontrast,...
+%               SET(NO).IntensityMapping.Brightness+handles.deltabrightness,NO);
             [window,level] = calcfunctions('con2win',...
-              SET(NO).IntensityMapping.Contrast+handles.deltacontrast,...
-              SET(NO).IntensityMapping.Brightness+handles.deltabrightness,NO);
+              SET(no).IntensityMapping.Contrast+handles.deltacontrast,...
+              SET(no).IntensityMapping.Brightness+handles.deltabrightness,no);
             [contrast,brightness] = calcfunctions('win2con',window,level,no);
           else
-            contrast = SET(NO).IntensityMapping.Contrast+handles.deltacontrast;
-            brightness = SET(NO).IntensityMapping.Brightness+handles.deltabrightness;
+            %contrast = SET(NO).IntensityMapping.Contrast+handles.deltacontrast;
+            %brightness = SET(NO).IntensityMapping.Brightness+handles.deltabrightness;
+            contrast = SET(no).IntensityMapping.Contrast+handles.deltacontrast;
+            brightness = SET(no).IntensityMapping.Brightness+handles.deltabrightness;
+         
           end
           im = calcfunctions('remapuint8',handles.im{panel},no,...
             calcfunctions('returnmapping',no),contrast,brightness);
@@ -4952,12 +4896,15 @@ end;
 function autocontrastall_Callback %#ok<DEFNU>
 %------------------------------
 %Automatically calculates contrast settings.
-global SET NO
+global SET NO DATA
 for i = 1:1:length(SET)
   autocontrast(i,1);
 end
 
-  drawfunctions('drawcontrastimage',NO);
+for panelloop = 1:length(DATA.ViewPanels)
+  panel = DATA.ViewPanels(panelloop);
+  drawfunctions('drawcontrastimage',panel);
+end
 
 %------------------------------
 function autocontrast_Callback %#ok<DEFNU>
@@ -5141,7 +5088,11 @@ function measurepoint_Buttondown(panel) %#ok<DEFNU>
 %Buttondown function when clicking on a measurement point/marker.
 global DATA SET NO
 
-switchtopanel(panel);
+killbuttondown = switchtopanel(panel);
+
+if killbuttondown
+  return
+end
 
 %Use to point to mag data set
 no = NO;
@@ -5323,7 +5274,11 @@ function measure_Buttondown(panel) %#ok<DEFNU>
 %Button down function for placing measurements.
 global DATA SET NO
 
-switchtopanel(panel);
+killbuttondown = switchtopanel(panel);
+
+if killbuttondown
+  return
+end
 
 if DATA.Interactionlock
   return;
@@ -6879,7 +6834,7 @@ global DATA SET NO
 
 xofs = 0;
 yofs = 0;
-if ismember(DATA.ViewPanelsType{DATA.CurrentPanel},{'montage','montagerow','montagefit','sax3','montagesegmented'})
+if any(strcmp(DATA.ViewPanelsType{DATA.CurrentPanel},{'montage','montagerow','montagefit','sax3','montagesegmented'}))
   if ~isequal(slice,SET(NO).CurrentSlice)
     if abs(slice-SET(NO).CurrentSlice)==1
       xofs = slice-SET(NO).CurrentSlice;
@@ -6973,7 +6928,11 @@ function manualdraw_Buttondown(panel,type,new)
 %Button down function for manual drawings.
 global DATA SET NO
 
-switchtopanel(panel);
+killbuttondown = switchtopanel(panel);
+
+if killbuttondown
+  return
+end
 
 if isequal(DATA.CurrentTool,'select')
   return;
@@ -7007,22 +6966,22 @@ switch get(DATA.imagefig,'SelectionType')
     %Moved this before setting of buttonup and button 
      if any(strcmp({'scar','mo','rubberpen'},type))
         %if isempty(SET(NO).Scar)
-          if SET(NO).TSize>1 || ...
-              ((isempty(SET(NO).EndoX) || all(squeeze(isnan(SET(NO).EndoX(1,:,:))))) && (isempty(SET(NO).EpiX) || all(squeeze(isnan(SET(NO).EpiX(1,:,:))))))
-            myfailed('Does not seem to be viability image stack.',DATA.GUI.Segment);
-            updatetool('select')
-            stateandicon_scar=iconson('scarpen');
-            stateandicon_mo=iconson('mopen');
-            stateandicon_drp=iconson('rubberscar');
-            stateandicon_scar{2}.undent;
-            stateandicon_mo{2}.undent;
-            stateandicon_drp{2}.undent;
-            DATA.Handles.configiconholder.iconCell{1}.isindented=1;
-            DATA.Handles.configiconholder.iconCell{1}.cdataDisplay=DATA.Handles.configiconholder.iconCell{1}.cdataIndent;
-            DATA.Handles.configiconholder.render;
-            return;
-          end;
-        %end
+        hasLVseg = (not(isempty(SET(NO).EndoX)) && not(all(squeeze(isnan(SET(NO).EndoX(1,:,:)))))) && (not(isempty(SET(NO).EpiX)) && not(all(squeeze(isnan(SET(NO).EpiX(1,:,:))))));
+        hasRVseg = not(isempty(SET(NO).RVEndoX)) && not(all(squeeze(isnan(SET(NO).RVEndoX(1,:,:)))));
+        if SET(NO).TSize>1 || hasRVseg+hasLVseg < 1
+          myfailed('Does not seem to be viability image stack.',DATA.GUI.Segment);
+          updatetool('select')
+          stateandicon_scar=iconson('scarpen');
+          stateandicon_mo=iconson('mopen');
+          stateandicon_drp=iconson('rubberscar');
+          stateandicon_scar{2}.undent;
+          stateandicon_mo{2}.undent;
+          stateandicon_drp{2}.undent;
+          DATA.Handles.configiconholder.iconCell{1}.isindented=1;
+          DATA.Handles.configiconholder.iconCell{1}.cdataDisplay=DATA.Handles.configiconholder.iconCell{1}.cdataIndent;
+          DATA.Handles.configiconholder.render;
+          return;
+        end;
      end
      
     %Set up buttonup. If 'obj' is set during the execution below, then
@@ -7853,8 +7812,13 @@ end;
 
 if (nargin<1)||isempty(panel)
   panel=DATA.CurrentPanel; %#ok<NASGU>
+  killbuttondown = 0;
 else
-  switchtopanel(panel);
+  killbuttondown = switchtopanel(panel);
+end
+
+if killbuttondown
+  return
 end
 
 if isequal(DATA.CurrentTool,'select')
@@ -8559,9 +8523,7 @@ DATA.updateaxestables('t2star');
     
     state=0;
     icons=[DATA.Handles.permanenticonholder.iconCell{:},DATA.Icons.lviconcell{:},DATA.Icons.rviconcell{:},DATA.Icons.roiflowiconcell{:},DATA.Icons.viabilityiconcell{:},...
-      DATA.Icons.analysisiconcell{:}, DATA.Icons.imageiconcell{:}];
-    %icons=[DATA.Handles.permanenticonholder.iconCell,DATA.Icons.lviconcell,DATA.Icons.rviconcell,DATA.Icons.roiflowiconcell,DATA.Icons.viabilityiconcell,...
-    %  DATA.Icons.analysisiconcell, DATA.Icons.imageiconcell];
+      DATA.Icons.analysisiconcell{:}, DATA.Icons.imageiconcell{:},DATA.Icons.hidecell{:}];
     N=length(icons);
     if nargin==1
       %return icon state
@@ -8570,14 +8532,13 @@ DATA.updateaxestables('t2star');
       if length(ind)>1
       ind=ind(1);
       end
-      state={icons(ind).isindented,icons(ind)};
-    
-    %  for i=1:N
-    %    if strcmp(icons(i).name,name)
-    %      state ={icons(i).isindented,icons(i)};
-    %      return;
-    %    end
-    %  end
+      
+      if isempty(ind)
+        state={0,nan};
+      else
+        state={icons(ind).isindented,icons(ind)};
+      end
+      
     else
       n=length(name);
       state=cell(n,2);
@@ -8586,41 +8547,27 @@ DATA.updateaxestables('t2star');
       indlist=zeros(1,n);
       for i=1:n
         ind=find(strcmp(name(i),{icons.name}));
-      if length(ind)>1
-      ind=ind(1);
-      end
-      indlist(i)=ind;
+        
+        if isempty(ind)
+          ind=nan;
+        end
+        
+        if length(ind)>1
+          ind=ind(1);
+        end
+        
+        indlist(i)=ind;
       end
       
       for i=1:n
-        state{i,1} = icons(indlist(i)).isindented;
-        state{i,2} = icons(indlist(i));
-      end
-%       inds=find(cellfun(@strcmp,name,{icons.name}));
-%       for i=1:N
-%         if any(strcmp(icons{i}.name,name))
-%           state{counter,1} =icons{i}.isindented;
-%           state{counter,2} = icons{i};
-%           namelist{counter}=icons{i}.name;
-%           counter=counter+1;
-%         end
-%       end
-%       
-%       %sort so they come out in order requested
-%       shuffle=[];
-%       for i=1:length(name)
-%         ind=find(strcmp(name{i},namelist));
-%         shuffle=[shuffle,ind];
-%       end
-%       tmp=cell(size(state));
-%       
-%       for i=1:length(shuffle)
-%         tmp{i,1}=state{shuffle(i),1};
-%         tmp{i,2}=state{shuffle(i),2};
-%       end
-%       
-%       state=tmp;
-%       
+        if isnan(indlist(i))
+          state{i,1} = 0;
+          state{i,2} = nan;
+        else
+          state{i,1} = icons(indlist(i)).isindented;
+          state{i,2} = icons(indlist(i));
+        end
+       end
      end
     else
       state=cell(N,2);
@@ -9776,11 +9723,21 @@ set(DATA.Handles.timebar,'xdata',[t(SET(NO).CurrentTimeFrame) t(SET(NO).CurrentT
   'ydata',get(DATA.Handles.timebaraxes,'ylim'));
 
 %Update
-drawfunctions('drawsliceno');
+% profile on;
+% drawfunctions('drawsliceno');
+% profile report;
+
 nos = SET(NO).Linked;
+%updatenopanels(NO) is performed in drawsliceno.
+
+%additional speed enhancement is that stateandicon is supplied from
+%buttondown. However not sure if possible.
+stateandicon=segment('iconson',{'hidescar','hidemar','hideall','play'});
 for nloop=1:length(nos)
-  drawfunctions('updatenopanels',nos(nloop));
+  drawfunctions('updatenopanels',nos(nloop),stateandicon);
 end;
+
+drawnow;
 
 %----------------------------------
 function timebar_Buttondown %#ok<DEFNU>
@@ -9791,6 +9748,9 @@ global DATA
 if DATA.Interactionlock
   return;
 end;
+
+%stateandicon=segment('iconson',{'hidescar','hidemar','hideall','play'});
+%set(DATA.fig,'WindowButtonMotionFcn',@ segment_main.timebar_Motion(stateandicon));
 set(DATA.fig,'WindowButtonMotionFcn',...
   sprintf('%s(''timebar_Motion'')',mfilename));
 set(DATA.fig,'WindowButtonUpFcn',...
@@ -9970,10 +9930,17 @@ if not(writetofile) && ( (numel(outdata)<8000)||(nargout>0) )
             end;
           end;
         case 'char'
+          %If a char has ascii 0 its a null char this might cause trouble
+          %for export.
+          nullremove=double(temp)==0;
+          if any(nullremove)
+            temp(nullremove)=[];
+          end
+          
           if isempty(temp)
             stri = [stri sprintf('\t')]; %#ok<AGROW>
           else
-            stri = [stri sprintf('%s\t',temp)]; %#ok<AGROW>
+            stri = [stri sprintf('%s\t',strtrim(temp))]; %#ok<AGROW>
           end;
         otherwise
           myfailed('Unknown object type when exporting.',DATA.GUI.Segment);
@@ -10268,7 +10235,7 @@ if slidermin==slidermax
   'visible','off',...
   'enable','off');
 else
-  sliderstep=[1/(slidermax-slidermin) 3/(slidermax-slidermin)];
+  sliderstep=[1/(length(SET)-DATA.Pref.NumberVisibleThumbnails+1),(slidermax-slidermin+1)];%[0.25/(slidermax-slidermin) 0.5/(slidermax-slidermin)];
   set(DATA.Handles.thumbnailslider,...
     'min',slidermin,...
     'max',slidermax,...

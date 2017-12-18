@@ -36,7 +36,7 @@ showmessage=1;
 end
 
 if SET(NO).TSize<2
-  myfailed('Need to have more than one timeframe.',DATA.GUI.Segment);
+  myfailed('Data needs to be time resolved.',DATA.GUI.Segment);
   return;
 end;
 
@@ -1189,8 +1189,26 @@ for no = nos;
     %SET(no).EndSlice = 1;
     SET(no).CurrentTimeFrame = 1;
     SET(no).EndAnalysis = size(SET(NO).IM,3);
-    SET(no).EST = min([1 max([SET(no).TSize round(SET(no).EST*f)])]);
-    SET(no).EDT = min([1 max([SET(no).TSize round(SET(no).EDT*f)])]);
+    SET(no).EST=round(SET(no).EST*f);
+    SET(no).EDT=round(SET(no).EDT*f);
+    
+    if  SET(no).EST>SET(no).TSize
+      SET(no).EST=SET(no).TSize;
+    end
+    
+    if  SET(no).EDT>SET(no).TSize
+      SET(no).EDT=SET(no).TSize;
+    end
+    
+    if  SET(no).EST==0
+      SET(no).EST=1;
+    end
+    
+    if  SET(no).EDT==0
+      SET(no).EDT=1;
+    end 
+    %SET(no).EST = min([1 max([SET(no).TSize round(SET(no).EST*f)])]);
+    %SET(no).EDT = min([1 max([SET(no).TSize round(SET(no).EDT*f)])]);
     SET(no).CurrentTimeFrame = min([1 max([SET(no).TSize round(SET(no).CurrentTimeFrame*f)])]);
     
     %remove Strain tagging analysis
@@ -1866,7 +1884,13 @@ for nloop=1:length(nop)
     SET(no).IM = SET(no).IM(:,:,ind,:);
     
     %Timevector
-    SET(no).TimeVector = SET(no).TimeVector(ind);
+    indexes=find(ind);
+    if indexes(1)>1
+      SET(no).TDelay=SET(no).TimeVector(indexes(1));
+      SET(no).TimeVector = SET(no).TimeVector(ind)-SET(no).TDelay;
+    else
+      SET(no).TimeVector = SET(no).TimeVector(ind);
+    end
     
     if numel(SET(no).InversionTime)>1
         %InversionTime
@@ -2406,7 +2430,7 @@ end;
 if ~isempty(SET(no).Measure)
   mind=[];
   for mloop=1:length(SET(no).Measure)
-    if ismember(SET(no).Measure(mloop).Z,slicemap)
+    if sum(unique(slicemap(SET(no).Measure(mloop).Z))) >= 1 %ismember(SET(no).Measure(mloop).Z,slicemap)
       SET(no).Measure(mloop).Z=slicemap(SET(no).Measure(mloop).Z);
       mind = [mind mloop]; %#ok<AGROW>
     end
@@ -2436,7 +2460,11 @@ function crop_Buttondown(panel) %#ok<DEFNU>
 %Buttondown function to crop the image stack
 global DATA SET NO
 
-segment('switchtopanel',panel);
+killbuttondown = segment('switchtopanel',panel);
+
+if killbuttondown
+  return
+end
 
 if isequal(DATA.CurrentTool,'select')
   return;
@@ -5133,6 +5161,9 @@ if ~isempty(SET(NO).RVEpiX)
   SET(NO).RVEpiX = permute(SET(NO).RVEpiX,permorder);
   SET(NO).RVEpiY = permute(SET(NO).RVEpiY,permorder);
 end;
+
+SET(NO).EndoDraged = SET(NO).EndoDraged';
+SET(NO).EpiDraged = SET(NO).EpiDraged';
 
 %pins
 permorder = [2 1]; %orig [t z]

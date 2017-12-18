@@ -46,8 +46,10 @@ for loop=1:length(SET)
   if isequal(lower(SET(loop).ImageType),'cine')
     cineno = [cineno loop]; %#ok<AGROW>
   end;
-  if isequal(lower(SET(loop).ImageType),'late enhancement') || ~isempty(SET(loop).Scar)
+  if isequal(lower(SET(loop).ImageType),'late enhancement') && ~isempty(SET(loop).Scar)
     scarno = [scarno loop]; %#ok<AGROW>
+  elseif isempty(scarno) && (isequal(lower(SET(loop).ImageType),'late enhancement') || ~isempty(SET(loop).Scar) )
+    scarno = loop;
   end;
   if isequal(lower(SET(loop).ImageType),'strain ffe') || isequal(lower(SET(loop).ImageType),'strain tfe') || ...
       ~isempty(SET(loop).Strain) || ...
@@ -78,7 +80,7 @@ end;
   
 %Continue with trying to find with automatic
 for loop=1:length(SET)
-  if not(isempty(SET(loop).Scar)) && isempty(find(scarno==loop,1)) 
+  if not(isempty(SET(loop).Scar)) && isempty(find(scarno==loop,1)) && isempty(scarno)
     scarno = loop;
   else
     if not(isempty(SET(loop).Flow)) && isempty(find(flowno==loop,1)) 
@@ -175,6 +177,141 @@ else
   cineshortaxisno = cineno(ind);
 end
 
+%------------------------------------------------
+function shortaxisno = findctshortaxisno(multiple) %#ok<DEFNU>
+%------------------------------------------------
+%Find one [LV] or two [LV and RV] CT short axis stack
+global SET
+
+if nargin < 1
+  multiple = false; %default, only return one no, true = return all cine sax
+end
+
+ctno = find(strcmp('CTheart',{SET.ImagingTechnique})); %ensure row vector
+
+%If isempty then just return something.
+if isempty(ctno)
+  shortaxisno = [];
+  return;
+end;
+
+%Find maximal number of slices
+maxslices = max(cat(1,SET(:).ZSize));
+
+%Extract properties.
+% iscine = false(size(ctno));
+isshortaxis = false(size(ctno));
+haslvseg = false(size(ctno));
+hasrvseg = false(size(ctno));
+hasmaxslices = ones(size(ctno));
+
+for loop=1:length(ctno)
+%   iscine(loop) = isequal(lower(SET(ctno(loop)).ImageType),'cine') || (SET(ctno(loop)).TSize>=20 && ~strncmp(SET(ctno(loop)).ImageType,'Perfusion',9));
+  isshortaxis(loop) = isequal(lower(SET(ctno(loop)).ImageViewPlane),'short-axis');  
+  haslvseg(loop) = (~isempty(SET(ctno(loop)).EndoX)|~isempty(SET(ctno(loop)).EpiX));
+  hasrvseg(loop) = (~isempty(SET(ctno(loop)).RVEndoX)|~isempty(SET(ctno(loop)).RVEpiX));
+  hasmaxslices(loop) = isequal(SET(ctno(loop)).ZSize,maxslices);
+end;
+
+%Find if slices equals max
+%Choose the best candidate in order of priority. Each row in A is one
+%image stack, multiply with priority vector. Take largest sum.
+A = [haslvseg' isshortaxis'  hasrvseg' hasmaxslices'];
+ 
+if multiple
+  %find lv and rv stacks that is cine and short-axis
+  score = A*[8;4;2;1]; %most important in priority cine, lvseg, shortaxis, rvseg, maxslices
+  templvnos = find(haslvseg);
+  temprvnos = find(hasrvseg);
+  if ~isempty(templvnos)
+    [~,lvind] = max(score(templvnos));
+    lvno = ctno(templvnos(lvind));
+  else
+    [~,lvnoind] = max(score);
+    lvno = ctno(lvnoind);
+  end
+  if ~isempty(temprvnos)
+    [~,rvind] = max(score(temprvnos));
+    rvno = ctno(temprvnos(rvind));
+  else
+    [~,rvnoind] = max(score);
+    rvno = ctno(rvnoind);
+  end
+  shortaxisno = [lvno rvno];
+else 
+  score = A*[16;8;4;2;1]; %most important in priority cine, lvseg, shortaxis, rvseg, maxslices
+  [~,ind] = max(score);
+  shortaxisno = ctno(ind);
+end
+
+
+%----------------------------------------------------
+function shortaxisno = findspectshortaxisno(multiple) %#ok<DEFNU>
+%----------------------------------------------------
+%Find one [LV] or two [LV and RV] CT short axis stack
+global SET
+
+if nargin < 1
+  multiple = false; %default, only return one no, true = return all cine sax
+end
+
+spectno = find(strcmp('NM',{SET.ImagingTechnique})); %ensure row vector
+
+%If isempty then just return something.
+if isempty(spectno)
+  shortaxisno = [];
+  return;
+end;
+
+%Find maximal number of slices
+maxslices = max(cat(1,SET(:).ZSize));
+
+%Extract properties.
+% iscine = false(size(spectno));
+isshortaxis = false(size(spectno));
+haslvseg = false(size(spectno));
+hasrvseg = false(size(spectno));
+hasmaxslices = ones(size(spectno));
+
+for loop=1:length(spectno)
+%   iscine(loop) = isequal(lower(SET(spectno(loop)).ImageType),'cine') || (SET(spectno(loop)).TSize>=20 && ~strncmp(SET(spectno(loop)).ImageType,'Perfusion',9));
+  isshortaxis(loop) = isequal(lower(SET(spectno(loop)).ImageViewPlane),'short-axis');  
+  haslvseg(loop) = (~isempty(SET(spectno(loop)).EndoX)|~isempty(SET(spectno(loop)).EpiX));
+  hasrvseg(loop) = (~isempty(SET(spectno(loop)).RVEndoX)|~isempty(SET(spectno(loop)).RVEpiX));
+  hasmaxslices(loop) = isequal(SET(spectno(loop)).ZSize,maxslices);
+end;
+
+%Find if slices equals max
+%Choose the best candidate in order of priority. Each row in A is one
+%image stack, multiply with priority vector. Take largest sum.
+A = [haslvseg' isshortaxis'  hasrvseg' hasmaxslices'];
+ 
+if multiple
+  %find lv and rv stacks that is cine and short-axis
+  score = A*[8;4;2;1]; %most important in priority cine, lvseg, shortaxis, rvseg, maxslices
+  templvnos = find(haslvseg);
+  temprvnos = find(hasrvseg);
+  if ~isempty(templvnos)
+    [~,lvind] = max(score(templvnos));
+    lvno = spectno(templvnos(lvind));
+  else
+    [~,lvnoind] = max(score);
+    lvno = spectno(lvnoind);
+  end
+  if ~isempty(temprvnos)
+    [~,rvind] = max(score(temprvnos));
+    rvno = spectno(temprvnos(rvind));
+  else
+    [~,rvnoind] = max(score);
+    rvno = spectno(rvnoind);
+  end
+  shortaxisno = [lvno rvno];
+else 
+  score = A*[16;8;4;2;1]; %most important in priority cine, lvseg, shortaxis, rvseg, maxslices
+  [~,ind] = max(score);
+  shortaxisno = spectno(ind);
+end
+
 %------------------------------------------
 function scarno = findscarshortaxisno %#ok<DEFNU>
 %------------------------------------------
@@ -251,7 +388,7 @@ if length(marno)>1
   %Find best mar data to take. Take those with endo and mar data
   mar2use = false(size(marno));
   for sloop=1:length(marno)
-    mar2use(sloop) = existfunctions('existendo',marno(sloop)) && not(isempty(SET(marno(sloop)).MaR));
+    mar2use(sloop) = existfunctions('existendo',marno(sloop)) && not(isempty(SET(marno(sloop)).MaR)) && max(SET(marno(sloop)).MaR.Percentage)>0;
   end;
   marno = marno(mar2use);
   
@@ -749,9 +886,13 @@ function [ind] = findoutflowtractslices(no,tfs) %#ok<DEFNU>
 %tfs are the timeframes to search in
 global SET NO
 
+if (SET(no).ResolutionX+SET(no).ResolutionY)/2<0.5
+  warning('The threshold to find outflow tract (2mm) is species dependent, and might be incorrect for this images.');
+end;
+
 sectors=24; %we use a 24 sector model
 tresh=2; %2 mm threshold of wall thickness for slice to be considered outflow tract
-ind=zeros(SET(no).ZSize,1);
+ind=false(SET(no).ZSize,1);
 
 if nargin<1
   no = NO;
@@ -769,25 +910,18 @@ wallthickness = calcfunctions('calcwallthickness', sectors,no);
 wallthickness=wallthickness(:,:,tfs);
 for tf=1:size(wallthickness,3) %loop over timeframes
   s=squeeze(sum((wallthickness(:,:,tf)<=tresh),1)); %check in any slice has a sector with wallthickness less than 2 mm
-  ind(find(s~=0))=1;
+  ind(find(s~=0))=true; %#ok<FNDSB>
 end
 	 
-%------------------------
-function setglobalstacks %#ok<DEFNU>
-%------------------------
-%Find the best stacks for report LV, RV and Flow in main result 
-
-global DATA
-
-cinestacks = findcineshortaxisno(true);
-if ~isempty(cinestacks)
-  DATA.LVNO = cinestacks(1);
-  DATA.RVNO = cinestacks(2);
-else
-  DATA.LVNO = [];
-  DATA.RVNO = [];
-end
-[DATA.FlowNO, DATA.FlowROI] = findflowaxisno;
+%Ensure that no slices in the middle are removed
+pos = find(ind,1,'last');
+element = false; %start by putting false
+for zloop=1:pos %loop to the last found one
+  if ind(zloop)
+    element = true; %As soon as found one, start putting ones
+  end;
+  ind(zloop) = element;
+end;
 
 
 %-------------------------------
@@ -819,6 +953,7 @@ if ~isempty(s) && s~=0
   switch type
     case 'flow'
       DATA.FlowNO = no;
+      DATA.FlowROI = SET(no).RoiN;
       set(DATA.Handles.flowstackpushbutton,'String',sprintf('Stack #%d',no));
     case 'lv'
       DATA.LVNO = no;

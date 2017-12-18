@@ -8,7 +8,6 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
     cdata = [];
     numberoficons = 0;
     iconCell={};
-    %position=0;
     axeshandle = NaN;
     imagehandle = NaN;
     texthandle=[];
@@ -20,11 +19,12 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
     disablepad=0;
     configatclick=[];
     killtimer=[];
+    pull2=[];
   end
   
   methods
     
-    function g = myiconplaceholder(axes,isribbon)%,numberoficons)
+    function g = myiconplaceholder(axes,isribbon,pull2)%,numberoficons)
       %Constructor takes icons 
       %Initialize properties
       g.axeshandle = axes;
@@ -35,24 +35,12 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
         g.isribbon=isribbon;
       end
       
-%       %graphics
-%       g.imagehandle = image(g.cdata,'parent',g.axeshandle);
-%       
-%       %tooltip handle
-%       g.texthandle=text(1,1,'','Parent',g.axeshandle,'Background','white','VerticalAlignment','Bottom','HorizontalAlignment','Left','HitTest','off');
-%       set(g.texthandle,'visible','off')
-%      
-%       %Adjust axis
-%       axis(g.axeshandle,'image','off');
-%       axis(g.axeshandle,'ij') 
-%       set(g.axeshandle,'DataAspectRatio',[1,1,1]);
-%       
-%       %Set clickcallback
-%        set(g.imagehandle,'ButtonDownFcn',@g.click);
-%        
-       %Set mouseover callback %No longer set here moved to maingui to
-       %handle multiple iconholders
-       %set(get(g.axeshandle,'Parent'),'WindowButtonMotionFcn',@g.motion);
+      %Set pull 2 always places axes to left = 1 or right = 2 
+      if nargin < 3
+        g.pull2=1;
+      else
+        g.pull2 =pull2;
+      end
        
     end
     
@@ -70,7 +58,11 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
       g.imagehandle = image(g.cdata,'parent',g.axeshandle);
       
       %tooltip handle
-      g.texthandle=text(1,1,'','Parent',g.axeshandle,'Background','white','VerticalAlignment','baseline','HorizontalAlignment','Left','HitTest','off');
+      if g.pull2==2
+        g.texthandle=text(1,1,'','Parent',g.axeshandle,'Background','white','VerticalAlignment','baseline','HorizontalAlignment','Right','HitTest','off');
+      else
+        g.texthandle=text(1,1,'','Parent',g.axeshandle,'Background','white','VerticalAlignment','baseline','HorizontalAlignment','Left','HitTest','off');
+      end
       set(g.texthandle,'visible','off')
      
       %Adjust axis
@@ -140,16 +132,18 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
       %switch that renders images.
       axis(g.axeshandle,'image','on');
       axis(g.axeshandle,'image','off');
-      %pos=get(g.axeshandle,'position');
-      %Assert that the axes is placed in the upper left corner
-      %ac=pos(1)-pos(2)/2;
-      %set(g.axeshandle, 'Position',[ac+pos(2)/2/g.numbericons,pos(2),pos(3),pos(4)]);
       
       %Assert position oficon placeholders.
-      pos=plotboxpos(g.axeshandle);
-      currentpos=get(g.axeshandle,'position');
-      set(g.axeshandle,'position',currentpos-[pos(1),0,0,0]);
-      
+      if g.pull2==1
+        pos=plotboxpos(g.axeshandle);
+        currentpos=get(g.axeshandle,'position');
+        set(g.axeshandle,'position',currentpos-[pos(1),0,0,0]);
+      else
+        pos=plotboxpos(g.axeshandle);
+        currentpos=get(g.axeshandle,'position');
+        currentpos(1)=currentpos(1)+1-(pos(1)+pos(3));
+        set(g.axeshandle,'position',currentpos);
+      end
       
       if ~isempty(g.timer)
         g.displayinfo=0;
@@ -309,10 +303,7 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
       global DATA
       g=varargin{1};
       
-      %g.notover;
-      
       g.buttonisdown=0;
-      %g.clickedicon=g.geticon;
       if isequal(hittest(DATA.fig),g.imagehandle) && ~isempty(g.clickedicon) %&& isequal(g.clickedicon
         indented=g.findindented;
         for k= indented
@@ -321,18 +312,9 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
           end
         end
         g.clickedicon.unhighlight
-        %g.render
-        %inorder to trigger text again
-        %g.motion;
       else
-        %g.clickedicon.unhighlight
-        %g.clickedicon=[];
         g.notover;
       end
-      
-      %g.clickedicon=[];
-      %g.buttonisdown=0;
-   
     end
 
     function motion(varargin)
@@ -369,7 +351,7 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
           x=xy(1,1);
           y=xy(1,2);
           overicon=g.geticon;
-          set(g.texthandle,'Position',[x,y,0],'String',overicon.mouseovertext);%text(x,y,'blablabla','Parent',g.axeshandle);
+          set(g.texthandle,'Position',[x,y,0],'String',translation.dictionary(overicon.mouseovertext));%text(x,y,'blablabla','Parent',g.axeshandle);
         end
         else 
           g.notover
