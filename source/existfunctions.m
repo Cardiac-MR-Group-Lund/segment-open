@@ -88,7 +88,7 @@ else
 end;
 
 %------------------------------------
-function y = existepiinselected(no,t) %#ok<DEFNU>
+function y = existepiinselected(no,t,s) %#ok<DEFNU>
 %------------------------------------
 %True if epicardium exist in selected slices.
 %If argument is specified, only look in timeframe t.
@@ -106,6 +106,12 @@ end;
 if nargin == 2
   y = not(anyall(isnan(SET(no).EpiX(...
     1,t,SET(no).StartSlice:SET(no).EndSlice))));
+  return
+end
+
+if nargin == 3
+  y = not(anyall(isnan(SET(no).EpiX(...
+    1,t,s))));
   return
 end
 

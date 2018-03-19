@@ -46,10 +46,8 @@ for loop=1:length(SET)
   if isequal(lower(SET(loop).ImageType),'cine')
     cineno = [cineno loop]; %#ok<AGROW>
   end;
-  if isequal(lower(SET(loop).ImageType),'late enhancement') && ~isempty(SET(loop).Scar)
+  if isequal(lower(SET(loop).ImageType),'late enhancement') || ~isempty(SET(loop).Scar)
     scarno = [scarno loop]; %#ok<AGROW>
-  elseif isempty(scarno) && (isequal(lower(SET(loop).ImageType),'late enhancement') || ~isempty(SET(loop).Scar) )
-    scarno = loop;
   end;
   if isequal(lower(SET(loop).ImageType),'strain ffe') || isequal(lower(SET(loop).ImageType),'strain tfe') || ...
       ~isempty(SET(loop).Strain) || ...
@@ -866,6 +864,19 @@ if debugplot
   axis image off
 end;
 
+%--------------------------------
+function [x,y] = findrvcenter(no,slices) %#ok<DEFNU>
+%--------------------------------
+%Finds the center of the RV, currenlty only using center cross definition
+
+global SET NO
+if nargin < 1
+  no = NO;
+end
+
+x = SET(no).CenterX;
+y = SET(no).CenterY;
+
 %-------------------------------------------------
 function tfs = findframeswithsegmentation(type,no) %#ok<DEFNU>
 %-------------------------------------------------
@@ -947,20 +958,40 @@ for n = 1:length(SET)
     nn = nn +1;
   end
 end
+menuitems{nn} = sprintf('Unselect');
 s = mymenu(stri,menuitems);
 if ~isempty(s) && s~=0
-  no = stacks(s);
-  switch type
-    case 'flow'
-      DATA.FlowNO = no;
-      DATA.FlowROI = SET(no).RoiN;
-      set(DATA.Handles.flowstackpushbutton,'String',sprintf('Stack #%d',no));
-    case 'lv'
-      DATA.LVNO = no;
-      set(DATA.Handles.lvstackpushbutton,'String',sprintf('Stack #%d',no));
-    case 'rv'
-      DATA.RVNO = no;
-      set(DATA.Handles.rvstackpushbutton,'String',sprintf('Stack #%d',no));
+  if s == length(menuitems)
+    %unselect
+    switch type
+      case 'flow'
+        DATA.FlowNO = [];
+        DATA.FlowROI = [];
+      case 'lv'
+        DATA.LVNO = [];
+      case 'rv'
+        DATA.RVNO = [];
+    end
+  else
+    no = stacks(s);
+    switch type
+      case 'flow'
+        if SET(no).TSize == 1 || isempty(SET(no).Flow) || isempty(SET(no).Flow.Result)
+          myfailed('Flow image stack need to be time resolved and contain flow analysis.',DATA.GUI.Segment);
+          DATA.FlowNO = [];
+          DATA.FlowROI = [];
+        else
+          DATA.FlowNO = no;
+          DATA.FlowROI = SET(no).RoiN;
+          set(DATA.Handles.flowstackpushbutton,'String',sprintf('Stack #%d',no));
+        end
+      case 'lv'
+        DATA.LVNO = no;
+        set(DATA.Handles.lvstackpushbutton,'String',sprintf('Stack #%d',no));
+      case 'rv'
+        DATA.RVNO = no;
+        set(DATA.Handles.rvstackpushbutton,'String',sprintf('Stack #%d',no));
+    end
   end
 end
 switch type

@@ -772,7 +772,7 @@ if isempty(SET)
 end;
 
 %Take away from viewpanels
-zer = zeros(1,length(DATA.ViewPanels));
+%zer = zeros(1,length(DATA.ViewPanels));
 tempind = not(DATA.ViewPanels==no);
 DATA.ViewPanels = DATA.ViewPanels(tempind);
 DATA.ViewPanelsType = DATA.ViewPanelsType(tempind);
@@ -781,27 +781,37 @@ DATA.ViewIM = DATA.ViewIM(tempind);
 DATA.Overlay = DATA.Overlay(tempind);
 DATA.ViewMatrix = [];
 
-%DATA.ViewPanels have internal references to old image stack ordering.
-for loop=1:length(DATA.ViewPanels)
-  temp = DATA.ViewPanels(loop);
-  if temp>0
-    newpos = zer; %zer frome above;
-    newpos(temp) = 1;
-    newpos = newpos(tempind); %tempind from above
-    newpos = find(newpos);
-    if ~isempty(newpos)
-      DATA.ViewPanels(loop) = newpos;
-    else
-      DATA.ViewPanels(loop) = 0;
-    end;
-  end;
-end;
+% %DATA.ViewPanels have internal references to old image stack ordering.
+% for loop=1:length(DATA.ViewPanels)
+%   temp = DATA.ViewPanels(loop);
+%   if temp>0
+%     newpos = zer; %zer frome above;
+%     newpos(temp) = 1;
+%     newpos = newpos(tempind); %tempind from above
+%     newpos = find(newpos);
+%     if ~isempty(newpos)
+%       DATA.ViewPanels(loop) = newpos;
+%     else
+%       DATA.ViewPanels(loop) = 0;
+%     end;
+%   end;
+% end;
 
 %update NO
-NO = NO-length(find(ind==0));
-if NO < 1
-  NO = 1;
+if isempty(DATA.ViewPanels) || all(DATA.ViewPanels==0)
+  NO=1;
+else
+  tmpno = DATA.ViewPanels(find(DATA.ViewPanels,1));
+  if tmpno<no
+    NO=tmpno;
+  else
+    NO=tmpno-1;
+  end
 end
+% NO = NO-length(find(ind==0));
+% if NO < 1
+%   NO = 1;
+% end
 
 %Update datasetpreview
 ind = repmat(ind,DATA.GUISettings.ThumbnailSize,1);
@@ -825,10 +835,10 @@ end;
 %   DATA.LVNO=[];
 % end
 
-%Switch data does some backup before...
-SET(NO).StartSlice = SET(NO).StartSlice;
-SET(NO).EndSlice = SET(NO).EndSlice;
-SET(NO).CurrentTimeFrame = SET(NO).CurrentTimeFrame;
+% %Switch data does some backup before...
+% SET(NO).StartSlice = SET(NO).StartSlice;
+% SET(NO).EndSlice = SET(NO).EndSlice;
+% SET(NO).CurrentTimeFrame = SET(NO).CurrentTimeFrame;
 
 %if isempty(SET(NO).Scar) && strcmp(DATA.CurrentTheme,'scar')
 %  DATA.updateicons('lv');

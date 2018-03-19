@@ -1093,7 +1093,7 @@ for loop=1:length(noseg)
       elseif SET(no).TSize>2
         %find a corresponding (closest) tf in no, for each tf in noseg
         alltf = (1+((1:40)-1)/(SET(noseg(loop)).TSize-1)*(SET(no).TSize-1));
-        tfs = find(SET(no).CurrentTimeFrame==round(alltf));
+        tfs = max(1,min(SET(noseg(loop)).TSize,find(SET(no).CurrentTimeFrame==round(alltf))));
         tfdiff = abs(alltf(tfs)-SET(no).CurrentTimeFrame);
 %         tf = round(1+(SET(no).CurrentTimeFrame-1)/(SET(no).TSize-1)*(SET(noseg(loop)).TSize-1));
         %[~,tf] = min(abs(SET(noseg(loop)).TimeVector-SET(no).TimeVector(SET(no).CurrentTimeFrame)));
@@ -2812,7 +2812,6 @@ function calcflow(no) %#ok<DEFNU>
 
 global DATA SET
 
-tic
 nom = SET(no).Flow.MagnitudeNo;
 nop = SET(nom).Flow.PhaseNo;
 
@@ -2879,8 +2878,6 @@ SET(nom).Flow.Result(roinbr).netforwardvol = nansum(netflow(timeframes).*(netflo
 SET(nom).Flow.Result(roinbr).netbackwardvol = nansum(netflow(timeframes).*(netflow(timeframes)<0))*TIncr;
 SET(nom).Flow.Result(roinbr).regfrac = abs(100*SET(nom).Flow.Result(roinbr).netbackwardvol/SET(nom).Flow.Result(roinbr).netforwardvol);
 SET(nom).Flow.Result(roinbr).sv = SET(nom).Flow.Result(roinbr).nettotvol/hr*60;
-
-toc
 
 
 %---------------------------

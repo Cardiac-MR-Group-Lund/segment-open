@@ -2048,6 +2048,7 @@ segment('cell2clipboard',outdata);
 DATA.Silent = currentsilent;
   
 
+
 %-------------------------------------------
 function exportmultiplestrain_Callback(type) %#ok<DEFNU>
 %-------------------------------------------
@@ -2136,11 +2137,12 @@ for fileloop=1:numfiles
   bullseyecirc = cell(1,1);
   for no=1:length(SET)
     if doStrain
-      if ~isfield(SET(no),'StrainTagging') || isempty(SET(no).StrainTagging) ||~isfield(SET(no).StrainTagging,'globalrad') %|| ismember(no,checked)
+      if ~isfield(SET(no),'StrainTagging') || isempty(SET(no).StrainTagging) ||~isfield(SET(no).StrainTagging,'transformparameters') %|| ismember(no,checked)
         %Skip this no
       else
         try
           %Do Strain calculations
+          
           switch SET(no).ImageViewPlane
             case 'Short-axis'
               imageviewplane = 'shortaxis';
@@ -2404,7 +2406,7 @@ for fileloop=1:numfiles
             col=col+1;
             
             used=find(SET(no).StrainTagging.SR.include);
-            for sliceloop = 1:nbrslices
+            for sliceloop = 1:length(used) %nbrslices
               outdata{line-1,col} = sprintf('Slice %d Upslope',used(sliceloop));
               outdata{line,col} = SET(no).StrainTagging.SR.radup(sliceloop);%SET(no).StrainTagging.upsloperad(sliceloop,1);
               outdata{line-1,col+1} = sprintf('Slice %d Upslope time',used(sliceloop));
@@ -2429,7 +2431,7 @@ for fileloop=1:numfiles
             outdata{line,col}=SET(no).TimeVector(SET(no).StrainTagging.SR.globalcircdownind+1);
             col=col+1;
             
-            for sliceloop = 1:nbrslices
+            for sliceloop = 1:length(used) %nbrslices
               outdata{line-1,col} = sprintf('Slice %d Upslope',used(sliceloop));
               outdata{line,col} =SET(no).StrainTagging.SR.circup(sliceloop);% SET(no).StrainTagging.upslopecircum(sliceloop,1);
               outdata{line-1,col+1} = sprintf('Slice %d Upslope time',used(sliceloop));  
@@ -2544,7 +2546,7 @@ for fileloop=1:numfiles
                 end
               case '3CH'
                 if SET(no).StrainTagging.SR.include(2)
-                if strcmp(SET(SET(no).StrainTagging.taggroup(end)).ImageViewPlane,'4CH')
+                if any(strcmp({SET(SET(no).StrainTagging.taggroup).ImageViewPlane},'4CH'))
                   ind=length(SET(no).StrainTagging.taggroup)-1;
                 else
                   ind=length(SET(no).StrainTagging.taggroup);
@@ -2568,7 +2570,7 @@ for fileloop=1:numfiles
               outdata{line-1,col+3} = 'Downslope time';
               outdata{line,col+3} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.raddownind(ind));%SET(no).StrainTagging.downsloperad(1,2);
               col = col+4;
-            outdata{line-2,col} = 'Longit. strain rate [%/s]';
+              outdata{line-2,col} = 'Longit. strain rate [%/s]';
               outdata{line-1,col} = 'Upslope';
               outdata{line,col} = SET(no).StrainTagging.SR.circup(ind);%SET(no).StrainTagging.upslopecircum(1,1);
               outdata{line-1,col+1} = 'Upslope time';  
@@ -2577,8 +2579,8 @@ for fileloop=1:numfiles
               outdata{line,col+2} = SET(no).StrainTagging.SR.circdown(ind);%SET(no).StrainTagging.downslopecircum(1,1);
               outdata{line-1,col+3} = 'Downslope time';
               outdata{line,col+3} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.circdownind(ind));%SET(no).StrainTagging.downslopecircum(1,2);
-            col = col+4; 
-            line=line+3;
+              col = col+4; 
+              line=line+3;
             end
         end
         %line = line+1;

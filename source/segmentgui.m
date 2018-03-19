@@ -68,13 +68,14 @@ end
     iconcell{1,end+1}=myicon('clearalledes',g.Handles.permanenticonholder,g.Icons.config.clearalledes,'Clear all segmentation except in ED and ES',@() segment('segmentclearallbutsystolediastole_Callback'),0); 
     iconcell{1,end+1}=myicon('zoomin',g.Handles.permanenticonholder,g.Icons.config.zoomin,'Zoom in',@() segment('viewzoomin_Callback'),0);
     iconcell{1,end+1}=myicon('zoomout',g.Handles.permanenticonholder,g.Icons.config.zoomout,'Zoom out',@() segment('viewzoomout_Callback'),0);
+    iconcell{1,end+1}=myicon('autozoom',g.Handles.permanenticonholder,g.Icons.config.autozoom,'Auto zoom',@() segment('autozoom'),0);
     iconcell{1,end+1}=myicon('colorbar',g.Handles.permanenticonholder,g.Icons.config.colorbar,'Hide colorbar',@() segment('viewhidecolorbar_Callback'),2);
     iconcell{1,end+1}=myicon('viewpixels',g.Handles.permanenticonholder,g.Icons.config.viewpixels,'Show image pixels',@() segment('viewinterp_Callback'),2);
 %     iconcell{1,end+1}=myicon('reportsheet',g.Handles.permanenticonholder,g.Icons.config.reportsheet,'Open Report sheet generation',@() reporter.reportsheet,0);
     iconcell{1,end+1}=myicon('savescreen',g.Handles.permanenticonholder,g.Icons.config.savescreen,'Save screen shot',@() export('screenshot_Callback'),0);
     
     iconcell{1,end+1}=myicon('settingsgeneral',g.Handles.permanenticonholder,g.Icons.config.settingsgeneral,'Set general preferences',@() segpref,0);
-    iconcell{1,end+1}=myicon('settingssystem',g.Handles.permanenticonholder,g.Icons.config.settingssystem,'Set patient database preferences',@() segpref('advancedsettings_Callback'),0);
+    iconcell{1,end+1}=myicon('settingssystem',g.Handles.permanenticonholder,g.Icons.config.settingsdatabase,'Set patient database preferences',@() segpref('advancedsettings_Callback'),0);
     iconcell{1,end+1}=myicon('settingspacs',g.Handles.permanenticonholder,g.Icons.config.settingspacs,'Set PACS connection preferences',@() pacspref,0);
     g.Handles.permanenticonholder.add(iconcell);
     
@@ -114,7 +115,7 @@ end
     lviconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,'Translate contour',@() updatetool('move'));
     lviconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,'Scale object',@() updatetool('scale'));
     lviconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,'Manually change contrast and brightness',@() updatetool('contrast'));
-    lviconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,'Set contrast and brightness to predefined values',@() segment('autocontrastall_Callback'),0);
+    lviconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,'Set contrast and brightness to predefined values',@() segment('autocontrast_Callback'),0);
     lviconcell{1,end+1}=myicon('lvstack',g.Handles.configiconholder,g.Icons.config.lvstack,'Go to LV stack',@() segment('viewspecial_Callback','lv'),0);
     lviconcell{1,end+1}=myicon('moveall',g.Handles.configiconholder,g.Icons.config.moveall,'Translate all contours',@() updatetool('moveall'));    
     lviconcell{1,end+1}=myicon('autolv',g.Handles.configiconholder,g.Icons.config.autolv,'Automatic LV segmentation',@() updatetool('autolv'),0);
@@ -139,13 +140,13 @@ end
     
     lviconcell{1,end+1}=myicon('interpsegintime',g.Handles.configiconholder,g.Icons.config.interpsegintime,'Interpolate segmentation in time for selected slices',@() segmentation('interpolatedelineationovertime_Callback'),0);
     lviconcell{1,end+1}=myicon('interpseginslice',g.Handles.configiconholder,g.Icons.config.interpseginslice,'Interpolate segmentation over slices',@() lv('interpolatedelineation_Callback'),0);
+    lviconcell{1,end+1}=myicon('volumecurve',g.Handles.configiconholder,g.Icons.config.volumecurve,'Plot Volume Curve',@() lvpeter('plotvolumecurve'),0);
    
     lviconcell{1,end+1}=myicon('hidelv',g.Handles.configiconholder,g.Icons.config.hidelv,'Hide LV segmentation',@() segment('viewhidelv_Callback'),2);
     lviconcell{1,end+1}=myicon('hideinterp',g.Handles.configiconholder,g.Icons.config.hideinterp,'Hide interpolation points',@() segment('viewhideinterp_Callback'),2);
     lviconcell{1,end+1}=myicon('clearalllv',g.Handles.configiconholder,g.Icons.config.clearalllv,'Clear all LV segmentation',@() segment('segmentclearalllv_Callback'),0);
     lviconcell{1,end+1}=myicon('clearalllv',g.Handles.configiconholder,g.Icons.config.clearendo,'Clear LV endo in selected slices according to mode',@() segmentation('clearslicesthis_Callback',1,0,0,0),0);
     lviconcell{1,end+1}=myicon('clearepi',g.Handles.configiconholder,g.Icons.config.clearepi,'Clear LV epi in selected slices according to mode',@() segmentation('clearslicesthis_Callback',0,1,0,0),0);
-    lviconcell{1,end+1}=myicon('volumecurve',g.Handles.configiconholder,g.Icons.config.volumecurve,'Plot Volume Curve',@() lvpeter('plotvolumecurve'),0);
     
     g.Icons.lviconcell=lviconcell;
     
@@ -154,7 +155,7 @@ end
     rviconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,'Translate contour', @() updatetool('move'));
     rviconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,'Scale object',@() updatetool('scale'));
     rviconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,'Manually change contrast and brightness',@() updatetool('contrast'));
-    rviconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,'Set contrast and brightness to predefined values',@() segment('autocontrastall_Callback'),0);
+    rviconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,'Set contrast and brightness to predefined values',@() segment('autocontrast_Callback'),0);
     rviconcell{1,end+1}=myicon('rvstack',g.Handles.configiconholder,g.Icons.config.rvstack,'Go to RV stack',@() segment('viewspecial_Callback','rv'),0);
     rviconcell{1,end+1} = lviconcell{1,7}; %moveall
     rviconcell{1,end+1}=myicon('autorvendo',g.Handles.configiconholder,g.Icons.config.autorvendo,'Automatic RV Endo segmentation',@() updatetool('autorvendo'),0);
@@ -168,7 +169,7 @@ end
     rviconcell{1,end+1}=myicon('copyrvdown',g.Handles.configiconholder,g.Icons.config.copyrvdown,'Copy RV downwards',@()tools('copydownward_Callback','endo',false,false),0);
     
     rviconcell{1,end+1}=myicon('interpsegintime',g.Handles.configiconholder,g.Icons.config.interpsegintime,'Interpolate segmentation in time',@() segmentation('interpolatedelineationovertime_Callback'),0);
-     rviconcell{1,end+1}=myicon('interpseginslice',g.Handles.configiconholder,g.Icons.config.interpseginslice,'Interpolate segmentation over slices',@() lv('interpolatedelineation_Callback'),0);
+    rviconcell{1,end+1}=myicon('interpseginslice',g.Handles.configiconholder,g.Icons.config.interpseginslice,'Interpolate segmentation over slices',@() lv('interpolatedelineation_Callback'),0);
     
     rviconcell{1,end+1}=myicon('hiderv',g.Handles.configiconholder,g.Icons.config.hiderv,'Hide RV segmentation', @() segment('viewhiderv_Callback'),2);
     rviconcell{1,end+1}=lviconcell{end-4};%myicon('hideinterp',g.Handles.configiconholder,g.Icons.config.hideinterp,'Hide interpolation points',@() segment('viewhideinterp_Callback'),2);
@@ -185,7 +186,7 @@ end
     roiflowiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,'Scale object',@() updatetool('scale'));
     %roiflowiconcell{1,end+1}=myicon('scaleROI',g.Handles.configiconholder,g.Icons.config.scaleROI,'Scale ROI',@() updatetool('scaleROI'));
     roiflowiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,'Manually change contrast and brightness',@() updatetool('contrast'));
-    roiflowiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,'Set contrast and brightness to predefined values',@() segment('autocontrastall_Callback'),0);
+    roiflowiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,'Set contrast and brightness to predefined values',@() segment('autocontrast_Callback'),0);
     roiflowiconcell{1,end+1}=myicon('flowstack',g.Handles.configiconholder,g.Icons.config.flowstack,'Go to flow stack',@() segment('viewspecial_Callback','flow'),0);
     roiflowiconcell{1,end+1}=myicon('putroi',g.Handles.configiconholder,g.Icons.config.putroi,'Place ROI',@() updatetool('putroi'));
     roiflowiconcell{1,end+1}=myicon('roipen',g.Handles.configiconholder,g.Icons.config.roipen,'ROI pen',@() updatetool('drawroi'));
@@ -208,9 +209,10 @@ end
     viabilityiconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,'Translate contour',@() updatetool('move'));
     viabilityiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,'Scale object',@() updatetool('scale'));
     viabilityiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,'Manually change contrast and brightness',@() updatetool('contrast'));
-    viabilityiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,'Set contrast and brightness to predefined values',@() segment('autocontrastall_Callback'),0);
+    viabilityiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,'Set contrast and brightness to predefined values',@() segment('autocontrast_Callback'),0);
     viabilityiconcell{1,end+1}=myicon('scarstack',g.Handles.configiconholder,g.Icons.config.scarstack,'Go to scar stack',@() segment('viewspecial_Callback','cinescar'),0);
     viabilityiconcell{1,end+1}=myicon('importfromother',g.Handles.configiconholder,g.Icons.config.importfromother,'Import LV segmentation from cine to scar image stack',@() segmentation('importfromcine2scar_Callback'),0);
+    viabilityiconcell{1,end+1}=myicon('moveall',g.Handles.configiconholder,g.Icons.config.moveall,'Translate all contours',@() updatetool('moveall'));    
     viabilityiconcell{1,end+1}=myicon('endopen',g.Handles.configiconholder,g.Icons.config.endopen,'Endo pen',@() updatetool('drawendo'));
     viabilityiconcell{1,end+1}=myicon('epipen',g.Handles.configiconholder,g.Icons.config.epipen,'Epi pen',@() updatetool('drawepi'));
     viabilityiconcell{1,end+1}=myicon('interpendo',g.Handles.configiconholder,g.Icons.config.interpendo,'Set interpolation points for Endo',@() updatetool('interpendo'));
@@ -223,6 +225,7 @@ end
     viabilityiconcell{1,end+1}=myicon('marpen',g.Handles.configiconholder,g.Icons.config.marpen,'Draw MaR',@() updatetool('drawmarpen'));
     viabilityiconcell{1,end+1}=myicon('rubbermar',g.Handles.configiconholder,g.Icons.config.rubbermar,'Manually remove MaR segmentation',@() updatetool('drawmarrubberpen'));
     viabilityiconcell{1,end+1}=myicon('hidescar',g.Handles.configiconholder,g.Icons.config.hidescar,'Hide scar segmentation',@() segment('viewhidescar_Callback'),2);
+    viabilityiconcell{1,end+1}=myicon('hidescarextent',g.Handles.configiconholder,g.Icons.config.hidescarextent,'Hide scar segmentation extent',@() segment('viewhidescarextent_Callback'),2);
     viabilityiconcell{1,end+1}=myicon('hidescarmanual',g.Handles.configiconholder,g.Icons.config.hidescarmanual,'Hide manual scar interaction',@() segment('viewhidemanualinteraction_Callback'),2);
     viabilityiconcell{1,end+1}=myicon('hidemar',g.Handles.configiconholder,g.Icons.config.hidemar,'Hide MaR segmentation',@() segment('viewhidemar_Callback'),2);
     viabilityiconcell{1,end+1}=myicon('clearscar',g.Handles.configiconholder,g.Icons.config.clearscar,'Clear scar segmentation',@() viability('viabilityclear_Callback'),0);  
@@ -234,7 +237,8 @@ end
     analysisiconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,'Translate contour',@() updatetool('move'));
     analysisiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,'Scale object',@() updatetool('scale'));
     analysisiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,'Manually change contrast and brightness',@() updatetool('contrast'));
-    analysisiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,'Set contrast and brightness to predefined values',@() segment('autocontrastall_Callback'),0);
+    analysisiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,'Set contrast and brightness to predefined values',@() segment('autocontrast_Callback'),0);
+    analysisiconcell{1,end+1}=myicon('perfusionstack',g.Handles.configiconholder,g.Icons.config.perfusionstack,'Go to perfusion stacks',@() segment('viewspecial_Callback','perfusion'),0);
     analysisiconcell{1,end+1}=myicon('importfromother',g.Handles.configiconholder,g.Icons.config.importfromother,'Import LV segmentation from other image stack with snap',@() segmentation('importsegmentationwithsnap_Callback'),0);
     analysisiconcell{1,end+1}=myicon('measure',g.Handles.configiconholder,g.Icons.config.measure,'Place Measurement',@() updatetool('measure'));
     analysisiconcell{1,end+1}=myicon('point',g.Handles.configiconholder,g.Icons.config.point,'Place Annotation point',@() updatetool('point'));
@@ -243,17 +247,14 @@ end
     analysisiconcell{1,end+1}=myicon('bullseye',g.Handles.configiconholder,g.Icons.config.bullseye,'Bullseye plot interface',@() reportbullseye,0);
     analysisiconcell{1,end+1}=myicon('AVPD',g.Handles.configiconholder,g.Icons.config.AVPD,'AV plane displacement',@() avplane,0);
     
-    analysisiconcell{1,end+1}=myicon('T1',g.Handles.configiconholder,g.Icons.config.T1, 'T1 analysis',@() txmap('init',1),0);
-    analysisiconcell{1,end+1}=myicon('T2',g.Handles.configiconholder,g.Icons.config.T2, 'T2 analysis',@() txmap('init',2),0);
-    analysisiconcell{1,end+1}=myicon('T2star',g.Handles.configiconholder,g.Icons.config.T2star, 'T2* analysis',@() t2star.t2star,0);
     analysisiconcell{1,end+1}=myicon('perfusion',g.Handles.configiconholder,g.Icons.config.perfusion, 'Perfusion analysis',@() perfusion.perfusion,0);
-    analysisiconcell{1,end+1}=myicon('ecv',g.Handles.configiconholder,g.Icons.config.ecv, 'ECV analysis',@() ecv('init_Callback'),0);
+    analysisiconcell{1,end+1}=myicon('perfusionscoring',g.Handles.configiconholder,g.Icons.config.perfusionscoring, 'Perfusion scoring',@() perfusion.perfusionscoring,0);
     analysisiconcell{1,end+1}=myicon('reportperslice',g.Handles.configiconholder,g.Icons.config.reportperslice, 'Report per slice',@() slicereport,0);
     analysisiconcell{1,end+1}=myicon('model3d',g.Handles.configiconholder,g.Icons.config.model3d, 'Show 3D model',@() report3dmodel,0);
     analysisiconcell{1,end+1}=myicon('generalsegment',g.Handles.configiconholder,g.Icons.config.generalsegment,'General Segmentation',@() levelset,0);
     analysisiconcell{1,end+1}=myicon('hidemeasure',g.Handles.configiconholder,g.Icons.config.hidemeasure,'Hide measurements',@() segment('viewhidemeasures_Callback'),2);
     analysisiconcell{1,end+1}=myicon('hidepoint',g.Handles.configiconholder,g.Icons.config.hidepoint,'Hide annotation points',@() segment('viewhidepoints_Callback'),2);
-    analysisiconcell{1,end+1}=myicon('hideroi',g.Handles.configiconholder,g.Icons.config.hideroi,'Hide ROI',@() segment('viewhideroi_Callback'),2);
+    analysisiconcell{1,end+1}= roiflowiconcell{1,end-2};%myicon('hideroi',g.Handles.configiconholder,g.Icons.config.hideroi,'Hide ROI',@() segment('viewhideroi_Callback'),2);
     analysisiconcell{1,end+1}=myicon('clearmeasure',g.Handles.configiconholder,g.Icons.config.clearmeasure,'Clear all measurements',@() segment('measureclearall_Callback'),0);  
     analysisiconcell{1,end+1}=myicon('clearpoint',g.Handles.configiconholder,g.Icons.config.clearpoint,'Clear all annotation points',@() annotationpoint('pointclearall_Callback'),0); 
     analysisiconcell{1,end+1}=myicon('clearroi',g.Handles.configiconholder,g.Icons.config.clearroi,'Clear selected ROIs',@() roi('roidelete_Callback'),0);  
@@ -265,9 +266,10 @@ end
     imageiconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,'Translate contour',@() updatetool('move'));
     imageiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,'Scale object',@() updatetool('scale'));
     imageiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,'Manually change contrast and brightness',@() updatetool('contrast'));
-    imageiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,'Set contrast and brightness to predefined values',@() segment('autocontrastall_Callback'),0);
+    imageiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,'Set contrast and brightness to predefined values',@() segment('autocontrast_Callback'),0);
     imageiconcell{1,end+1}=myicon('resetlight',g.Handles.configiconholder,g.Icons.config.resetlight,'Reset contrast and brightness',@() segment('resetlight_Callback'),0);
     imageiconcell{1,end+1}=myicon('autocontrastall',g.Handles.configiconholder,g.Icons.config.autocontrastall,'Set contrast and brightness to predefined values for all images',@() segment('autocontrastall_Callback'),0);
+    imageiconcell{1,end+1}=myicon('resetlightall',g.Handles.configiconholder,g.Icons.config.resetlightall,'Reset contrast and brightness for all imagestacks',@() segment('resetlightall_Callback'),0);
     imageiconcell{1,end+1}=myicon('crop',g.Handles.configiconholder,g.Icons.config.crop,'Manual crop',@() updatetool('crop'));
     imageiconcell{1,end+1}=myicon('cropall',g.Handles.configiconholder,g.Icons.config.cropall,'Auto crop all',@() updatetool('autocropall'),0);
     imageiconcell{1,end+1}=myicon('croplv',g.Handles.configiconholder,g.Icons.config.croplv,'LV crop',@() lvsegmentation('croplvall',0),0);
@@ -276,7 +278,7 @@ end
     imageiconcell{1,end+1}=myicon('click3d',g.Handles.configiconholder,g.Icons.config.click3d,'Set 3D point',@() updatetool('click3d'));
     imageiconcell{1,end+1}=myicon('rotate90',g.Handles.configiconholder,g.Icons.config.rotate90,'Rotate 90 degrees clockwise',@() tools('rotate90right_Callback'),0);
     imageiconcell{1,end+1}=myicon('mpr',g.Handles.configiconholder,g.Icons.config.mpr,'Reconstruct image stack',@() reformater,0);
-    imageiconcell{1,end+1}=myicon('mergestacks',g.Handles.configiconholder,g.Icons.config.mergestacks,'Merge stacks',@() mergestacks,0);
+    imageiconcell{1,end+1}=myicon('mergestacks',g.Handles.configiconholder,g.Icons.config.mergestacks,'Merge stacks',@() mergestacks,0);    
     imageiconcell{1,end+1}=myicon('imageinfo',g.Handles.configiconholder,g.Icons.config.imageinfo,'View and adjust image info',@() tools('imageinfo_Callback'),0);
     imageiconcell{1,end+1}=myicon('patientinfo',g.Handles.configiconholder,g.Icons.config.patientinfo,'View and adjust patient info',@() tools('viewpatientinfo_Callback'),0);    
     imageiconcell{1,end+1}=myicon('hidetext',g.Handles.configiconholder,g.Icons.config.hidetext,'Hide text',@() segment('viewhidetext_Callback'),2);
@@ -284,6 +286,32 @@ end
     imageiconcell{1,end+1}=myicon('hideintersections',g.Handles.configiconholder,g.Icons.config.hideintersections,'Hide intersection lines',@() segment('viewhideinterp_Callback'),2);
     imageiconcell{1,end+1}=myicon('hideothercontour',g.Handles.configiconholder,g.Icons.config.hideothercontour,'Hide other contour points',@() segment('viewhideothercontour_Callback'),2);
     g.Icons.imageiconcell=imageiconcell;
+    
+    %TXmap
+    txmapiconcell{1,1}=myicon('select',g.Handles.configiconholder,g.Icons.config.select,'Select image stack or object',@() updatetool('select'));
+    txmapiconcell{1,end+1}=myicon('move',g.Handles.configiconholder,g.Icons.config.move,'Translate contour',@() updatetool('move'));
+    txmapiconcell{1,end+1}=myicon('scale',g.Handles.configiconholder,g.Icons.config.scale,'Scale object',@() updatetool('scale'));
+    txmapiconcell{1,end+1}=myicon('contrastbrightness',g.Handles.configiconholder,g.Icons.config.contrastbrightness,'Manually change contrast and brightness',@() updatetool('contrast'));
+    txmapiconcell{1,end+1}=myicon('autocontrast',g.Handles.configiconholder,g.Icons.config.autocontrast,'Set contrast and brightness to predefined values',@() segment('autocontrast_Callback'),0);
+    txmapiconcell{1,end+1}=myicon('resetlight',g.Handles.configiconholder,g.Icons.config.resetlight,'Reset contrast and brightness',@() segment('resetlight_Callback'),0);    
+    txmapiconcell{1,end+1}=myicon('importfromother',g.Handles.configiconholder,g.Icons.config.importfromother,'Import LV segmentation from cine to Tx map image stack',@() segmentation('importfromcine2txmap_Callback'),0);
+    txmapiconcell{1,end+1}=myicon('roipen',g.Handles.configiconholder,g.Icons.config.roipen,'ROI pen',@() updatetool('drawroi'));
+    txmapiconcell{1,end+1}=myicon('addroiinlv',g.Handles.configiconholder,g.Icons.config.addroiinlv,'Add ROIs to sector of LV wall in selected slices',@() roi('roiaddinsector_Callback'),0);
+    txmapiconcell{1,end+1}=myicon('T1',g.Handles.configiconholder,g.Icons.config.T1, 'T1 analysis',@() txmap('init',1),0);
+    txmapiconcell{1,end+1}=myicon('T2',g.Handles.configiconholder,g.Icons.config.T2, 'T2 analysis',@() txmap('init',2),0);
+    txmapiconcell{1,end+1}=myicon('T2star',g.Handles.configiconholder,g.Icons.config.T2star, 'T2* analysis',@() t2star.t2star,0);
+    txmapiconcell{1,end+1}=myicon('ecv',g.Handles.configiconholder,g.Icons.config.ecv, 'ECV analysis',@() ecv('init_Callback'),0);
+    txmapiconcell{1,end+1}=myicon('T1precolormap',g.Handles.configiconholder,g.Icons.config.T1precolormap, 'T1 pre colormap',@() tools('setcolormap_Callback','t1pre'),0);
+    txmapiconcell{1,end+1}=myicon('T1postcolormap',g.Handles.configiconholder,g.Icons.config.T1postcolormap, 'T1 post colormap',@() tools('setcolormap_Callback','t1post'),0);
+    txmapiconcell{1,end+1}=myicon('T2colormap',g.Handles.configiconholder,g.Icons.config.T2colormap, 'T2 colormap',@() tools('setcolormap_Callback','t2'),0);
+    txmapiconcell{1,end+1}=myicon('T2starcolormap',g.Handles.configiconholder,g.Icons.config.T2starcolormap, 'T2* colormap',@() tools('setcolormap_Callback','t2star'),0);
+    txmapiconcell{1,end+1}=myicon('ecvcolormap',g.Handles.configiconholder,g.Icons.config.ecvcolormap, 'ECV colormap',@() tools('setcolormap_Callback','ecv'),0);
+    txmapiconcell{1,end+1}=myicon('greycolormap',g.Handles.configiconholder,g.Icons.config.greycolormap, 'Grey colormap',@() tools('setcolormap_Callback','gray'),0);
+    txmapiconcell{1,end+1}= roiflowiconcell{1,end-2};
+    txmapiconcell{1,end+1}=myicon('clearroi',g.Handles.configiconholder,g.Icons.config.clearroi,'Clear selected ROIs',@() roi('roidelete_Callback'),0);
+    txmapiconcell{1,end+1}=myicon('clearallroi',g.Handles.configiconholder,g.Icons.config.clearallroi,'Clear all ROIs',@() roi('roiclearall_Callback'),0);
+
+    g.Icons.txmapiconcell = txmapiconcell;
     end
     
      %----------------------------------------
@@ -292,7 +320,7 @@ end
 
     g=varargin{1};
      %initiate iconholder for toggle axes 
-    iconCell=cell(1,6);
+    iconCell=cell(1,7);
     iconCell{1}=myicon('ribbonlv',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonlvoff,...
       'LV', @() segment('togglebuttonLV_Callback'),1,1,g.Icons.toggleicons.ribbonlvon);
     iconCell{2}=myicon('ribbonrv',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonrvoff,...
@@ -301,9 +329,11 @@ end
       'ROI/FLOW',@() segment('togglebuttonROIFLOW_Callback'),1,1,g.Icons.toggleicons.ribbonflowon);
         iconCell{4}=myicon('ribbonviability',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonviabilityoff,...
       'Viability',@() segment('togglebuttonVia_Callback'),1,1,g.Icons.toggleicons.ribbonviabilityon);
-    iconCell{5}=myicon('ribbonanalysis',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonanalysisoff,...
+     iconCell{5}=myicon('ribbontxmap',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbontxmapoff,...
+      'TX maps and ECV',@() segment('togglebuttontxmap_Callback'),1,1,g.Icons.toggleicons.ribbontxmapon);
+    iconCell{6}=myicon('ribbonanalysis',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonanalysisoff,...
       'Analysis',@() segment('togglebuttonAnalysis_Callback'),1,1,g.Icons.toggleicons.ribbonanalysison);
-    iconCell{6}=myicon('ribbonimage',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonimageoff,...
+    iconCell{7}=myicon('ribbonimage',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonimageoff,...
       'Image',@() segment('togglebuttonImage_Callback'),1,1,g.Icons.toggleicons.ribbonimageon);
 %   
      g.Handles.toggleiconholder.add(iconCell);   
@@ -582,6 +612,7 @@ end
     g.AxesTables.volume.addKey('LVESV','ESV','ml',bl);
     g.AxesTables.volume.addKey('LVSV','SV','ml',bl);
     g.AxesTables.volume.addKey('LVEF','EF','%',bl);
+    g.AxesTables.volume.addKey('LVCO','CO','l/min',bl);
     g.AxesTables.volume.addKey('LVHR','HR','bpm',bl);
     g.AxesTables.volume.addKey('INFO','','','');
     
@@ -592,7 +623,8 @@ end
     g.AxesTables.volume.addKey('RVESV','ESV','ml',bl);
     g.AxesTables.volume.addKey('RVSV','SV','ml',bl);
     g.AxesTables.volume.addKey('RVEF','EF','%',bl);
-    g.AxesTables.volume.addKey('RVHR','HR','bpm',bl);
+%     g.AxesTables.volume.addKey('RVCO','CO','l/min',bl);
+%     g.AxesTables.volume.addKey('RVHR','HR','bpm',bl);
     
     %Flow report table
     g.AxesTables.flow.backgroundcolor = [0.94 0.94 0.94]; %[0 0 0];%
@@ -602,9 +634,10 @@ end
     g.AxesTables.flow.addTable('Flow',2,1,[0.65 0.35]);
     g.AxesTables.flow.addKey('ROI','ROI','','');
     g.AxesTables.flow.addKey('Netvol','Net vol','ml',bl);
-    g.AxesTables.flow.addKey('Forward','Forward','ml',bl);
+%     g.AxesTables.flow.addKey('Forward','Forward','ml',bl);
     g.AxesTables.flow.addKey('Backward','Backward','ml',bl);
     g.AxesTables.flow.addKey('Regfrac','Regurg. frac.','%',bl);
+    g.AxesTables.flow.addKey('FlowCO','FlowCO','l/min',bl);
     g.AxesTables.flow.addKey('FlowHR','HR','bpm',bl);
    
     %measurement report table
@@ -770,7 +803,7 @@ end
     %Update LV and RV report in axestables
     global SET DATA
     
-      m=g.getmeasurementstruct();
+%       m=g.getmeasurementstruct();
       bla = {'---'};
       
       % -- LV --
@@ -781,6 +814,7 @@ end
       s.LVESV = bla;
       s.LVSV = bla;
       s.LVEF = bla;
+      s.LVCO = bla;
       s.LVHR = bla;
       updatestruct = s;
       %       title{1} = 'LV';
@@ -823,6 +857,7 @@ end
           updatestruct.([prepost 'ESV']) = round(unitcorr*SET(no).ESV);
           updatestruct.([prepost 'SV']) = round(unitcorr*SET(no).SV);
           updatestruct.([prepost 'EF']) = round(100*SET(no).EF);
+          updatestruct.([prepost 'CO']) = (SET(no).HeartRate*SET(no).SV)/1000;
           
           
           g.AxesTables.volume.updateUnit([prepost 'M'],unitg,true);
@@ -852,7 +887,7 @@ end
       s.RVESV = bla;
       s.RVSV = bla;
       s.RVEF = bla;
-      s.RVHR = bla;
+%       s.RVHR = bla;
       updatestruct = s;
       %       title{2} = 'RV';
       unitV='ml'; %default volume unit
@@ -906,7 +941,7 @@ end
           
 %           title{2} = sprintf('RV  [Image Stack %d]',no);
         end
-        updatestruct.RVHR = round(SET(no).HeartRate);
+%         updatestruct.RVHR = round(SET(no).HeartRate);
         %set(DATA.Handles.rvstackpushbutton,'String',sprintf('Stack #%d',no));
       else        
         %set(DATA.Handles.rvstackpushbutton,'String','Set stack');
@@ -934,10 +969,10 @@ end
     
     updatestruct = struct(...
       'ROI', '',...
-      'Netvol', '---',...
-      'Forward', '---',...
+      'Netvol', '---',... % 'Forward', '---',...
       'Backward', '---',...
       'Regfrac', '---',...
+      'FlowCO', '---' ,...
       'FlowHR', '---');
     name.ROI = 'ROI';
     %set(DATA.Handles.flowstackpushbutton,'String','Set stack');
@@ -951,7 +986,7 @@ end
         
         updatestruct.ROI = '';
         updatestruct.Netvol = SET(no).Flow.Result(roinbr).nettotvol;
-        updatestruct.Forward = SET(no).Flow.Result(roinbr).netforwardvol;
+%         updatestruct.Forward = SET(no).Flow.Result(roinbr).netforwardvol;
         updatestruct.Backward = SET(no).Flow.Result(roinbr).netbackwardvol;
         updatestruct.Regfrac = SET(no).Flow.Result(roinbr).regfrac;
         %define heart rate
@@ -963,6 +998,7 @@ end
             SET(no).Flow.HeartRate = temphr;
           end
         end
+        updatestruct.FlowCO = SET(no).Flow.Result(roinbr).nettotvol*SET(no).Flow.HeartRate/1000; 
         updatestruct.FlowHR = SET(no).Flow.HeartRate; %round((60/(SET(no).TSize*SET(no).TIncr))); %SET(no).HeartRate;
         nop = SET(no).Flow.PhaseNo;
         if ~isempty(SET(nop).Flow.PhaseCorr)
@@ -983,7 +1019,7 @@ end
     
     g.AxesTables.flow.updateName('ROI',name.ROI,true);
     fnames = fieldnames(updatestruct);
-    for floop = 1:numel(fnames)
+    for floop = 2:numel(fnames)
       fname = fnames{floop};
       g.AxesTables.flow.updateKey(fname,updatestruct.(fname),true);
     end
@@ -1184,6 +1220,35 @@ end
 %         hold(g.Handles.measurementresultaxes,'off');
       end
       
+    end
+    
+    %---------------------------------
+    function measurementreportclear(g)
+    %---------------------------------
+    %Clear measurement report in axestables
+    
+    updatestruct = [];
+    bla = {'---'};
+    updatestruct.m1 = bla;
+    updatestruct.m2 = bla;
+    name.m1 = bla;
+    name.m2 = bla;
+    unit.m1 = '';
+    unit.m2 = '';
+    title{1} = '';
+    
+    fnames = fieldnames(updatestruct);
+    for floop = 1:numel(fnames)
+      fname = fnames{floop};
+      g.AxesTables.measurement.updateKey(fname,updatestruct.(fname),true);
+      g.AxesTables.measurement.updateName(fname,name.(fname),true);
+      g.AxesTables.measurement.updateUnit(fname,unit.(fname),true);
+    end
+    g.AxesTables.measurement.updateTitle(title);
+    g.AxesTables.measurement.draw();
+    
+    g.AxesTables.measurement.hide;
+    set(g.Handles.measurementuipanel,'Visible','off');
     end
     
       

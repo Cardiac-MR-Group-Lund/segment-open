@@ -206,23 +206,27 @@ classdef axestable < handle % inherrit from handle to have persistant objects
         return;
       end
       
+      set(obj.axes,'Color',obj.backgroundcolor);
+      set(obj.linex,'color',obj.backgroundcolor)
+      set(obj.liney,'color',obj.backgroundcolor)
+      
       for loop=1:length(obj.Table) %Update all titles
         stri = translation.dictionary(obj.Table{loop}.Title);
-        set(obj.Table{loop}.Handle,'String',stri)
+        set(obj.Table{loop}.Handle,'String',stri,'color',obj.fontcolor)
       end
       for loop=1:length(obj.Key) %Update all values.
         for vloop=1:length(obj.Key{loop}.values),
           stri=obj.parseValue(obj.Key{loop}.values{vloop});
           set(obj.Key{loop}.valuesHandle{vloop},...
             'String',stri,...
-            'Position',[obj.Key{loop}.valuesXpos(vloop) obj.FigHeight-obj.Key{loop}.valuesYpos(vloop)]);
+            'Position',[obj.Key{loop}.valuesXpos(vloop) obj.FigHeight-obj.Key{loop}.valuesYpos(vloop)],'color',obj.fontcolor);
 %           stri=obj.parseValue(obj.Key{loop}.Name);
           if ~isempty(obj.Key{loop}.Unit)
             stri=sprintf('%s (%s)',translation.dictionary(obj.Key{loop}.Name),obj.Key{loop}.Unit);
           else
             stri=translation.dictionary(obj.Key{loop}.Name);
           end
-          set(obj.Key{loop}.keyHandle,'String',stri);
+          set(obj.Key{loop}.keyHandle,'String',stri,'color',obj.fontcolor);
         end
       end
     end
@@ -590,6 +594,8 @@ classdef axestable < handle % inherrit from handle to have persistant objects
             str=obj.defaultclearstring;
           elseif value==round(value)
             str=sprintf('%3d',value);
+          elseif value < 10
+            str=sprintf('%3.2f',value);
           else
             str=sprintf('%3.1f',value);
           end

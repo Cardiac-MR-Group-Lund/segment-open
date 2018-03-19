@@ -20,11 +20,12 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
     configatclick=[];
     killtimer=[];
     pull2=[];
+    fig=[];
   end
   
   methods
     
-    function g = myiconplaceholder(axes,isribbon,pull2)%,numberoficons)
+    function g = myiconplaceholder(axes,isribbon,pull2,fig)%,numberoficons)
       %Constructor takes icons 
       %Initialize properties
       g.axeshandle = axes;
@@ -42,6 +43,12 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
         g.pull2 =pull2;
       end
        
+      if nargin<4
+        global DATA
+        g.fig=DATA.fig;
+      else
+        g.fig=fig;
+      end
     end
     
     %function position = add(varargin)
@@ -134,15 +141,18 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
       axis(g.axeshandle,'image','off');
       
       %Assert position oficon placeholders.
-      if g.pull2==1
+      switch g.pull2
+        case 1
         pos=plotboxpos(g.axeshandle);
         currentpos=get(g.axeshandle,'position');
         set(g.axeshandle,'position',currentpos-[pos(1),0,0,0]);
-      else
+        case 2
         pos=plotboxpos(g.axeshandle);
         currentpos=get(g.axeshandle,'position');
         currentpos(1)=currentpos(1)+1-(pos(1)+pos(3));
         set(g.axeshandle,'position',currentpos);
+        case 3
+          %Stay where you are
       end
       
       if ~isempty(g.timer)
@@ -225,6 +235,29 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
       end
     end
     
+    function undent(varargin)
+      g=varargin{1};
+      name=varargin{2};
+      runicon=varargin{3};
+      icon=[];
+      for i=1:numel(g.iconCell)
+        if strcmp(g.iconCell{i}.name,name)
+          icon=g.iconCell{i};
+          break;
+        end
+      end
+      
+      if isempty(icon)
+        return;
+      end
+       icon.cdataDisplay=icon.cdata;
+      icon.isindented=0;
+      g.render;
+      if runicon
+        feval(icon.execute)
+      end
+    end
+    
     function indent(varargin)
       
       g=varargin{1};
@@ -252,14 +285,14 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
       end
       icon.cdataDisplay=icon.cdataIndent;
       icon.isindented=1;
+      g.render;
       if runicon
         feval(icon.execute)
       end
-      g.render;
     end
     
     function click(varargin)
-      global DATA
+      %global DATA
       %profile on;
       g=varargin{1};
       g.buttonisdown=1;
@@ -267,8 +300,10 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
       %Save the current click configuration if slide off icon axes
       g.configatclick=g.findindented;
       
-      if isequal(hittest(DATA.fig),g.imagehandle) 
-        set(DATA.fig,'WindowButtonUpFcn',@g.upclick);
+      if isequal(hittest(g.fig),g.imagehandle) 
+        set(g.fig,'WindowButtonUpFcn',@g.upclick);
+      %if isequal(hittest(DATA.fig),g.imagehandle) 
+      %  set(DATA.fig,'WindowButtonUpFcn',@g.upclick);
         g.clickedicon=g.geticon;
          if ~isempty(g.clickedicon)
         g.clickedicon.highlight
@@ -300,11 +335,12 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
     end
     
     function upclick(varargin)
-      global DATA
+      %global DATA
       g=varargin{1};
-      
+
+%      fig=get(g.axeshandle,'parent');
       g.buttonisdown=0;
-      if isequal(hittest(DATA.fig),g.imagehandle) && ~isempty(g.clickedicon) %&& isequal(g.clickedicon
+      if isequal(hittest(g.fig),g.imagehandle) && ~isempty(g.clickedicon) %&& isequal(g.clickedicon
         indented=g.findindented;
         for k= indented
           if ~isempty(g.clickedicon) && g.iconCell{k}.group==g.clickedicon.group && g.iconCell{k}.type==1 && g.clickedicon.type==1
@@ -318,7 +354,7 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
     end
 
     function motion(varargin)
-      global DATA
+      %global DATA
       g=varargin{1};
       
 %      if isequal(hittest(get(g.axeshandle,'Parent')),g.imagehandle)
@@ -359,11 +395,10 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
     end
     
     function killtext(varargin)
-  global DATA
       g=varargin{1};
    % Check mouse location on screen
    mouseloc=get(0, 'PointerLocation');
-   guiloc=get(DATA.fig, 'Position');
+   guiloc=get(g.fig, 'Position');
   state= inpolygon(mouseloc(1),mouseloc(2),[guiloc(1),guiloc(1)+guiloc(3)],[guiloc(1),guiloc(2)+guiloc(4)]) ;
    
       %if nolonger over parentaxes kill text
@@ -533,9 +568,9 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
     
     function displayinfoYN(varargin)
       %Should we display info now that timer has triggered
-      global DATA
+      
       g=varargin{1};
-      if  isequal(hittest(DATA.fig),g.imagehandle) && ~g.buttonisdown && ~g.isribbon
+      if  isequal(hittest(g.fig),g.imagehandle) && ~g.buttonisdown && ~g.isribbon
         g.displayinfo=1;
         set(g.texthandle,'visible','on')
         overicon=g.geticon;
@@ -543,7 +578,7 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
         x=xy(1,1);
         y=xy(1,2);
         set(g.texthandle,'Position',[x,y,0],'String',translation.dictionary(overicon.mouseovertext));%text(x,y,'blablabla','Parent',g.axeshandle);
-        
+        uistack(g.axeshandle,'top')
         %Start kill text timer that checks for a while if we are over the axis if not kill text
         %if isempty(g.killtimer)
        

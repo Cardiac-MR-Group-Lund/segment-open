@@ -149,12 +149,13 @@ end;
 %Layout has changed, reset zoom.
 if ~isequal([rows cols],DATA.ViewMatrix)
     for loop=1:length(SET)
-        SET(loop).NormalZoomState = [];
+%         SET(loop).NormalZoomState = [];
         SET(loop).MontageZoomState = [];
         SET(loop).MontageRowZoomState = [];
         SET(loop).MontageFitZoomState = [];
     end;
 end
+
 %Store for future use.
 DATA.ViewMatrix = [rows cols];
 
@@ -476,6 +477,7 @@ switch DATA.ViewPanelsType{panel}
     otherwise
         myfailed(dprintf('Unknown image viewmode %s.',DATA.ViewPanelsType{panel}),DATA.GUI.Segment);
 end;
+DATA.updateaxestables('measure');
 
 %Make the panel visible
 set(DATA.Handles.imageaxes(panel),'visible','on');
@@ -845,6 +847,7 @@ if nargin < 1
 end
 updatenopanels(no);
 
+
 %--------------------------
 function updatenopanels(no,stateandicon)
 %--------------------------
@@ -1024,7 +1027,11 @@ if ~isempty(onepanels)
     updatemeasures(no,onepanels);
     
     %Update slicetimetext
-    stri = dprintf('Slice:%02d Time:%03d ms',SET(no).CurrentSlice,round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
+    if isnan(SET(no).TimeVector(SET(no).CurrentTimeFrame))
+      stri = dprintf('Slice:%02d',SET(no).CurrentSlice);
+    else
+      stri = dprintf('Slice:%02d Time:%03d ms',SET(no).CurrentSlice,round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
+    end
     set(DATA.Handles.slicetimetext(onepanels),'string',stri);
     viewupdatetextposition(onepanels);
     viewupdateannotext(onepanels);
@@ -1934,13 +1941,29 @@ set(DATA.Handles.dicomimagetypetext(panel),...
   
 %slicetimeframetext
 if strcmp(DATA.ViewPanelsType{panel},'hla')
+  if isnan(SET(no).TimeVector(SET(no).CurrentTimeFrame))
+    stri = dprintf('Slice:%02d ',SET(no).HLA.slice);
+  else
     stri = dprintf('Slice:%02d Time:%03d ms',SET(no).HLA.slice,round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
+  end
 elseif strcmp(DATA.ViewPanelsType{panel},'vla')
+  if isnan(SET(no).TimeVector(SET(no).CurrentTimeFrame))
+    stri = dprintf('Slice:%02d ',SET(no).VLA.slice);
+  else
     stri = dprintf('Slice:%02d Time:%03d ms',SET(no).VLA.slice,round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
+  end
 elseif ismember(DATA.ViewPanelsType{panel},{'orthomip','hlamip','vlamip'})
+  if isnan(SET(no).TimeVector(SET(no).CurrentTimeFrame))
+    stri = '';
+  else
     stri = dprintf('Time:%03d ms',round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
+  end
 else
+  if isnan(SET(no).TimeVector(SET(no).CurrentTimeFrame))
+    stri = dprintf('Slice:%02d',SET(no).CurrentSlice);
+  else
     stri = dprintf('Slice:%02d Time:%03d ms',SET(no).CurrentSlice,round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
+  end
 end
 DATA.Handles.slicetimetext(panel) = text(...
     x,...
@@ -2765,6 +2788,16 @@ for loop=1:SET(no).RoiN
     end
 end;
 
+% %update flow result panel
+% if ~isempty(DATA.FlowNO) && ismember(DATA.FlowNO,SET(no).Linked) && ~isempty(DATA.FlowROI)
+%   if SET(no).RoiN <1
+%     DATA.FlowROI = [];
+%   else
+%     calcfunctions('calcflow',no);
+%   end
+% end
+% DATA.updateaxestables('area',no);
+
 
 %-----------------------------------
 function updatemontagerois(no,panel)
@@ -2802,7 +2835,11 @@ global DATA SET
 if not(isempty(SET(no).Measure))
     DATA.Handles.measureline{panel} = cell(1,length(SET(no).Measure));
     DATA.Handles.measuretext{panel} = zeros(1,length(SET(no).Measure));
-    
+    if DATA.Pref.BackgroundColor
+      bgcolor = 'blue';
+    else
+      bgcolor = 'none';
+    end
     [measure,slice] = segment('getmeasurecoords',no,panel);
     for loop=1:length(measure)
         % JU: Measures now time specific
@@ -2811,26 +2848,28 @@ if not(isempty(SET(no).Measure))
         ziv = min(ziv):max(ziv);
         if ismember(slice,ziv) && ...
                 ((SET(no).Measure(loop).T==SET(no).CurrentTimeFrame)||(isnan(SET(no).Measure(loop).T)))
-            DATA.Handles.measureline{panel}{loop} = plot(DATA.Handles.imageaxes(panel),...
-                measure(loop).Y,measure(loop).X,DATA.GUISettings.MeasureLineSpec);
-            if ~all(ziv == slice)
-                set(DATA.Handles.measureline{panel}{loop},'LineStyle','--');
-            end
-            set(DATA.Handles.measureline{panel}{loop},'markersize',DATA.GUISettings.MeasureLineMarkerSize);
-            [ymax,ix] = max(measure(loop).Y);
-            DATA.Handles.measuretext{panel}(loop) = text(...
+              
+              
+              set(DATA.Handles.measureline{panel}{loop},'markersize',DATA.GUISettings.MeasureLineMarkerSize);
+              [ymax,ix] = max(measure(loop).Y);
+              DATA.Handles.measuretext{panel}(loop) = text(...
                 'position',[ymax+1 measure(loop).X(ix)],...
                 'string',sprintf('%s\n%0.1f [mm]',SET(no).Measure(loop).Name,SET(no).Measure(loop).Length),...
                 'parent',DATA.Handles.imageaxes(panel),...
                 'color',[1 1 1],...
-                'interpreter','none','horizontalalignment','left');
-            DATA.measurefontsize(panel,loop);
+                'interpreter','none','horizontalalignment','left','backgroundcolor',bgcolor);
+              DATA.Handles.measureline{panel}{loop} = plot(DATA.Handles.imageaxes(panel),...
+                measure(loop).Y,measure(loop).X,DATA.GUISettings.MeasureLineSpec);
+              if ~all(ziv == slice)
+                set(DATA.Handles.measureline{panel}{loop},'LineStyle','--');
+              end
+               DATA.measurefontsize(panel,loop);
         else
             DATA.Handles.measureline{panel}{loop} = plot(DATA.Handles.imageaxes(panel),NaN,NaN);
             DATA.Handles.measuretext{panel}(loop) = text(...
                 'position',[NaN NaN],...
                 'string','',...
-                'parent',DATA.Handles.imageaxes(panel));
+                'parent',DATA.Handles.imageaxes(panel),'backgroundcolor',bgcolor);
         end;
     end;
     set([DATA.Handles.measureline{panel}{:}; DATA.Handles.measuretext{panel}],'ButtondownFcn',...
@@ -3001,29 +3040,39 @@ if not(isempty(SET(no).Point))
     
     markerSize=7;
     lineSize=1;
+    %Input to force black background around corner text to improve visibility
+    if DATA.Pref.BackgroundColor
+      bgcolor = 'blue';
+    else
+      bgcolor = 'none';
+    end
+    
     
     DATA.Handles.pointp{panel} = zeros(1,length(SET(no).Point.X));
     DATA.Handles.pointo{panel} = DATA.Handles.pointp{panel};
     DATA.Handles.pointtext{panel} = DATA.Handles.pointp{panel};
     for loop=1:length(SET(no).Point.X)
         if strcmp(SET(no).Point.Label(loop),'Ant track') || strcmp(SET(no).Point.Label(loop),'Inf track') || strcmp(SET(no).Point.Label(loop),'RV track') || strcmp(SET(no).Point.Label(loop),'Tracked Fwd')
-            DATA.Handles.pointp{panel}(loop) = plot(DATA.Handles.imageaxes(panel),...
-                SET(no).Point.Y(loop),SET(no).Point.X(loop),'b+','linewidth', lineSize,'markersize', markerSize);
-            DATA.Handles.pointo{panel}(loop) = plot(DATA.Handles.imageaxes(panel),...
-                SET(no).Point.Y(loop),SET(no).Point.X(loop),'bo','linewidth', lineSize,'markersize', markerSize);
+         
+          
             DATA.Handles.pointtext{panel}(loop) = text(...
                 'position',[SET(no).Point.Y(loop)+2 SET(no).Point.X(loop)],...
                 'string',SET(no).Point.Label{loop},...
-                'parent',DATA.Handles.imageaxes(panel));
+                'parent',DATA.Handles.imageaxes(panel),'backgroundcolor',bgcolor);
+                DATA.Handles.pointo{panel}(loop) = plot(DATA.Handles.imageaxes(panel),...
+                SET(no).Point.Y(loop),SET(no).Point.X(loop),'bo','linewidth', lineSize,'markersize', markerSize);
+                 DATA.Handles.pointp{panel}(loop) = plot(DATA.Handles.imageaxes(panel),...
+                SET(no).Point.Y(loop),SET(no).Point.X(loop),'b+','linewidth', lineSize,'markersize', markerSize);
         else
-            DATA.Handles.pointp{panel}(loop) = plot(DATA.Handles.imageaxes(panel),...
+
+            DATA.Handles.pointtext{panel}(loop) = text(...
+                'position',[SET(no).Point.Y(loop)+2 SET(no).Point.X(loop)],...
+                'string',SET(no).Point.Label{loop},...
+                'parent',DATA.Handles.imageaxes(panel),'backgroundcolor',bgcolor);
+                          DATA.Handles.pointp{panel}(loop) = plot(DATA.Handles.imageaxes(panel),...
                 SET(no).Point.Y(loop),SET(no).Point.X(loop),'w+');
             DATA.Handles.pointo{panel}(loop) = plot(DATA.Handles.imageaxes(panel),...
                 SET(no).Point.Y(loop),SET(no).Point.X(loop),'wo');
-            DATA.Handles.pointtext{panel}(loop) = text(...
-                'position',[SET(no).Point.Y(loop)+2 SET(no).Point.X(loop)],...
-                'string',SET(no).Point.Label{loop},...
-                'parent',DATA.Handles.imageaxes(panel));
         end
         
         if isnan(SET(no).Point.T(loop))
@@ -3207,7 +3256,12 @@ DATA.Handles.dicomimagetypetext(panel) = text(...
     'parent',DATA.Handles.imageaxes(panel));
 
 %slicetimetext
-stri = dprintf('Time:%03d ms',round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
+if isnan(SET(no).TimeVector(SET(no).CurrentTimeFrame))
+  stri='';
+else
+  stri = dprintf('Time:%03d ms',round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
+end
+
 DATA.Handles.slicetimetext(panel) = text(...
     size(DATA.ViewIM{panel},2)*0.8,...
     size(DATA.ViewIM{panel},1)*0.95,...
@@ -3234,13 +3288,14 @@ end
 
 if not(DATA.GUISettings.ShowColorbar) % strcmp(get(DATA.Handles.colorbaricon,'state'),'off')
   DATA.Handles.colorbar(panel) = nan;
+%   for textloop = 1:length(DATA.Handles.colorbartexth), delete(DATA.Handles.colorbartexth(panel,textloop)); end
   return
 end
 
 no = DATA.ViewPanels(panel);
 parenth = DATA.Handles.imageaxes(panel);
 hold(parenth,'on');
-slice = SET(no).CurrentSlice;
+% slice = SET(no).CurrentSlice;
 
 % cmap = flipud(SET(no).Colormap);
 % if isempty(cmap)
@@ -3249,23 +3304,37 @@ slice = SET(no).CurrentSlice;
 % im = cat(3,cmap(:,1),cmap(:,2),cmap(:,3));
 
 %Use remapuint8
-if isa(SET(no).IM,'single')
-  imcur = SET(no).IM(:,:,SET(no).CurrentTimeFrame,slice);
-  barminmax = quantile(imcur(:),[0.1 0.9]);
-  im = calcfunctions('remapuint8',linspace( ...
-    barminmax(2),barminmax(1),DATA.GUISettings.ColorMapSize)');
-else
-  imcur = single(SET(no).IM(:,:,SET(no).CurrentTimeFrame,slice));
-  barminmax = [0 quantile(imcur(:),0.9)];
-  im = linspace(barminmax(2),barminmax(1),DATA.GUISettings.ColorMapSize)';
+[window,level] = calcfunctions('con2win',...
+  SET(no).IntensityMapping.Contrast,...
+  SET(no).IntensityMapping.Brightness,no);
+barminmax = [level-window/2 level+window/2];
+% imminmax = [0 256];
+% im = linspace(imminmax(2),imminmax(1),DATA.GUISettings.ColorMapSize)';
+% if isa(SET(no).IM,'single')
+%   imcur = SET(no).IM(:,:,SET(no).CurrentTimeFrame,slice);
+%   barminmax = quantile(imcur(:),[0.1 0.9]);
+%   im = calcfunctions('remapuint8',linspace( ...
+%     barminmax(2),barminmax(1),DATA.GUISettings.ColorMapSize)');
+% else
+%   imcur = single(SET(no).IM(:,:,SET(no).CurrentTimeFrame,slice));
+%   barminmax = [0 quantile(imcur(:),0.9)];
+%   im = linspace(barminmax(2),barminmax(1),DATA.GUISettings.ColorMapSize)';
+% end
+
+tempmap = SET(no).Colormap;
+if isempty(tempmap)
+  %no colormap set, then it is grey
+  n = DATA.GUISettings.ColorMapSize;
+  tempmap = gray(n);
 end
 
 ax = axis(parenth);
-DATA.Handles.colorbar(panel) = image(ax(2)-[(ax(2)-ax(1))/50 0],ax(3:4),im,...
+remapcolormap = flipud(reshape(tempmap,[size(tempmap,1) 1 3]));
+DATA.Handles.colorbar(panel) = image(ax(2)+[0 (ax(2)-ax(1))/50 ],ax(3:4),remapcolormap,...
   'parent',parenth);
-minmax = calcfunctions('calctruedata',barminmax,no);
 
-rvec = [10 50 100 500 1000];
+minmax = barminmax; %calcfunctions('calctruedata',barminmax,no);
+rvec = [10 20 50 100 200 500 1000];
 for r = rvec;
   scalevec = r*round(minmax(2)/r):-r:minmax(1);
   if length(scalevec) <= 12
@@ -3276,14 +3345,17 @@ scalevec = num2cell(scalevec);
 strifun = @(x)sprintf('%0.0f',x);
 scalevec = cellfun(strifun,scalevec,'UniformOutput',false);
 tickvec = linspace(ax(3),ax(4),numel(scalevec));
+% DATA.Handles.colorbarlines = 
 set(parenth,...
   'ytick',tickvec,...
-  ... %'yticklabel',scalevec, ...
-  'ycolor','w','yaxislocation','right','visible','on');
+  'ycolor','w','yaxislocation','right','visible','on','YTickLabel','');
+% DATA.Handles.colorbartexth(panel,:)
 texth = zeros(numel(tickvec),1);
 for i = 1:numel(tickvec)
+%   DATA.Handles.colorbartexth(panel,i)
   texth(i) = text(ax(2)-3,tickvec(i),scalevec{i});
 end
+% set(DATA.Handles.colorbartexth,'Color','w','HorizontalAlignment','right');
 set(texth,'Color','w','HorizontalAlignment','right');
 
 %-------------------------------------
@@ -3618,7 +3690,7 @@ for panel=panelstodo
             sz = size(tempuint8);
             scarimrgb = reshape(tempuint8,[prod(sz(1:2)) 3]);
             
-            tmp = segment('reshape2layout',SET(NO).Scar.Result,no,panel);
+            tmp = segment('reshape2layout',SET(no).Scar.Result,no,panel);%used to be NO but this may cause error
             tmp = logical(tmp(:));
             
             %Show infarct
@@ -4076,7 +4148,7 @@ myset([DATA.Handles.moextentcontour{:}],'Visible','on'); %microvascular obstruct
 %Center cross
 stateandicon=segment('iconson',{'hideplus','hideintersections','hideothercontour',...
   'hideinterp','hidelv','hiderv','hideroi','hidemeasure','hidepoint',...
-  'hidetext','hidemar','hidescar'});
+  'hidetext','hidemar','hidescar','hidescarextent'});
 state=stateandicon{1,1};
 if state%strcmp(get(DATA.Handles.hideplusicon,'state'),'on')
     set([DATA.Handles.center{:}],'Visible','off');
@@ -4165,6 +4237,14 @@ state=stateandicon{12,1};
 
 if state%strcmp(get(DATA.Handles.hidetexticon,'state'),'on')
   myset([DATA.Handles.scarcontour{:}],'Visible','off');   %Scar contour
+  myset([DATA.Handles.mocontour{:}],'Visible','off');
+  myset([DATA.Handles.moextentcontour{:}],'Visible','off'); %microvascular obstruction contour
+  myset([DATA.Handles.weightedscarcontour{:}],'Visible','off'); %Weighted scar contour  
+end
+
+state=stateandicon{13,1};
+
+if state%strcmp(get(DATA.Handles.hidetexticon,'state'),'on')
   myset([DATA.Handles.mocontour{:}],'Visible','off');
   myset([DATA.Handles.moextentcontour{:}],'Visible','off'); %microvascular obstruction contour
   myset([DATA.Handles.weightedscarcontour{:}],'Visible','off'); %Weighted scar contour  
@@ -4298,30 +4378,30 @@ for zloop=1:SET(no).ZSize
         
         %Endocontour
         if ~isempty(SET(no).EndoX)
-            SET(no).EndoXView((1+(zloop-1)*(length(SET(no).EndoX)+1)):(zloop*(length(SET(no).EndoX)+1)-1),tloop) = ...
+            SET(no).EndoXView((1+(zloop-1)*(size(SET(no).EndoX,1)+1)):(zloop*(size(SET(no).EndoX,1)+1)-1),tloop) = ...
                 SET(no).EndoX(:,tloop,zloop)+xofs;
-            SET(no).EndoYView((1+(zloop-1)*(length(SET(no).EndoX)+1)):(zloop*(length(SET(no).EndoX)+1)-1),tloop) = ...
+            SET(no).EndoYView((1+(zloop-1)*(size(SET(no).EndoX,1)+1)):(zloop*(size(SET(no).EndoX,1)+1)-1),tloop) = ...
                 SET(no).EndoY(:,tloop,zloop)+yofs;
         end;
         %Epicontour
         if ~isempty(SET(no).EpiX)
-            SET(no).EpiXView((1+(zloop-1)*(length(SET(no).EpiX)+1)):(zloop*(length(SET(no).EpiX)+1)-1),tloop) = ...
+            SET(no).EpiXView((1+(zloop-1)*(size(SET(no).EpiX,1)+1)):(zloop*(size(SET(no).EpiX,1)+1)-1),tloop) = ...
                 SET(no).EpiX(:,tloop,zloop)+xofs;
-            SET(no).EpiYView((1+(zloop-1)*(length(SET(no).EpiX)+1)):(zloop*(length(SET(no).EpiX)+1)-1),tloop) = ...
+            SET(no).EpiYView((1+(zloop-1)*(size(SET(no).EpiX,1)+1)):(zloop*(size(SET(no).EpiX,1)+1)-1),tloop) = ...
                 SET(no).EpiY(:,tloop,zloop)+yofs;
         end;
         %RV Endocontour
         if ~isempty(SET(no).RVEndoX)
-            SET(no).RVEndoXView((1+(zloop-1)*(length(SET(no).RVEndoX)+1)):(zloop*(length(SET(no).RVEndoX)+1)-1),tloop) = ...
+            SET(no).RVEndoXView((1+(zloop-1)*(size(SET(no).RVEndoX,1)+1)):(zloop*(size(SET(no).RVEndoX,1)+1)-1),tloop) = ...
                 SET(no).RVEndoX(:,tloop,zloop)+xofs;
-            SET(no).RVEndoYView((1+(zloop-1)*(length(SET(no).RVEndoX)+1)):(zloop*(length(SET(no).RVEndoX)+1)-1),tloop) = ...
+            SET(no).RVEndoYView((1+(zloop-1)*(size(SET(no).RVEndoX,1)+1)):(zloop*(size(SET(no).RVEndoX,1)+1)-1),tloop) = ...
                 SET(no).RVEndoY(:,tloop,zloop)+yofs;
         end;
         %RV Epicontour
         if ~isempty(SET(no).RVEpiX)
-            SET(no).RVEpiXView((1+(zloop-1)*(length(SET(no).RVEpiX)+1)):(zloop*(length(SET(no).RVEpiX)+1)-1),tloop) = ...
+            SET(no).RVEpiXView((1+(zloop-1)*(size(SET(no).RVEpiX,1)+1)):(zloop*(size(SET(no).RVEpiX,1)+1)-1),tloop) = ...
                 SET(no).RVEpiX(:,tloop,zloop)+xofs;
-            SET(no).RVEpiYView((1+(zloop-1)*(length(SET(no).RVEpiX)+1)):(zloop*(length(SET(no).RVEpiX)+1)-1),tloop) = ...
+            SET(no).RVEpiYView((1+(zloop-1)*(size(SET(no).RVEpiX,1)+1)):(zloop*(size(SET(no).RVEpiX,1)+1)-1),tloop) = ...
                 SET(no).RVEpiY(:,tloop,zloop)+yofs;
         end;
         

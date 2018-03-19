@@ -1960,6 +1960,14 @@ tools('enableundo');
 slices = SET(no).StartSlice:SET(no).EndSlice;
 t = SET(no).CurrentTimeFrame;
 
+%Clear interp points if there are any
+if ~isempty(SET(no).EndoInterpX)
+  for zloop=slices
+    SET(no).EndoInterpX{t,zloop} = [];
+    SET(no).EndoInterpY{t,zloop} = [];
+  end
+end
+
 %Extract endo & epi
 endox = SET(no).EndoX(:,t,slices);
 endoy = SET(no).EndoY(:,t,slices);
@@ -2049,7 +2057,7 @@ else
 end
 
 %----------------------------------
-function playall_Callback(keypress) %#ok<INUSD>
+function playall_Callback(~)  %#ok<DEFNU>
 %----------------------------------
 global DATA
 DATA.Run = 0;
@@ -2065,8 +2073,9 @@ else
   playall_Helper
 end
 
+
 %----------------------------------
-function playall_Helper %#ok<INUSD>
+function playall_Helper 
 %----------------------------------
 %Starts movie display of all visible image stacks.
 global DATA SET NO
@@ -2134,8 +2143,7 @@ if ~DATA.Record
         end;
         return;
       end;
-      
-     
+           
     end; %Loop over panels
     drawnow%
     pause(0.01)
@@ -2145,7 +2153,7 @@ if ~DATA.Record
 end;
 
 %------------------------------------
-function playmovie_Callback(keypress) %#ok<INUSD>
+function playmovie_Callback(keypress) %#ok<DEFNU,INUSD>
 %------------------------------------
 %Starts playing current image stack as a movie.
 global DATA SET NO
@@ -2218,7 +2226,7 @@ DATA.Handles.permanenticonholder.render;
 
 
 %--------------------------
-  function checkforduplicatehide(name,state)
+  function checkforduplicatehide(name,state) %#ok<DEFNU>
     %--------------------------
     global DATA
     
@@ -2268,6 +2276,7 @@ else
 end
 drawfunctions('updatevisibility');
 DATA.Handles.configiconholder.render;
+
 %-------------------------
 function allhidden
 %----------------------
@@ -2345,6 +2354,14 @@ allhidden
 function viewhidescar_Callback(varargin) %#ok<DEFNU>
 %--------------------------------------
 %Toggle visibility of scar contours
+%global DATA 
+drawfunctions('updatevisibility');
+%drawfunctions('drawall',DATA.ViewMatrix);
+allhidden
+%--------------------------------------
+function viewhidescarextent_Callback(varargin) %#ok<DEFNU>
+%--------------------------------------
+%Toggle visibility of auto scar extent contours
 %global DATA 
 drawfunctions('updatevisibility');
 %drawfunctions('drawall',DATA.ViewMatrix);
@@ -2460,7 +2477,7 @@ switch mode
     DATA.CurrentPanel = 1;    
     NO=cineno;
     drawfunctions('drawall',DATA.ViewMatrix); 
-   case 'lv'
+  case 'lv'
     cineno = DATA.LVNO;
     if ~isempty(cineno)
       DATA.ViewMatrix = [1 1];
@@ -2490,15 +2507,17 @@ switch mode
       DATA.Overlay = struct('alphadata',[],'cdata',[]);
       DATA.CurrentPanel = 1;
       NO=cineno;
-      drawfunctions('drawall',DATA.ViewMatrix);
-      
-drawfunctions('drawthumbnails')
+      drawfunctions('drawall',DATA.ViewMatrix);      
+      drawfunctions('drawthumbnails')
     else
       myfailed('No RV stack found.',DATA.GUI.Segment);
       return;
     end
   case 'cinescar'
-    cineno = findfunctions('findcineshortaxisno');
+    cineno = DATA.LVNO;
+    if isempty(cineno)
+      cineno = findfunctions('findcineshortaxisno');
+    end
     scarno = findfunctions('findscarshortaxisno');
     if isempty(scarno)
       myfailed('No scar stack found.',DATA.GUI.Segment);
@@ -2540,11 +2559,13 @@ drawfunctions('drawthumbnails')
       DATA.ViewIM = {[]}; %Clear viewim, force to recalc
       DATA.Overlay = struct('alphadata',[],'cdata',[]);
     end
-    DATA.CurrentPanel = 1;
+    for i = 1:numel(DATA.ViewPanels)
+      if DATA.ViewPanels(i) == scarno(1)
+        DATA.CurrentPanel = i;
+      end
+    end
     NO=DATA.ViewPanels(DATA.CurrentPanel);
     drawfunctions('drawall',DATA.ViewMatrix);
-  case 'cinescarperf'
-  case 'stress'
   case 'flow'
     flowno = DATA.FlowNO; 
     if isempty(flowno)
@@ -2570,6 +2591,53 @@ drawfunctions('drawthumbnails')
     NO=no;
     drawfunctions('drawall',DATA.ViewMatrix);
     switchtopanel(1);
+  case 'perfusion'
+    stressno = findfunctions('findstack','Perfusion Stress');
+    restno = findfunctions('findstack','Perfusion Rest');      
+    if isempty(stressno) && isempty(restno)
+      myfailed('No perfusion stacks found.',DATA.GUI.Segment);
+      return;
+    end;
+    if isempty(stressno)      
+      DATA.ViewMatrix = [1 1];
+      DATA.ViewPanels = restno;
+      DATA.ViewPanelsType = {'montagerow'};
+      for panel = 1
+        no = DATA.ViewPanels(panel);
+        DATA.ViewPanelsMatrix{panel}(1) = 1;
+        DATA.ViewPanelsMatrix{panel}(2) = SET(no).ZSize;
+      end
+      DATA.ViewIM = {[]}; %Clear viewim, force to recalc
+      DATA.Overlay = struct('alphadata',[],'cdata',[]);
+    elseif isempty(restno)
+      DATA.ViewMatrix = [1 1];
+      DATA.ViewPanels = stressno;
+      DATA.ViewPanelsType = {'montagerow'};
+      for panel = 1
+        no = DATA.ViewPanels(panel);
+        DATA.ViewPanelsMatrix{panel}(1) = 1;
+        DATA.ViewPanelsMatrix{panel}(2) = SET(no).ZSize;
+      end
+      DATA.ViewIM = {[]}; %Clear viewim, force to recalc
+      DATA.Overlay = struct('alphadata',[],'cdata',[]);
+    else
+      DATA.ViewMatrix = [2 1];
+      DATA.ViewPanels = [stressno restno];
+      DATA.ViewPanelsType = {'montagerow','montagerow'};
+      for panel = 1
+        no = DATA.ViewPanels(panel);
+        DATA.ViewPanelsMatrix{panel}(1) = 1;
+        DATA.ViewPanelsMatrix{panel}(2) = SET(no).ZSize;
+      end
+      DATA.ViewIM = {[],[]}; %Clear viewim, force to recalc
+      DATA.Overlay = struct('alphadata',[],'cdata',[]);
+      DATA.Overlay(2) = struct('alphadata',[],'cdata',[]);
+    end
+    NO=DATA.ViewPanels(DATA.CurrentPanel);
+    drawfunctions('drawall',DATA.ViewMatrix);
+      
+  case 'cinescarperf'
+  case 'stress'
   otherwise
     myfailed('Unknown option to viewspecial_Callback',DATA.GUI.Segment);
     return;
@@ -3204,13 +3272,17 @@ SET(NO).EndSlice = SET(NO).ZSize;
 segment('updateselectedslices');
 
 %--------------------------------------
-function unselectallslices_Callback
+function unselectallslices_Callback(no)
 %--------------------------------------
 %Unselects slices in current image stack
 global SET NO
 
-SET(NO).StartSlice = [];
-SET(NO).EndSlice = [];
+if nargin == 0
+  no=NO;
+end
+
+SET(no).StartSlice = [];
+SET(no).EndSlice = [];
 
 %SET(NO).CurrentSlice = [];   
 % For various reasons this is a bad idea. Many things rely on it being set,
@@ -4712,15 +4784,37 @@ function resetlight_Callback %#ok<DEFNU>
 global DATA SET NO
 
 tools('enableundo',NO);
-set(DATA.Handles.resetlighticon,'state','off');
+%set(DATA.Handles.resetlighticon,'state','off');
 SET(NO).IntensityMapping.Contrast = 1;
 SET(NO).IntensityMapping.Brightness = 0.5;
 DATA.ViewIM{DATA.CurrentPanel} = [];
 DATA.Overlay(DATA.CurrentPanel) = struct('alphadata',[],'cdata',[]);
 update_thumbnail(NO);
 makeviewim(DATA.CurrentPanel,NO);
-drawfunctions('drawsliceno',NO);
+drawfunctions('drawcontrastimage',NO); %drawfunctions('drawsliceno',NO);
 if DATA.Pref.UseLight 
+  DATA.BalloonLevel = -1; %Force update of ballonimage
+end;
+
+%---------------------------
+function resetlightall_Callback %#ok<DEFNU>
+%---------------------------
+%Activated by toolbar icon, different from contrast_Callback (below).
+
+global DATA SET NO
+
+for no = 1:length(SET)
+  SET(no).IntensityMapping.Contrast = 1;
+  SET(no).IntensityMapping.Brightness = 0.5;
+  update_thumbnail(no); %drawfunctions('drawsliceno',NO);
+  
+end
+DATA.ViewIM{DATA.CurrentPanel} = [];
+DATA.Overlay(DATA.CurrentPanel) = struct('alphadata',[],'cdata',[]);
+makeviewim(DATA.CurrentPanel,NO);
+drawfunctions('drawcontrastimage',NO);
+
+if DATA.Pref.UseLight
   DATA.BalloonLevel = -1; %Force update of ballonimage
 end;
 
@@ -4779,6 +4873,13 @@ switch seltype
                   squeeze(SET(NO).IM(:,:,SET(NO).CurrentTimeFrame,:)));
             end;
             handles.im{DATA.CurrentPanel} = im; %single(im);
+%             %hide colormap until button up
+%             disp('hej1');
+%             handles.stateandiconcolorbar = segment('iconson','colorbar');
+%             if handles.stateandiconcolorbar{1}
+%               DATA.GUISettings.ShowColorbar = false;
+%               drawfunctions('drawcolorbar');
+%             end
           case 'extend'
             %Button down, intialize
             set(gcf,'WindowButtonMotionFcn','segment(''contrast_Callback'',''motionall'')');
@@ -4798,6 +4899,13 @@ switch seltype
                 handles.im{i} = im; %single(im);
               end
             end
+%             %hide colormap until button up
+%             disp('hej2');
+%             handles.stateandiconcolorbar = segment('iconson','colorbar');
+%             if handles.stateandiconcolorbar{1}
+%               DATA.GUISettings.ShowColorbar = false;
+%               drawfunctions('drawcolorbar');
+%             end
         end
       case {'up','upall'}
         panels = DATA.CurrentPanel;
@@ -4806,6 +4914,10 @@ switch seltype
           panels = panels(DATA.ViewPanels > 0);
         end
         %restore
+%         %show colormap again if it was shown before contrast setting
+%         if handles.stateandiconcolorbar{1}
+%           DATA.GUISettings.ShowColorbar = true;
+%         end
         set(gcf,'WindowButtonMotionFcn','');
         set(gcf,'WindowButtonUpFcn','segment(''buttonup_Callback'')');
         precontrast = SET(NO).IntensityMapping.Contrast;
@@ -4890,15 +5002,514 @@ switch seltype
         myfailed('Unknown option to contrast Callback',DATA.GUI.Segment);
     end;
 end;
+  
+
+%----------------------------
+  function [xlim,ylim] = getbox(no,destno,doindex)
+%------------------------
+
+global SET
+
+  x=[];
+  y=[];
+      
+    
+  %Source is destination.
+  if nargin == 1
+    destno=no;
+  end
+  
+  if nargin <3
+    doindex=0;
+  end
+  xsz = SET(destno).XSize;
+    ysz = SET(destno).YSize;
+    
+  diatype=1;
+  hasanyseg=0;
+  for type={'Endo','Epi','RVEndo','RVEpi'}
+    tmp_x = SET(no).([type{1},'X']);
+   tmp_y = SET(no).([type{1},'Y']);
+    if ~isempty(tmp_x) && ~all(isnan(tmp_x(:)))
+      hasanyseg=1;
+      x=[x;tmp_x(:)];
+      y=[y;tmp_y(:)];
+      if ~isempty(regexpi(type{1},'RV'))
+        diatype=2;
+      end
+    end
+  end
+
+  if hasanyseg
+    %convert all segmentation rlapfh then get min max in destno
+    rlapfh=calcfunctions('xyz2rlapfh',no,x,y,ones(length(x),1));
+    limits=calcfunctions('rlapfh2xyz',destno,rlapfh(:,1),rlapfh(:,2),rlapfh(:,3));
+    dodia=1;
+  else
+    
+    diatype = 3;
+    %use auto crop tool
+    im= SET(no).IM;
+    roisizetime=150;
+    roisizenotime=200;
+    if SET(no).TSize>1 && SET(no).ZSize~=1
+      roisize = roisizetime;
+    else
+      roisize = roisizenotime;
+    end;
+    
+    nx = roisize/SET(no).ResolutionX;
+    ny = roisize/SET(no).ResolutionY;
+    [~,~,rlapfh] = autocrop(im,nx,ny,0,80,1,no);
+    if ~isempty(rlapfh)
+      limits = calcfunctions('rlapfh2xyz',destno,rlapfh(:,1),rlapfh(:,2),rlapfh(:,3));
+      dodia=1;
+    else
+      xlim=[1,xsz];
+      ylim=[1,ysz];
+      return;
+    end
+  end
+    xmin=min(limits(1,:));
+    ymin=min(limits(2,:));
+    xmax=max(limits(1,:));
+    ymax=max(limits(2,:));
+    
+
+    
+    if xmax-xmin<20
+    xmax=xsz;
+    xmin=1;
+    dodia=0;
+    end
+    
+    if ymax-ymin<20
+    ymax=ysz;
+    ymin=1;
+    dodia=0;
+    end
+    
+    if dodia
+      switch diatype
+        case 1
+          dia=norm([xmax,ymax]-[xmin,ymin])/2*0.8;
+        case 2 %there is RV do very little margin addition
+          dia=norm([xmax,ymax]-[xmin,ymin])/2*0.2;
+        case 3 %from autocrop do "lagom" margin.
+          dia=norm([xmax,ymax]-[xmin,ymin])/2*0.4;
+      end
+    else
+      dia=0;
+    end
+    xlim=[xmin-dia,xmax+dia];
+    ylim=[ymin-dia,ymax+dia];
+    
+    
+    if doindex
+      xlim=round(xlim);
+      ylim=round(ylim);
+      xlim(xlim>xsz)=xsz;
+      ylim(ylim>ysz)=ysz;  
+      xlim(xlim<1)=1;
+      ylim(ylim<1)=1;
+    end
+   
+%     if isempty(xlim)
+%       xmin=1;
+%       xmax=xsz;
+%     else
+%       xmin=xlim(1);
+%       xmax=xlim(end);
+%     end
+%     
+%     if isempty(ylim)
+%       ymin=1;
+%       ymax=ysz;
+%     else
+%       ymin=ylim(1);
+%       ymax=ylim(end);
+%     end
+    
+
+  
+% %--------------------
+%  function varargout = getbox(no,tono,indexes)
+% %-----------------
+% global SET
+% 
+% if nargin<3
+%   indexes=0;
+% end
+%   xsz=SET(no).XSize;
+%   ysz=SET(no).YSize;
+%   
+%   hasanyseg=0;
+%   for type={'Endo','Epi','RVEndo','RVEpi'}
+%     x=SET(no).([type{1},'X']);
+%     if ~isempty(x) && ~all(isnan(x(:)))
+%       hasanyseg=1;
+%       break
+%     end
+%   end
+%   
+%   if hasanyseg
+%     xmin=[];
+%     ymin=[];
+%     xmax=[];
+%     ymax=[];
+%     for type={'Endo','Epi','RVEndo','RVEpi'}
+%       
+%       x = SET(no).([type{1},'X']);
+%       y = SET(no).([type{1},'Y']);
+%       
+%       xmin = min([xmin floor(min(x(:)))]);
+%       ymin = min([ymin floor(min(y(:)))]);
+%       xmax = max([xmax ceil(max(x(:)))]);
+%       ymax = max([ymax ceil(max(y(:)))]);
+%       
+%       dodia = 1;%round(norm([xmax,ymax]-[xmin,ymin])/2*0.8); 
+%       
+%       if xmin<1
+%         xmin=1;
+%         dodia=0;
+%       end
+%       
+%       if ymin<1
+%         ymin=1;
+%         dodia=0;
+%       end
+%       
+%       if xmax>xsz
+%         xmax=xsz;
+%         dodia=0;
+%       end
+%       
+%       if ymax>ysz
+%         ymax=ysz;
+%         dodia=0;
+%       end
+%       
+%       %this catches segmentation blow ups
+%       if ymax-ymin<20
+%         ymin=1;
+%         ymax=ysz;
+%         dodia=0;
+%       end
+%       
+%       if xmax-xmin<20
+%         xmin=1;
+%         xmax=xsz;
+%         dodia=0;
+%       end
+%       
+%     end
+%     
+%   else
+%   if nargin == 2
+%     no=tono;
+%     xsz=SET(no).XSize;
+%     ysz=SET(no).YSize;
+%   end
+%     
+%    im= SET(no).IM;
+%     roisizetime=150;
+%      roisizenotime=200;
+%      if SET(no).TSize>1 && SET(no).ZSize~=1
+%        roisize = roisizetime;
+%      else
+%        roisize = roisizenotime;
+%      end;
+%      
+%   nx = roisize/SET(no).ResolutionX;
+%   ny = roisize/SET(no).ResolutionY;
+%     [xlim,ylim,rlapfh] = autocrop(im,nx,ny,0,128,1,no);
+%     dodia=0;
+%     
+%     if isempty(xlim)
+%       xmin=1;
+%       xmax=xsz;
+%     else
+%     xmin=xlim(1);
+%     xmax=xlim(end);
+%     end
+%     
+%     if isempty(ylim)
+%       ymin=1;
+%       ymax=ysz;
+%     else
+%     ymin=ylim(1);
+%     ymax=ylim(end);  
+%     end
+%   end
+% %   xlim=[xmin-dia,xmax+dia];
+% %   ylim=[ymin-dia,ymax+dia];
+%   xlim=[xmin,xmax];
+%   ylim=[ymin,ymax];
+%   %SET(no).NormalZoomState=[ymin-dia,ymax+dia,xmin-dia,xmax+dia]; 
+%   
+%    rlapfh = calcfunctions('xyz2rlapfh',no,xlim',ylim',[1,1]');
+%   
+%   if nargin ==1 && nargout>1
+%     if dodia
+%       dia=norm([xlim(end),ylim(end)]-[xlim(1),ylim(1)])/2*0.8;
+%     else
+%       dia=0;
+%     end
+%     xlim=[xlim(1)-dia,xlim(end)+dia];
+%     ylim=[ylim(1)-dia,ylim(end)+dia];
+%     
+%     if indexes
+%       xlim(xlim<1)=1;
+%       ylim(ylim<1)=1;
+%       
+%       xlim(xlim>SET(no).XSize)=SET(no).XSize;
+%       ylim(ylim>SET(no).YSize)=SET(no).YSize;
+%     end
+%   end 
+%   
+%   if nargin>1 && nargout>1
+%     limits = calcfunctions('rlapfh2xyz',tono,rlapfh(:,1),rlapfh(:,2),rlapfh(:,3));
+%     
+%     %sortlimits
+%     xlim=sort(limits(1,:),'ascend');
+%     ylim=sort(limits(2,:),'ascend');
+%     
+%     if dodia
+%       dia=norm([xlim(end),ylim(end)]-[xlim(1),ylim(1)])/2*0.8;
+%     else
+%       dia=0;
+%     end
+%     xlim=[xlim(1)-dia,xlim(end)+dia];
+%     ylim=[ylim(1)-dia,ylim(end)+dia];
+%     
+%     
+%     if indexes     
+%     xlim(xlim<1)=1;
+%     ylim(ylim<1)=1;
+%     
+%     xlim(xlim>SET(tono).XSize)=SET(tono).XSize;
+%     ylim(ylim>SET(tono).YSize)=SET(tono).YSize;
+%     end
+%   end
+%   
+%   if nargout==1
+%     varargout={rlapfh};
+%   end
+%   
+%   if nargout==2
+%     varargout={round(xlim),round(ylim)};
+%   end
+%   
+%   if nargout==3
+%     varargout={rlapfh,round(xlim),round(ylim)};
+%   end
+
+  
+%-------------------------
+  function varargout = autozoom
+%-------------------------
+% Autozooms everything that is displayed.
+global DATA SET
+
+% if isempty(DATA.ZoomState) || DATA.ZoomState == 0
+%   DATA.ZoomState = 1;
+% elseif DATA.ZoomState==2
+%   DATA.ZoomState=0;
+% end
+
+no_inds=find(DATA.ViewPanels~=0);
+no_inds(~strcmp('one',DATA.ViewPanelsType(no_inds)))=[];
+
+lvno = findfunctions('findcineshortaxisno');
+
+if ~isempty(lvno)
+imageorientation = SET(lvno).ImageOrientation;
+refaxis = cross(imageorientation(1:3),imageorientation(4:6));
+tol=11;
+fixednos = false(size(no_inds));
+
+for i=1:length(no_inds)
+  no=DATA.ViewPanels(no_inds(i));
+  hasanyseg=0;
+  for type={'Endo','Epi','RVEndo','RVEpi'}
+    x=SET(no).([type{1},'X']);
+    if ~isempty(x) && ~all(isnan(x(:)))
+      hasanyseg=1;
+      break
+    end
+  end
+  
+  if hasanyseg && no~=lvno
+    break
+  end
+  
+  imageorientation = SET(no).ImageOrientation;
+  axis = cross(imageorientation(1:3),imageorientation(4:6));
+  score = abs(sum(refaxis.*axis)); %scalar product, and abs
+  if acos(score)*180/pi<tol
+    [xlim,ylim] = getbox(lvno,no);%,1);
+    SET(no).NormalZoomState=[ylim, xlim];
+    fixednos(i)=1;
+  set(DATA.Handles.imageaxes(no_inds(i)),'xlim',ylim,'ylim',xlim)
+  drawfunctions('viewupdatetextposition',no_inds(i));
+  drawfunctions('viewupdateannotext',no_inds(i));
+  end
+end
+no_inds(fixednos)=[];
+end
+%find images with similar imageposition
+%group ={};
+% tol=0.05;
+% notmp=no_inds;
+% while  ~isempty(notmp) 
+%   tmp=notmp(1);
+%   matches=cellfun(@(x) norm(SET(DATA.ViewPanels(tmp)).ImagePosition-x),{SET(DATA.ViewPanels(notmp)).ImagePosition})<tol;
+%   if any(matches)
+%     group=[group, notmp(matches)];
+%     notmp(matches)=[];
+%   end
+% end
+
+for i=no_inds
+  no=DATA.ViewPanels(i);
+  [xlim,ylim]=getbox(no);
+  %limits = calcfunctions('rlapfh2xyz',no,rlapfh(:,1),rlapfh(:,2),rlapfh(:,3));
+  %SET(no).NormalZoomState=[limits(2,:), limits(1,:)];
+  SET(no).NormalZoomState=[ylim, xlim];
+  set(DATA.Handles.imageaxes(i),'xlim',ylim,'ylim',xlim)
+  drawfunctions('viewupdatetextposition',i);
+  drawfunctions('viewupdateannotext',i);
+end
+%   xsz=SET(no).XSize;
+%   ysz=SET(no).YSize;
+%   
+%   hasanyseg=0;
+%   for type={'Endo','Epi','RVEndo','RVEpi'}
+%     x=SET(no).([type{1},'X']);
+%     if ~isempty(x) && ~all(isnan(x(:)))
+%       hasanyseg=1;
+%       break
+%     end
+%   end
+%   
+%    if DATA.Pref.ViewInterpolated
+%     scale=2;
+%   else
+%     scale=1;
+%   end
+%   
+%   if hasanyseg
+%     xmin=[];
+%     ymin=[];
+%     xmax=[];
+%     ymax=[];
+%     for type={'Endo','Epi','RVEndo','RVEpi'}
+%       
+%       x = SET(no).([type{1},'X']);
+%       y = SET(no).([type{1},'Y']);
+%       
+%       xmin = min([xmin floor(min(x(:)))]);
+%       ymin = min([ymin floor(min(y(:)))]);
+%       xmax = max([xmax ceil(max(x(:)))]);
+%       ymax = max([ymax ceil(max(y(:)))]);
+%       
+%       dia = round(norm([xmax,ymax]-[xmin,ymin])/2*0.75); 
+%       
+%       if xmin<1
+%         xmin=1;
+%         dia=0;
+%       end
+%       
+%       if ymin<1
+%         ymin=1;
+%         dia=0;
+%       end
+%       
+%       if xmax>xsz
+%         xmax=xsz;
+%         dia=0;
+%       end
+%       
+%       if ymax>ysz
+%         ymax=ysz;
+%         dia=0;
+%       end
+%       
+%       %this catches segmentation blow ups
+%       if ymax-ymin<20
+%         ymin=1;
+%         ymax=ysz;
+%         dia=0;
+%       end
+%       
+%       if xmax-xmin<20
+%         xmin=1;
+%         xmax=xsz;
+%         dia=0;
+%       end
+%       
+%     end
+%     
+%   else
+%    im= SET(no).IM;
+%     roisizestacks=200;
+%      roisizeslices=250;
+%      if SET(no).ZSize>1
+%        roisize = roisizestacks;
+%      else
+%        roisize = roisizeslices;
+%      end;
+%   
+%   nx = roisize/SET(no).ResolutionX;
+%   ny = roisize/SET(no).ResolutionY;
+%     [xlim,ylim,varargout{1}] = autocrop(im,nx,ny,0,128,13,no);
+%     dia=0;
+%     
+%     if isempty(xlim)
+%       xmin=1;
+%       xmax=xsz;
+%     else
+%     xmin=xlim(1);
+%     xmax=xlim(end);
+%     end
+%     
+%     if isempty(ylim)
+%       ymin=1;
+%       ymax=ysz;
+%     else
+%     ymin=ylim(1);
+%     ymax=ylim(end);  
+%     end
+%   end
+%   SET(no).NormalZoomState=[ymin-dia,ymax+dia,xmin-dia,xmax+dia];
+%  set(DATA.Handles.imageaxes(i),'xlim',[ymin-dia,ymax+dia],'ylim',[xmin-dia,xmax+dia])
+%   
+% drawfunctions('viewupdatetextposition',i);
+% drawfunctions('viewupdateannotext',i);
+%end
+
+  
+
+  
+% Plan B
+%   if ymax-ymin>=xmax-xmin
+%     f = 120/(ymax-ymin+1);
+%   else
+%     f = 120/(xmax-xmin+1);
+%   end
+%   
+%   zoomhelper(no,f);
+%end
 
 
 %------------------------------
 function autocontrastall_Callback %#ok<DEFNU>
 %------------------------------
 %Automatically calculates contrast settings.
-global SET NO DATA
-for i = 1:1:length(SET)
+global SET DATA
+for i = 1:length(SET)
   autocontrast(i,1);
+  segment('update_thumbnail',i)
 end
 
 for panelloop = 1:length(DATA.ViewPanels)
@@ -4910,9 +5521,8 @@ end
 function autocontrast_Callback %#ok<DEFNU>
 %------------------------------
 %Automatically calculates contrast settings.
-global NO DATA
+global NO
 
-set(DATA.Handles.autocontrasticon,'state','off');
 autocontrast(NO);
 
 %-------------------------
@@ -6966,8 +7576,8 @@ switch get(DATA.imagefig,'SelectionType')
     %Moved this before setting of buttonup and button 
      if any(strcmp({'scar','mo','rubberpen'},type))
         %if isempty(SET(NO).Scar)
-        hasLVseg = (not(isempty(SET(NO).EndoX)) && not(all(squeeze(isnan(SET(NO).EndoX(1,:,:)))))) && (not(isempty(SET(NO).EpiX)) && not(all(squeeze(isnan(SET(NO).EpiX(1,:,:))))));
-        hasRVseg = not(isempty(SET(NO).RVEndoX)) && not(all(squeeze(isnan(SET(NO).RVEndoX(1,:,:)))));
+        hasLVseg = (not(isempty(SET(NO).EndoX)) && not(all(all(squeeze(isnan(SET(NO).EndoX(1,:,:))))))) && (not(isempty(SET(NO).EpiX)) && not(all(all(squeeze(isnan(SET(NO).EpiX(1,:,:)))))));
+        hasRVseg = not(isempty(SET(NO).RVEndoX)) && not(all(all(squeeze(isnan(SET(NO).RVEndoX(1,:,:))))));
         if SET(NO).TSize>1 || hasRVseg+hasLVseg < 1
           myfailed('Does not seem to be viability image stack.',DATA.GUI.Segment);
           updatetool('select')
@@ -8484,7 +9094,17 @@ switch type
     [m,sd]=calcfunctions('calcroiintensity',no,SET(no).RoiCurrent);
     SET(no).Roi(SET(no).RoiCurrent).Mean = m;
     SET(no).Roi(SET(no).RoiCurrent).StD = sd;
+    
+    if ~isempty(DATA.FlowNO) && ismember(DATA.FlowNO,SET(no).Linked) && ~isempty(DATA.FlowROI)
+      if SET(no).RoiN <1
+        DATA.FlowROI = [];
+      else
+        calcfunctions('calcflow',no);
+      end
+    end
+    
     DATA.updateaxestables('area',no);
+    
   case 'abort'
     beep;
     DATA.CursorX = [];
@@ -8512,6 +9132,18 @@ drawfunctions('drawallslices');
 
 updatevolume;
 DATA.updateaxestables('t2star');
+%-------------------------------
+function hide(names,states)
+%--------------------------
+global DATA
+stateandicon = segment('iconson',names);
+
+for i =1:size(stateandicon,1)
+  stateandicon{i,2}.isindented=states(i);
+end
+
+DATA.Handles.configiconholder.render;
+drawfunctions('updatevisibility');
 
 %-------------------------------------------
     function state = iconson(name)
@@ -9086,6 +9718,15 @@ switch type
       [m,sd]=calcfunctions('calcroiintensity',no,SET(no).RoiCurrent);
       SET(no).Roi(SET(no).RoiCurrent).Mean = m;
       SET(no).Roi(SET(no).RoiCurrent).StD = sd;
+       %update flow result panel
+       if ~isempty(DATA.FlowNO) && ismember(DATA.FlowNO,SET(no).Linked) && ~isempty(DATA.FlowROI)
+         if SET(no).RoiN <1
+           DATA.FlowROI = [];
+         else
+           calcfunctions('calcflow',no);
+         end
+       end
+       DATA.updateaxestables('area',no);
   case 'abort'
     beep;
     DATA.CursorX = [];
@@ -9528,6 +10169,13 @@ switch type
           [m,sd]=calcfunctions('calcroiintensity',no,SET(no).RoiCurrent);
           SET(no).Roi(roin).Mean = m;
           SET(no).Roi(roin).StD = sd;
+        end
+      end
+      if ~isempty(DATA.FlowNO) && ismember(DATA.FlowNO,SET(no).Linked) && ~isempty(DATA.FlowROI)
+        if SET(no).RoiN <1
+          DATA.FlowROI = [];
+        else
+          calcfunctions('calcflow',no);
         end
       end
     end
@@ -10148,9 +10796,17 @@ switch mod_str
   case 'shift-control-alt'
   otherwise %no modifier
     if e.VerticalScrollCount<0,
-      movetowardsbase_Callback;
+      if DATA.Synchronize
+        movealltowardsbase_Callback;
+      else
+        movetowardsbase_Callback;
+      end
     else
-      movetowardsapex_Callback;
+      if DATA.Synchronize
+        movealltowardsapex_Callback;
+      else
+        movetowardsapex_Callback;
+      end
     end  
 end
 
@@ -10235,7 +10891,8 @@ if slidermin==slidermax
   'visible','off',...
   'enable','off');
 else
-  sliderstep=[1/(length(SET)-DATA.Pref.NumberVisibleThumbnails+1),(slidermax-slidermin+1)];%[0.25/(slidermax-slidermin) 0.5/(slidermax-slidermin)];
+  %sliderstep=[1/(length(SET)-DATA.Pref.NumberVisibleThumbnails+1),(slidermax-slidermin+1)];%[0.25/(slidermax-slidermin) 0.5/(slidermax-slidermin)];
+  sliderstep = [1/(length(SET)-DATA.Pref.NumberVisibleThumbnails),0.1];
   set(DATA.Handles.thumbnailslider,...
     'min',slidermin,...
     'max',slidermax,...

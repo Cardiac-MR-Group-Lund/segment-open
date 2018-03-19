@@ -148,7 +148,7 @@ if not(isfield(setstruct,'ResolutionX'))
   end;
 end;
 for no = 1:length(setstruct)
-  if isempty(setstruct(no).ResolutionX)
+  if isempty(setstruct(no).ResolutionX) && isfield(setstruct(no),'Resolution')
     setstruct(no).ResolutionX = setstruct(no).Resolution;
     setstruct(no).ResolutionY = setstruct(no).Resolution;    
   end;  
@@ -249,6 +249,16 @@ if not(isfield(setstruct,'Report'))
     setstruct(no).Report = [];
   end;
 end;
+
+for no = 1:length(setstruct)
+  if ~isfield(setstruct(no),'RV')
+    setstruct(no).RV = [];
+%     setstruct(no).RV.centerbasal=[setstruct(no).CenterX,setstruct(no).CenterY];
+%     setstruct(no).RV.centerapical=[setstruct(no).CenterX,setstruct(no).CenterY];
+%     setstruct(no).RV.slicebasal=1;
+%     setstruct(no).RV.sliceapical=setstruct(no).ZSize;
+  end;
+end
 
 if not(isfield(setstruct,'LevelSet'))
   for no = 1:length(setstruct)
@@ -963,11 +973,18 @@ if ~isfield(setstruct,'ImageViewPlane');
           settype = 1;
         end
       end
-      for viewplaneloop = 1:length(viewplane)
-        if findstr(lower(oldImageType),lower(viewplane{viewplaneloop})) %#ok<FSTR>
-          setstruct(no).ImageViewPlane = viewplane{viewplaneloop};
-          setviewplane = 1;
+      %First use Einars auto detect algoritm to see if it finds the viewplane 
+      outlabel=openfile('autodetectviewplane',setstruct(no).ImageOrientation);
+      if isempty(outlabel)
+        for viewplaneloop = 1:length(viewplane)
+          if findstr(lower(oldImageType),lower(viewplane{viewplaneloop})) %#ok<FSTR>
+            setstruct(no).ImageViewPlane = viewplane{viewplaneloop};
+            setviewplane = 1;
+          end
         end
+      else
+        setstruct(no).ImageViewPlane = outlabel;
+        setviewplane = 1;
       end
     end
     if settype == 0  %couldn't find image type
@@ -1036,6 +1053,13 @@ if not(isfield(setstruct,'Perfusion'))
     setstruct(no).Perfusion = [];
 %     perfusion('initdefault',no);
 %     perfusion('createmyocardmask',no);
+  end
+end
+
+%Perfusion scoring
+if not(isfield(setstruct,'PerfusionScoring'))
+  for no = 1:length(setstruct)
+    setstruct(no).PerfusionScoring = [];
   end
 end
 
@@ -1403,3 +1427,5 @@ end
 if nargin < 1
   SET = setstruct;
 end
+
+

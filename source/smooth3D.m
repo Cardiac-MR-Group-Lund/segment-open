@@ -1,4 +1,11 @@
-function smoothedImage=smooth3D(image,smoothradius, ResolutionX, ResolutionY, ResolutionZ)
+function smoothedImage=smooth3D(image,smoothradius, ResolutionX, ResolutionY, ResolutionZ,displaywaitbar)
+%Smooth image in 3D
+
+%Einar Heiberg
+
+if nargin<6
+  displaywaitbar = false;
+end;
 
 XSize=size(image,1);
 YSize=size(image,2);
@@ -31,12 +38,29 @@ f = single(f);
 fz = reshape(f,[1 1 length(f)]);
 
 %smooth
-temp=repmat(single(0),[XSize YSize TSize ZSize]);
+%temp=repmat(single(0),[XSize YSize TSize ZSize]);
+
+if displaywaitbar
+  h = waitbar(0,'Please wait.');
+end;
+  
+%Create output
+temp = single(0)*single(image);
+
+if displaywaitbar
+  h = waitbar(0.1,h);
+end;
+
 if ZSize>1
+    
   %Smooth in x-dir
   for tloop=timeframes
     temp(:,:,tloop,:) = econv3(...
       single(squeeze(image(:,:,tloop,:))),fx);
+  end;
+
+  if displaywaitbar
+    h = waitbar(0.4,h);
   end;
 
   %Smooth in y-dir
@@ -44,16 +68,41 @@ if ZSize>1
     temp(:,:,tloop,:) = econv3(squeeze(temp(:,:,tloop,:)),fy);
   end;
 
+  if displaywaitbar
+    h = waitbar(0.7,h);
+  end;
+  
   %Smooth in z-dir
   for tloop=timeframes
     temp(:,:,tloop,:) = econv3(squeeze(temp(:,:,tloop,:)),fz);
   end;
+  
+  if displaywaitbar
+    h = waitbar(1,h);
+  end;
+  
 else
   %Smooth in x-dir
+    
   temp = econv3(...
     single(squeeze(image)),fx);
 
+  if displaywaitbar
+    h = waitbar(0.55,h);
+  end;
+  
   %Smooth in y-dir
   temp = econv3(squeeze(temp),fy);
+  
+  if displaywaitbar
+    h = waitbar(1,h);
+  end;
+  
 end
+
+%Store output
 smoothedImage=temp;
+
+if displaywaitbar
+  close(h);
+end;

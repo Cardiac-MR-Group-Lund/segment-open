@@ -161,11 +161,13 @@ function loadcontrastfrompreset(cv)
 %----------------------------------
 global SET NO
 if isfield(cv.conbri,'Contrast')
-  SET(NO).IntensityMapping = cv.conbri;
+  SET(NO).IntensityMapping.Contrast = cv.conbri.Contrast;
+  SET(NO).IntensityMapping.Brightness = cv.conbri.Brightness;
 else
   [contrast, brightness] = calcfunctions('win2con',...
     cv.conbri.window,cv.conbri.level);
-  SET(NO).IntensityMapping = struct('Contrast',contrast,'Brightness',brightness);
+  SET(NO).IntensityMapping.Contrast = contrast;
+  SET(NO).IntensityMapping.Brightness = brightness;
 end
 drawfunctions('drawcontrastimage',NO);
 

@@ -333,6 +333,7 @@ for no = oldNO %nos
   SET(NO).Strain = [];
   SET(NO).Scar = [];
   SET(NO).Perfusion = [];
+  SET(NO).PerfusionScoring = [];
   SET(NO).Stress = [];
   SET(NO).TSize = 1;
   SET(NO).EndAnalysis = 1;
@@ -761,9 +762,9 @@ calcpreview = false;
 drawfunctions('drawthumbnails',calcpreview);
 segment('switchtoimagestack',no);
 
-%-----------------------------------
-function upsampleimage_Callback(f, inputNO) %#ok<DEFNU>
-%-----------------------------------
+%-----------------------------------------------
+function upsampleimage_Callback(f,inputNO,silent) %#ok<DEFNU>
+%-----------------------------------------------
 %Upsamples current image stack (in slice only). Takes care of 
 %segmentation in the upsampling process.
 
@@ -795,6 +796,9 @@ end;
 if nargin<2
   inputNO=NO;
 end
+if nargin<3
+  silent = false;
+end
 
 %Find image stacks to crop
 nos = SET(inputNO).Linked; %Crop current image stack
@@ -802,7 +806,7 @@ nos = SET(inputNO).Linked; %Crop current image stack
 for no = nos;
 
   %Resample
-  SET(no).IM = upsamplevolume(f,SET(no).IM);
+  SET(no).IM = upsamplevolume(f,SET(no).IM,silent);
   
   %--- Things to change
   
@@ -984,6 +988,11 @@ for no = nos;
       straintagging.straintagging('close_Callback');
     end
     SET(no).StrainTagging = [];
+  end
+   
+  if isfield(SET(no),'RV') && ~isempty(SET(no).RV) && ~isempty(SET(no).RV.centerbasal) 
+    SET(no).RV.centerbasal = resamplehelper(f,SET(no).RV.centerbasal);
+    SET(no).RV.centerapical = resamplehelper(f,SET(no).RV.centerapical);
   end
   
 end;
@@ -1262,6 +1271,7 @@ switch type
       tnew = linspace(0,N,round(f*N)+1); tnew(end) = [];
 
       newvol = zeros(size(vol,1),size(vol,2),length(tnew),size(vol,4));
+      hw = waitbar(0,'Please wait.');
       for i=1:size(newvol,3)
         g = 0;
         kfac = 6;
@@ -1276,8 +1286,11 @@ switch type
           g = g + q*vol(:,:,jmod,:);
         end
         newvol(:,:,i,:) = g;
+        
+        waitbar(i/size(newvol,3),hw);
       end
-
+      close(hw);
+      
       if not(isempty(vol))
         newvol(:,:,1,:) = vol(:,:,1,:);
       else
@@ -1489,6 +1502,11 @@ for no = nos;
       straintagging.straintagging('close_Callback');
     end
     SET(no).StrainTagging = [];
+  end
+  
+  if isfield(SET(no),'RV') && ~isempty(SET(no).RV) && ~isempty(SET(no).RV.slicebasal) 
+    SET(no).RV.slicebasal = max(1,min(round(resamplehelper(f,SET(no).RV.slicebasal)),SET(no).ZSize));
+    SET(no).RV.sliceapical = max(1,min(round(resamplehelper(f,SET(no).RV.sliceapical)),SET(no).ZSize));
   end
   
 end; %Loop over image stacks
@@ -3704,43 +3722,130 @@ drawfunctions('drawallslices');
 
 
 %--------------------------------
-function endsystole_Callback(noupdate)
+function endsystole_Callback(noupdate,single)
 %--------------------------------
 %Change current time frame to end systole
-global SET NO
+global DATA SET NO
 
 if nargin==0
   noupdate=false;
 end
 
-nos = SET(NO).Linked;
+if nargin<2
+  single=1;
+end
 
-for loop=1:length(nos)
-  SET(nos(loop)).CurrentTimeFrame = SET(NO).EST;
-end;
-drawfunctions('drawsliceno',NO);
+nos = DATA.ViewPanels(DATA.ViewPanels~=0);%SET(NO).Linked;
 
+%also check for imageviewplane
+imvpcell={'Short-axis','2CH','3CH','4CH','Flow'};
+imtcell={'Flow (magnitude)','Flow (through plane)'};
+include=zeros(1,length(nos));
+for i = 1 : length(nos)
+    include(i) = ismember(SET(nos(i)).ImageViewPlane,imvpcell)||ismember(SET(nos(i)).ImageType,imtcell);
+end
+
+nos=nos(logical(include));
+no = findfunctions('findcineshortaxisno');
+useother=1;
+
+if SET(no).EDT==SET(no).EST
+  %not correct use NO instead
+  no=NO;
+  useother=0;
+end
+
+%Adjustments have been made to NO use this instead
+if ~SET(NO).EDT==SET(NO).EST
+  no=NO;
+  useother=0;
+end
+
+if useother
+  for loop = nos
+    if SET(loop).EDT==SET(loop).EST
+      [~,SET(loop).EST]=min(abs(SET(no).EST/SET(no).TSize-(1:SET(loop).TSize)/SET(loop).TSize));
+    end
+  end
+end
+
+if single
+  SET(NO).CurrentTimeFrame = SET(NO).EST;
+  drawfunctions('drawsliceno',NO);
+else
+  for loop=1:length(nos)
+    SET(nos(loop)).CurrentTimeFrame = SET(nos(loop)).EST;
+  end;
+  for loop=1:length(nos)
+    drawfunctions('drawsliceno',nos(loop));
+  end
+end
 if ~noupdate
   segment('updatevolume');
 end
 
 %---------------------------------
-function enddiastole_Callback(noupdate)
+function enddiastole_Callback(noupdate,single)
 %---------------------------------
-%change current time frame to end diastole
-global SET NO
+%change current time frame to end diastole if there exists SAX with EDT and
+%
+global DATA SET NO
 
 if nargin==0
   noupdate=false;
 end
 
-nos = SET(NO).Linked;
+if nargin<2
+  single=1;
+end
 
-for loop=1:length(nos)
-  SET(nos(loop)).CurrentTimeFrame = SET(NO).EDT;
-end;
-drawfunctions('drawsliceno',NO);
+nos = DATA.ViewPanels(DATA.ViewPanels~=0);%SET(NO).Linked;
 
+%also check for imageviewplane
+imvpcell={'Short-axis','2CH','3CH','4CH','Flow'};
+imtcell={'Flow (magnitude)','Flow (through plane)'};
+include=zeros(1,length(nos));
+for i = 1 : length(nos)
+    include(i) = ismember(SET(nos(i)).ImageViewPlane,imvpcell)||ismember(SET(nos(i)).ImageType,imtcell);
+end
+
+nos=nos(logical(include));
+
+no = findfunctions('findcineshortaxisno');
+useother=1;
+
+if SET(no).EDT==SET(no).EST
+  %not correct use NO instead
+  no=NO;
+  useother=0;
+end
+
+%Adjustments have been made to NO use this instead
+if ~SET(NO).EDT==SET(NO).EST
+  no=NO;
+  useother=0;
+end
+
+if useother
+  for loop = nos
+    if SET(loop).EDT==SET(loop).EST
+      [~,SET(loop).EDT]=min(abs(SET(no).EDT/SET(no).TSize-(1:SET(loop).TSize)/SET(loop).TSize));
+    end
+  end
+end
+
+
+if single
+  SET(NO).CurrentTimeFrame = SET(NO).EDT;
+  drawfunctions('drawsliceno',NO);
+else
+  for loop=1:length(nos)
+    SET(nos(loop)).CurrentTimeFrame = SET(nos(loop)).EDT;
+  end;
+  for loop=1:length(nos)
+    drawfunctions('drawsliceno',nos(loop));
+  end
+end
 if ~noupdate
   segment('updatevolume');
 end
@@ -3749,47 +3854,50 @@ end
 function endsystoleall_Callback %#ok<DEFNU>
 %--------------------------------
 %Change current timeframe of all image stacks to end systole.
-global DATA SET NO
-
-oldNO=NO;
-
-nos=setdiff(unique(DATA.ViewPanels),0);
-noupdate=true;
-for loop=1:length(nos)
-  NO=nos(loop); 
-  if SET(NO).EDT == SET(NO).EST
-    SET(NO).CurrentTimeFrame = round(1+(SET(oldNO).EST-1)/(SET(oldNO).TSize-1)*(SET(NO).TSize-1));
-    drawfunctions('drawsliceno',NO);
-  else
-    endsystole_Callback(noupdate);
-  end
-end
-
-NO=oldNO;
-segment('updatevolume');
+endsystole_Callback(0,0)
+%global DATA SET NO
+% 
+% oldNO=NO;
+% 
+% nos=setdiff(unique(DATA.ViewPanels),0);
+% noupdate=true;
+% for loop=1:length(nos)
+%   NO=nos(loop); 
+%   if SET(NO).EDT == SET(NO).EST
+%     SET(NO).CurrentTimeFrame = round(1+(SET(oldNO).EST-1)/(SET(oldNO).TSize-1)*(SET(NO).TSize-1));
+%     drawfunctions('drawsliceno',NO);
+%   else
+%     endsystole_Callback(noupdate);
+%   end
+% end
+% 
+% NO=oldNO;
+% segment('updatevolume');
 
 %--------------------------------
 function enddiastoleall_Callback %#ok<DEFNU>
 %--------------------------------
 %Change current timeframe of all image stacks to end diastole.
-global DATA SET NO
+enddiastole_Callback(0,0)
 
-oldNO=NO;
-
-nos=setdiff(unique(DATA.ViewPanels),0);
-noupdate=true;
-for loop=1:length(nos)
-  NO=nos(loop); 
-  if SET(NO).EDT == SET(NO).EST
-    SET(NO).CurrentTimeFrame = round(1+(SET(oldNO).EDT-1)/(SET(oldNO).TSize-1)*(SET(NO).TSize-1));
-    drawfunctions('drawsliceno',NO);
-  else
-    enddiastole_Callback(noupdate);
-  end
-end
-
-NO=oldNO;
-segment('updatevolume');
+% global DATA SET NO
+% 
+% oldNO=NO;
+% 
+% nos=setdiff(unique(DATA.ViewPanels),0);
+% noupdate=true;
+% for loop=1:length(nos)
+%   NO=nos(loop); 
+%   if SET(NO).EDT == SET(NO).EST
+%     SET(NO).CurrentTimeFrame = round(1+(SET(oldNO).EDT-1)/(SET(oldNO).TSize-1)*(SET(NO).TSize-1));
+%     drawfunctions('drawsliceno',NO);
+%   else
+%     enddiastole_Callback(noupdate);
+%   end
+% end
+% 
+% NO=oldNO;
+% segment('updatevolume');
 
 %-----------------------------------------
 function copyforwardselected_Callback(lv) %#ok<DEFNU>
@@ -5745,6 +5853,21 @@ else
   SET(no).RVEF = 0;
 end;
 
+%also check for imageviewplane
+imvpcell={'Short-axis','2CH','3CH','4CH','Flow'};
+imtcell={'Flow (magnitude)','Flow (through plane)'};
+include=zeros(1,length(SET));
+for i = 1 : length(SET)
+    include(i) = ismember(SET(i).ImageViewPlane,imvpcell) || ismember(SET(i).ImageType,imtcell);
+end
+
+nos=find(include);
+%apply estimated 
+for tmpno=nos
+  [~,SET(tmpno).EST] = min(abs(SET(no).EST/SET(no).TSize-(1:SET(tmpno).TSize)/SET(tmpno).TSize));
+  [~,SET(tmpno).EDT] = min(abs(SET(no).EDT/SET(no).TSize-(1:SET(tmpno).TSize)/SET(tmpno).TSize));
+end
+
 if not(silent)
   segment('updatevolume');
 end;
@@ -6091,10 +6214,14 @@ for loop = 1:length(viewpanels)
 end;
 
 %----------------------------------
-function setcolormap_Callback(type) %#ok<DEFNU>
+function setcolormap_Callback(type,no) %#ok<DEFNU>
 %----------------------------------
 %Set colormap for current image stack.
 global DATA SET NO
+
+if nargin < 2
+  no = NO;
+end
 
 n = DATA.GUISettings.ColorMapSize;
 set([DATA.Handles.colormapgraymenu ...
@@ -6105,33 +6232,118 @@ set([DATA.Handles.colormapgraymenu ...
 
 switch type
   case 'gray'        
-    SET(NO).Colormap = []; %gray(n);
+    SET(no).Colormap = []; %gray(n);
     %set(DATA.Handles.colormapgraymenu,'checked','on');
   case 'hsv'        
-    SET(NO).Colormap = hsv(n);
+    SET(no).Colormap = hsv(n);
     %set(DATA.Handles.hsvcolormapmenu,'checked','on');
   case 'jet'
-    SET(NO).Colormap = jet(n);
+    SET(no).Colormap = jet(n);
     %set(DATA.Handles.jetcolormapmenu,'checked','on');
   case 'hot'
-    SET(NO).Colormap = hot(n);
+    SET(no).Colormap = hot(n);
     %set(DATA.Handles.hotcolormapmenu,'checked','on');
   case 'spect'
-    SET(NO).Colormap = spect(n);   
+    SET(no).Colormap = spect(n);   
     %set(DATA.Handles.spectcolormapmenu,'checked','on'); 
+  case 't1pre'
+    %set colormap for T1 images
+    load('colormapt1');
+    tempmap = flipud(colormapt1)./256;
+    cmap = zeros(n,3);
+    cmap(:,1) = interp1(1:length(tempmap),tempmap(:,1),linspace(1,length(tempmap),n))';
+    cmap(:,2) = interp1(1:length(tempmap),tempmap(:,2),linspace(1,length(tempmap),n))';
+    cmap(:,3) = interp1(1:length(tempmap),tempmap(:,3),linspace(1,length(tempmap),n))';
+    SET(no).Colormap = cmap;
+    %set contrast and brightness
+    window = 1400; %widht
+    level = 1300; %center
+    [contrast, brightness] = calcfunctions('win2con',window,level);
+    SET(no).IntensityMapping.Contrast = contrast;
+    SET(no).IntensityMapping.Brightness = brightness;
+    %update image
+%     drawfunctions('drawcontrastimage',no);  %done by drawall below
+  case 't1post'
+    %set colormap for T1 images
+    load('colormapt1');
+    tempmap = flipud(colormapt1)./256;
+    cmap = zeros(n,3);
+    cmap(:,1) = interp1(1:length(tempmap),tempmap(:,1),linspace(1,length(tempmap),n))';
+    cmap(:,2) = interp1(1:length(tempmap),tempmap(:,2),linspace(1,length(tempmap),n))';
+    cmap(:,3) = interp1(1:length(tempmap),tempmap(:,3),linspace(1,length(tempmap),n))';
+    SET(no).Colormap = cmap;
+    %set contrast and brightness
+    window = 600; %widht
+    level = 500; %center
+    [contrast, brightness] = calcfunctions('win2con',window,level);
+    SET(no).IntensityMapping.Contrast = contrast;
+    SET(no).IntensityMapping.Brightness = brightness;
+    %update image
+  case 't2'
+    %set colormap for T2 images
+    load('colormapt1');
+    tempmap = flipud(colormapt1)./256;
+    cmap = zeros(n,3);
+    cmap(:,1) = interp1(1:length(tempmap),tempmap(:,1),linspace(1,length(tempmap),n))';
+    cmap(:,2) = interp1(1:length(tempmap),tempmap(:,2),linspace(1,length(tempmap),n))';
+    cmap(:,3) = interp1(1:length(tempmap),tempmap(:,3),linspace(1,length(tempmap),n))';
+    SET(no).Colormap = cmap;
+    %set contrast and brightness
+    window = 120; %widht
+    level = 60; %center
+    [contrast, brightness] = calcfunctions('win2con',window,level);
+    SET(no).IntensityMapping.Contrast = contrast;
+    SET(no).IntensityMapping.Brightness = brightness;
+    SET(no).IntensityMapping.Brightness=brightness;
+    %update image
+%     drawfunctions('drawcontrastimage',no);  %done by drawall below
+  case 't2star'
+    %set colormap for T2*
+    load('colormapt1');
+    tempmap = flipud(colormapt1)./256;
+    cmap = zeros(n,3);
+    cmap(:,1) = interp1(1:length(tempmap),tempmap(:,1),linspace(1,length(tempmap),n))';
+    cmap(:,2) = interp1(1:length(tempmap),tempmap(:,2),linspace(1,length(tempmap),n))';
+    cmap(:,3) = interp1(1:length(tempmap),tempmap(:,3),linspace(1,length(tempmap),n))';
+    SET(no).Colormap = cmap;
+    %set contrast and brightness
+    window = 50; %widht
+    level = 25; %center
+    [contrast, brightness] = calcfunctions('win2con',window,level);
+    SET(no).IntensityMapping.Contrast = contrast;
+    SET(no).IntensityMapping.Brightness = brightness;
+    %update image
+%     drawfunctions('drawcontrastimage',no); %done by drawall below
+  case 'ecv'
+    %set colormap for ECV
+    load('colormapecv');
+    tempmap = flipud(colormapecv)./256;
+    cmap = zeros(n,3);
+    cmap(:,1) = interp1(1:length(tempmap),tempmap(:,1),linspace(1,length(tempmap),n))';
+    cmap(:,2) = interp1(1:length(tempmap),tempmap(:,2),linspace(1,length(tempmap),n))';
+    cmap(:,3) = interp1(1:length(tempmap),tempmap(:,3),linspace(1,length(tempmap),n))';
+    SET(no).Colormap = cmap;
+    %set contrast and brightness
+    window = 100; %widht
+    level = 50; %center
+    [contrast, brightness] = calcfunctions('win2con',window,level);
+    SET(no).IntensityMapping.Contrast = contrast;
+    SET(no).IntensityMapping.Brightness = brightness;
+    %update image
+%     drawfunctions('drawcontrastimage',no);  % done by drawall below
   otherwise
     myfailed('Unknown colormap',DATA.GUI.Segment);
     return;    
 end;
 
-panelstodo = find(DATA.ViewPanels==NO);
+panelstodo = find(DATA.ViewPanels==no);
 for panel=panelstodo
-  segment('makeviewim',panel,NO);
+  segment('makeviewim',panel,no);
 end
 recalc=1;
 updatedslider=0;
 drawfunctions('drawthumbnails',recalc,updatedslider);
-drawfunctions('drawall',DATA.ViewMatrix);
+drawfunctions('drawcontrastimage',no);  %drawfunctions('drawall',DATA.ViewMatrix);
 
 %-------------------------------
 function slidingaverage_Callback %#ok<DEFNU>

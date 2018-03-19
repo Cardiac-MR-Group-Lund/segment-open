@@ -33,6 +33,7 @@ T1 map Pre,,PostGd,,,
 T1 map Post,,T1Map_Short,,,
 T2 map,,T2,,,
 T2Stir,,stir,,,
+T2* map,,star,,,
 
 #Image view plane
 Unspecified,,,,,

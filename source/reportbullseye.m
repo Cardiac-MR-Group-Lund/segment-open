@@ -1612,7 +1612,7 @@ if 0%mygetvalue(gui.handles.thissliceonlycheckbox)
 end
 
 %---------------------------------------------------
-function [varargout] = bullseyeaha(m,ax,n,valuetype)
+function [varargout] = bullseyeaha(m,ax,n,valuetype,linetype)
 %---------------------------------------------------
 %Calculate and/or plot AHA 17 segment model.
 %- m is a matrix in polar coordinates. It could also be a vector of 17
@@ -1630,6 +1630,10 @@ global DATA
 if nargin<4
   valuetype = 'mean'; %default;
 end;
+
+if nargin<5
+  linetype='w-';
+end
 
 varargout = cell(1,nargout);
 
@@ -1783,7 +1787,7 @@ if doplot
   yc = cos(om);
   hold(ax,'on');
   for loop=1:(numslices+1)
-    h = plot(ax,n+1+scale*loop*xc,n+1+scale*loop*yc,'w-');
+    h = plot(ax,n+1+scale*loop*xc,n+1+scale*loop*yc,linetype);
     set(h,'linewidth',2);
   end;
   hold(ax,'off');
@@ -1793,18 +1797,18 @@ if doplot
   b = sqrt(0.75);
   a = 0.5;
   c = 1/sqrt(2);
-  h = plot(ax,scale*[0 2],scale*[4 4],'w-'); set(h,'linewidth',2);
-  h = plot(ax,scale*[6 8],scale*[4 4],'w-'); set(h,'linewidth',2);
+  h = plot(ax,scale*[0 2],scale*[4 4],linetype); set(h,'linewidth',2);
+  h = plot(ax,scale*[6 8],scale*[4 4],linetype); set(h,'linewidth',2);
   %h = plot(scale*[4 4],scale*[5 6],'w-'); set(h,'linewidth',2);
   %h = plot(scale*[4 4],scale*[2 3],'w-'); set(h,'linewidth',2);
-  h = plot(ax,scale*[4-c 4-2*c],scale*[4-c 4-2*c],'w-'); set(h,'linewidth',2);
-  h = plot(ax,scale*[4+c 4+2*c],scale*[4+c 4+2*c],'w-'); set(h,'linewidth',2);
-  h = plot(ax,scale*[4-c 4-2*c],scale*[4+c 4+2*c],'w-'); set(h,'linewidth',2);
-  h = plot(ax,scale*[4+c 4+2*c],scale*[4-c 4-2*c],'w-'); set(h,'linewidth',2);
-  h = plot(ax,scale*[4-4*a 4-2*a],scale*[4-4*b 4-2*b],'w-'); set(h,'linewidth',2);
-  h = plot(ax,scale*[4-4*a 4-2*a],scale*[4+4*b 4+2*b],'w-'); set(h,'linewidth',2);
-  h = plot(ax,scale*[4+4*a 4+2*a],scale*[4+4*b 4+2*b],'w-'); set(h,'linewidth',2);
-  h = plot(ax,scale*[4+4*a 4+2*a],scale*[4-4*b 4-2*b],'w-'); set(h,'linewidth',2);
+  h = plot(ax,scale*[4-c 4-2*c],scale*[4-c 4-2*c],linetype); set(h,'linewidth',2);
+  h = plot(ax,scale*[4+c 4+2*c],scale*[4+c 4+2*c],linetype); set(h,'linewidth',2);
+  h = plot(ax,scale*[4-c 4-2*c],scale*[4+c 4+2*c],linetype); set(h,'linewidth',2);
+  h = plot(ax,scale*[4+c 4+2*c],scale*[4-c 4-2*c],linetype); set(h,'linewidth',2);
+  h = plot(ax,scale*[4-4*a 4-2*a],scale*[4-4*b 4-2*b],linetype); set(h,'linewidth',2);
+  h = plot(ax,scale*[4-4*a 4-2*a],scale*[4+4*b 4+2*b],linetype); set(h,'linewidth',2);
+  h = plot(ax,scale*[4+4*a 4+2*a],scale*[4+4*b 4+2*b],linetype); set(h,'linewidth',2);
+  h = plot(ax,scale*[4+4*a 4+2*a],scale*[4-4*b 4-2*b],linetype); set(h,'linewidth',2);
   hold(ax,'off');
 end;
 
