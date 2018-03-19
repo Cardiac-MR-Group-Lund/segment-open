@@ -151,10 +151,14 @@ if ~silent
 end
 
 %-----------------------------------------
-function clearallrv_Callback %#ok<DEFNU>
+function clearallrv_Callback(silent) %#ok<DEFNU>
 %-----------------------------------------
 %Clear all rv segmentation, both endo and epi 
 global SET NO
+
+if nargin < 1
+ silent = false;
+end
 
 no = NO;
 if ~isempty(SET(no).Parent)
@@ -179,8 +183,10 @@ if ~isempty(SET(no).StrainTagging) && isfield(SET(no).StrainTagging, 'LVupdated'
 end
 segment('updatemodeldisplay');
 segment('updatevolume');
-drawfunctions('drawimageno');
-drawfunctions('drawallslices');
+if ~silent
+  drawfunctions('drawimageno');
+  drawfunctions('drawallslices');
+end
 
 %---------------------------------------
 function clearall_Callback %#ok<DEFNU>
@@ -587,10 +593,80 @@ ind = true(SET(no).ZSize,1);
 ind(SET(no).StartSlice:SET(no).EndSlice)=false;
 clearslices(no,ind,timeframes);
 
+%--------------------------------------------------------------------------------------------------
+function [destx,desty,desttimeframes] = importcoordinatehelper(destno,desttime,sourceno,sourcex,sourcey,sourcetime,sourceslice)
+%--------------------------------------------------------------------------------------------------
+%Converts coordinates xsource,ysource to coordinated xdest,ydest. Assumes slices fixed separately
+%
+%destime = vector of destination times
+%xsource = matrix (numpoints x sourceframes)
+%xdest = matrix(numpoints x destframes)
+
+if (length(desttime)==1)
+  %There is just take one timeframe in destination, then take only one from source
+  desttimeframes = 1;
+  [pos] = calcfunctions('xyz2rlapfh',sourceno,sourcex(:,sourcetime),sourcey(:,sourcetime),repmat(sourceslice,[size(sourcex,1) 1]));
+  pos = calcfunctions('rlapfh2xyz',destno,pos(:,1),pos(:,2),pos(:,3));
+  destx = pos(1,:)';
+  desty =pos(2,:)';
+else
+  if (size(sourcex,2)>1) && (sum(~isnan(sourcex(1,:)))==size(sourcex,2))
+    %--- Time resolved segmentation => interpolate is method to use
+    
+    x = interp1(sourcetime,sourcex',desttime)'; %note flip it and flip it back
+    y = interp1(sourcetime,sourcey',desttime)'; %note flip it and flip it back
+    
+    %initialize output
+    destx = zeros(size(sourcex,1),size(x,2));
+    desty = destx;
+    
+    %Loop over destination timeframes to do coordinate conversion
+    for tloop=1:size(x,2)
+      [pos] = calcfunctions('xyz2rlapfh',sourceno,x(:,tloop),y(:,tloop),repmat(sourceslice,size(sourcex,1),1));
+      pos = calcfunctions('rlapfh2xyz',destno,pos(:,1),pos(:,2),pos(:,3));
+      destx(:,tloop) = pos(1,:)';
+      desty(:,tloop) =pos(2,:)';
+    end;
+    desttimeframes = 1:size(x,2);
+    %--- end of timeresolved (interpolation)
+  else 
+    
+    %--- Not time resolved = loop over source to find what to import    
+    destx = zeros(size(sourcex,1),length(desttime));
+    desty = destx;
+    desttimeframes = zeros(1,size(sourcex,2));
+    for tloop=1:size(sourcex,2) %frames in source
+      if ~isnan(sourcex(1,tloop))
+        %source frame contains segmentation
+        [~,nt] = min(abs(desttime-sourcetime(tloop))); %find best matching timeframe in destination
+        if isnan(nt)
+          nt = 1;
+        end;        
+        
+        [pos] = calcfunctions('xyz2rlapfh',sourceno,sourcex(:,tloop),sourcey(:,tloop),repmat(sourceslice,size(sourcex,1),1));
+        pos = calcfunctions('rlapfh2xyz',destno,pos(:,1),pos(:,2),pos(:,3));
+        destx(:,tloop) = pos(1,:)';
+        desty(:,tloop) =pos(2,:)';
+        desttimeframes(tloop) = nt;
+      end; %source frame contains segmentation
+    end; %loop over souce timeframes
+        
+    ind = find(desttimeframes~=0);
+    desttimeframes = desttimeframes(ind);
+    
+    if ~isempty(ind)      
+      destx = destx(:,ind);
+      desty = desty(:,ind);
+    end;
+
+  end; 
+  %--- End not time resolved
+end;
+
 
 %----------------------------------------------------------------------------------
 function [desttimeframes,destslices,sourceslices] = importsegmentationhelper ...
-  (tono,fromno,doendo,doepi,dorvendo,dorvepi,importtf)
+  (tono,fromno,doendo,doepi,dorvendo,dorvepi,importtf,txmapimport)
 %----------------------------------------------------------------------------------
 %Helper function to segmentimportsegmention Callback. 
 %- tono is destination of segmentation.
@@ -600,190 +676,95 @@ function [desttimeframes,destslices,sourceslices] = importsegmentationhelper ...
 %pixelssizes as well as situations when number of timeframes differ. When
 %destination is not timeresolved and source is timeresolved then user is
 %asked from what timeframe to take the segmentation from. 
-%
-%Work horse in importing. This function would benefit from anti-cut 
-%and paste treatment.
 
 global SET
 
+if nargin < 8
+  txmapimport = false;
+end
 if nargin > 6
-  [sourceslices,destslices,sourcetime,desttime,zdirsource,zdirdest] = ...
+  [sourceslices,destslices,sourcetime,desttime,~,~] = ...
     findmatchingslices(tono,fromno,doendo,doepi,dorvendo,dorvepi,false,importtf);
 else
-  [sourceslices,destslices,sourcetime,desttime,zdirsource,zdirdest] = ...
+  [sourceslices,destslices,sourcetime,desttime,~,~] = ...
     findmatchingslices(tono,fromno,doendo,doepi,dorvendo,dorvepi);
 end
 
-desttimeframes = [];
 if isempty(sourceslices)
   return;
 end
+
+%Convert desttime to destframes
+desttimeframes = ones(1,length(desttime));
+for tloop = 1:length(desttime)
+  [~,ind] = min(abs(SET(tono).TimeVector-desttime(tloop)));
+  desttimeframes(tloop) = ind;
+end;
 
 %Loop over the number of slices in destination images
 for zloop=1:SET(tono).ZSize
   
   %Match slices, see above.
   sourceslice = sourceslices(zloop);
-  destslice = destslices(zloop);
-  
-  %Match positions
-  cornerpossource = SET(fromno).ImagePosition-zdirsource*(zloop-1)*(SET(fromno).SliceThickness+SET(fromno).SliceGap);
-  cornerposdest = SET(tono).ImagePosition-zdirdest*(destslice-1)*(SET(tono).SliceThickness+SET(tono).SliceGap);
-  
-  xofs = (cornerpossource-cornerposdest)*(SET(tono).ImageOrientation(4:6)'); %Project on one axis in mm
-  yofs = (cornerpossource-cornerposdest)*(SET(tono).ImageOrientation(1:3)'); %Project on the other axis in mm
-
-  xofs = xofs / SET(tono).ResolutionX; %Now in pixels in destination coordinates
-  yofs = yofs / SET(tono).ResolutionY; %Now in pixels in destination coordinates  
-  
-  %factor between
-  fx = SET(fromno).ResolutionX/SET(tono).ResolutionX;
-  fy = SET(fromno).ResolutionY/SET(tono).ResolutionY;  
-  
-  %--- Store this slice
-  if (length(desttime)==1)
-    desttimeframes = 1;
-    if doendo
-      SET(tono).EndoX(:,desttime,destslice) = SET(fromno).EndoX(:,sourcetime,sourceslice)*fx+xofs;
-      SET(tono).EndoY(:,desttime,destslice) = SET(fromno).EndoY(:,sourcetime,sourceslice)*fy+yofs;
-    end;
-    if doepi
-      SET(tono).EpiX(:,desttime,destslice) = SET(fromno).EpiX(:,sourcetime,sourceslice)*fx+xofs;
-      SET(tono).EpiY(:,desttime,destslice) = SET(fromno).EpiY(:,sourcetime,sourceslice)*fy+yofs;
-    end;
-    if dorvendo
-      SET(tono).RVEndoX(:,desttime,destslice) = SET(fromno).RVEndoX(:,sourcetime,sourceslice)*fx+xofs;
-      SET(tono).RVEndoY(:,desttime,destslice) = SET(fromno).RVEndoY(:,sourcetime,sourceslice)*fy+yofs;
-    end;
-    if dorvepi
-      SET(tono).RVEpiX(:,desttime,destslice) = SET(fromno).RVEpiX(:,sourcetime,sourceslice)*fx+xofs;
-      SET(tono).RVEpiY(:,desttime,destslice) = SET(fromno).RVEpiY(:,sourcetime,sourceslice)*fy+yofs;
-    end;
+  destslice = destslices(zloop);      
     
-  else
-    %not equal, needs to interpolate
-    
-    %--- Do endo
-    if doendo
-      if (SET(fromno).TSize>1) && (sum(~isnan(SET(fromno).EndoX(1,:,sourceslice)))==SET(fromno).TSize)
-        %Time resolved segmentation
-        SET(tono).EndoX(:,:,destslice) = xofs+fx*interp1(...
-          sourcetime,...
-          SET(fromno).EndoX(:,:,sourceslice)',... %y flip it
-          desttime)'; %flip it again
-        SET(tono).EndoY(:,:,destslice) = yofs+fy*interp1(...
-          sourcetime,...
-          SET(fromno).EndoY(:,:,sourceslice)',... %y flip it
-          desttime)'; %flip it again
-        desttimeframes = 1:SET(tono).TSize;
-      else
-        %Non timeresolved segmentation
-        for tloop=1:SET(fromno).TSize
-          if ~isnan(SET(fromno).EndoX(1,tloop,sourceslice))
-%             nt = round(1+(tloop-1)/(SET(fromno).TSize-1)*(SET(tono).TSize-1));
-            [~,nt] = min(abs(desttime-sourcetime(tloop)));
-            if isnan(nt)
-              nt = 1;
-            end;
-            SET(tono).EndoX(:,nt,destslice) = xofs+fx*SET(fromno).EndoX(:,tloop,sourceslice);
-            SET(tono).EndoY(:,nt,destslice) = yofs+fy*SET(fromno).EndoY(:,tloop,sourceslice);
-            desttimeframes = [desttimeframes nt];
-          end;
+  %Endo
+  if doendo
+    if txmapimport
+      for destloop = 1:length(desttimeframes)
+        if ~isempty(desttimeframes)
+          [tempx,tempy,desttimeframes(destloop)] = importcoordinatehelper(tono,desttime(destloop),fromno,SET(fromno).EndoX(:,:,sourceslice),SET(fromno).EndoY(:,:,sourceslice),importtf,sourceslice);
+          SET(tono).EndoX(:,destloop,destslice) = tempx;
+          SET(tono).EndoY(:,destloop,destslice) = tempy;
         end;
+      end
+    else
+      [tempx,tempy,desttimeframes] = importcoordinatehelper(tono,desttime,fromno,SET(fromno).EndoX(:,:,sourceslice),SET(fromno).EndoY(:,:,sourceslice),sourcetime,sourceslice);
+      if ~isempty(desttimeframes)
+        SET(tono).EndoX(:,desttimeframes,destslice) = tempx;
+        SET(tono).EndoY(:,desttimeframes,destslice) = tempy;
       end;
-    end; %Do endo
-    
-    %--- Do epi
-    if doepi
-      if (SET(fromno).TSize>1) && (sum(~isnan(SET(fromno).EpiX(1,:,sourceslice)))==SET(fromno).TSize)
-        %Time resolved segmentation
-        SET(tono).EpiX(:,:,destslice) = xofs+fx*interp1(...
-          sourcetime,...
-          SET(fromno).EpiX(:,:,sourceslice)',... %y flip it
-          desttime)'; %flip it again
-        SET(tono).EpiY(:,:,destslice) = yofs+fy*interp1(...
-          sourcetime,...
-          SET(fromno).EpiY(:,:,sourceslice)',... %y flip it
-          desttime)'; %flip it again
-        desttimeframes = 1:SET(tono).TSize;
-      else
-        %Non timeresolved segmentation
-        desttimeframes = [];
-        for tloop=1:SET(fromno).TSize
-          if ~isnan(SET(fromno).EpiX(1,tloop,sourceslice))
-%             nt = round(1+(tloop-1)/(SET(fromno).TSize-1)*(SET(tono).TSize-1));
-            [~,nt] = min(abs(desttime-sourcetime(tloop)));
-            if isnan(nt)
-              nt = 1;
-            end;            
-            SET(tono).EpiX(:,nt,destslice) = xofs+fx*SET(fromno).EpiX(:,tloop,sourceslice);
-            SET(tono).EpiY(:,nt,destslice) = yofs+fy*SET(fromno).EpiY(:,tloop,sourceslice);
-            desttimeframes = [desttimeframes nt];
-          end;
+    end
+  end;
+  
+  %Epi
+  if doepi
+    if txmapimport
+      for destloop = 1:length(desttimeframes)
+        if ~isempty(desttimeframes)
+          [tempx,tempy,desttimeframes(destloop)] = importcoordinatehelper(tono,desttime(destloop),fromno,SET(fromno).EpiX(:,:,sourceslice),SET(fromno).EpiY(:,:,sourceslice),importtf,sourceslice);
+          SET(tono).EpiX(:,destloop,destslice) = tempx;
+          SET(tono).EpiY(:,destloop,destslice) = tempy;
         end;
+      end
+    else
+      [tempx,tempy,desttimeframes] = importcoordinatehelper(tono,desttime,fromno,SET(fromno).EpiX(:,:,sourceslice),SET(fromno).EpiY(:,:,sourceslice),sourcetime,sourceslice);
+      if ~isempty(desttimeframes)
+        SET(tono).EpiX(:,desttimeframes,destslice) = tempx;
+        SET(tono).EpiY(:,desttimeframes,destslice) = tempy;
       end;
-    end; %Do epi
-    
-    %--- Do rvendo
-    if dorvendo
-      if sum(isnan(SET(fromno).RVEndoX(1,:,sourceslice)))==0
-        %Time resolved segmentation
-        SET(tono).RVEndoX(:,:,destslice) = xofs+fx*interp1(...
-          sourcetime,...
-          SET(fromno).RVEndoX(:,:,sourceslice)',... %y flip it
-          desttime)'; %flip it again
-        SET(tono).RVEndoY(:,:,destslice) = yofs+fy*interp1(...
-          sourcetime,...
-          SET(fromno).RVEndoY(:,:,sourceslice)',... %y flip it
-          desttime)'; %flip it again
-        desttimeframes = 1:SET(tono).TSize;
-      else
-        %Non timeresolved segmentation
-        desttimeframes = [];
-        for tloop=1:SET(fromno).TSize
-          if ~isnan(SET(fromno).RVEndoX(1,tloop,sourceslice))
-%             nt = round(1+(tloop-1)/(SET(fromno).TSize-1)*(SET(tono).TSize-1));
-            [~,nt] = min(abs(desttime-sourcetime(tloop)));
-            SET(tono).RVEndoX(:,nt,destslice) = xofs+fx*SET(fromno).RVEndoX(:,tloop,sourceslice);
-            SET(tono).RVEndoY(:,nt,destslice) = yofs+fy*SET(fromno).RVEndoY(:,tloop,sourceslice);
-            desttimeframes = [desttimeframes nt];
-          end;
-        end;
-      end;
-    end; %Do rvendo
-        
-    %--- Do rvepi    
-    if dorvepi
-      if sum(isnan(SET(fromno).RVEpiX(1,:,sourceslice)))==0
-        %Time resolved segmentation
-        SET(tono).RVEpiX(:,:,destslice) = xofs+fx*interp1(...
-          sourcetime,...
-          SET(fromno).RVEpiX(:,:,sourceslice)',... %y flip it
-          desttime)'; %flip it again
-        SET(tono).RVEpiY(:,:,destslice) = yofs+fy*interp1(...
-          sourcetime,...
-          SET(fromno).RVEpiY(:,:,sourceslice)',... %y flip it
-          desttime)'; %flip it again
-        desttimeframes = 1:SET(tono).TSize;
-      else
-        %Non timeresolved segmentation
-        desttimeframes = [];
-        for tloop=1:SET(fromno).TSize
-          if ~isnan(SET(fromno).RVEpiX(1,tloop,sourceslice))
-%             nt = round(1+(tloop-1)/(SET(fromno).TSize-1)*(SET(tono).TSize-1));
-            [~,nt] = min(abs(desttime-sourcetime(tloop)));
-            SET(tono).RVEpiX(:,nt,destslice) = xofs+fx*SET(fromno).RVEpiX(:,tloop,sourceslice);
-            SET(tono).RVEpiY(:,nt,destslice) = yofs+fy*SET(fromno).RVEpiY(:,tloop,sourceslice);
-            desttimeframes = [desttimeframes nt];
-          end;
-        end;
-      end;
-    end; %Do rvepi
-    
-  end; %Need to interpolate
+    end
+  end;
+  
+  %RVEndo
+  if dorvendo
+    [tempx,tempy,desttimeframes] = importcoordinatehelper(tono,desttime,fromno,SET(fromno).RVEndoX(:,:,sourceslice),SET(fromno).RVEndoY(:,:,sourceslice),sourcetime,sourceslice);
+    if ~isempty(desttimeframes)
+      SET(tono).RVEndoX(:,desttimeframes,destslice) = tempx;
+      SET(tono).RVEndoY(:,desttimeframes,destslice) = tempy;
+    end;        
+  end;
+  
+  %RVEpi
+  if dorvepi
+    [tempx,tempy,desttimeframes] = importcoordinatehelper(tono,desttime,fromno,SET(fromno).RVEpiX(:,:,sourceslice),SET(fromno).RVEpiY(:,:,sourceslice),sourcetime,sourceslice);
+    if ~isempty(desttimeframes)
+      SET(tono).RVEpiX(:,desttimeframes,destslice) = tempx;
+      SET(tono).RVEpiY(:,desttimeframes,destslice) = tempy;
+    end;            
+  end;
   
 end;
-
 
 %--------------------------------------------------------------------------
 function [sourceslice,destslice,sourcetime,desttime,zdirsource,zdirdest] = findmatchingslices ...
@@ -808,7 +789,7 @@ zdirdest = cross(...
 
 anglediff = acos(zdirsource*(zdirdest'))*180/pi;
 
-if anglediff>10
+if anglediff>10 && any([doendo,doepi,dorvendo,dorvepi]);
   myfailed('Angle difference between the two image stacks is greater than 10 degrees.',DATA.GUI.Segment);
   sourceslice = [];
   destslice = [];
@@ -867,7 +848,7 @@ for loop=1:SET(tono).ZSize
 end;
   
 temp = unique(matches);
-if length(temp)<length(matches)
+if length(temp)<length(matches) && any([doendo,doepi,dorvendo,dorvepi]);
   mywarning('Slices in source image stack are denser or non overlapping compared to destination slices. Result may be corrupted.',DATA.GUI.Segment);
 end;
 
@@ -911,14 +892,9 @@ else
   if SET(tono).TSize==1 && SET(fromno).TSize==1
     desttime=1;
     sourcetime=1;
-  elseif not(SET(fromno).Cyclic) || not(SET(tono).Cyclic) && ...
-      SET(tono).HeartRate>0 && SET(fromno).HeartRate>0
-    % interpolation based on heart rate
-    desttime = SET(tono).TimeVector*SET(tono).HeartRate/60;
-    sourcetime = SET(fromno).TimeVector*SET(fromno).HeartRate/60;
-  else
-    desttime = linspace(0,1,SET(tono).TSize);
-    sourcetime = linspace(0,1,SET(fromno).TSize);
+  else 
+    desttime = SET(tono).TimeVector;
+    sourcetime = SET(fromno).TimeVector;
   end
 end;
 
@@ -963,45 +939,118 @@ function importfromcine2scar_Callback %#ok<DEFNU>
 %Import segmentation from cine to scar image stack.
 global DATA SET
 
-cineshortaxisno = findfunctions('findcineshortaxisno');
+if ~isempty(DATA.LVNO)
+  cineshortaxisno = DATA.LVNO;
+else
+  cineshortaxisno = findfunctions('findcineshortaxisno');
+end
 if isempty(cineshortaxisno)
   myfailed('Could not find cine short-axis to import from.',DATA.GUI.Segment);
   return;
 end
-importtf = round(2/3*SET(cineshortaxisno).TSize); %approximately diastasis
-importsegmentationwithsnap_Callback(cineshortaxisno,importtf);
 
-%---------------------------------------------------------------
-function importsegmentationwithsnap_Callback(no,importtf) 
-%---------------------------------------------------------------
+if isempty(SET(cineshortaxisno).EndoX) || isempty(SET(cineshortaxisno).EpiX)
+  myfailed('No LV segmentation available.');
+  return;
+end;
+  
+%Check what timeframe to take from
+importtf = round(2/3*SET(cineshortaxisno).TSize); %approximately diastasis
+
+%If no in diastasis, then try ESV (tested this seems better than EDT)
+if isnan(SET(cineshortaxisno).LVV(importtf))
+  importtf = SET(cineshortaxisno).EST;
+end;
+
+%If no in EST try EDT
+if isnan(SET(cineshortaxisno).LVV(importtf))
+  importtf = SET(cineshortaxisno).EDT;
+end;
+
+importsegmentationwithsnap_Callback(cineshortaxisno,importtf,[1,1,0,0]);
+
+
+%----------------------------------------------
+function importfromcine2txmap_Callback %#ok<DEFNU>
+%----------------------------------------------
+%Import segmentation from cine to Tx maps image stack.
+global DATA SET
+
+%find cine stack to import from
+if ~isempty(DATA.LVNO)
+  cineshortaxisno = DATA.LVNO;
+else
+  cineshortaxisno = findfunctions('findcineshortaxisno');
+end
+
+%error checks
+if isempty(cineshortaxisno)
+  myfailed('Could not find cine short-axis to import from.',DATA.GUI.Segment);
+  return;
+end
+if isempty(SET(cineshortaxisno).EndoX) || isempty(SET(cineshortaxisno).EpiX)
+  myfailed('No LV segmentation available.');
+  return;
+end;
+  
+%Check what timeframe to take from
+importtf = round(2/3*SET(cineshortaxisno).TSize); %approximately diastasis
+
+%If no in diastasis, then try ESV (tested this seems better than EDT)
+if isnan(SET(cineshortaxisno).LVV(importtf))
+  importtf = SET(cineshortaxisno).EST;
+end;
+
+%If no in EST try EDT
+if isnan(SET(cineshortaxisno).LVV(importtf))
+  importtf = SET(cineshortaxisno).EDT;
+end;
+
+%import contour
+txmapimport = true;
+importsegmentationwithsnap_Callback(cineshortaxisno,importtf,[1,1,0,0],txmapimport);
+
+%--------------------------------------------------------------------------
+function importsegmentationwithsnap_Callback(no,importtf,doseg,txmapimport) 
+%--------------------------------------------------------------------------
 %Same as importsegmentation but also snaps contour (rigid registration)
 
-global NO
+global NO SET
 
 switch nargin
   case 0
-    importsegmentation_Callback;
+    [destno,sourceno] = importsegmentation_Callback;
   case 1
-    importsegmentation_Callback(no);
+    [destno,sourceno] = importsegmentation_Callback(no);
   case 2
-    importsegmentation_Callback(no,importtf);
+    [destno,sourceno] = importsegmentation_Callback(no,importtf);
+  case 3
+    [destno,sourceno] = importsegmentation_Callback(no,importtf,doseg);
+  case 4
+    [destno,sourceno] = importsegmentation_Callback(no,importtf,doseg,txmapimport);
 end;
 
 %Adjust to contours
-importadjust(NO);
+if ~isequal(SET(destno).AcquisitionTime,SET(sourceno).AcquisitionTime)
+  importadjust(NO);
+end;
   
 segment('updatemodeldisplay');
 lvsegchanged = true; segment('updatevolume',lvsegchanged);
 drawfunctions('drawallslices');
 
-%-----------------------------------------------------
-function importsegmentation_Callback(no,importtf) 
-%-----------------------------------------------------
+%---------------------------------------------------------------------------
+function [destno,sourceno] = importsegmentation_Callback(no,importtf,doseg,txmapimport) 
+%---------------------------------------------------------------------------
 %Import segmentation from another image stack.
 %Imports to current image stack NO from no or if called with no input
 %arguments user is asked.
 
 global DATA SET NO
+
+if nargin < 4
+  txmapimport = false;
+end
 
 tools('enableundo');
 
@@ -1036,27 +1085,39 @@ if (no>length(SET))||(no<1)
   return;
 end;
 
+sourceno = no;
+destno = NO;
+
+if nargin<3
 %Check what to do - later optionally take from input arguments.
-if ~isempty(SET(no).EndoX) && ~all(isnan(SET(no).EndoX(:)))
+if ~isempty(SET(sourceno).EndoX) && ~all(isnan(SET(sourceno).EndoX(:)))
   doendo = true;
 else
   doendo = false;
 end;
-if ~isempty(SET(no).EpiX) && ~all(isnan(SET(no).EpiX(:)))
+if ~isempty(SET(sourceno).EpiX) && ~all(isnan(SET(sourceno).EpiX(:)))
   doepi = true;
 else
   doepi = false;
 end;
-if ~isempty(SET(no).RVEndoX)&& ~all(isnan(SET(no).RVEndoX(:)))
+if ~isempty(SET(sourceno).RVEndoX)&& ~all(isnan(SET(sourceno).RVEndoX(:)))
   dorvendo = true;
 else
   dorvendo = false;
 end;
-if ~isempty(SET(no).RVEpiX)&& ~all(isnan(SET(no).RVEpiX(:)))
+if ~isempty(SET(sourceno).RVEpiX)&& ~all(isnan(SET(sourceno).RVEpiX(:)))
   dorvepi = true;
 else
   dorvepi = false;
 end;
+else
+  %assure it is a logical;
+  doseg=logical(doseg);
+  doendo=doseg(1);
+  doepi=doseg(2);
+  dorvendo=doseg(3);
+  dorvepi=doseg(4);
+end
 
 if ~any([doendo, doepi, dorvendo, dorvepi])
   myfailed('No segmentation in image to import from.',DATA.GUI.Segment);
@@ -1064,10 +1125,30 @@ if ~any([doendo, doepi, dorvendo, dorvepi])
 end
 
 if nargin > 1
-  [~,~,sourceslices]=importsegmentationhelper(NO,no,doendo,doepi,dorvendo,dorvepi,importtf);
+  importsegmentationhelper(destno,sourceno,doendo,doepi,dorvendo,dorvepi,importtf,txmapimport);
 else
-  [~,~,sourceslices]=importsegmentationhelper(NO,no,doendo,doepi,dorvendo,dorvepi);
+  importsegmentationhelper(destno,sourceno,doendo,doepi,dorvendo,dorvepi);
 end
+
+%-----------------------------
+function e = edgehelper(im)
+%-----------------------------
+%Calculates an edge image
+
+%matlab
+%e = double(edge(im,'sobel'));      
+
+%matlab
+%e = double(edge(im,'canny'));
+
+%--- simple
+f1 = [-1 0 1];
+f2 = f1';
+  
+e1 = conv2(im,f1,'same');
+e2 = conv2(im,f2,'same');
+
+e =sqrt(e1.^2+e2.^2);
 
 %---------------------------
 function importadjust(no)
@@ -1084,7 +1165,7 @@ end;
 
 tools('enableundo');
 
-m = 7; %Size of search region
+m = 7; %Size of search region (unit is pixels)
 
 %Check if there is segmentation
 if isempty(SET(no).EndoX) && isempty(SET(no).EpiX)
@@ -1093,7 +1174,7 @@ end;
 
 %Loop over slices
 otable = zeros(m*2+1,m*2+1,SET(no).ZSize);   
-h = waitbar(0,'Please wait registering contours.');
+h = waitbar(0,dprintf('Please wait registering contours.'));
 for z = 1:SET(no).ZSize          
   
   %Loop over timeframes and update otable
@@ -1110,9 +1191,9 @@ for z = 1:SET(no).ZSize
     if doimage
       %Extract image
       im = SET(no).IM(:,:,t,z);
-      e = double(edge(im,'sobel'));      
-      %e = double(edge(im,'canny'));
       
+      edgeim = edgehelper(im);
+            
       %Loop over displacement
       for dx = -m:m
         for dy = -m:m
@@ -1121,13 +1202,13 @@ for z = 1:SET(no).ZSize
           if ~isempty(SET(no).EndoX) && ~isnan(SET(no).EndoX(1,t,z))
             endox = SET(no).EndoX(:,t,z);
             endoy = SET(no).EndoY(:,t,z);
-            otable(dx+m+1,dy+m+1,z)  = otable(dx+m+1,dy+m+1,z)+score(e,endoy+dy,endox+dx);
+            otable(dx+m+1,dy+m+1,z)  = otable(dx+m+1,dy+m+1,z)+score(edgeim,endoy+dy,endox+dx);
           end;
           
-          if ~isempty(SET(no).EndoX) && ~isnan(SET(no).EpiX(1,t,z))
+          if ~isempty(SET(no).EpiX) && ~isnan(SET(no).EpiX(1,t,z))
             epix = SET(no).EpiX(:,t,z);
             epiy = SET(no).EpiY(:,t,z);
-            otable(dx+m+1,dy+m+1,z)  = otable(dx+m+1,dy+m+1,z)+score(e,epiy+dy,epix+dx);
+            otable(dx+m+1,dy+m+1,z)  = otable(dx+m+1,dy+m+1,z)+score(edgeim,epiy+dy,epix+dx);
           end;
           
         end;  %dy
@@ -1165,8 +1246,24 @@ end; %Z
 
 close(h);
 
+% figure(29);
+% slice = SET(no).CurrentSlice;
+% im = SET(no).IM(:,:,1,slice);
+% 
+% e = edgehelper(im);
+% 
+% endox = SET(no).EndoX(:,1,slice);
+% endoy = SET(no).EndoY(:,1,slice);
+% epix = SET(no).EpiX(:,1,slice);
+% epiy = SET(no).EpiY(:,1,slice);
+% imagesc(e);
+% hold on;
+% plot(endoy,endox,'w-');
+% plot(epiy,epix,'w-');
+% hold off;
+
 %-------------------------------
-function importadjust_Callback
+function importadjust_Callback %#ok<DEFNU>
 %-------------------------------
 %Snaps imported segmentation to image by trying to look at edge detection
 
@@ -1245,7 +1342,6 @@ end;
 
 segment('updatemodeldisplay');
 drawfunctions('drawsliceno');
-
 
 %--------------------------------------
 function removethispins_Callback(endo,epi,rvendo,rvepi) %#ok<DEFNU>

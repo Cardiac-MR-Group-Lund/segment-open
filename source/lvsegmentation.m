@@ -15,118 +15,49 @@ function init
 
 global DATA SET NO
 
-cineno = findfunctions('findno');
-saxno = find(strcmp({SET.ImageViewPlane},'Short-axis'));
-zno = find([SET.ZSize] > 1);
-saxno = intersect(cineno,union(saxno,zno));
+%cineno = findfunctions('findno');
+%saxno = find(strcmp({SET.ImageViewPlane},'Short-axis'));
+%zno = find([SET.ZSize] > 1);
+% saxno = intersect(cineno,union(saxno,zno));
+% 
+% if isempty(saxno)
+%   if ismember(NO,zno) && ...
+%       yesno('Could not find image stack defined as Short-axis Cine. Use current stack?');
+%     saxno = NO;
+%     SET(saxno).ImageViewPlane = 'Short-axis';
+%     SET(saxno).ImageType = 'Cine';
+%     drawfunctions('updatenopanels',saxno);
+%   else
+%     myfailed('Could not find short-axis image stack');
+%     return
+%   end
+% end
+% 
+% if ismember(NO,saxno)
+%   saxno = NO;
+% else
+%   nos = cellfun(@(x)dprintf('Short-axis stack %d',x), ...
+%     num2cell(saxno),'UniformOutput',false);
+%   m = mymenu('Do segmentation on short-axis stack?', ...
+%     nos{:});
+%   if m
+%     saxno = saxno(m);
+%   else
+%     return;
+%   end
+% end
 
-if isempty(saxno)
-  if ismember(NO,zno) && ...
-      yesno('Could not find image stack defined as Short-axis Cine. Use current stack?');
-    saxno = NO;
-    SET(saxno).ImageViewPlane = 'Short-axis';
-    SET(saxno).ImageType = 'Cine';
-    drawfunctions('updatenopanels',saxno);
-  else
-    myfailed('Could not find short-axis image stack');
-    return
-  end
-end
 
-if ismember(NO,saxno)
-  saxno = NO;
-else
-  nos = cellfun(@(x)dprintf('Short-axis stack %d',x), ...
-    num2cell(saxno),'UniformOutput',false);
-  m = mymenu('Do segmentation on short-axis stack?', ...
-    nos{:});
-  if m
-    saxno = saxno(m);
-  else
-    return;
-  end
-end
+[saxno,ch2no,ch3no,ch4no,success]=croplvall(1);
+
+if ~success
+  return
+end 
 
 if SET(saxno).ZSize < 5
   myfailed('Need at least 5 slices for fully automated segmentation (endo&epi).',DATA.GUI.Segment);
   return
 end
-
-[saxno,ch2no,ch3no,ch4no]=croplvall(1);
-% nostocrop = [];
-% if SET(saxno).XSize * SET(saxno).ResolutionX > 210 || ...
-%     SET(saxno).YSize * SET(saxno).ResolutionY > 210
-%   nostocrop = saxno;
-% end
-% 
-% ch2no = [];
-% ch3no = [];
-% ch4no = [];
-% for cham = 2:4
-%   chno = find(strcmp({SET(:).ImageViewPlane},sprintf('%dCH',cham)));
-%   if ~isempty(chno)
-%     if length(chno) > 1
-%       cinechno = find(strcmp({SET(cineno).ImageViewPlane},sprintf('%dCH',cham)));
-%       if ~isempty(cinechno) && length(cinechno) == 1
-%         chno = cineno(cinechno);
-%       else
-%         %ask user
-%         nostri = '(';
-%         for loop = 1:length(chno)
-%           if loop == length(chno)
-%             nostri = [nostri sprintf('%d)',chno(loop))];
-%           else
-%             nostri = [nostri sprintf('%d, ',chno(loop))];
-%           end
-%         end
-%         uniquechno = inputdlg({dprintf('Select %dCH image stack out of %s.',cham,nostri)},'Image Stack',1,{sprintf('%d',chno(1))});
-%         if ~ismember(str2num(uniquechno{1}),chno)
-%           uniquechno = [];
-%         end
-%         if isempty(uniquechno)
-%           myfailed('Invalid image stack.',DATA.GUI.Segment);
-%           return;
-%         else
-%           [chno,ok] = str2num(uniquechno{1}); %#ok<ST2NM>
-%           if not(ok)
-%             myfailed('Invalid image stack.',DATA.GUI.Segment);
-%             return;
-%           end;
-%         end;
-%       end
-%     end
-%     if cham == 2
-%       ch2no = chno;
-%     elseif cham == 3
-%       ch3no = chno;
-%     elseif cham == 4
-%       ch4no = chno;
-%     end
-%     %Check if image needs cropping
-%     if SET(chno).XSize * SET(chno).ResolutionX > 260 || ...
-%     SET(chno).YSize * SET(chno).ResolutionY > 260
-%       nostocrop = [nostocrop chno]; %#ok<AGROW>
-%     end
-%   end
-% end
-% 
-% if ~isempty(nostocrop)
-%   if ~autocropall(true,nostocrop)
-%     if ismember(saxno,nostocrop)
-%       myfailed('Need to crop short-axis stack in order to do LV segmentation');
-%       return
-%     end
-%   elseif SET(saxno).XSize * SET(saxno).ResolutionX > 250 || ...
-%       SET(saxno).YSize * SET(saxno).ResolutionY > 250
-%     myfailed('Need to crop short-axis stack more in order to do LV segmentation');
-%     autocropall(true,nostocrop)
-%     if SET(saxno).XSize * SET(saxno).ResolutionX > 250 || ...
-%         SET(saxno).YSize * SET(saxno).ResolutionY > 250
-%       myfailed('Need to crop short-axis stack more in order to do LV segmentation');
-%       return
-%     end
-%   end
-% end
 
 %Open LV wizard GUI
 gui = mygui('lvsegmentation.fig');
@@ -137,6 +68,9 @@ gui.ch4no = ch4no;
 gui.ch3no = ch3no;
 gui.ch2no = ch2no;
 
+%set ED as current time frame
+tools('enddiastole_Callback');
+
 %Init time slider
 gui.tf = SET(gui.saxno).CurrentTimeFrame;
 tsz = SET(gui.saxno).TSize;
@@ -144,15 +78,15 @@ if tsz == 1
   set(gui.handles.timebaraxes,'visible','off');
 else
   sliderstep = [1/(tsz-1) 5/(tsz-1)];
-set(gui.handles.timeslider,'Min',1,'Max',tsz,'Value',gui.tf, ...
-  'SliderStep',sliderstep);
-set(gui.handles.timetext,'String',sprintf('%0.0f ms',1000*SET(gui.saxno).TimeVector(gui.tf)));
-
-load Icons.mat
-set(gui.handles.prevpushbutton,'CData',icon.prev);
-set(gui.handles.playtogglebutton,'CData',icon.play);
-set(gui.handles.nextpushbutton,'CData',icon.next);
-inittimebar;
+  set(gui.handles.timeslider,'Min',1,'Max',tsz,'Value',gui.tf, ...
+    'SliderStep',sliderstep);
+  set(gui.handles.timetext,'String',sprintf('%0.0f ms',1000*SET(gui.saxno).TimeVector(gui.tf)));
+  
+  load Icons.mat
+  set(gui.handles.prevpushbutton,'CData',icon.prev);
+  set(gui.handles.playtogglebutton,'CData',icon.play);
+  set(gui.handles.nextpushbutton,'CData',icon.next);
+  inittimebar;
 end
 
 %find lv center
@@ -260,13 +194,19 @@ updateselectedslices;
 updatecenterpoint;
 
 %-------------------------------------
-function [saxno,ch2no,ch3no,ch4no]=croplvall(assertboundaries)
+function [saxno,ch2no,ch3no,ch4no,success]=croplvall(assertboundaries,saxno)
 %---------------------------------
 global SET DATA NO
+%Assume succes
+success = 1;
 
 if nargin==0
 assertboundaries=0;
 end
+
+ch2no = [];
+ch3no = [];
+ch4no = [];
 
 cineno = findfunctions('findno');
 saxno = find(strcmp({SET.ImageViewPlane},'Short-axis'));
@@ -282,23 +222,32 @@ if isempty(saxno)
     drawfunctions('updatenopanels',saxno);
   else
     myfailed('Could not find short-axis image stack');
+    success=0;
     return
   end
 end
 
-if ismember(NO,saxno)
-  saxno = NO;
-else
-  nos = cellfun(@(x)dprintf('Short-axis stack %d',x), ...
-    num2cell(saxno),'UniformOutput',false);
-  m = mymenu('Do crop on short-axis stack?', ...
-    nos{:});
-  if m
-    saxno = saxno(m);
+%if called from lv segmentation short axis stack selection has already been done.
+
+  if ismember(NO,saxno)
+    saxno = NO;
   else
-    return;
+    nos = cellfun(@(x)dprintf('Short-axis stack %d',x), ...
+      num2cell(saxno),'UniformOutput',false);
+    if ~assertboundaries
+      m = mymenu('Do crop on short-axis stack?', ...
+        nos{:});
+    else
+      m = mymenu('Do segmentation on short-axis stack?', ...
+        nos{:});
+    end
+    if m
+      saxno = saxno(m);
+    else
+      success=0;
+      return;
+    end
   end
-end
 
 
 nostocrop = [];
@@ -324,10 +273,6 @@ else
   nostocrop = saxno;
 end
 
-
-ch2no = [];
-ch3no = [];
-ch4no = [];
 for cham = 2:4
   chno = find(strcmp({SET(:).ImageViewPlane},sprintf('%dCH',cham)));
   if ~isempty(chno)
@@ -351,11 +296,13 @@ for cham = 2:4
         end
         if isempty(uniquechno)
           myfailed('Invalid image stack.',DATA.GUI.Segment);
+          success=0;
           return;
         else
           [chno,ok] = str2num(uniquechno{1}); %#ok<ST2NM>
           if not(ok)
             myfailed('Invalid image stack.',DATA.GUI.Segment);
+            success=0;
             return;
           end;
         end;
@@ -382,23 +329,25 @@ end
 
 
 if assertboundaries
-if ~isempty(nostocrop)
-  if ~autocropall(true,nostocrop)
-    if ismember(saxno,nostocrop)
-      myfailed('Need to crop short-axis stack in order to do LV segmentation');
-      return
-    end
-  elseif SET(saxno).XSize * SET(saxno).ResolutionX > 250 || ...
-      SET(saxno).YSize * SET(saxno).ResolutionY > 250
-    myfailed('Need to crop short-axis stack more in order to do LV segmentation');
-    autocropall(true,nostocrop)
-    if SET(saxno).XSize * SET(saxno).ResolutionX > 250 || ...
+  if ~isempty(nostocrop)
+    if ~autocropall(true,nostocrop)
+      if ismember(saxno,nostocrop)
+        myfailed('Need to crop short-axis stack in order to do LV segmentation');
+        success=0;
+        return
+      end
+    elseif SET(saxno).XSize * SET(saxno).ResolutionX > 250 || ...
         SET(saxno).YSize * SET(saxno).ResolutionY > 250
       myfailed('Need to crop short-axis stack more in order to do LV segmentation');
-      return
+      autocropall(true,nostocrop)
+      if SET(saxno).XSize * SET(saxno).ResolutionX > 250 || ...
+          SET(saxno).YSize * SET(saxno).ResolutionY > 250
+        myfailed('Need to crop short-axis stack more in order to do LV segmentation');
+        success=0;
+        return
+      end
     end
   end
-end
 else
   autocropall(true,nostocrop)
 end
@@ -824,6 +773,20 @@ switch eventdata.Key
   case 'p'
     set(gui.handles.playtogglebutton,'value',1-mygetvalue(gui.handles.playtogglebutton));
     play_Callback;
+  case 'd'
+    if get(gui.handles.playtogglebutton,'value')
+      set(gui.handles.playtogglebutton,'value',0)
+      play_Callback;
+    end
+    gui.tf = SET(gui.saxno).EDT;
+    updateimages;
+  case 's'
+    if get(gui.handles.playtogglebutton,'value')
+      set(gui.handles.playtogglebutton,'value',0)
+      play_Callback;
+    end
+    gui.tf = SET(gui.saxno).EST;
+    updateimages;
 end
 
 %---------------------

@@ -14,7 +14,7 @@ function [mu sigma,alpha]=emalgorithmconstrained(intensity,classification,fixtoc
 %alpha:
 
 if nargin<2
-  myfailed('Gaussianmixtureestimation requires at least 2 inputs');
+  myfailed('Too few input arguments.');
 end
 
 K=max(classification);%number of classes

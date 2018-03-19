@@ -52,7 +52,7 @@ end
 %----------------------------
 function setbackgroundcolor(backgroundcolor) %#ok<DEFNU>
 %----------------------------
-global DATA
+global DATA SET
 
 if nargin == 0
   mode = mygetvalue(DATA.PrefHandles.backgroundcolorpopupmenu);
@@ -80,13 +80,17 @@ else
     mode=3;
   end
 end
-DATA.Pref.GUIBackgroundColor = backgroundcolor; 
+DATA.Pref.GUIBackgroundColor = backgroundcolor;
 DATA.GUISettings.BackgroundColor=DATA.Pref.GUIBackgroundColor;
 DATA.GUISettings.BoxAxesColor=[0.1 0.1 0.1];
+if mode == 3
+  slidercolor=[0.5 0.5 0.5];
+else
+  slidercolor=[0.86 0.86 0.86];
+end
 
 set(DATA.fig,'Color',backgroundcolor);
 set(DATA.Handles.barpanel,'BackgroundColor',backgroundcolor)
-%set(DATA.Handles.reportpanel,'BackgroundColor',backgroundcolor)
 set(DATA.Handles.distancetext,'BackgroundColor',backgroundcolor)
 
 if mode==3
@@ -97,24 +101,79 @@ if mode==3
 else
   DATA.GUISettings.TimebarAxesColor='black';
   set(get(DATA.Handles.timebaraxes,'Xlabel'),'Color','black');
-   set(DATA.Handles.timebaraxes,'XColor','black');
+  set(DATA.Handles.timebaraxes,'XColor','black');
 end
-% set(DATA.Handles.flowuipanel,'BackgroundColor',backgroundcolor)
-% set(DATA.Handles.lvuipanel,'BackgroundColor',backgroundcolor)
-% set(DATA.Handles.measurementuipanel,'BackgroundColor',backgroundcolor)
+set(DATA.Handles.flowuipanel,'BackgroundColor',backgroundcolor)
+set(DATA.Handles.lvuipanel,'BackgroundColor',backgroundcolor)
+set(DATA.Handles.measurementuipanel,'BackgroundColor',backgroundcolor)
+set(DATA.Handles.reportpanel,'BackgroundColor',backgroundcolor)
+set(DATA.Handles.slider1text,'BackgroundColor',backgroundcolor)
+set(DATA.Handles.slider2text,'BackgroundColor',backgroundcolor)
 
+if mode == 3
+  set(DATA.Handles.volumeaxes,'Color',[0.34,0.34,0.34])
+  set(DATA.Handles.flowaxes,'Color',[0.34,0.34,0.34])
+  set(DATA.Handles.lvuipanel,'HighlightColor',[1,1,1])
+  set(DATA.Handles.flowuipanel,'HighlightColor',[1,1,1])
+  set(DATA.Handles.measurementuipanel,'HighlightColor',[1,1,1])
+  set(DATA.Handles.timebaraxes,'Color',[0.34,0.34,0.34])
+  set(DATA.Handles.timebaraxes,...
+    'XColor',[1,1,1],...
+    'YColor',[1,1,1]);
+  DATA.GUISettings.VolumeColorGraph=[0.34,0.34,0.34];
+  DATA.GUISettings.TimebarAxesColor=[1,1,1];
+  DATA.GUISettings.VolumeAxesColor=[1,1,1];
+  DATA.AxesTables.volume.fontcolor = [1 1 1]; % [1 1 1];%
+  DATA.AxesTables.flow.fontcolor = [1 1 1];
+  DATA.AxesTables.measurement.fontcolor = [1 1 1];
+  DATA.GUISettings.BarColor=[1,0.6,0.2]; %brandgul
+  foregroundcolor=[1,1,1];
+  buttonbackgroundcolor=[0.34,0.34,0.34];
+else
+  set(DATA.Handles.volumeaxes,'Color',[0,0,0])
+  set(DATA.Handles.flowaxes,'Color',[0,0,0])
+  set(DATA.Handles.lvuipanel,'HighlightColor',[0,0,0])
+  set(DATA.Handles.flowuipanel,'HighlightColor',[0,0,0])
+  set(DATA.Handles.measurementuipanel,'HighlightColor',[0,0,0])
+  DATA.GUISettings.VolumeAxesColor=[0,0,0];
+  set(DATA.Handles.timebaraxes,'Color',[1,1,1])
+  set(DATA.Handles.timebaraxes,...
+    'XColor',[0,0,0],...
+    'YColor',[0,0,0]);
+  DATA.GUISettings.TimebarAxesColor=[0,0,0];
+  DATA.GUISettings.VolumeColorGraph=[1,1,1];
+  DATA.GUISettings.BarColor=DATA.GUISettings.BarColorDefault;
+  DATA.AxesTables.volume.fontcolor = [0 0 0]; % [1 1 1];%
+  DATA.AxesTables.flow.fontcolor = [0 0 0];
+  DATA.AxesTables.measurement.fontcolor = [0 0 0];
+  foregroundcolor=[0,0,0];
+  buttonbackgroundcolor=backgroundcolor;
+end
 
+DATA.updateflowaxes;
+DATA.updatevolumeaxes;
+if ~isempty(SET)
+  DATA.updatetimebaraxes;
+end
 
-% setallchildrentextcolor(DATA.Handles.barpanel)
-% setallchildrentextcolor(DATA.Handles.reportpanel)
-% %set(DATA.Handles.reportpanel,'Color',backgroundcolor)
-% 
-% %--------------------------------------
-% function setallchildrentextcolor(parent)
-% %--------------------------------------
+if ~strcmp(DATA.ProgramName,'Segment')
+  set(DATA.Handles.lvstackpushbutton,'BackgroundColor',buttonbackgroundcolor,'foregroundcolor',foregroundcolor)
+  set(DATA.Handles.rvstackpushbutton,'BackgroundColor',buttonbackgroundcolor,'foregroundcolor',foregroundcolor)
+  set(DATA.Handles.flowstackpushbutton,'BackgroundColor',buttonbackgroundcolor,'foregroundcolor',foregroundcolor)
+end
 
+set(DATA.Handles.slider1text,'ForegroundColor',foregroundcolor)
+set(DATA.Handles.slider2text,'ForegroundColor',foregroundcolor)
+ set(DATA.Handles.thumbnailslider,'backgroundcolor',slidercolor);
+ 
+%LV and RV report table
+DATA.AxesTables.volume.backgroundcolor = backgroundcolor;%[0.94 0.94 0.94]; %[0 0 0];%
+DATA.AxesTables.flow.backgroundcolor = backgroundcolor;%[0.94 0.94 0.94]; %[0 0 0];%
+DATA.AxesTables.measurement.backgroundcolor = backgroundcolor;%[0.94 0.94 0.94]; %[0 0 0];%
 
-
+DATA.AxesTables.volume.draw
+DATA.AxesTables.flow.draw
+DATA.AxesTables.measurement.draw
 
 %------------------------
 function default_Callback %#ok<DEFNU>
@@ -126,17 +185,29 @@ DATA.defaultpref;
 update;
 
 %---------------------
-function save_Callback 
+function save_Callback(silent) 
 %---------------------
 %Save preferences to disk
 %
 %When changing in this function also make the same changes in
 %loadpreferences/savetodisk function.
 
+if nargin < 1
+  silent = false;
+end
+
 global DATA
 
 pathname = getpreferencespath;
+pathnamesaveall = pwd; %Segment folder
 Pref = DATA.Pref; %#ok<NASGU> %Saved to file
+%check if preferences for all users already exist
+if exist([pathnamesaveall filesep 'default_preferences.mat']) %,'Pref', DATA.Pref.SaveVersion);
+  if not(silent)
+    myfailed('Default preferences for all users exists and thereby used prior to local preferences.',DATA.GUI.Segment);
+  end
+end
+
 try
   save([pathname filesep '.segment_preferences.mat'],'Pref', DATA.Pref.SaveVersion);
 catch %#ok<CTCH>
@@ -160,7 +231,7 @@ adminrequirement
 
 Pref = DATA.Pref; %#ok<NASGU> %Saved to file
 
-pathname = pwd; %Segment folder
+pathname = pwd;
 try
   save([pathname filesep 'default_preferences.mat'],'Pref', DATA.Pref.SaveVersion);
   disp('Preferences saved to all users (file default preferences).');
@@ -871,7 +942,13 @@ if isfield(DATA.Handles,'deutschmenu')
   set(DATA.Handles.deutschmenu,'Checked','off');
 end
 % set([DATA.Handles.englishmenu DATA.Handles.svenskamenu DATA.Handles.italianomenu DATA.Handles.deutschmenu],'Checked','off');
-eval(sprintf('set(DATA.Handles.%smenu,''Checked'',''on'')',lower(language)));
+try
+  eval(sprintf('set(DATA.Handles.%smenu,''Checked'',''on'')',lower(language)));
+catch % if the current language does not exist in the current software
+  DATA.Pref.Language = 'English';
+  language = 'English';
+  eval(sprintf('set(DATA.Handles.%smenu,''Checked'',''on'')',lower(language)));
+end
 prevlanguage = DATA.Pref.Language;
 DATA.Pref.Language = language;
 if strcmp(prevlanguage,language)
@@ -891,6 +968,29 @@ set(get(DATA.Handles.flowaxes,'ylabel'),'string',translation.dictionary(...
   'Flow [ml/s]'))%get(get(DATA.Handles.flowaxes,'ylabel'),'string')))
 set(get(DATA.Handles.timebaraxes,'xlabel'),'string',translation.dictionary(...
   'Time [ms]'))%get(get(DATA.Handles.timebaraxes,'xlabel'),'string')))
+% set(DATA.Handles.lvstackpushbutton,'String',dprintf('Stack #%d',no));
+if isfield(DATA.Handles,'lvstackpushbutton')
+  if ~isempty(DATA.LVNO)    
+    set(DATA.Handles.lvstackpushbutton,'String',dprintf(translation.dictionary('Stack #%d'),DATA.LVNO));
+  else
+    set(DATA.Handles.lvstackpushbutton,'String',dprintf(translation.dictionary('Set stack')));
+  end
+end
+if isfield(DATA.Handles,'rvstackpushbutton')
+  if ~isempty(DATA.RVNO)    
+    set(DATA.Handles.rvstackpushbutton,'String',dprintf(translation.dictionary('Stack #%d'),DATA.RVNO));
+  else
+    set(DATA.Handles.rvstackpushbutton,'String',dprintf(translation.dictionary('Set stack')));
+  end
+end
+if isfield(DATA.Handles,'flowstackpushbutton')
+  if ~isempty(DATA.FlowNO)    
+    set(DATA.Handles.flowstackpushbutton,'String',dprintf(translation.dictionary('Stack #%d'),DATA.FlowNO));
+  else
+    set(DATA.Handles.flowstackpushbutton,'String',dprintf(translation.dictionary('Set stack')));
+  end
+end
+
 
 %DATA.flowreportupdate
 if isfield(DATA.AxesTables,'flow')
@@ -906,7 +1006,8 @@ for i = 1:numel(guis)
     translation.translatealllabels(DATA.GUI.(guis{i}).fig,prevlanguage);
   end
 end
-save_Callback; %Always save
+silent = true;
+save_Callback(silent); %Always save
 
 
 %---------------------------
@@ -1124,25 +1225,6 @@ if any(isrunning)
      return
    end
 end
-
-% if any(isrunning)
-%   answer=yesno(sprintf('To install, the following services need to shutdown:\n\n%s\n%s\n%s\n\n Do this now?','segmentserversorter.exe', 'nssm.exe', 'storescu.exe'));
-%   if answer
-%     try
-%       tostop=find(isrunning);
-%       %To start and stop you need administrator priviliges, is pause sufficient?
-%       for i=tostop
-%         [~,result] = system(sprintf('sc stop %s',forbidden{isrunning(i)}(1:end-4)));
-%       end
-%     catch
-%       mywarning('Failed to stop ongoing process, are administrator priviliges on?')
-%       return;
-%     end
-%     mydisp('done')
-%   else
-%     return;
-%   end
-% end
 
 segmentpath = pwd;
 

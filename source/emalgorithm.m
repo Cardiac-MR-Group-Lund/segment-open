@@ -19,7 +19,7 @@ function [mu, sigma, alpha, classification]=emalgorithm(intensity, initialclassi
 %Felicia Seemann, june 2013. Part of master theisis.
 
 if nargin < 2
-  myfailed('Need at least two input arguments.');
+  myfailed('Too few input arguments.');
   return;
 elseif nargin < 3
   tol=0.0005;

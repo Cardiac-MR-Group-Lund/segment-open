@@ -81,16 +81,15 @@ classdef myicon < handle %Inherits from handles to get persistent objects.
       end
     
       function unhighlight(varargin)
-        global DATA
+        
       g=varargin{1};
-      %global DATA
       %First check so that button is enabled
        if g.enabled
          %Check that if the button we are over is the same as the the
          %clicked button, if so indent it. If not we want to unhighlight the previous button
          currenticon=g.parentobj.geticon;
          %if isequal(g,g.parentobj.clickedicon) && isequal(hittest(DATA.fig),g.parentobj.imagehandle)
-        if isequal(currenticon,g.parentobj.clickedicon) && isequal(hittest(DATA.fig),g.parentobj.imagehandle)
+        if isequal(currenticon,g.parentobj.clickedicon) && isequal(hittest(g.parentobj.fig),g.parentobj.imagehandle)
          switch g.type
             case 0
              g.cdataDisplay=g.cdata;
@@ -121,7 +120,7 @@ classdef myicon < handle %Inherits from handles to get persistent objects.
               %profile report
          %if isequal(hittest(get(g.parentobj.axeshandle,'Parent')),g.parentobj.imagehandle)
            %segment(g.execute);
-           feval(g.execute)%run(g.execute)
+           feval(g.execute); %run(g.execute)
          %end
          else
            g.cdataDisplay=g.cdata;

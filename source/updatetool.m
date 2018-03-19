@@ -137,16 +137,16 @@ end
 %Take care of automatic segmentation methods
 if ismember(newtype, autolist)
   %Warn if dangerous image size
-  if ismember(newtype, {'autorvendo'})
-    automaxsz = 256*200;
-    if SET(no).XSize*SET(no).YSize > automaxsz
-      if ~yesno(['Warning: Auto segmentation of an image this size might ' ...
-          'cause fatal memory errors. We strongly recommend that you '...
-          'crop the image before auto segmenting. Proceed anyway?']);
-        return
-      end
-    end
-  end
+%   if ismember(newtype, {'autorvendo'})
+%     automaxsz = 256*200;
+%     if SET(no).XSize*SET(no).YSize > 2*automaxsz
+%       if ~yesno(['Warning: Auto segmentation of an image this size might ' ...
+%           'cause fatal memory errors. We strongly recommend that you '...
+%           'crop the image before auto segmenting. Proceed anyway?']);
+%         return
+%       end
+%     end
+%   end
   
   %DATA.CurrentTool = 'select';
 DATA.CurrentTool = oldtype;
@@ -159,7 +159,7 @@ DATA.CurrentTool = oldtype;
     case 'autoepi'
       lvpeter('segmentepi_Callback');
     case 'autorvendo'
-      rv('segmentrvendo_Callback');
+      rvsegmentation; %rv('segmentrvendo_Callback');
     case 'autolvct'
       ct.ctlicensecheck('CTLVSegmentation');
     case 'autorvct'

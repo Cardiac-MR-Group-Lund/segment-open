@@ -16,8 +16,8 @@ global SET NO
 if nargin < 1
   no = NO;
 end
-figure(10);
-set(10,'Name','Volume curve','numbertitle','off');
+fig=figure('visible','off');
+set(fig,'Name','Volume curve','numbertitle','off');
 t = 1000*((0:(SET(no).TSize-1))*SET(no).TIncr);
 h = plot(t,SET(no).LVV,'r.-');
 set(h,'linewidth',2);
@@ -34,6 +34,12 @@ grid on;
 % h = title('Volume versus time');set(h,'fontsize',14);
 h = xlabel('Time [ms]'); set(h,'fontsize',14);
 h = ylabel('Volume [ml]'); set(h,'fontsize',14);
+set(0, 'currentfigure', fig);
+currentFolder = pwd;
+cd(getpreferencespath)
+print(fig,'-dpng', 'lvvolumeplot.png')
+cd(currentFolder)
+delete(fig)
 
 %---------------------
 function loop_Callback %#ok<DEFNU>

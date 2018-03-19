@@ -53,27 +53,46 @@ classdef htmlgenerator
     end
     
     %-------------
-    function stri = table(hg, content, boldcells, width)
+    function stri = table(hg, content, boldcells, width, bgcolors)
     %-------------
     %TABLE Method to insert a table with content specified by a cell.
-    
-      if nargin < 4
+    if nargin <5
+      bgcolors = zeros(size(content));
+      if nargin < 4 
         width = round(0.625*hg.pagewidth);
-        if nargin < 3
+        if nargin < 3 
           boldcells = zeros(size(content));
-          if nargin < 2
+          if nargin < 2 
             myfailed('Too few input arguments.');
           end
         end
       end
-      
+    end
+      tdstring='<td>';
       stri = sprintf('<table frame=box rules=all width=%d>\n', width);
       for i = 1:size(content, 1)
         stri = [stri sprintf('<tr>\n')]; %#ok<AGROW>
         for j = 1:size(content, 2)
+          if bgcolors(i,j) == 2
+            tdstring='<td bgcolor=#ff0000>';
+          elseif bgcolors(i,j) == 3
+           tdstring='<td bgcolor=#ffff00>';
+          elseif bgcolors(i,j) == 4
+            tdstring='<td bgcolor=#33ccff>';
+          else
+             tdstring='<td>';
+          end 
+          
           if boldcells(i, j) == 2
             b1 = '<font color="red">';
+            b2 = '</font>';          
+          elseif boldcells(i, j) == 3
+            b1 = '<font color="yellow">';
+            b2 = '</font>';            
+          elseif boldcells(i, j) == 4
+            b1 = '<font color="blue">';
             b2 = '</font>';
+            
           elseif boldcells(i, j)
             b1 = '<b>';
             b2 = '</b>';
@@ -81,7 +100,7 @@ classdef htmlgenerator
             b1 = '';
             b2 = '';
           end
-          stri = [stri sprintf('<td>%s%s%s</td>\n', b1, content{i,j}, b2)]; %#ok<AGROW>
+          stri = [stri sprintf('%s%s%s%s</td>\n',tdstring, b1, content{i,j}, b2)]; %#ok<AGROW>
         end
         stri = [stri sprintf('</tr>\n')]; %#ok<AGROW>
       end

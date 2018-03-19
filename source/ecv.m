@@ -303,8 +303,8 @@ end
 %check so the images have the same resolution
 notok = 0;
 for k = 1:length(preno)
-  if abs(SET(preno(k)).ResolutionX - SET(postno(k)).ResolutionX) > 1e-5 || ...
-      abs(SET(preno(k)).ResolutionY - SET(postno(k)).ResolutionY) > 1e-5
+  if abs(SET(preno(k)).ResolutionX - SET(postno(k)).ResolutionX) > 1e-2 || ...
+      abs(SET(preno(k)).ResolutionY - SET(postno(k)).ResolutionY) > 1e-2
     notok = 1;
   end
 end
@@ -811,9 +811,6 @@ set(gui.handles.hidesegmentationradiobutton,'value',0);
 plotLVsegmentation(multislice,lvsegslicepre);
 plotROI(multislice,lvsegslicepre);
 
-%present result
-set(gui.handles.hematocrittext,'String',dprintf('Hematocrit: %0.2f',gui.hem));
-
 
 %-------------------------------------------
 function z = reshape2layout(im,rows,cols,sz)
@@ -1095,7 +1092,9 @@ global DATA
 gui = DATA.GUI.ECVRegistration;
 
 %set colormap
-hotmap = colormap(jet(256)); 
+% hotmap = colormap(jet(256)); 
+load('colormapecv');
+hotmap = flipud(colormapecv)./256;
 
 %plot ECV map
 
@@ -1233,8 +1232,15 @@ global DATA
 
 gui = DATA.GUI.ECVRegistration;
 
-%ecv result string
-string = dprintf('ROI analysis ECV Result\n\nLabel  Area[mm2]  Mean  Min  Max\n');
+%present ECV result
+AxesTables = [];
+AxesTables.result = axestable(gui.handles.reportaxes);
+AxesTables.result.backgroundcolor = [0.94 0.94 0.94]; %[0 0 0];%
+AxesTables.result.fontcolor = [0 0 0]; % [1 1 1];%
+AxesTables.result.fontsize = 10;
+AxesTables.result.ystep = 22;
+AxesTables.result.addTable(sprintf('ECV Result.  Hematocrit: %0.2f',gui.hem),5,4,[0.18 0.25 0.19 0.19 0.19]);
+AxesTables.result.addKey('title','Label',[],{'Area[mm2]','Mean','Min','Max'});
 
 zvisualization = 1;
 sz = size(gui.preT1map{1});
@@ -1253,21 +1259,27 @@ for zloop = 1:nbrrows
   %ecv result string
   roiloop = 1;
   if multislice
-    string = [string dprintf('Slice %0.0f\n',lvsegslicepre(zloop))];
+    tabletext = sprintf('Slice %0.0f\n',lvsegslicepre(zloop));
     roiarea = roiareatemp{zloop};
     roiecv = roiecvalignedtemp{zloop};
     prerois = allroistemp{zloop};
     tfindex = 1;
   else
-    string = [string dprintf('Image stack %0.0f\n',zloop)];
+    tabletext = sprintf('Image stack %0.0f\n',zloop);
     roiarea = gui.roiarea{zloop};
     roiecv = gui.roiecvaligned{zloop};
     prerois = gui.rois{zloop};
     tfindex = zloop;
   end
+  AxesTables.result.addTable(tabletext,5,4,[0.2 0.23 0.19 0.19 0.19]);
+%   AxesTables.result.addKey('title2',tabletext,[],{[],[],[],[]});
   %ROI contour
   [xofs,yofs] = spect.spectperfusionsegmentation('calcoffset',zvisualization,nbrcols,sz);
   zvisualization = zvisualization+1;
+  roixView = [];
+  roiyView = [];
+  roilabelX = [];
+  roilabelY = [];
   for preroi = prerois
     roixView((1+(roiloop-1)*(DATA.NumPoints+1)):(roiloop*(DATA.NumPoints+1)-1)) = ...
       preroi.X(:,gui.premaptf(tfindex))+xofs;
@@ -1275,9 +1287,7 @@ for zloop = 1:nbrrows
       preroi.Y(:,gui.premaptf(tfindex))+yofs;
     roilabelX(roiloop) = mynanmean(preroi.X(:,gui.premaptf(tfindex))+xofs);
     roilabelY(roiloop) = mynanmean(preroi.Y(:,gui.premaptf(tfindex))+yofs);
-    %roi result string
-    string = [string dprintf('%s:   %0.2f       %0.0f     %0.0f     %0.0f\n',...
-      preroi.Name,roiarea(roiloop),100*mean(roiecv{roiloop}),100*min(roiecv{roiloop}),100*max(roiecv{roiloop}))];
+    AxesTables.result.addKey(preroi.Name,preroi.Name,[],{dprintf('%0.2f',roiarea(roiloop)),round(100*mean(roiecv{roiloop})),round(100*min(roiecv{roiloop})),round(100*max(roiecv{roiloop}))});
     roiloop = roiloop+1;
   end
   
@@ -1295,15 +1305,15 @@ for zloop = 1:nbrrows
   hold(gui.handles.ecvaxes,'on');
   gui.handles.ecvroiplot(zloop) = plot(gui.handles.ecvaxes,roiyView,roixView,'k-');
   hold(gui.handles.ecvaxes,'off');
-  %ecv result string
-  string = [string sprintf('\n')];
   %store the roi plottig
   gui.handles.roixView{zloop} = roixView;
   gui.handles.roiyView{zloop} = roiyView;
   gui.handles.roilabels{zloop} = {prerois.Name};
 end
-%present result
-set(gui.handles.resulttext,'String',string);
+
+% add table to axes
+AxesTables.result.draw();
+gui.AxesTables.result = AxesTables.result;
 
 
 %--------------------
@@ -1429,9 +1439,7 @@ function updateroiresult
 global DATA
 
 gui = DATA.GUI.ECVRegistration;
-
-%ecv result string
-string = dprintf('ROI analysis ECV Result\n\nLabel  Area[mm2]  Mean  Min  Max\n');
+AxesTables.result = gui.AxesTables.result;
 
 if gui.multislice
   nbrrows = length(gui.lvsegslicepre);
@@ -1450,12 +1458,12 @@ for zloop = 1:nbrrows
   %ecv result string
   roiloop = 1;
   if gui.multislice
-    string = [string dprintf('Slice %0.0f\n',gui.lvsegslicepre(zloop))];
+%     string = [string dprintf('Slice %0.0f\n',gui.lvsegslicepre(zloop))];
     roiarea = roiareatemp{zloop};
     roiecv = roiecvalignedtemp{zloop};
     prerois = allroistemp{zloop};
   else
-    string = [string dprintf('Image stack %0.0f\n',zloop)];
+%     string = [string dprintf('Image stack %0.0f\n',zloop)];
     roiarea = gui.roiarea{zloop};
     if get(gui.handles.applyalignmentradiobutton,'Value')
       roiecv = gui.roiecvaligned{zloop};
@@ -1465,14 +1473,15 @@ for zloop = 1:nbrrows
     prerois = gui.rois{zloop};
   end
   for preroi = prerois
-    string = [string dprintf('%s:   %0.2f       %0.0f     %0.0f     %0.0f\n',...
-      preroi.Name,roiarea(roiloop),100*mean(roiecv{roiloop}),100*min(roiecv{roiloop}),100*max(roiecv{roiloop}))];
+    updatestruct = {dprintf('%0.2f',roiarea(roiloop)),round(100*mean(roiecv{roiloop})),round(100*min(roiecv{roiloop})),round(100*max(roiecv{roiloop}))};
+    AxesTables.result.updateKey(preroi.Name,updatestruct,true);
     roiloop = roiloop+1;
   end
-  %ecv result string
-  string = [string sprintf('\n')];
 end
-set(gui.handles.resulttext,'String',string);
+
+% add table to axes
+AxesTables.result.draw();
+gui.AxesTables.result = AxesTables.result;
 
 
 %----------------------------------
@@ -1683,61 +1692,70 @@ gui = DATA.GUI.ECVRegistration;
 for zloop = 1:length(gui.preno)
   nbr = length(SET)+1;
   NO = nbr;
-  SET(NO) = SET(gui.preno(1));
+  no = nbr;
+  SET(no) = SET(gui.preno(1));
   %fix the time resolution
-  if SET(NO).TSize>1
+  if SET(no).TSize>1
     DATA.Silent = 1;
     ind = 1;
     tools('removetimeframes',ind);
     DATA.Silent = 0;
-    [SET(NO).TSize,SET(NO).OrgTSize,SET(NO).StartSlice,SET(NO).EndSlice, ...
-      SET(NO).StartAnalysis,SET(NO).EndAnalysis,SET(NO).CurrentTimeFrame] = deal(1);
-    SET(NO).TIncr = 0;
+    [SET(no).TSize,SET(no).OrgTSize,SET(no).StartSlice,SET(no).EndSlice, ...
+      SET(no).StartAnalysis,SET(no).EndAnalysis,SET(no).CurrentTimeFrame] = deal(1);
+    SET(no).TIncr = 0;
   end
   %fix image
-  SET(NO).IM = gui.ecvmap{zloop};
-  SET(NO).OrgZSize = SET(NO).ZSize;
-  SET(NO).OrgTSize = SET(NO).TSize;
-  SET(NO).ImageType = 'ECV map';
-  SET(NO).SeriesDescription = 'ECV map';
-  [SET(NO).XSize,SET(NO).OrgXSize] = deal(size(gui.ecvmap{zloop},2));
-  [SET(NO).YSize,SET(NO).OrgYSzie] = deal(size(gui.ecvmap{zloop},1));
-  [SET(NO).CenterX,SET(NO).Mmode.X] = deal(round(SET(NO).XSize/2));
-  [SET(NO).CenterY,SET(NO).Mmode.Y] = deal(round(SET(NO).YSize/2));
-  SET(NO).Linked = NO;
+  SET(no).IM = max(0,min(1,gui.ecvmap{zloop}));
+  SET(no).IntensityScaling = 100;
+  SET(no).IntensityOffset = 0;
+  SET(no).OrgZSize = SET(no).ZSize;
+  SET(no).OrgTSize = SET(no).TSize;
+  SET(no).ImageType = 'ECV map';
+  SET(no).SeriesDescription = 'ECV map';
+  [SET(no).XSize,SET(no).OrgXSize] = deal(size(gui.ecvmap{zloop},2));
+  [SET(no).YSize,SET(no).OrgYSzie] = deal(size(gui.ecvmap{zloop},1));
+  [SET(no).CenterX,SET(no).Mmode.X] = deal(round(SET(no).XSize/2));
+  [SET(no).CenterY,SET(no).Mmode.Y] = deal(round(SET(no).YSize/2));
+  SET(no).Linked = no;
   annotationpoint('pointclearall'); %erase annotation points
   %fix LV segmentation
-  SET(NO).EndoX = gui.endox{zloop};
-  SET(NO).EndoY = gui.endoy{zloop};
-  SET(NO).EpiX = gui.epix{zloop};
-  SET(NO).EpiY = gui.epiy{zloop};
+  SET(no).EndoX = gui.endox{zloop};
+  SET(no).EndoY = gui.endoy{zloop};
+  SET(no).EpiX = gui.epix{zloop};
+  SET(no).EpiY = gui.epiy{zloop};
   %fix ROI segmentation  
   if gui.multislice
     allrois = gui.rois{zloop};    
-    SET(NO).Roi = [];
+    SET(no).Roi = [];
     for sliceloop = 1:length(allrois)
       rois = allrois{sliceloop};
-      SET(NO).Roi = [SET(NO).Roi rois];
+      SET(no).Roi = [SET(no).Roi rois];
     end
   else
-    SET(NO).Roi = gui.rois{zloop};
+    SET(no).Roi = gui.rois{zloop};
   end
-  SET(NO).RoiN = length(SET(NO).Roi);
-  SET(NO).RoiCurrent = min(SET(NO).RoiCurrent,SET(NO).RoiN);
-  for rloop=1:SET(NO).RoiN
-    SET(NO).Roi(rloop).X = SET(NO).Roi(rloop).X(:,gui.premaptf);
-    SET(NO).Roi(rloop).Y = SET(NO).Roi(rloop).Y(:,gui.premaptf);
-    SET(NO).Roi(rloop).T = 1;
+  SET(no).RoiN = length(SET(no).Roi);
+  SET(no).RoiCurrent = min(SET(no).RoiCurrent,SET(no).RoiN);
+  for rloop=1:SET(no).RoiN
+    SET(no).Roi(rloop).X = SET(no).Roi(rloop).X(:,gui.premaptf);
+    SET(no).Roi(rloop).Y = SET(no).Roi(rloop).Y(:,gui.premaptf);
+    SET(no).Roi(rloop).T = 1;
   end
   
-  tools('setcolormap_Callback','jet')
+  tools('setcolormap_Callback','ecv',no);
   %erase MaR and scar data
-  SET(NO).MaR = [];
-  SET(NO).Scar = [];
+  SET(no).MaR = [];
+  SET(no).Scar = [];
 end
 
 segment('updatevolume'); %Included in next callback??
 segment('viewrefreshall_Callback');
+force = true;
+segment('switchtoimagestack',no,force);
+tools('setcolormap_Callback','ecv',no);
+% drawfunctions('drawimageno');
+% drawfunctions('drawsliceno');
+% drawfunctions('drawall',length(DATA.ViewPanels));
 
 
 %----------------------

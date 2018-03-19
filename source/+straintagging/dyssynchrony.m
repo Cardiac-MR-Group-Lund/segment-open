@@ -213,6 +213,12 @@ end
   
 radio_Callback;
 
+%unclick apex after initiation
+if strcmp(type,'SAX')
+  set(gui.handles.radiobutton17,'Value',0)
+  radio_Callback
+end
+
 
 function setpeak_Callback(type,ind)
 global DATA

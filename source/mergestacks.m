@@ -88,7 +88,6 @@ else
     close(handles.figure1);
   end
 end
-  
 
 %---------------------------------
 function domerge(nostomerge,force)
@@ -113,6 +112,8 @@ end
 [~,ord] = sort(sliceloc,'descend');
 nostomerge = nostomerge(ord);
 
+slicegap=zeros(1,length(nostomerge)-1);
+counter=1;
 
 while numel(nostomerge) > 1
   no1 = nostomerge(1);
@@ -173,11 +174,6 @@ while numel(nostomerge) > 1
   if ~isequal(orsz1(3),orsz2(3))
         myfailed('Number of timeframes does not match.')
         return
-%     answer=yesno('Number of timeframes does not match. Do you wish to resample stacks?');
-%     if answer
-%       initwhichstack_Callback
-%     end
-%       return
   end
   
   %Check slice order by looking at fh coordinates of end slices
@@ -185,6 +181,9 @@ while numel(nostomerge) > 1
     overlap = true;
     start1 = 1;
     start2 = 1;
+    
+    mostbasal=1e6;
+    mostapical=-1e6;
     while overlap
       sortord = '';
       p1_1 = calcfunctions('xyz2rlapfh',no1,xm1,ym1,start1);
@@ -202,9 +201,12 @@ while numel(nostomerge) > 1
         sortord = [sortord 'y'];
       end
       
-      %zvec = [p1_1(3) p1_2(3) p2_1(3) p2_2(3)];
       pmat = [p1_1;p1_2;p2_1;p2_2]';
+
       zvec = zdir1*pmat;
+      mostbasal=min([zvec,mostbasal]);
+      mostapical=max([zvec,mostapical]);
+      
       [~,sortind] = sort(zvec);
       sortord = [sortord char(sortind+'a'-1)];
       switch sortord
@@ -249,6 +251,17 @@ while numel(nostomerge) > 1
   yext = 1:size(set2.IM,2);
   zext = zpre+1:newzsz;
   
+  %estimation of slice gap    
+  %If all merged stacks are single slice then we need to estimate
+  %slicegap since zero in original images
+
+  if newzsz>1
+    slicegap(counter)=abs(mostapical-mostbasal)/(newzsz-1)-setstruct.SliceThickness;
+    counter=counter+1;
+    %setstruct.SliceGap=abs(mostapical-mostbasal)/(newzsz-1)-setstruct.SliceThickness;
+    
+  end
+  
   %--- Update variables
   
   %Convert to true data and then back again to get correct scaling
@@ -265,7 +278,7 @@ while numel(nostomerge) > 1
   setstruct.YSize = max(SET(no1).YSize,set2.YSize);
   setstruct.StartSlice = 1;
   setstruct.EndSlice = newzsz;
-  
+
   %Scar
   if isempty(setstruct.Scar) && ~isempty(set2.Scar)
     %no1 is empty but no2 is not
@@ -380,8 +393,18 @@ while numel(nostomerge) > 1
   setstruct.Children = [];
   SET(newno) = setstruct;
   SET(newno).Linked = newno;
-  
   nostomerge = [newno nostomerge(3:end)];
+end
+
+%use last slicegap calculation as slicegap.
+SET(newno).SliceGap=slicegap(end);
+
+if max(diff(slicegap))>1
+  ok = yesno('More than one millimeter difference in spacing of slices. Proceed any way?','Not Equidistant slices',DATA.GUI.Segment);
+  if ~ok
+    SET(newno) = [];
+    return;  
+  end
 end
 
 %remove Strain tagging analysis

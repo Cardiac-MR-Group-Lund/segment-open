@@ -220,6 +220,8 @@ classdef maingui < handle %Handle class
     g.GUI.Fusion = [];
     g.GUI.GreyZoneHist = [];
     g.GUI.GreyZoneHistAlt = [];
+    g.GUI.GObject = [];
+    g.GUI.GObjectSpeedIM = [];
     g.GUI.Hotkeys = [];
     g.GUI.ImageStacksCT = [];
     g.GUI.InterchangeDelineation =[];
@@ -243,12 +245,14 @@ classdef maingui < handle %Handle class
     g.GUI.Perfusion = [];
     g.GUI.PerfusionGraphs = [];
     g.GUI.PerfusionMR = [];
+    g.GUI.PerfusionScoring = [];
     g.GUI.Pressure = [];
     g.GUI.PulseWaveVelocity = [];
     g.GUI.Reformat = [];
     g.GUI.ReportSheetGenerator = []; %GUI for generating reports
     g.GUI.Report3DModel = [];
     g.GUI.ROI = [];
+    g.GUI.RVSegmentation = [];
     g.GUI.SegmentView = [];
     g.GUI.SeriesSelector=[];
     g.GUI.SetImageDescription =[];
@@ -282,6 +286,8 @@ classdef maingui < handle %Handle class
     g.GUISettings.AxesColorDefault=[1 0.6 0.2];
     g.GUISettings.AxesColor = [1,1,1];%g.GUISettings.AxesColorDefault;
     g.GUISettings.TimebarAxesColor = [0,0,0];
+    g.GUISettings.BarColorDefault=[55 119 106]/256;
+    g.GUISettings.BarColor=[55 119 106]/256;
 
     g.GUISettings.ThumbLineColor = [1 0.6 0.2];
     g.GUISettings.ThumbFlowLineColor = [0.9 0.9 0.9];
@@ -351,7 +357,7 @@ classdef maingui < handle %Handle class
     g=varargin{1};
     
     hideiconcell={};
-    hideiconcell{1,end+1}=myicon('synchronize',g.Handles.hideiconholder,g.Icons.config.syncronize,'Synchronize',@() segment('synchronize'),2);
+    hideiconcell{1,end+1}=myicon('synchronize',g.Handles.hideiconholder,g.Icons.config.syncronize,'Synchronize all image stacks',@() segment('synchronize'),2);
     hideiconcell{1,end+1}=myicon('singleframemode',g.Handles.hideiconholder,g.Icons.config.singleframemode,'Single frame mode',@() segment('thisframeonly_Callback',1,0) ,1,1);
     hideiconcell{1,end+1}=myicon('allframesmode',g.Handles.hideiconholder,g.Icons.config.allframesmode,'All frames mode',@()  segment('thisframeonly_Callback',0,0),1,1);
     hideiconcell{1,end+1}=myicon('hideicons',g.Handles.hideiconholder,g.Icons.config.hideiconpanel,'Hide icons',@() segment('hidepanels'),2);
@@ -450,64 +456,6 @@ classdef maingui < handle %Handle class
     
     end
     
-    
-%     %--------------------------------------------
-%     function hideallpanels(varargin)
-%     %----------------------------------------------
-%     %The function hide all panels hides all panels and displays only image
-%     %you can use the current tool
-% 
-%     g=varargin{1};
-%     %First check which state we want to toggle to
-%    
-%     if get(g.Handles.hideallpanelscheckbox,'value')==1 
-%       state2toggle2  = 'off';
-%     else
-%       state2toggle2  = 'on';
-%     end
-%     
-%     if strcmp(state2toggle2,'on')
-%       %default
-%       g.GUISettings.TopGapHeight = 0.135;
-%       g.GUISettings.BottomGapHeight = 0.133;
-%       g.GUISettings.RightGapWidth = 0.21;
-%     else
-%       g.GUISettings.TopGapHeight = 0.05;
-%       g.GUISettings.BottomGapHeight = 0.05;
-%       g.GUISettings.RightGapWidth = 0.05;
-%     end
-%     
-%     %Start setting the visible command
-%     set(g.Handles.barpanel,'Visible',state2toggle2)
-%     set(g.Handles.flowuipanel,'Visible',state2toggle2)
-%     datasetaxeschildren=get(g.Handles.datasetaxes,'children');
-%     set(datasetaxeschildren,'Visible',state2toggle2)
-%     set(g.Handles.datasetaxes,'Visible','off')
-%     set(g.Handles.iconuipanel,'Visible',state2toggle2)
-%     set(g.Handles.lvuipanel,'Visible',state2toggle2)
-%      set(g.Handles.reportpanel,'Visible',state2toggle2)
-%    
-%     %we dont want the user to see the checkbox moving
-%     set(g.Handles.hideallpanelscheckbox,'Visible','off')
-%     rows=g.ViewMatrix(1);
-%     cols=g.ViewMatrix(2);
-%     drawfunctions('drawall',rows,cols)
-%     currentpos=get(g.Handles.hideallpanelscheckbox,'Position');
-%     currentWidth=currentpos(3);
-%     
-%     if strcmp(state2toggle2,'off')
-%       %Set so that hideallpanels
-%       set(g.Handles.hideallpanelscheckbox,'Position',[currentpos(1),1-currentpos(4),currentpos(3),currentpos(4)]);  %[1-currentWidth,1-currentpos(4),currentpos(3),currentpos(4)]);
-%      set(g.Handles.hideallpanelscheckbox,'Visible','on','BackgroundColor',g.GUISettings.BackgroundColor) 
-%     set(g.Handles.hideallpanelscheckbox,'Visible','on','ForegroundColor',g.GUISettings.TimebarAxesColor) 
-%     else
-%       panelpos=get(g.Handles.reportpanel,'Position');
-%       set(g.Handles.hideallpanelscheckbox,'Position',[currentpos(1),panelpos(2)+panelpos(4)+currentpos(4)/4,currentpos(3),currentpos(4)]); %[panelpos(1)-currentWidth,panelpos(4)-currentpos(4),currentpos(3),currentpos(4)]);
-%      set(g.Handles.hideallpanelscheckbox,'Visible','on','BackgroundColor',get(g.Handles.iconuipanel,'BackgroundColor'))
-%     set(g.Handles.hideallpanelscheckbox,'Visible','on','ForegroundColor','black')
-%      end
-%     end
-    
     %-----------------------------------
     function togglebuttonLV_Callback(varargin)
     %-----------------------------------
@@ -523,34 +471,21 @@ classdef maingui < handle %Handle class
     %buttons according to discussion with Helen
     %for LV this is the endo pen
     iconcell=g.Icons.lviconcell;
-    clickedbutton=0;
-
+        clickedbutton=0;
+    
     for i= 1:g.Handles.configiconholder.numberoficons
       if iconcell{i}.isindented && iconcell{i}.type==1
         clickedbutton=i;
       end
-      
-      if strcmp(iconcell{i}.name,'endopen')
-        ind=i;
-      end
     end
     
     if clickedbutton==0
-      iconcell{ind}.cdataDisplay=iconcell{ind}.cdataIndent;
-      iconcell{ind}.isindented=1;
-      %run(iconcell{ind}.execute);
-      feval(iconcell{ind}.execute);
-      %tool2toggle2='endopen';
+      indent(g.Handles.configiconholder,'endopen',1)
     else
-      iconcell{clickedbutton}.cdataDisplay=iconcell{clickedbutton}.cdataIndent;
-      iconcell{clickedbutton}.isindented=1;
-      %run(iconcell{ind}.execute);
-      feval(iconcell{clickedbutton}.execute);
-      %tool2toggle2=iconcell{clickedbutton}.name;
+      indent(g.Handles.configiconholder,iconcell{clickedbutton}.name,1)
     end
-      %g.CurrentTool=tool2toggle2;
-      g.Handles.configiconholder.render;
     end
+
     
     %-----------------------------------
     function togglebuttonRV_Callback(varargin)
@@ -569,34 +504,19 @@ classdef maingui < handle %Handle class
     %buttons according to discussion with Helen
     %for RV this is the endo pen
     iconcell=g.Icons.rviconcell;
-    clickedbutton=0;
-
+        clickedbutton=0;
+    
     for i= 1:g.Handles.configiconholder.numberoficons
       if iconcell{i}.isindented && iconcell{i}.type==1
         clickedbutton=i;
       end
-      
-      if strcmp(iconcell{i}.name,'rvendopen')
-        ind=i;
-      end
     end
     
     if clickedbutton==0
-      iconcell{ind}.cdataDisplay=iconcell{ind}.cdataIndent;
-      iconcell{ind}.isindented=1;
-      %run(iconcell{ind}.execute);
-      feval(iconcell{ind}.execute);
-      %tool2toggle2='rvendopen';
+      indent(g.Handles.configiconholder,'rvendopen',1)
     else
-      iconcell{clickedbutton}.cdataDisplay=iconcell{clickedbutton}.cdataIndent;
-      iconcell{clickedbutton}.isindented=1;
-      %run(iconcell{ind}.execute);
-      feval(iconcell{clickedbutton}.execute);
-      %tool2toggle2=iconcell{clickedbutton}.name;
+      indent(g.Handles.configiconholder,iconcell{clickedbutton}.name,1)
     end
-    
-    %g.CurrentTool=tool2toggle2;
-      g.Handles.configiconholder.render;
     end
     
     %-----------------------------------
@@ -618,38 +538,18 @@ classdef maingui < handle %Handle class
     %for analysis this is the select tool
     iconcell=g.Icons.analysisiconcell;
     clickedbutton=0;
-
+    
     for i= 1:g.Handles.configiconholder.numberoficons
       if iconcell{i}.isindented && iconcell{i}.type==1
         clickedbutton=i;
       end
-      
-      if strcmp(iconcell{i}.name,'select')
-        ind=i;
-      end
     end
     
     if clickedbutton==0
-      iconcell{ind}.cdataDisplay=iconcell{ind}.cdataIndent;
-      iconcell{ind}.isindented=1;
-      %run(iconcell{ind}.execute);
-      feval(iconcell{ind}.execute);
-      %tool2toggle2='select';
+      indent(g.Handles.configiconholder,'select',1)
     else
-      iconcell{clickedbutton}.cdataDisplay=iconcell{clickedbutton}.cdataIndent;
-      iconcell{clickedbutton}.isindented=1;
-      %run(iconcell{ind}.execute);
-      feval(iconcell{clickedbutton}.execute);
-      %tool2toggle2=iconcell{clickedbutton}.name;
+      indent(g.Handles.configiconholder,iconcell{clickedbutton}.name,1)
     end
-    
-%     if strcmp(tool2toggle2(1:4),'draw');
-%       tool2toggle2(1:4)=[];
-%       tool2toggle2=[tool2toggle2,'pen'];
-%     end
-    
-    %g.CurrentTool=tool2toggle2;
-      g.Handles.configiconholder.render;
     end
     %-----------------------------------
     function iconcell = togglebuttonROIFLOW_Callback(varargin)
@@ -668,41 +568,20 @@ classdef maingui < handle %Handle class
     %for ROIFLOW this is the putroi tool
     iconcell=g.Icons.roiflowiconcell;
     clickedbutton=0;
-
+    
     for i= 1:g.Handles.configiconholder.numberoficons
       if iconcell{i}.isindented && iconcell{i}.type==1
         clickedbutton=i;
       end
-      
-      if strcmp(iconcell{i}.name,'putroi')
-        ind=i;
-      end
     end
     
     if clickedbutton==0
-      iconcell{ind}.cdataDisplay=iconcell{ind}.cdataIndent;
-      iconcell{ind}.isindented=1;
-      %run(iconcell{ind}.execute);
-      feval(iconcell{ind}.execute);
-      %tool2toggle2='putroi';
+      indent(g.Handles.configiconholder,'putroi',1)
     else
-      iconcell{clickedbutton}.cdataDisplay=iconcell{clickedbutton}.cdataIndent;
-      iconcell{clickedbutton}.isindented=1;
-      %run(iconcell{ind}.execute);
-      feval(iconcell{clickedbutton}.execute);
-      %tool2toggle2=iconcell{clickedbutton}.name;
+      indent(g.Handles.configiconholder,iconcell{clickedbutton}.name,1)
     end
-    
-%     
-%     if strcmp(tool2toggle2(1:4),'draw');
-%       tool2toggle2(1:4)=[];
-%       tool2toggle2=[tool2toggle2,'pen'];
-%     end
-    
-    %g.CurrentTool=tool2toggle2;
-    g.Handles.configiconholder.render;
     end
-    
+
     %-----------------------------------
     function iconcell = togglebuttonImage_Callback(varargin)
     %-----------------------------------
@@ -718,38 +597,51 @@ classdef maingui < handle %Handle class
     %buttons according to discussion with Helen
     %for image this is the select tool
     iconcell=g.Icons.imageiconcell;
+        clickedbutton=0;
+    
+    for i= 1:g.Handles.configiconholder.numberoficons
+      if iconcell{i}.isindented && iconcell{i}.type==1
+        clickedbutton=i;
+      end
+    end
+    
+    if clickedbutton==0
+      indent(g.Handles.configiconholder,'select',1)
+    else
+      indent(g.Handles.configiconholder,iconcell{clickedbutton}.name,1)
+    end
+    end
+
+    
+    %-----------------------------------
+    function iconcell = togglebuttontxmap_Callback(varargin)
+    %-----------------------------------
+    %Get clicked toggle button icon configuration
+    g=varargin{1};
+    g.Handles.configiconholder.add(g.Icons.txmapiconcell);
+    pos=plotboxpos(g.Handles.configiconholder.axeshandle);
+    currentpos=get(g.Handles.configiconholder.axeshandle,'position');
+    set(g.Handles.configiconholder.axeshandle,'position',currentpos-[pos(1),0,0,0]);    
+   
+    g.CurrentTheme='misc';
+    
+    %If no button is indented in config place holder choose the initial
+    %buttons according to discussion with Helen
+    %for image this is the select tool
+    iconcell=g.Icons.txmapiconcell;
     clickedbutton=0;
     
     for i= 1:g.Handles.configiconholder.numberoficons
       if iconcell{i}.isindented && iconcell{i}.type==1
         clickedbutton=i;
       end
-      
-      if strcmp(iconcell{i}.name,'select')
-        ind=i;
-      end
     end
     
     if clickedbutton==0
-      iconcell{ind}.cdataDisplay=iconcell{ind}.cdataIndent;
-      iconcell{ind}.isindented=1;
-      %run(iconcell{ind}.execute);
-      feval(iconcell{ind}.execute);
-      %tool2toggle2='select';
+      indent(g.Handles.configiconholder,'select',1)
     else
-      iconcell{clickedbutton}.cdataDisplay=iconcell{clickedbutton}.cdataIndent;
-      iconcell{clickedbutton}.isindented=1;
-      %run(iconcell{ind}.execute);
-      feval(iconcell{clickedbutton}.execute);
-      %tool2toggle2=iconcell{clickedbutton}.name;
+      indent(g.Handles.configiconholder,iconcell{clickedbutton}.name,1)
     end
-%     if strcmp(tool2toggle2(1:4),'draw');
-%       tool2toggle2(1:4)=[];
-%       tool2toggle2=[tool2toggle2,'pen'];
-%     end
-    
-    %g.CurrentTool=tool2toggle2;
-      g.Handles.configiconholder.render;
     end
     
     %-----------------------------------
@@ -781,21 +673,12 @@ classdef maingui < handle %Handle class
     if clickedbutton==0
       iconcell{ind}.cdataDisplay=iconcell{ind}.cdataIndent;
       iconcell{ind}.isindented=1;
-      %run(iconcell{ind}.execute);
       feval(iconcell{ind}.execute);
-      %tool2toggle2='select';
     else
       iconcell{clickedbutton}.cdataDisplay=iconcell{clickedbutton}.cdataIndent;
       iconcell{clickedbutton}.isindented=1;
-      %run(iconcell{ind}.execute);
       feval(iconcell{clickedbutton}.execute);
-      %tool2toggle2=iconcell{clickedbutton}.name;
     end
-%     if strcmp(tool2toggle2(1:4),'draw');
-%       tool2toggle2(1:4)=[];
-%       tool2toggle2=[tool2toggle2,'pen'];
-%     end
-    %g.CurrentTool=tool2toggle2;
       g.Handles.configiconholder.render;
     end
     
@@ -1076,36 +959,15 @@ classdef maingui < handle %Handle class
     icon.cdataDisplay=icon.cdataIndent;
     icon.isindented=1;
     g.ThisFrameOnly = true;
+    
+    %synchronize click
+    indent(g.Handles.hideiconholder,'synchronize',1)
+
     g.Handles.hideiconholder.render
     %g.thisframeonly(1)
     
     end
     
-%     %----------------------------------------
-%     function initribbonplaceholder(varargin)
-%     %--------------------------------------
-% 
-%     g=varargin{1};
-%      %initiate iconholder for toggle axes 
-%     iconCell=cell(1,6);
-%     iconCell{1}=myicon('ribbonlv',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonlvoff,...
-%       'Select LV tools', @() segment('togglebuttonLV_Callback'),1,1,g.Icons.toggleicons.ribbonlvon);
-%     iconCell{2}=myicon('ribbonrv',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonrvoff,...
-%       'Select RV tools',@() segment('togglebuttonRV_Callback'),1,1,g.Icons.toggleicons.ribbonrvon);
-%     iconCell{3}=myicon('ribbonflow',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonflowoff,...
-%       'Select ROI/FLOW tools',@() segment('togglebuttonROIFLOW_Callback'),1,1,g.Icons.toggleicons.ribbonflowon);
-%         iconCell{4}=myicon('ribbonviability',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonviabilityoff,...
-%       'Select Viability tools',@() segment('togglebuttonVia_Callback'),1,1,g.Icons.toggleicons.ribbonviabilityon);
-%     iconCell{5}=myicon('ribbonanalysis',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonanalysisoff,...
-%       'Select Analysis tools',@() segment('togglebuttonAnalysis_Callback'),1,1,g.Icons.toggleicons.ribbonanalysison);
-%     iconCell{6}=myicon('ribbonimage',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonimageoff,...
-%       'Select Image tools',@() segment('togglebuttonImage_Callback'),1,1,g.Icons.toggleicons.ribbonimageon);
-% %   
-%      g.Handles.toggleiconholder.add(iconCell);   
-%     pos=plotboxpos(g.Handles.toggleiconholder.axeshandle);
-%     currentpos=get(g.Handles.toggleiconholder.axeshandle,'position');
-%     set(g.Handles.toggleiconholder.axeshandle,'position',currentpos-[pos(1),0,0,0]);
-%     end
     
     %---------------
     function init(g)
@@ -1546,7 +1408,7 @@ classdef maingui < handle %Handle class
       end;
     end;
     
-%Undent and disable all the toggle buttons
+    %Undent and disable all the toggle buttons
 
     g.startmodeplaceholders
 
@@ -1615,6 +1477,9 @@ classdef maingui < handle %Handle class
     set(g.imagefig,'keypressfcn','','name',...
       sprintf(strcat([g.ProgramName ' v' g.ProgramVersion])));
 
+    %clear the measurementresultaxes before closing
+    g.measurementreportclear;
+    
     set([...
       g.Handles.datasetaxes ...
       g.Handles.reportpanel ...
@@ -2502,6 +2367,12 @@ classdef maingui < handle %Handle class
         else
           roisign = ' (-)';
         end
+        %Input to force black background around corner text to improve visibility
+        if g.Pref.BackgroundColor
+          bgcolor = 'blue';
+         else
+          bgcolor = 'none';
+        end
         g.Handles.roicontour{panel}(loop) = plot(g.Handles.imageaxes(panel),...
           SET(no).Roi(loop).Y(:,SET(no).CurrentTimeFrame),...
           SET(no).Roi(loop).X(:,SET(no).CurrentTimeFrame),...
@@ -2516,7 +2387,7 @@ classdef maingui < handle %Handle class
           SET(no).Roi(loop).Mean(SET(no).CurrentTimeFrame), ...
           SET(no).Roi(loop).StD(SET(no).CurrentTimeFrame))},...
           'HorizontalAlignment','right','VerticalAlignment','middle', ...
-          'parent',g.Handles.imageaxes(panel));
+          'parent',g.Handles.imageaxes(panel),'backgroundcolor',bgcolor);
         set(g.Handles.roitext{panel}(loop),'color',[1 1 1]);
         if ~(ismember(SET(no).CurrentSlice,SET(no).Roi(loop).Z) && ...
             ismember(SET(no).CurrentTimeFrame,SET(no).Roi(loop).T))
@@ -2547,6 +2418,13 @@ classdef maingui < handle %Handle class
 %       hold(g.Handles.imageaxes(panel),'off');
 %     end;
 %     
+    if ~isempty(g.FlowNO) && (no == g.FlowNO || ismember(g.FlowNO,SET(no).Linked)) && ~isempty(g.FlowROI)
+      if SET(no).RoiN <1
+        g.FlowROI = [];
+      else
+        calcfunctions('calcflow',no);
+      end
+    end
     g.updateaxestables('area',no);
 
     end
@@ -3540,10 +3418,13 @@ classdef maingui < handle %Handle class
     %-----------------------------------
     %Initializes the openfile GUI. Optional output is the fig
     %Called by openfile (main). Overloaded in CVQgui
-
-    g.GUI.OpenFile = mygui('openfile.fig');
+    if isopengui('openfile.fig')
+      openfile('exitgui')
+    end
+    g.GUI.OpenFile = mygui('openfile.fig'); 
     fig=g.GUI.OpenFile.fig;
-
+    gui=g.GUI.OpenFile;
+    
     % Use system color scheme for figure:
     set(fig,'Color',get(0,'defaultUicontrolBackgroundColor'));
 
@@ -3555,13 +3436,17 @@ classdef maingui < handle %Handle class
 
     %Horisonal adjustment
     set(fig,'units','pixels');
-
-    %Add some images
-    load('icons.mat')
-    set(g.Preview.Handles.browsepushbutton,'CData',icon.opendoc);
-    set(g.Preview.Handles.updirpushbutton,'CData',icon.updir);
-    set(g.Preview.Handles.refreshpushbutton,'CData',icon.refresh);
-    set(g.Preview.Handles.dicominfosmallpushbutton,'CData',icon.imageinfo);
+    
+    load('newicons.mat','newicons')
+    gui.Icons=newicons;
+    gui.iconholder = myiconplaceholder(gui.handles.iconaxes,0,3,fig);
+    openfile('initiconholder');
+    set(gui.fig,'WindowButtonMotionFcn','openfile(''motionfunc'')');
+%     %Add some images
+%     load('icons.mat')
+%     set(g.Preview.Handles.browsepushbutton,'CData',icon.opendoc);
+%     set(g.Preview.Handles.updirpushbutton,'CData',icon.updir);
+%     set(g.Preview.Handles.refreshpushbutton,'CData',icon.refresh);
 
     %Fix with preview axis
     try
@@ -3589,16 +3474,16 @@ classdef maingui < handle %Handle class
     else
       set(g.Preview.Handles.pathtext,'String',g.Preview.PathName);
     end;
-
-    g.ImageTypes = get(g.Preview.Handles.imagetypelistbox,'String');
-
+    
     [types,viewplanes,techniques] = g.imagedescription;
     g.ImageTypes = types;
     g.ImageViewPlanes = viewplanes;
     g.ImagingTechniques = techniques;
-    set(g.Preview.Handles.imagingtechniquelistbox,'String',techniques);
-    set(g.Preview.Handles.imagetypelistbox,'String',types);
-    set(g.Preview.Handles.imageviewplanelistbox,'String',viewplanes);
+    if isfield(g.Preview.Handles,'imagingtechniquelistbox')
+      set(g.Preview.Handles.imagingtechniquelistbox,'String',techniques);
+      set(g.Preview.Handles.imagetypelistbox,'String',types);
+      set(g.Preview.Handles.imageviewplanelistbox,'String',viewplanes);
+    end
 
     g.Preview.ImageType = 'General';
     g.Preview.ImageViewPlane = 'Unspecified';
@@ -3696,8 +3581,14 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
       repmat(x+8*sin(o),1,SET(no).TSize) ));
     SET(no).Roi(m).Y = min(SET(no).YSize+0.5,max(0.5,...
       repmat(y+8*cos(o),1,SET(no).TSize) ));
+    
+    %Find name   
     if SET(no).RoiN==1 || isempty(SET(no).RoiCurrent)
-      SET(no).Roi(m).Name = sprintf('ROI-%d',SET(no).RoiN);
+      if isequal(SET(no).ImageViewPlane,'Aorta')
+        SET(no).Roi(m).Name = 'Aortic ascending flow';
+      else
+        SET(no).Roi(m).Name = sprintf('ROI-%d',SET(no).RoiN);        
+      end;
       SET(no).Roi(m).LineSpec = 'b-';
     else
       if length(SET(no).Roi(SET(no).RoiCurrent(end)).Name)>=4 && isequal(SET(no).Roi(SET(no).RoiCurrent(end)).Name(1:4),'ROI-')
@@ -3763,6 +3654,8 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
       'LLPV', ...
       'URPV', ...
       'LRPV', ...
+      'LPA', ...
+      'RPA', ...
       'Sinus coronarius',...
       'Lung',...
       'Heart',...
@@ -3878,7 +3771,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
       
       set(g.Handles.timebaraxes,'Visible','on')
       %this is speed problem ... try to fix by checking if 
-      lc = [55 119 106]/255; %[1 0.47 0]; %[1 0.6 0.2]; % [0.5 0.5 0];    %JU
+      lc = DATA.GUISettings.BarColor;%[55 119 106]/255; %[1 0.47 0]; %[1 0.6 0.2]; % [0.5 0.5 0];    %JU
       t = SET(no).TimeVector*1000;
       if ~isfield(g.Handles,'timebar') || isempty(g.Handles.timebar)
       g.Handles.timebar = plot(g.Handles.timebaraxes,...
@@ -3886,7 +3779,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
         get(g.Handles.timebaraxes,'ylim'),'-','Color',lc);
       set(g.Handles.timebar,'linewidth',3);
       else
-        set(g.Handles.timebar,'xdata',[t(SET(no).CurrentTimeFrame) t(SET(no).CurrentTimeFrame)]);
+        set(g.Handles.timebar,'xdata',[t(SET(no).CurrentTimeFrame) t(SET(no).CurrentTimeFrame)],'color',lc);
       end
       hold(g.Handles.timebaraxes,'on');
       temp = get(g.Handles.timebaraxes,'ylim');
@@ -3923,14 +3816,14 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
         'color',lc, ...
         'FontWeight','bold');
       else
-        set(g.Handles.edtimebartext,'position',[t(SET(no).EDT)-t(end)*0.015 tempmax-0.2*(tempmax-tempmin)])  
+        set(g.Handles.edtimebartext,'position',[t(SET(no).EDT)-t(end)*0.015 tempmax-0.2*(tempmax-tempmin)],'color',lc)  
       end
       
       if ~isfield(g.Handles,'edtimebarline') || isempty(g.Handles.edtimebarline)
       g.Handles.edtimebarline = plot(g.Handles.timebaraxes,...
         [t(SET(no).EDT) t(SET(no).EDT)],[tempmax tempmax*0.8],'color',lc);
       else
-        set(g.Handles.edtimebarline,'xdata',[t(SET(no).EDT) t(SET(no).EDT)],'ydata',[tempmax tempmax*0.8]); 
+        set(g.Handles.edtimebarline,'xdata',[t(SET(no).EDT) t(SET(no).EDT)],'ydata',[tempmax tempmax*0.8],'color',lc); 
       end
       
       set([g.Handles.edtimebartext g.Handles.edtimebarline],'ButtonDownFcn','segment(''esedtimebar_Buttondown'',''ed'')','color',lc);
@@ -3943,14 +3836,14 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
         'color',lc, ...
         'FontWeight','bold');
       else
-        set(g.Handles.estimebartext,'position',[t(SET(no).EST)-0.015*t(end) tempmin+0.2*(tempmax-tempmin)]) 
+        set(g.Handles.estimebartext,'position',[t(SET(no).EST)-0.015*t(end) tempmin+0.2*(tempmax-tempmin)],'color',lc) 
       end
       
       if ~isfield(g.Handles,'estimebarline') || isempty(g.Handles.estimebarline)
         g.Handles.estimebarline = plot(g.Handles.timebaraxes,[t(SET(no).EST) t(SET(no).EST)],...
           [tempmin tempmin+(0.2*(tempmax-tempmin))],'color',lc);
       else
-        set(g.Handles.estimebarline,'xdata',[t(SET(no).EST) t(SET(no).EST)],'ydata',[tempmin tempmin+(0.2*(tempmax-tempmin))]); 
+        set(g.Handles.estimebarline,'xdata',[t(SET(no).EST) t(SET(no).EST)],'ydata',[tempmin tempmin+(0.2*(tempmax-tempmin))],'color',lc); 
       end
       
       
@@ -4006,7 +3899,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
       g.Handles.lvmtext=[];
       set(g.Handles.volumeaxes,'Visible','off');
     else
-      lc = [55 119 106]/255;
+      lc = DATA.GUISettings.BarColor;%[55 119 106]/255;
       set(g.Handles.volumeaxes,'Visible','on');
       %LV and RV curve and lines
       t = SET(no).TimeVector*1000;
@@ -4117,7 +4010,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
           get(g.Handles.volumeaxes,'ylim'),'-','Color',lc);
         set(g.Handles.timebarlv,'linewidth',2);
       else
-        set(g.Handles.timebarlv,'xdata',[t(SET(no).CurrentTimeFrame) t(SET(no).CurrentTimeFrame)],'ydata',get(g.Handles.volumeaxes,'ylim'))
+        set(g.Handles.timebarlv,'xdata',[t(SET(no).CurrentTimeFrame) t(SET(no).CurrentTimeFrame)],'ydata',get(g.Handles.volumeaxes,'ylim'),'color',lc)
       end      
       %plot(g.Handles.volumeaxes,ttemp,temp,'k-');
       
@@ -4133,7 +4026,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
           'parent',g.Handles.volumeaxes,...
           'color',lc,'FontWeight','bold');
       else
-        set(g.Handles.edtext,'position',[t(SET(no).EDT)-t(end)*0.05 tempmax-0.2*(tempmax-tempmin)]);
+        set(g.Handles.edtext,'position',[t(SET(no).EDT)-t(end)*0.05 tempmax-0.2*(tempmax-tempmin)],'color',lc);
       end
       
       if isempty(g.Handles.edline) || ~ishandle(g.Handles.edline)
@@ -4155,14 +4048,14 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
           'string','ES',...
           'color',lc,'FontWeight','bold');
       else
-        set(g.Handles.estext,'position',[t(SET(no).EST)-0.05*t(end) tempmin+0.2*(tempmax-tempmin)]);
+        set(g.Handles.estext,'position',[t(SET(no).EST)-0.05*t(end) tempmin+0.2*(tempmax-tempmin)],'color',lc);
       end
         
      if isempty(g.Handles.esline) || ~ishandle(g.Handles.esline) 
        g.Handles.esline = plot(g.Handles.volumeaxes,[t(SET(no).EST) t(SET(no).EST)],...
          [tempmin tempmin+(0.2*(tempmax-tempmin))],'color',lc,'linewidth',2);
      else
-       set(g.Handles.esline,'xdata',[t(SET(no).EST) t(SET(no).EST)],'ydata',[tempmin tempmin+(0.2*(tempmax-tempmin))])
+       set(g.Handles.esline,'xdata',[t(SET(no).EST) t(SET(no).EST)],'ydata',[tempmin tempmin+(0.2*(tempmax-tempmin))],'color',lc)
      end
      
       set([g.Handles.estext g.Handles.esline],'ButtonDownFcn','segment(''esed_Buttondown'',''es'')');
@@ -4207,7 +4100,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
     no = DATA.FlowNO;
     roinbr = DATA.FlowROI;
     
-    if isempty(no) || SET(no).TSize<2 || isempty(SET(no).Flow.Result) || isempty(roinbr) || length(SET(no).Flow.Result)< roinbr || isempty(SET(no).Flow.Result(roinbr)) || isempty(SET(no).Flow.Result(roinbr).netflow) 
+    if isempty(no) || SET(no).TSize<2 || isempty(SET(no).Flow) || isempty(SET(no).Flow.Result) || isempty(roinbr) || length(SET(no).Flow.Result)< roinbr || isempty(SET(no).Flow.Result(roinbr)) || isempty(SET(no).Flow.Result(roinbr).netflow) 
       cla(g.Handles.flowaxes);
       g.Handles.timebarflow = [];
       g.Handles.flowcurve = [];
@@ -4215,7 +4108,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
       %set(g.Handles.flowuipanel,'Visible','off');
       %set(g.Handles.flowresultaxes,'Visible','off');
     else
-      lc = [55 119 106]/255;
+      lc = DATA.GUISettings.BarColor;%[55 119 106]/255;
       
       %set(g.Handles.flowuipanel,'Visible','on');
       set(g.Handles.flowaxes,'Visible','on');
@@ -4238,8 +4131,8 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
       %plot line at zero
       plot(g.Handles.flowaxes,[t(1) t(end)],[0 0],'k:');
       %outer time bars
-      plot(g.Handles.flowaxes,[t(1) t(1)],get(g.Handles.flowaxes,'ylim'),'g-');
-      plot(g.Handles.flowaxes,[t(end) t(end)],get(g.Handles.flowaxes,'ylim'),'g-');
+      plot(g.Handles.flowaxes,[t(1) t(1)],get(g.Handles.flowaxes,'ylim'),'color',lc)%'g-');
+      plot(g.Handles.flowaxes,[t(end) t(end)],get(g.Handles.flowaxes,'ylim'),'color',lc)%'g-');
       %current time
       g.Handles.timebarflow = plot(g.Handles.flowaxes,...
         [t(SET(no).CurrentTimeFrame) t(SET(no).CurrentTimeFrame)],...
@@ -4261,6 +4154,17 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
         'YColor',g.GUISettings.VolumeAxesColor);
       set(g.Handles.flowaxes, ...
         'Color',g.GUISettings.VolumeColorGraph);  
+      if ~isempty(SET(SET(no).Flow.PhaseNo).Flow.PhaseCorr)
+        if ~isfield(SET(SET(no).Flow.PhaseNo).Flow,'PhaseCorrTimeResolved')
+          mywarning('Incompatible eddy current correction. Correction reset.',DATA.GUI.Segment);
+        else
+        g.Handles.flowtext = text(get(g.Handles.flowaxes,'XLim'),get(g.Handles.flowaxes,'YLim'),'[Eddy]', ...
+          'Parent',g.Handles.flowaxes,'FontSize',10,'HorizontalAlignment','right','VerticalAlignment','top');
+        end
+      else
+%         g.Handles.flowtext = text(get(g.Handles.flowaxes,'XLim'),get(g.Handles.flowaxes,'YLim'),'hej', ...
+%           'Parent',g.Handles.flowaxes,'FontSize',11,'HorizontalAlignment','right','VerticalAlignment','top');
+      end
     end
     end
         
@@ -4332,50 +4236,102 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
       dosplit=0;
       margin = fontsize;
       str = strtrim(SET(loop).ImageType);
-      if length(str)>numletters
-        %group into cell of strings
-        %check for spaces close to 10 line
-        formatstring='%d. %s';
-        strcell={};
-        str_tmp=str;
-        numbreaks=0;
-        
-        while true
-          if numbreaks>0
-            numletters=12;
-          end
-          
-          ind = find(isspace(strtrim(str_tmp)));
-          tmp=ind(find((ind>floor(1/2*numletters)).*(ind<numletters)));
-          if length(str_tmp)<=numletters
-            strcell = [strcell,str_tmp];
-            break;
-          elseif ~isempty(tmp)
-            formatstring=[formatstring,'\n%s'];
-            strcell = [strcell,str_tmp(1:tmp(end))];
-            str_tmp = str_tmp(tmp(end)+1:end);
-          else
-            formatstring=[formatstring,'\n%s'];
-            strcell = [strcell,str_tmp(1:numletters)];
-            str_tmp=str_tmp(numletters+1:end);
-          end
-          numbreaks = numbreaks + 1;
-          end
-        margin=(numbreaks+1)*fontsize;
-        dosplit=1;
+      
+      listmap={'Feature tracking','FT';...
+        'Late enhancement','LGE';...
+        'Perfusion rest', 'Perf R';...
+        'Perfusion rest aligned', 'Perf R a';...
+        'Perfusion stress', 'Perf S';...
+        'Perfusion stress aligned', 'Perf S a.';...
+        'Strain from tagging','Tagging';...
+        'T1 map pre','T1 Pre';...
+        'T1 map post', 'T1 Post';...
+        'T2 map pre','T2 Pre';...
+        'T2 map post', 'T2 Post';...
+        'T2star', 'T2*';...
+        'Flow (magnitude)','Flow';...
+        'Flow (through plane)','Flow'};
+      
+      for i = 1:size(listmap,1)
+        if strcmpi(listmap{i,1},str)
+          str=listmap{i,2};
+        end
       end
+      
+      imvpmap={'Short-axis', 'SAX';...
+        'Short-axis basal', 'SAX basal';...
+        'Short-axis', 'SAX mid';...
+        'Short-axis', 'SAX apical';...
+        'Sagittal','Sag';...
+        'Coronal','Cor';...
+        'Frontal','Front';...
+        'Transversal', 'Trans'
+        '2CH','2CH';...
+        '3CH','3CH';...
+        '4CH','4CH'};
+      
+      addimvp=0;
+      strimvp = strtrim(SET(loop).ImageViewPlane);
+      for i = 1:size(imvpmap,1)
+        if strcmpi(imvpmap{i,1},strimvp)
+          strimvp=imvpmap{i,2};
+          addimvp=1;
+        end
+      end
+      
+      if addimvp
+        str=[str,', ',strimvp];
+      end
+      
+      if length(str)>10
+        str=str(1:8);
+      end
+      
+%       if length(str)>numletters
+%         %group into cell of strings
+%         %check for spaces close to 10 line
+%         formatstring='%d. %s';
+%         strcell={};
+%         str_tmp=str;
+%         numbreaks=0;
+%         
+%         while true
+%           if numbreaks>0
+%             numletters=12;
+%           end
+%           
+%           ind = find(isspace(strtrim(str_tmp)));
+%           tmp=ind(find((ind>floor(1/2*numletters)).*(ind<numletters)));
+%           if length(str_tmp)<=numletters
+%             strcell = [strcell,str_tmp];
+%             break;
+%           elseif ~isempty(tmp)
+%             formatstring=[formatstring,'\n%s'];
+%             strcell = [strcell,str_tmp(1:tmp(end))];
+%             str_tmp = str_tmp(tmp(end)+1:end);
+%           else
+%             formatstring=[formatstring,'\n%s'];
+%             strcell = [strcell,str_tmp(1:numletters)];
+%             str_tmp=str_tmp(numletters+1:end);
+%           end
+%           numbreaks = numbreaks + 1;
+%           end
+%         margin=(numbreaks+1)*fontsize;
+%         dosplit=1;
+%       end
 
       ypos = (loop-1)*thumbsize+1+2*margin;
       xpos = margin;
-      if dosplit
-      g.Handles.datasetnumber =  ...
-        [g.Handles.datasetnumber  ...
-        text(xpos,ypos,sprintf(formatstring,loop,strcell{:}),...
-        'parent',g.Handles.datasetaxes,...
-        'color',g.GUISettings.ThumbFlowLineColor,...
-        'fontsize',fontsize)...
-        ];
-      else
+      
+%       if dosplit
+%       g.Handles.datasetnumber =  ...
+%         [g.Handles.datasetnumber  ...
+%         text(xpos,ypos,sprintf(formatstring,loop,strcell{:}),...
+%         'parent',g.Handles.datasetaxes,...
+%         'color',g.GUISettings.ThumbFlowLineColor,...
+%         'fontsize',fontsize)...
+%         ];
+%       else
       g.Handles.datasetnumber =  ...
         [g.Handles.datasetnumber  ...
         text(xpos,ypos,sprintf('%d. %s',loop, str),...
@@ -4383,7 +4339,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
         'color',g.GUISettings.ThumbFlowLineColor,...
         'fontsize',fontsize)...
         ];
-      end
+%       end
     end;
     
     end
@@ -4540,7 +4496,6 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
     else
       starttime = rem(now,1);
     end
-
     
     switch nargin
       case 1
@@ -4566,8 +4521,13 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
         
     %Use same order as in manual
     switch key
-      
-      %Tools for changing image frame or slice
+      case 'scrolllock'
+        if ~g.Synchronize
+          indent(g.Handles.hideiconholder,'synchronize',1)
+        else
+          undent(g.Handles.hideiconholder,'synchronize',1)
+        end
+        %Tools for changing image frame or slice
       case 'd'
         if ~isempty(g.GUI.T2Star)
           %Call t2star centerpoint move funtion:
@@ -4667,15 +4627,21 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
         iconcell=DATA.Handles.toggleiconholder.iconCell;
         for i=1:numel(iconcell)
           iconcell{i}.undent
+          if strcmpi(iconcell{i}.name,'ribbonlv')
+            modenbr = i;
+          end
         end
-         iconcell{1}.cdataDisplay=iconcell{1}.cdataIndent;
-         iconcell{1}.isindented=1;
+         iconcell{modenbr}.cdataDisplay=iconcell{modenbr}.cdataIndent;
+         iconcell{modenbr}.isindented=1;
         DATA.Handles.toggleiconholder.render;
         DATA.togglebuttonLV_Callback;
       case 'r'
         iconcell=DATA.Handles.toggleiconholder.iconCell;
         for i=1:numel(iconcell)
           iconcell{i}.undent
+          if strcmpi(iconcell{i}.name,'ribbonrv')
+            modenbr = i;
+          end
         end
          iconcell{2}.cdataDisplay=iconcell{2}.cdataIndent;
          iconcell{2}.isindented=1;
@@ -4686,9 +4652,12 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
         iconcell=DATA.Handles.toggleiconholder.iconCell;
         for i=1:numel(iconcell)
           iconcell{i}.undent
+           if strcmpi(iconcell{i}.name,'ribbonflow')
+            modenbr = i;
+          end
         end
-         iconcell{3}.cdataDisplay=iconcell{3}.cdataIndent;
-         iconcell{3}.isindented=1;
+         iconcell{modenbr}.cdataDisplay=iconcell{modenbr}.cdataIndent;
+         iconcell{modenbr}.isindented=1;
         DATA.Handles.toggleiconholder.render;
         DATA.togglebuttonROIFLOW_Callback;
       
@@ -4724,17 +4693,22 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
         iconcell=DATA.Handles.toggleiconholder.iconCell;
         for i=1:numel(iconcell)
           iconcell{i}.undent
+          if strcmpi(iconcell{i}.name,'ribbonviability')
+            modenbr = i;
+          end
         end
-         iconcell{4}.cdataDisplay=iconcell{4}.cdataIndent;
-         iconcell{4}.isindented=1;
+         iconcell{modenbr}.cdataDisplay=iconcell{modenbr}.cdataIndent;
+         iconcell{modenbr}.isindented=1;
         DATA.Handles.toggleiconholder.render;
         DATA.togglebuttonVia_Callback;
       case 'a'
           iconcell=DATA.Handles.toggleiconholder.iconCell;
         for i=1:numel(iconcell)
           iconcell{i}.undent
+          if strcmpi(iconcell{i}.name,'ribbonanalysis')
+            modenbr = i;
+          end
         end
-        modenbr = length(iconcell)-1;
         iconcell{modenbr}.cdataDisplay=iconcell{modenbr}.cdataIndent;
         iconcell{modenbr}.isindented=1;
         DATA.Handles.toggleiconholder.render;
@@ -4743,12 +4717,30 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
         iconcell=DATA.Handles.toggleiconholder.iconCell;
         for i=1:numel(iconcell)
           iconcell{i}.undent
+          if strcmpi(iconcell{i}.name,'ribbonimage')
+            modenbr = i;
+          end
         end
-        modenbr = length(iconcell);
+        
         iconcell{modenbr}.cdataDisplay=iconcell{modenbr}.cdataIndent;
         iconcell{modenbr}.isindented=1;
         DATA.Handles.toggleiconholder.render;
         DATA.togglebuttonImage_Callback;  
+         case 't'
+         iconcell=DATA.Handles.toggleiconholder.iconCell;
+         
+        for i=1:numel(iconcell)
+          iconcell{i}.undent
+          if strcmpi(iconcell{i}.name,'ribbontxmap')
+          modenbr = i;
+          end
+        end
+        
+        iconcell{modenbr}.cdataDisplay=iconcell{modenbr}.cdataIndent;
+        iconcell{modenbr}.isindented=1;
+        DATA.Handles.toggleiconholder.render;
+        DATA.togglebuttontxmap_Callback;  
+        
       case 'h'
         stateandicon=segment('iconson','hideall');
         if ~stateandicon{1}
@@ -5481,7 +5473,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
     %Draw new ROI. Called by segment_main('manualdraw_Buttonup')
     %Overloaded in CVQgui and RVQgui.
     
-    global SET
+    global SET DATA
        
     ok = true;
     if any(SET(no).RoiCurrent>SET(no).RoiN | SET(no).RoiCurrent<1)
@@ -5520,12 +5512,25 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
     
     SET(no).RoiCurrent = SET(no).RoiN;
     
+    %update flow result panel
+    if ~isempty(DATA.FlowNO) && ismember(DATA.FlowNO,SET(no).Linked) && ~isempty(DATA.FlowROI)
+      if SET(no).RoiN <1
+        DATA.FlowROI = [];
+      else
+        calcfunctions('calcflow',no);
+      end
+    end
+    DATA.updateaxestables('area',no);
+    
     end
     %-------------------------------------    
     function setribbonimages(language)
     %-------------------------------
+    %This function is used for translation and needs to be updated when
+    %adding ribbons.
     global DATA    
     g=DATA;
+    
      
      if strcmp(language,'English')
        if strcmp(g.ProgramName,'Segment CMR')
@@ -5533,10 +5538,10 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
          g.Handles.toggleiconholder.iconCell{3}.cdataIndent=g.Icons.toggleicons.ribbonflowon;
          g.Handles.toggleiconholder.iconCell{4}.cdata=g.Icons.toggleicons.ribbonviabilityoff;
          g.Handles.toggleiconholder.iconCell{4}.cdataIndent=g.Icons.toggleicons.ribbonviabilityon;
-         g.Handles.toggleiconholder.iconCell{5}.cdata=g.Icons.toggleicons.ribbonanalysisoff;
-         g.Handles.toggleiconholder.iconCell{5}.cdataIndent=g.Icons.toggleicons.ribbonanalysison;
-         g.Handles.toggleiconholder.iconCell{6}.cdata=g.Icons.toggleicons.ribbonimageoff;
-         g.Handles.toggleiconholder.iconCell{6}.cdataIndent=g.Icons.toggleicons.ribbonimageon;
+         g.Handles.toggleiconholder.iconCell{6}.cdata=g.Icons.toggleicons.ribbonanalysisoff;
+         g.Handles.toggleiconholder.iconCell{6}.cdataIndent=g.Icons.toggleicons.ribbonanalysison;
+         g.Handles.toggleiconholder.iconCell{7}.cdata=g.Icons.toggleicons.ribbonimageoff;
+         g.Handles.toggleiconholder.iconCell{7}.cdataIndent=g.Icons.toggleicons.ribbonimageon;
        else 
          g.Handles.toggleiconholder.iconCell{4}.cdata=g.Icons.toggleicons.ribbonanalysisoff;
          g.Handles.toggleiconholder.iconCell{4}.cdataIndent=g.Icons.toggleicons.ribbonanalysison;
@@ -5551,10 +5556,10 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
          g.Handles.toggleiconholder.iconCell{3}.cdata=g.Icons.toggleicons.(['ribbonflowoff_',language]);
          g.Handles.toggleiconholder.iconCell{4}.cdata=g.Icons.toggleicons.(['ribbonviabilityoff_',language]);
          g.Handles.toggleiconholder.iconCell{4}.cdataIndent=g.Icons.toggleicons.(['ribbonviabilityon_',language]);
-         g.Handles.toggleiconholder.iconCell{5}.cdata=g.Icons.toggleicons.(['ribbonanalysisoff_',language]);
-         g.Handles.toggleiconholder.iconCell{5}.cdataIndent=g.Icons.toggleicons.(['ribbonanalysison_',language]);
-         g.Handles.toggleiconholder.iconCell{6}.cdata=g.Icons.toggleicons.(['ribbonimageoff_',language]);
-         g.Handles.toggleiconholder.iconCell{6}.cdataIndent=g.Icons.toggleicons.(['ribbonimageon_',language]);
+         g.Handles.toggleiconholder.iconCell{6}.cdata=g.Icons.toggleicons.(['ribbonanalysisoff_',language]);
+         g.Handles.toggleiconholder.iconCell{6}.cdataIndent=g.Icons.toggleicons.(['ribbonanalysison_',language]);
+         g.Handles.toggleiconholder.iconCell{7}.cdata=g.Icons.toggleicons.(['ribbonimageoff_',language]);
+         g.Handles.toggleiconholder.iconCell{7}.cdataIndent=g.Icons.toggleicons.(['ribbonimageon_',language]);
        else
          g.Handles.toggleiconholder.iconCell{4}.cdata=g.Icons.toggleicons.(['ribbonanalysisoff_',language]);
          g.Handles.toggleiconholder.iconCell{4}.cdataIndent=g.Icons.toggleicons.(['ribbonanalysison_',language]);
@@ -5562,6 +5567,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
          g.Handles.toggleiconholder.iconCell{5}.cdataIndent=g.Icons.toggleicons.(['ribbonimageon_',language]);
        end
      end
+     
      for i = 1:length(g.Handles.toggleiconholder.iconCell)
        cdataIndent=g.Handles.toggleiconholder.iconCell{i}.cdataIndent;
        cdata=g.Handles.toggleiconholder.iconCell{i}.cdata;
@@ -5908,7 +5914,8 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
       'T1 map'
       'T1 map Pre';
       'T1 map Post';
-      'T2 map'
+      'T2 map';
+      'T2* map';
       'T2Stir';
       'User defined'};
  

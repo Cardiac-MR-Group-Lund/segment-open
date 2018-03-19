@@ -268,7 +268,11 @@ classdef segdicomtags < handle
       end
       stri = lower(char(self.tags.Manufacturer));
       if isempty(stri)
-        stri = lower(char(self.tags.ManufacturersModelName));
+        if isfield(self.tags,'ManufacturersModelName')
+          stri = lower(char(self.tags.ManufacturersModelName));
+        else
+          stri = '';
+        end;
       end
       
       silent = true;
