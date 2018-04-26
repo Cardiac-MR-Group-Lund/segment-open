@@ -295,7 +295,7 @@ switch datatype
 
   case 'vortex tank'
     % Use everything that's >5cm from centerline
-    R0 = 50; % stationary fluid begins D mm from centerline
+    R0 = 75; % stationary fluid begins D mm from centerline
     xx = (1:SET(no).XSize)*SET(no).ResolutionX;
     yy = (1:SET(no).YSize)*SET(no).ResolutionY;
     zz = (1:SET(no).ZSize)*(SET(no).SliceThickness + SET(no).SliceGap);

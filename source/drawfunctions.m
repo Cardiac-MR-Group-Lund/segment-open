@@ -562,7 +562,6 @@ if DATA.Pref.UseLight
   DATA.BalloonLevel = -1; %Force update of ballonimage
 end;
 
-
 %-----------------------
 function drawthumbnails(calculatepreview,sliderupdated)
 %-----------------------

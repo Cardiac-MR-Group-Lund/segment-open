@@ -98,7 +98,7 @@ switch type
 %   end
     set(gui.handles.circtext,'String','Longit. [%/s]');
     
-    set(gui.handles.globalcirctext,'String','Circ. [%/(s/T)]');
+    set(gui.handles.globalcirctext,'String','Longit. [%/(s/T)]');
     set(gui.handles.globalradtext,'String','Rad. [%/(s/T)]');
   case 'SAX'
     

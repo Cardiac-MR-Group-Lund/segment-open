@@ -30,10 +30,10 @@ if ispc
     mymovefile([pwd filesep '.segment_preferences.mat'],[pathname filesep '.segment_preferences.mat']);
     %   dos(sprintf('move "%s%s..%s%s" "%s%s%s"',...
     %     pathname,filesep,filesep,'.segment_preferences.mat',...
-    %     pathname,filesep,'.segment_preferences.mat'));%Det g�r inte att hitta filen.
+    %     pathname,filesep,'.segment_preferences.mat'));%Det gar inte att hitta filen.
     
     %Remove old log file
-    %dos(sprintf('delete "%s%s..%s%s"',pathname,filesep,filesep,'.segment.log'));%delete �r inte ett internt kommando, externt kommando, program eller kommandofil.
+    %dos(sprintf('delete "%s%s..%s%s"',pathname,filesep,filesep,'.segment.log'));%delete ar inte ett internt kommando, externt kommando, program eller kommandofil.
   end
 end;
 
@@ -63,11 +63,20 @@ if isa(DATA,'maingui')
   DATA.updatepacslabels;
 end
 
+% %this part is overwritten if we find a default preferences
+% if not(isfield(DATA.Pref,'UserLogging'))
+%   DATA.Pref.UserLogging = false;
+% end;
+% 
+% if not(isfield(DATA.Pref,'UserLogPath'))
+%   DATA.Pref.UserLogPath = [];
+% end;
+
 %Check if we should read in default preferences for PACS, Server etc.
 filename = [pwd filesep 'default_preferences.mat'];
 if exist(filename,'file')  
   load(filename,'Pref','-mat');
-  mydisp('Found default preferences, overriding PACS, DICOM, and Server settings.');
+  mydisp('Found default preferences, overriding PACS, DICOM, Server settings, and User logging.');
   mydisp(' ');
   
   %Copy data
@@ -78,7 +87,14 @@ if exist(filename,'file')
   DATA.Pref.AETitle = Pref.AETitle;
   DATA.Pref.UseProxyServer = Pref.UseProxyServer;
   DATA.Pref.ProxySettings = Pref.ProxySettings;
-
+    
+  if isfield(Pref,'UserLogging')
+    DATA.Pref.UserLogging = Pref.UserLogging;
+  end
+  if isfield(Pref,'UserLogPath')
+    DATA.Pref.UserLogPath = Pref.UserLogPath;
+  end
+  
   %Run extra backwards compability test
   preferencesbackward;
 
@@ -180,6 +196,14 @@ if not(isfield(DATA.Pref,'Pacs'))
     DATA.Pref.ViewInterpolated = true;
   end;
   
+   if not(isfield(DATA.Pref,'UserLogging'))
+    DATA.Pref.UserLogging = false;
+  end;
+  
+   if not(isfield(DATA.Pref,'UserLogPath'))
+    DATA.Pref.UserLogPath = [];
+  end;
+  
   %added by EH:
   if not(isfield(DATA.Pref,'Force16Bit'))
     DATA.Pref.Force16Bit = false;
@@ -277,6 +301,14 @@ if not(isfield(DATA.Pref,'Pacs'))
   %NL 111011
   prefrestruct;
 end
+
+if not(isfield(DATA.Pref,'UserLogging'))
+  DATA.Pref.UserLogging = false;
+end;
+
+if not(isfield(DATA.Pref,'UserLogPath'))
+  DATA.Pref.UserLogPath = [];
+end;
 
 %NL111012
 if not(isfield(DATA.Pref.Pacs,'patientconfig'))

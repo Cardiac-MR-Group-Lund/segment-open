@@ -101,6 +101,12 @@ gui.badfit = [];
 gui.biggui = true; %When true it is the main gui which is initialized.
 gui.ignorerois = false; %If true then we do not care about stationary tissue or non stationary tissue
 
+if isfield(SET(gui.phaseno).Flow, 'PhaseCorrRemoveBadFit');
+  gui.usebadfit = SET(gui.phaseno).Flow.PhaseCorrRemoveBadFit;
+else
+  gui.usebadfit = true;
+end
+
 if ~isfield(SET(gui.phaseno).Flow,'PhaseCorr')
   SET(gui.no).Flow.PhaseCorr = [];
 end;
@@ -162,6 +168,8 @@ end;
 set(gui.handles.methodlistbox,'value',v);
 set(gui.handles.timeresolvedcheckbox,'value',double(SET(gui.phaseno).Flow.PhaseCorrTimeResolved));
 set(gui.handles.statictissueroischeckbox,'value',double(SET(gui.phaseno).Flow.PhaseCorrStaticTissueRois));
+set(gui.handles.usebadfitcheckbox,'value',double(gui.usebadfit));
+
 if SET(gui.phaseno).ZSize>1
   set(gui.handles.sliceslider,'min',1,'max',SET(gui.phaseno).ZSize,'value',gui.slice);
 else
@@ -247,6 +255,27 @@ else
   gui.timeframe = 1;
 end;
 
+update;
+
+%-----------------------
+function usebadfit_Callback %#ok<DEFNU>
+%-----------------------
+% Remove bad fit pixels checkbox callback
+
+global DATA SET
+gui = DATA.GUI.EddyCurrent;
+
+chkboxvalue = get(gui.handles.usebadfitcheckbox, 'Value');
+gui.usebadfit = logical(chkboxvalue);
+
+SET(gui.phaseno).Flow.PhaseCorrRemoveBadFit = gui.usebadfit;
+
+if ~gui.usebadfit
+  gui.badfit = [];
+end
+
+findstatic;
+recalculate_Callback;
 update;
 
 %-----------------------
@@ -723,16 +752,18 @@ else
     return;
   end
   
-  for loop = 1:numtimes
-    %Find pixels with bad fit
-    findbadfit;
-
-    %Repeat recalculation with bad fit pixels removed
-    stop = recalculate;
-    if stop
-      return;
+  if gui.usebadfit
+    for loop = 1:numtimes
+      %Find pixels with bad fit
+      findbadfit;
+      
+      %Repeat recalculation with bad fit pixels removed
+      stop = recalculate;
+      if stop
+        return
+      end
     end
-  end;
+  end
   
 end;
 
@@ -958,6 +989,8 @@ gui = DATA.GUI.EddyCurrent;
 no = gui.phaseno;
 
 SET(no).Flow.PhaseCorr = gui.phasecorr;
+SET(gui.phaseno).Flow.PhaseCorrRemoveBadFit = gui.usebadfit;
+
 update;
 
 %---------------------
@@ -965,21 +998,19 @@ function done_Callback %#ok<DEFNU>
 %---------------------
 %Done button
 
-global DATA SET
+global DATA
 
 gui = DATA.GUI.EddyCurrent;
 
 magno = gui.magno;
 plotonok = gui.plotonok;
-SET(magno).Flow.PhaseCorrAsk = false; %do not ask anymore for Eddy current compansation
 
-close_Callback; %close the GUI
+close(gui);
+drawfunctions('drawimageno');
 
 if isopengui('flow.fig')
-  reportflow('recalculate',magno);
+  reportflow('recalculate', magno);
   return;
-else
-  drawfunctions('drawimageno'); %update in main GUI
 end;
 
 if plotonok
@@ -988,8 +1019,36 @@ if plotonok
   reportflow('init',magno,eddycheck);
 end;
 
+%----------------------------
+function smallcancel_Callback %#ok<DEFNU>
+%----------------------------
+%Cancel button from small interface
+
+global SET DATA
+
+gui = DATA.GUI.EddyCurrent;
+
+magno = gui.magno;
+plotonok = gui.plotonok;
+SET(magno).Flow.PhaseCorrAsk = false;
+
+close(gui);
+drawfunctions('drawimageno');
+
+if isopengui('flow.fig')
+  reportflow('recalculate', magno);
+  return;
+end;
+
+if plotonok
+  %Call plot function
+  eddycheck = false;
+  reportflow('init',magno,eddycheck);
+end;
+
+
 %----------------
-function cancel_Callback
+function cancel_Callback %#ok<DEFNU>
 %-----------------------
 %callback for cancel Eddy current compensation
  
@@ -1071,7 +1130,7 @@ global DATA
 gui = DATA.GUI.EddyCurrent;
 
 plotonok = gui.plotonok;
-close_Callback; %close the GUI
+close(gui);
 
 %Start the big gui
 init(plotonok);
@@ -1090,17 +1149,16 @@ SET(gui.phaseno).Flow.PhaseCorr = gui.phasecorr;
 
 magno = gui.magno;
 plotonok = gui.plotonok;
-SET(magno).Flow.PhaseCorrAsk = false; %do not ask anymore for Eddy current compansation
 
 %Close
-close_Callback;
+close(gui);
+
+drawfunctions('drawimageno');
 
 %updated the flow interface if it is open
 if isopengui('flow.fig')
-  reportflow('recalculate',magno);
+  reportflow('recalculate', magno);
   return;
-else
-  drawfunctions('drawimageno'); % update main GUI
 end;
 
 if plotonok
@@ -1336,7 +1394,11 @@ gim = im;
 bim = im;
 
 %Create mask
-mask = gui.logim & ~gui.badfit;
+if gui.usebadfit
+  mask = gui.logim & ~gui.badfit;
+else
+  mask = gui.logim;
+end
 maskind = find(mask);
 
 %Create colormap

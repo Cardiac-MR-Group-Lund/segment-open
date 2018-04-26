@@ -31,8 +31,8 @@ catch %#ok<CTCH>
   filter = false;
 end;
   
-if ~filter
-  f = dir(pathname); %names = ls(pathname);
+if ~filter  
+      f = dir(pathname); %names = ls(pathname);      
 else
   %--- Use filter(s)
   filtersstri = mygetedit(DATA.Preview.Handles.filteredit);

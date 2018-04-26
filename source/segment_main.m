@@ -111,7 +111,11 @@ SET = []; %#ok<NASGU>
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 DATA = segmentgui(programversion);%Load standard Segment GUI
 DATA.init;
-fig = DATA.fig;
+try
+  fig = DATA.fig;
+catch
+  fig = [];
+end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -869,6 +873,7 @@ end;
 %Not great position as it triggers for ever stack
 %DATA.dataloadedplaceholders
 mydisp('Files loaded.');
+
 %endoffcalculation;
 
 %----------------------------
@@ -1031,15 +1036,23 @@ elseif (x < 0)
   end
   ind=find(DATA.ViewPanels==0,1);
 else
-  %Find at which image panel we drop it.
-  dist = zeros(1,length(DATA.Handles.imageaxes));
-  for loop=1:length(DATA.Handles.imageaxes)
-    p = get(DATA.Handles.imageaxes(loop),'position');
-    p = p(1:2)+0.5*p(3:4); %Center position
-    dist(loop) = sqrt(sum(([x y]-p).^2)); %Euklidean distance
-  end;
-  [~,ind] = min(dist);
-  ind=ind(1);   %just in case equal distance..!
+  if strcmp(DATA.ViewPanelsType{1},'ortho')
+    %then we switch to single view mode
+    NO=no;
+    drawfunctions('drawimageview',no,[1 1],{'one'});
+    undent(DATA.Handles.permanenticonholder,'orthoview',0)
+    return
+  else
+    %Find at which image panel we drop it.
+    dist = zeros(1,length(DATA.Handles.imageaxes));
+    for loop=1:length(DATA.Handles.imageaxes)
+      p = get(DATA.Handles.imageaxes(loop),'position');
+      p = p(1:2)+0.5*p(3:4); %Center position
+      dist(loop) = sqrt(sum(([x y]-p).^2)); %Euklidean distance
+    end;
+    [~,ind] = min(dist);
+    ind=ind(1);   %just in case equal distance..!
+  end
 end
 
 if ~isempty(ind)
@@ -2575,14 +2588,21 @@ switch mode
       myfailed('No flow stacks found.',DATA.GUI.Segment);
       return;
     end;
+    haveflow = zeros(length(flowno),1); for flownoloop = 1:length(flowno), haveflow(flownoloop) = not(isempty(SET(flowno(flownoloop)).Flow)); end
+    if sum(haveflow) == 0
+      myfailed('No flow stacks found.',DATA.GUI.Segment);
+      return;
+    end;
+    flowno = flowno(haveflow==1);
     no = flowno(1); %For now take first, maybe late do a toggle...
+    nom = SET(no).Flow.MagnitudeNo;
     nop = SET(no).Flow.PhaseNo;
     if isempty(nop)
       myfailed('Flow view only works for flow image stacks with trough-plane flow.',DATA.GUI.Segment);
       return;
     end;
     DATA.ViewMatrix = [1 2];
-    DATA.ViewPanels = [no nop];
+    DATA.ViewPanels = [nom nop];
     DATA.ViewPanelsType = {'one','one'};    
     DATA.ViewIM = {[],[]};
     DATA.Overlay = struct('alphadata',[],'cdata',[]);
@@ -7537,6 +7557,12 @@ function manualdraw_Buttondown(panel,type,new)
 %---------------------------------------------
 %Button down function for manual drawings.
 global DATA SET NO
+
+%ensure that the single/all frames mode are according to selected icons
+stateandicon_single = iconson('singleframemode');
+if stateandicon_single{1}
+  DATA.ThisFrameOnly = true;
+end
 
 killbuttondown = switchtopanel(panel);
 
