@@ -281,7 +281,16 @@ if not(DATA.Silent)
     mymsgbox(stri,'Save successful.',DATA.GUI.Segment);
   end;
 end;
-
+if ~isempty(SET(1).FileName)
+  str = sprintf('%s\t%s\t%s\t%s',datestr(now,'yyyy-mm-dd HH:MM'),getenv('USERNAME'),sprintf('Saved file %s',SET(1).FileName),SET(1).PatientInfo.ID);
+else
+  str = sprintf('%s\t%s\t%s\t%s',datestr(now,'yyyy-mm-dd HH:MM'),getenv('USERNAME'),sprintf('Saved file %s',SET(1).PathName),SET(1).PatientInfo.ID);
+end
+  DATA.adduserevent(str);
+%DATA.adduserevent([' Saved file: ', SET(1).FileName])
+%DATA.adduserevent(['Time:' datestr(now,'yyyymmddHHMMSS')])
+%DATA.adduserevent([' Patient name: ', SET(1).PatientInfo.Name])
+%DATA.adduserevent([' Patient ID: ', SET(1).PatientInfo.ID])
 DATA.LastSaved = now;
 DATA.NeedToSave = false;
 set(DATA.Handles.filesaveicon,'enable','off');
@@ -1179,13 +1188,21 @@ segment('updatevolume');
 segment('viewrefresh_Callback');
 
 %---------------------
-function quit_Callback
+function quit_Callback(varargin)
 %---------------------
 %Quit Segment
 global DATA SET NO
 
+if length(varargin)>0
+  str = varargin{1};
+else
+  str = 'Closing software.';
+end
+
 if ~isempty(DATA)
   if DATA.quit
+    DATA.adduserevent(sprintf('%s\t%s\t%s\t%s', datestr(now,'yyyy-mm-dd HH:MM'),getenv('USERNAME'),str,'-'));
+    %DATA.adduserevent(['Time:' datestr(now,'yyyymmddHHMMSS')])
     saveguiposition(DATA.GUI.Segment);
     segment('saveguipositiontodisk');
 

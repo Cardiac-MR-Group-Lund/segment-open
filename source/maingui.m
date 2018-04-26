@@ -2,6 +2,7 @@ classdef maingui < handle %Handle class
   
   properties
     LogFile = [];
+    UserFile = [];
     ProgramVersion = [];
     ProgramName = 'Segment';
     ProgramFolderName = 'Segment';
@@ -645,6 +646,36 @@ classdef maingui < handle %Handle class
     end
     
     %-----------------------------------
+    function iconcell = togglebutton3dp_Callback(varargin)
+    %-----------------------------------
+    %Get clicked toggle button icon configuration
+    g=varargin{1};
+    g.Handles.configiconholder.add(g.Icons.printiconcell);
+    pos=plotboxpos(g.Handles.configiconholder.axeshandle);
+    currentpos=get(g.Handles.configiconholder.axeshandle,'position');
+    set(g.Handles.configiconholder.axeshandle,'position',currentpos-[pos(1),0,0,0]);    
+   
+    g.CurrentTheme='misc';
+    %If no button is indented in config place holder choose the initial
+    %buttons according to discussion with Helen
+    %for image this is the select tool
+    iconcell=g.Icons.printiconcell;
+    clickedbutton=0;
+    
+    for i= 1:g.Handles.configiconholder.numberoficons
+      if iconcell{i}.isindented && iconcell{i}.type==1
+        clickedbutton=i;
+      end
+    end
+    
+    if clickedbutton==0
+      indent(g.Handles.configiconholder,'select',1)
+    else
+      indent(g.Handles.configiconholder,iconcell{clickedbutton}.name,1)
+    end
+    end
+    
+    %-----------------------------------
     function iconcell = togglebuttonVia_Callback(varargin)
     %-----------------------------------
     %Get clicked toggle button icon configuration
@@ -802,7 +833,7 @@ classdef maingui < handle %Handle class
       iconcell{i}.disable;
     end
    
-        iconcell=g.Handles.toggleiconholder.iconCell;
+    iconcell=g.Handles.toggleiconholder.iconCell;
     
     for i = 1:numel(iconcell)
       iconcell{i}.disable;
@@ -929,6 +960,7 @@ classdef maingui < handle %Handle class
     function dataloadedplaceholders(varargin)
     %--------------------------------------
     % When data is loaded the placeholders are all enabled
+    global SET
     
     g=varargin{1};
     
@@ -965,6 +997,16 @@ classdef maingui < handle %Handle class
 
     g.Handles.hideiconholder.render
     %g.thisframeonly(1)
+    if ~isempty(SET(1).FileName)
+      str = sprintf('%s\t%s\t%s\t%s',datestr(now,'yyyy-mm-dd HH:MM'),getenv('USERNAME'),sprintf('Loaded file %s',SET(1).FileName),SET(1).PatientInfo.ID);
+    else
+      str = sprintf('%s\t%s\t%s\t%s',datestr(now,'yyyy-mm-dd HH:MM'),getenv('USERNAME'),sprintf('Loaded file %s',SET(1).PathName),SET(1).PatientInfo.ID);
+    end
+    g.adduserevent(str);
+    %g.adduserevent([' Loaded file: ', SET(1).FileName])
+    %g.adduserevent(['Time:', datestr(now,'yyyymmddHHMMSS')])
+    %g.adduserevent([' Patient name: ', SET(1).PatientInfo.Name])
+    %g.adduserevent([' Patient ID: ', SET(1).PatientInfo.ID])
     
     end
     
@@ -976,6 +1018,25 @@ classdef maingui < handle %Handle class
     g.initmaingui;
     
     loadpreferences;
+    
+    if g.Pref.UserLogging
+      answer = yesno(sprintf('You are currently logged in as %s. Do you wish to proceed?',getenv('USERNAME')));
+      
+      if answer == 0
+        filemenu('quit_Callback','Aborting initialization.');
+        return
+      else
+        
+        str = sprintf('%s\t%s\t%s\t%s',datestr(now,'yyyy-mm-dd HH:MM'),getenv('USERNAME'),'Software started.','-');
+        fail = g.adduserevent(str);
+        if fail
+          
+        end
+        %str = sprintf(sprintf('Software started by %s',getenv('USERNAME'))
+        %g.adduserevent(sprintf('Software started by %s',getenv('USERNAME'))) %starts user logging if preferences says so
+        %g.adduserevent(['Time:', datestr(now,'yyyymmddHHMMSS')])
+      end
+    end
     
     setuplicense; %This is done to set new license system in use
     
@@ -1131,7 +1192,7 @@ classdef maingui < handle %Handle class
     end;
     
     segpref('setbackgroundcolor',g.Pref.GUIBackgroundColor)
-    
+    %g.init_userlogging
     end
     
     %----------------------
@@ -1145,6 +1206,51 @@ classdef maingui < handle %Handle class
 		g.Handles = killhandles(g.fig,{'segment.fig'});
     
     colormap(gray(255)); %Moved this to here.    
+    end
+
+    %----------------------------
+    function init_userlogging(g)
+    %----------------------------
+      val = mygetvalue(g.PrefHandlesAdvanced.userloggingcheckbox);
+      
+      if val == 1
+        %Initiate log file.
+        pathname =  g.Pref.UserLogPath;
+        %g.UserFile = [pathname filesep sprintf('segmentuserlog.log')];
+        fid = fopen(pathname,'a');
+        if isequal(fid,-1)
+          myfailed(dprintf('Could not write to user log path %s \n User logging is turned off.',pathname));
+          g.Pref.UserLogPath=[];
+          g.Pref.UserLogging = 0;
+          %if isopen('segpref.fig')
+            set(g.PrefHandlesAdvanced.userloggingcheckbox,'Value',0);
+            set(g.PrefHandlesAdvanced.setuserlogpathpushbutton,'Enable','off');
+          %end
+          return;
+        end;
+        fclose(fid);
+        adduserevent(g,sprintf('%s\t%s\t%s\t%s','DATE','USER','EVENT','PATIENT ID'));
+        adduserevent(g,sprintf('%s\t%s\t%s\t%s',datestr(now,'yyyy-mm-dd HH:MM'),getenv('USERNAME'),'Started user log','-'));
+      end
+    end
+    
+    %---------------------------------
+    function fail = adduserevent(g,str)
+    %---------------------------------
+    fail = 0;
+    if g.Pref.UserLogging
+      fid = fopen(g.Pref.UserLogPath,'a');
+      if fid == -1
+        fail=1;
+        myfailed(dprintf('User logging turned off.\n Since unable to write to .txt file: \n %s.',g.Pref.UserLogPath));
+        g.Pref.UserLogPath=[];
+        g.Pref.UserLogging = 0;
+        return
+      end
+      %mydisp(str)
+      fprintf(fid,'%s\r\n',str);
+      fclose(fid);
+    end
     end
     
     %----------------------
@@ -1653,10 +1759,8 @@ classdef maingui < handle %Handle class
         g.GUISettings.SliceLineSpec=g.GUISettings.SliceLineSpecMultiSlice;
       end
 
-
 			g.setthisframeonly(g.ThisFrameOnly);
-			 
- 
+			
       %Call to update drawimage to get frame around panel with correct
       %color.
 			if not(silent)
@@ -1667,21 +1771,15 @@ classdef maingui < handle %Handle class
 
     end
     
-    %-------------------------
-    function cleardatalevelset(g,onlyprototype)
-    %-------------------------
+    %----------------------------
+    function cleardatalevelset(g)
+    %----------------------------
     %Clear the struct g.LevelSet properly called when switching image
     %stacks.
-
-    if nargin==1 || not(onlyprototype)
-      g.LevelSet.BackupBWInd = {};
-      g.LevelSet.BackupManAddInd = {};
-      g.LevelSet.BackupManRemoveInd = {};
-    end
     g.LevelSet.SpeedIM = [];
-	g.LevelSet.GradientPart = [];
-    g.LevelSet.Prototype = [];    
-	g.LevelSet.Gradient = [];
+    g.LevelSet.EDGE0 = [];
+    g.LevelSet.EDGE1 = [];
+    g.LevelSet.GradientPart = [];
     end
 
     %---------------------
@@ -2425,7 +2523,7 @@ classdef maingui < handle %Handle class
         calcfunctions('calcflow',no);
       end
     end
-    g.updateaxestables('area',no);
+    g.updateaxestables('flow',no);
 
     end
     
@@ -2699,7 +2797,15 @@ classdef maingui < handle %Handle class
     switch get(g.imagefig,'SelectionType')
 
       case 'alt'
-        g.contextmenu;
+%         g.contextmenu;
+        [y,x,slice] = segment('getclickedcoords');
+        ind = findfunctions('findclosestannotationpoint',x,y,slice);
+
+        SET(NO).Point.X(ind)=x;
+        SET(NO).Point.Y(ind)=y;
+        SET(NO).Point.Z(ind)=slice;
+        
+        drawfunctions('drawimageno');
       case 'normal'
 
         %Use to point to mag data set
@@ -3314,7 +3420,6 @@ classdef maingui < handle %Handle class
     else
       set(g.PrefHandles.webbrowserpopupmenu,'value',3);
     end
-
     end
     
     %------------------------------------
@@ -3346,7 +3451,16 @@ classdef maingui < handle %Handle class
       set(g.PrefHandlesAdvanced.normalizephaseno,'Value',~g.Pref.Dicom.NormalizePhase);
       set(g.PrefHandlesAdvanced.normalizephaseyes,'Value',g.Pref.Dicom.NormalizePhase);
     end
-
+  
+    set(g.PrefHandlesAdvanced.userloggingcheckbox,'Value',g.Pref.UserLogging);
+    val = mygetvalue(g.PrefHandlesAdvanced.userloggingcheckbox);
+    
+    if val==1
+      set(g.PrefHandlesAdvanced.setuserlogpathpushbutton,'Enable','on');
+    else
+      set(g.PrefHandlesAdvanced.setuserlogpathpushbutton,'Enable','off');
+    end
+      set(g.PrefHandlesAdvanced.userlogpathtext,'String',g.Pref.UserLogPath);
     end
     
     %----------------------
@@ -3371,6 +3485,8 @@ classdef maingui < handle %Handle class
     g.Pref.NumberVisibleThumbnails = 7;
     g.Pref.AnonymMode = false;
     g.Pref.ViewInterpolated = false;
+    g.Pref.UserLogging=0;
+    g.Pref.UserLogPath=[];
 
     %Analysis
     g.Pref.EndoCenter = true;
@@ -3587,12 +3703,14 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
       if isequal(SET(no).ImageViewPlane,'Aorta')
         SET(no).Roi(m).Name = 'Aortic ascending flow';
       else
-        SET(no).Roi(m).Name = sprintf('ROI-%d',SET(no).RoiN);        
+        tempN = SET(no).RoiN; while ismember(sprintf('ROI-%d',tempN),{SET(no).Roi(1:end-1).Name}), tempN = tempN+1; end
+        SET(no).Roi(m).Name = sprintf('ROI-%d',tempN);        
       end;
       SET(no).Roi(m).LineSpec = 'b-';
     else
       if length(SET(no).Roi(SET(no).RoiCurrent(end)).Name)>=4 && isequal(SET(no).Roi(SET(no).RoiCurrent(end)).Name(1:4),'ROI-')
-        SET(no).Roi(m).Name = sprintf('ROI-%d',SET(no).RoiN);
+        tempN = SET(no).RoiN; while ismember(sprintf('ROI-%d',tempN),{SET(no).Roi(1:end-1).Name}), tempN = tempN+1; end
+        SET(no).Roi(m).Name = sprintf('ROI-%d',tempN);
       else
         SET(no).Roi(m).Name =SET(no).Roi(SET(no).RoiCurrent(end)).Name;
       end
@@ -4660,6 +4778,18 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
          iconcell{modenbr}.isindented=1;
         DATA.Handles.toggleiconholder.render;
         DATA.togglebuttonROIFLOW_Callback;
+      case '3'
+        iconcell=DATA.Handles.toggleiconholder.iconCell;
+        for i=1:numel(iconcell)
+          iconcell{i}.undent
+          if strcmpi(iconcell{i}.name,'ribbon3dp')
+            modenbr = i;
+          end
+        end
+         iconcell{modenbr}.cdataDisplay=iconcell{modenbr}.cdataIndent;
+         iconcell{modenbr}.isindented=1;
+        DATA.Handles.toggleiconholder.render;
+        DATA.togglebutton3dp_Callback;
       
       case 'u'
         
@@ -4726,20 +4856,20 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
         iconcell{modenbr}.isindented=1;
         DATA.Handles.toggleiconholder.render;
         DATA.togglebuttonImage_Callback;  
-         case 't'
-         iconcell=DATA.Handles.toggleiconholder.iconCell;
-         
+      case 't'
+        iconcell=DATA.Handles.toggleiconholder.iconCell;
+        
         for i=1:numel(iconcell)
           iconcell{i}.undent
           if strcmpi(iconcell{i}.name,'ribbontxmap')
-          modenbr = i;
+            modenbr = i;
           end
         end
         
         iconcell{modenbr}.cdataDisplay=iconcell{modenbr}.cdataIndent;
         iconcell{modenbr}.isindented=1;
         DATA.Handles.toggleiconholder.render;
-        DATA.togglebuttontxmap_Callback;  
+        DATA.togglebuttontxmap_Callback;
         
       case 'h'
         stateandicon=segment('iconson','hideall');
@@ -5413,7 +5543,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
     function orthoview(no)
     %---------------------
     % Create orthogonal view for stack no
-    global SET NO
+    global SET NO 
     if nargin < 1
       no = NO;
     end

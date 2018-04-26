@@ -955,9 +955,17 @@ for no = nos;
 		%.BW since levelsetunpack uses the size of .BW and pack does not use
 		%the size
 		for obj=1:length(SET(no).LevelSet.Object.Ind)
-			temp=levelset('levelsetunpack',obj,no);
+      if ndims(SET(no).LevelSet.BW)>3
+        temp=levelset('levelsetunpack',obj,no);
+      else
+        temp=gobject.gobject('levelsetunpack',obj,no);
+      end;
 			temp=upsamplevolume(f,temp);
-			[SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+      if ndims(SET(no).LevelSet.BW)>3
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+      else
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = gobject.gobject('levelsetpack',temp);
+      end;
 		end
 		
 		%resample .BW
@@ -1051,6 +1059,14 @@ if not(isrectilinear(SET(NO).TimeVector))
   end
 end
 
+% Ask about Fourier upsampling
+immethod = 'image';
+if f>1
+  if yesno('Use Fourier temporal upsampling?')
+    immethod = 'image-fourier';
+  end
+end
+
 %Find image stacks to upsample temporal
 nos = SET(NO).Linked; %Upsample temporal 
 if ~isempty(SET(NO).Flow)
@@ -1065,7 +1081,7 @@ for no = nos;
     %Number of timeframes (one if master have many as for instance in T2*)    
     
     %--- Upsample volume
-    SET(no).IM = upsampletemporal(f,SET(no).IM,'image');
+    SET(no).IM = upsampletemporal(f,SET(no).IM,immethod);
     newtsz = size(SET(no).IM,3);
     oldtsize = SET(no).TSize;
     SET(no).TSize = newtsz;
@@ -1301,6 +1317,23 @@ switch type
       newvol = repmat(vol,[1 1 round(f) 1]);
     end;    
 
+  case 'image-fourier'
+    % Fourier upsampling of image - useful for flow upsampling
+
+    % Allocate new data
+    N = size(vol,3);
+    Nnew = round(f*N);
+    newvolfft = zeros(size(vol,1),size(vol,2),Nnew,size(vol,4));
+
+    % do FFT and zero-pad (insert in larger allocated block)
+    volfft = fft(vol,[],3);
+    newvolfft(:,:,1:(N/2+1),:) = volfft(:,:,1:(N/2+1),:);
+    newvolfft(:,:,(Nnew-N/2+2):Nnew,:) = volfft(:,:,(N/2+2):N,:);
+    
+    % Transform back
+    newvol = real(ifft(newvolfft,[],3));
+    newvol = newvol*f; % Fourier gain
+    
   case 'segmentation'
     %curve
     % resampling of curves, uses nearest interp as we appearently
@@ -1353,6 +1386,11 @@ if nargin==0
     return;
   end;
 end;
+
+imissingle = classcheckim(NO);%checks so that SET(tempnos).IM is single and can also convert from int16 to singel if user wants
+if not(imissingle)
+  return; %question asked in classchekim
+end
 
 %Find image stacks to crop
 nos = SET(NO).Linked; %Crop current image stack
@@ -1466,9 +1504,17 @@ for no = nos;
 		%.BW since levelsetunpack uses the size of .BW and pack does not use
 		%the size
 		for obj=1:length(SET(no).LevelSet.Object.Ind)
-			temp=levelset('levelsetunpack',obj,no);
+      if ndims(SET(no).LevelSet.BW)>3
+        temp=levelset('levelsetunpack',obj,no);
+      else
+        temp=gobject.gobject('levelsetunpack',obj,no);
+      end;
 			temp=uint8(upsampleslices(f,single(temp)));
-			[SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+      if ndims(SET(no).LevelSet.BW)>3
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+      else
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = gobject.gobject('levelsetpack',temp);
+      end;
 		end
 		
 		%resample .BW
@@ -2145,7 +2191,7 @@ if all(ind)
 end
 
 if yesno('Remove unselected slices (not undoable). Are you sure?',[],DATA.GUI.Segment);
-  removeslices_Callback(ind,true);
+  removeslices_Callback(ind);
 end;
 
 %-----------------------------------
@@ -2157,7 +2203,7 @@ global DATA SET NO
 
 %Remove selected slices
 ind = true(SET(NO).ZSize,1);
-ind(SET(NO).StartSlice:SET(NO).EndSlice)=false;
+ind(SET(NO).StartSlice:SET(NO).EndSlice) = false;
 
 if all(ind)
   myfailed('No slices selected.',DATA.GUI.Segment)
@@ -2165,54 +2211,15 @@ if all(ind)
 end
 
 if yesno('Remove selected slices (not undoable). Are you sure?',[],DATA.GUI.Segment);
-  removeslices_Callback(ind,true);
+  removeslices_Callback(ind);
 end;
-  
-%--------------------------------------------
-function removeslices_Callback(ind,force) %#ok<INUSD>
-%--------------------------------------------
-%Remove slices from current image stack. This is the 
-%workhorse when removing slices
 
+%---------------------------------
+function removesliceshelper(ind)
+%---------------------------------
 global DATA SET NO
 
-disableundo;
-
-if nargin==0
-  %Generate index
-  ind = true(SET(NO).ZSize,1);
-  ind(SET(NO).StartSlice:SET(NO).EndSlice)=false;
-end;
-
-if ~any(ind)
-  myfailed('If you do this there will be no slices left!',DATA.GUI.Segment);
-  return;
-end;
-
-if nargin~=2
-  if ~yesno('Do you really want to remove the selected slices? This operation is not undoable',[],DATA.GUI.Segment);
-    DATA.failedaborted;
-    return;
-  end;
-end;
-
-if ~isempty(SET(NO).LevelSet) && length(ind)==1 && SET(NO).TSize==1
-	if ~yesno('Image stack contains general segmentation tool data. This will be lost since only 2D image will be left after this operation . Are you sure?',[],DATA.GUI.Segment);
-    DATA.failedaborted;
-    return;
-	end;
-	SET(NO).LevelSet = [];
-end;
-
-if ind(1)&&ind(end)&&(sum(~ind)>0)
-  %take first and last and remove som in between => image position will
-  %fail.
-  if ~yesno('This operation will make the 3D data inconsistent. Do you want to proceed?',[],DATA.GUI.Segment);
-    DATA.failedaborted;
-    return;
-  end;
-end;
-
+%This is the workhorse when removing slices
 %Used for ROI removal
 oldslices = 1:SET(NO).ZSize;
 slicemap = oldslices;
@@ -2399,17 +2406,28 @@ if ~isempty(SET(no).LevelSet)
   %.BW since levelsetunpack uses the size of .BW and pack does not use
   %the size
   for obj=1:length(SET(no).LevelSet.Object.Ind)
-    temp=levelset('levelsetunpack',obj,no);
-    temp=temp(:,:,:,ind);
-    [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+    
+    if ndims(SET(no).LevelSet.BW)>3 %Support both old and new levelset
+      temp=levelset('levelsetunpack',obj,no);
+      temp=temp(:,:,:,ind);
+      [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+    else
+      temp=gobject.gobject('levelsetunpack',obj,no);
+      temp=temp(:,:,ind);
+      [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = gobject.gobject('levelsetpack',temp);
+    end;
+    
   end
 
-  %crop .BW
-  SET(no).LevelSet.BW=SET(NO).LevelSet.BW(:,:,:,ind);
-
-  %crop .Man
-  SET(no).LevelSet.Man=SET(NO).LevelSet.Man(:,:,:,ind);
-
+  %crop .BW & Man
+  if ndims(SET(no).LevelSet.BW)>3
+    SET(no).LevelSet.BW=SET(NO).LevelSet.BW(:,:,:,ind);
+    SET(no).LevelSet.Man=SET(NO).LevelSet.Man(:,:,:,ind);
+  else
+    SET(no).LevelSet.BW=SET(NO).LevelSet.BW(:,:,ind);
+    SET(no).LevelSet.Man=SET(NO).LevelSet.Man(:,:,ind);
+  end;
+  
   %---things to change
 
   %Zoomstate
@@ -2465,11 +2483,61 @@ if not(isempty(SET(no).StrainTagging))
   SET(no).StrainTagging = [];
 end
 
+%------------------------------------
+function removeslices_Callback(ind) 
+%------------------------------------
+%Remove slices from current image stack. 
+
+global DATA SET NO
+
+disableundo;
+
+if nargin==0
+  %Generate index
+  ind = true(SET(NO).ZSize,1);
+  ind(SET(NO).StartSlice:SET(NO).EndSlice)=false;
+end;
+
+if ~any(ind)
+  myfailed('If you do this there will be no slices left!',DATA.GUI.Segment);
+  return;
+end;
+
+if nargin~=2
+  if ~yesno('Do you really want to remove the selected slices? This operation is not undoable',[],DATA.GUI.Segment);
+    DATA.failedaborted;
+    return;
+  end;
+end;
+
+if ~isempty(SET(NO).LevelSet) && length(ind)==1 && SET(NO).TSize==1
+	if ~yesno('Image stack contains general segmentation tool data. This will be lost since only 2D image will be left after this operation . Are you sure?',[],DATA.GUI.Segment);
+    DATA.failedaborted;
+    return;
+	end;
+	SET(NO).LevelSet = [];
+end;
+
+if ind(1)&&ind(end)&&(sum(~ind)>0)
+  %take first and last and remove som in between => image position will
+  %fail.
+  if ~yesno('This operation will make the 3D data inconsistent. Do you want to proceed?',[],DATA.GUI.Segment);
+    DATA.failedaborted;
+    return;
+  end;
+end;
+
+removesliceshelper(ind); %Call to remove
+
 segment('updatemodeldisplay');
 segment('updatevolume');
 
 DATA.ViewIM{DATA.CurrentPanel} = [];
-segment('viewimage_Callback','montage');
+if SET(NO).ZSize<20
+  segment('viewimage_Callback','montage');
+else
+  segment('viewimage_Callback','one');
+end;
 segment('viewrefresh_Callback');
 
 %-----------------------------------
@@ -2872,15 +2940,21 @@ for no = nos
 			
 		%crop stored objects, important to resample stored object before
 		%.BW since levelsetunpack uses the size of .BW and pack does not use
-		%the size
-		for obj=1:length(SET(no).LevelSet.Object.Ind)
-			temp=levelset('levelsetunpack',obj,no);
-			temp=temp(xind,yind,:,:);
-			[SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
-		end
-		
-		%crop .BW
-		SET(no).LevelSet.BW=SET(no0).LevelSet.BW(xind,yind,:,:);
+    %the size
+    for obj=1:length(SET(no).LevelSet.Object.Ind)
+      if ndims(SET(no).LevelSet.BW)>3
+        temp=levelset('levelsetunpack',obj,no);
+        temp=temp(xind,yind,:,:);
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+      else
+        temp=gobject.gobject('levelsetunpack',obj,no);
+        temp=temp(xind,yind,:);
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = gobject.gobject('levelsetpack',temp);
+      end;
+    end
+    
+    %crop .BW
+		SET(no).LevelSet.BW=SET(no0).LevelSet.BW(xind,yind,:,:); %Should still work with new gobject code
 
 		%crop .Man
 		SET(no).LevelSet.Man=SET(no0).LevelSet.Man(xind,yind,:,:);
@@ -2962,9 +3036,16 @@ if ~isempty(SET(no).Measure)
                    &(SET(no).Measure(mloop).Y>0.5)&(SET(no).Measure(mloop).Y<(SET(no).YSize+.5))));
   end
   SET(no).Measure = SET(no).Measure(ind);
+  
 end
 %---
 
+%Max & min value
+  if isfield(SET(no),'maxValue')
+    SET(no).maxValue = single(max(SET(no).IM(:)));
+    SET(no).minValue = single(min(SET(no).IM(:)));
+  end;
+  
 if (warn)
   mywarning('Cropping contours, may not work very well.',DATA.GUI.Segment);
 end
@@ -3057,7 +3138,7 @@ end;
 %Removes current slice
 ind = true(SET(NO).ZSize,1);
 ind(SET(NO).CurrentSlice) = false;
-removeslices_Callback(ind,true);
+removeslices_Callback(ind);
 disableundo;
 
 %-------------------------------
@@ -3746,10 +3827,14 @@ for i = 1 : length(nos)
 end
 
 nos=nos(logical(include));
-no = findfunctions('findcineshortaxisno');
+if ~isempty(DATA.LVNO)
+  no = DATA.LVNO;
+else
+  no = findfunctions('findcineshortaxisno');
+end
 useother=1;
 
-if SET(no).EDT==SET(no).EST
+if isempty(no) || SET(no).EDT==SET(no).EST
   %not correct use NO instead
   no=NO;
   useother=0;
@@ -3811,10 +3896,14 @@ end
 
 nos=nos(logical(include));
 
-no = findfunctions('findcineshortaxisno');
+if ~isempty(DATA.LVNO)
+  no = DATA.LVNO;
+else
+  no = findfunctions('findcineshortaxisno');
+end
 useother=1;
 
-if SET(no).EDT==SET(no).EST
+if isempty(no) || SET(no).EDT==SET(no).EST
   %not correct use NO instead
   no=NO;
   useother=0;
@@ -4734,16 +4823,35 @@ for no = nos
 		%.BW since levelsetunpack uses the size of .BW and pack does not use
 		%the size
 		for obj=1:length(SET(no).LevelSet.Object.Ind)
-			temp=levelset('levelsetunpack',obj,no);
+      if ndims(SET(no).LevelSet.BW)>3
+        temp=levelset('levelsetunpack',obj,no);
+      else
+        temp=gobject.gobject('levelsetunpack',obj,no);
+      end;
 			temp=flip(temp,dim);
-			[SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
-		end
-
+      if ndims(SET(no).LevelSet.BW)>3
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+      else
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = gobject.gobject('levelsetpack',temp);
+      end;
+    end
+    
+    %Take care of different dimensionality of levelset and gobject
+    if ndims(SET(no).LevelSet.BW)>3
+      tempdim = dim;
+    else
+      if dim>2
+        tempdim = 3;
+      else
+        tempdim = dim;
+      end;
+    end;
+    
 		%resample .BW
-		SET(no).LevelSet.BW=flip(SET(no).LevelSet.BW,dim);
+		SET(no).LevelSet.BW=flip(SET(no).LevelSet.BW,temdim);
 
 		%resample .Man
-		SET(no).LevelSet.Man=flip(SET(no).LevelSet.Man,dim);
+		SET(no).LevelSet.Man=flip(SET(no).LevelSet.Man,tempdim);
 
 		%clear DATA.LevelSet
 		segment('cleardatalevelset');
@@ -5306,6 +5414,7 @@ if not(isempty(SET(NO).LevelSet))
 	%.BW since levelsetunpack uses the size of .BW and pack does not use
 	%the size
 	for obj=1:length(SET(NO).LevelSet.Object.Ind)
+    
 		temp=levelset('levelsetunpack',obj,NO);
 		temp=permute(temp,permorder);
 		[SET(NO).LevelSet.Object.Ind{obj},SET(NO).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
@@ -5459,9 +5568,17 @@ for no = nos;
 		%.BW since levelsetunpack uses the size of .BW and pack does not use
 		%the size
 		for obj=1:length(SET(no).LevelSet.Object.Ind)
-			temp=levelset('levelsetunpack',obj,no);
+      if ndims(SET(no).LevelSet.BW)>3
+        temp=levelset('levelsetunpack',obj,no);
+      else
+        temp=gobject.gobject('levelsetunpack',obj,no);
+      end;
 			temp=permute(temp,permorder);
-			[SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+      if ndims(SET(no).LevelSet.BW)>3
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+      else
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = gobject.gobject('levelsetpack',temp);
+      end;
 		end
 
 		%resample .BW
@@ -5561,10 +5678,18 @@ if not(isempty(SET(NO).LevelSet))
 	%.BW since levelsetunpack uses the size of .BW and pack does not use
 	%the size
 	for obj=1:length(SET(NO).LevelSet.Object.Ind)
-		temp=levelset('levelsetunpack',obj,NO);
-		temp=permute(temp,permorder);
+    if ndims(SET(NO).LevelSet.BW)>3
+      temp=levelset('levelsetunpack',obj,NO);
+    else
+      temp=gobject.gobject('levelsetunpack',obj,NO);
+    end;
+    temp=permute(temp,permorder);
 		temp=flip(temp,1);
-		[SET(NO).LevelSet.Object.Ind{obj},SET(NO).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+    if ndims(SET(NO).LevelSet.BW)>3
+      [SET(NO).LevelSet.Object.Ind{obj},SET(NO).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+    else
+      [SET(NO).LevelSet.Object.Ind{obj},SET(NO).LevelSet.Object.Int{obj}] = gobject.gobject('levelsetpack',temp);
+    end;
 	end
 
 	%resample .BW

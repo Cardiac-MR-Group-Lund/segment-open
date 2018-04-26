@@ -28,6 +28,7 @@ function varargout = calclvvolume(no,docomp)
 %-------------------------------------------
 %Calculate LV volume. Docomp if to use longaxis motion, see below.
 %Uses area*(thickness+slicedist)
+%NOTE: the exported LVM do NOT include Papillary volume (PV)
 
 global DATA SET
 
@@ -123,6 +124,10 @@ end;
 
 if nargout>1
   varargout{2} = EPVall;
+end;
+
+if nargout>2
+  varargout{3} = 1.05*(EPVall-LVVall); %LVM in g, NOTE not include Papillary volume (PV)
 end;
 
 %Update EDV,ESV
@@ -1796,8 +1801,7 @@ if (nargin<5)
   b = SET(no).IntensityMapping.Brightness;
   if isempty(c)
     c = SET(SET(no).Parent).IntensityMapping.Contrast;
-    b = SET(SET(no).Parent).IntensityMapping.Brightness;
-    
+    b = SET(SET(no).Parent).IntensityMapping.Brightness;    
   end
 end
 
@@ -2779,7 +2783,7 @@ y = SET(no).GLA.y0 + cos(SET(no).GLA.angle)*yi*res/SET(no).ResolutionY;
 
 
 %-------------------------------------------
-function mantelarea = calcmantelarea(no)
+function [mantelarea, sliceMantelArea] = calcmantelarea(no)
 %-------------------------------------------
 %Calculate the mantel area in cm^2 of the LV endocardium in each timeframe. 
 global SET
@@ -2802,6 +2806,7 @@ for timeframe=1:SET(no).TSize %loop through all timeframes
   end
 end
 
+sliceMantelArea=mantelarea';
 mantelarea=sum(mantelarea,2)';
 
 

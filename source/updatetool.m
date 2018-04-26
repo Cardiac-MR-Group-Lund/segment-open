@@ -50,6 +50,10 @@ if strcmp(newtype,'select') && numel(DATA.ViewPanelsType) >= 3 && ...
   newtype = 'orthoview';
 end
 
+if strcmp(newtype,'orthoview')
+    indent(DATA.Handles.configiconholder,'select',0) %select is always there
+end
+
 % anyregrunning=zeros(1,length(SET));
 % for tagno=1:length(SET)
 %   if ~isempty(SET(tagno).StrainTagging) && isfield(SET(tagno).StrainTagging,'runningregistration')

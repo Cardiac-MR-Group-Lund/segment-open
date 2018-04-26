@@ -409,21 +409,23 @@ if length(marno)>1
 end;
 
 %-----------------------------------------
-function [flowno,flowroi] = findflowaxisno
+function [flowno,flowroi] = findflowaxisno(flowno)
 %-----------------------------------------
 %Find only one flow image stack
-global SET
+global SET NO
 
-[~,~,flowno] = findno;
-magno = [];
-for noloop = 1:length(flowno)
-  magno = [magno SET(flowno(noloop)).Flow.MagnitudeNo];
+if nargin < 1
+  [~,~,flowno] = findno;
+  magno = [];
+  for noloop = 1:length(flowno)
+    magno = [magno SET(flowno(noloop)).Flow.MagnitudeNo];
+  end
+  flowno = unique(magno);
 end
-flowno = unique(magno);
 
-%--- Check if multiple scardata.
+%--- Check if multiple flow image stacks.
 if length(flowno)>1
-  %Find best scar data to take. Take those with endo and scar data
+  %Find best flow data to take according to ROI name
   flow2use = false(size(flowno));
   for sloop=1:length(flowno)
     flow2use(sloop) = (SET(flowno(sloop)).RoiN>0);
@@ -432,37 +434,45 @@ if length(flowno)>1
   allmax = find(flow2use == maxval);
   flowno = flowno(allmax);
   if length(flowno) > 1
-    points = zeros(length(flowno),1);
+    maxpoints = zeros(length(flowno),1);
     %find best image stack based on ROI names
     index = 1;
     for no = flowno
+      points = zeros(SET(no).RoiN,1);
       for rloop = 1:SET(no).RoiN
         hasresult = (length(SET(no).Flow.Result)>=rloop && isempty(SET(no).Flow.Result(rloop)));
         if isequal(SET(no).Roi(rloop).Name,'Aortic ascending flow') && hasresult
-          points(index) = 7;
+          points(rloop) = 9;
         elseif isequal(SET(no).Roi(rloop).Name,'Pulmonary artery') && hasresult
-          points(index) = 6;
-        elseif isempty(strfind(SET(no).Roi(rloop).Name,'ROI-')) && hasresult
-          points(index) = 5;
+          points(rloop) = 8;
+        elseif not(isempty(strfind(SET(no).Roi(rloop).Name,'Static tissue'))) && hasresult
+          points(rloop) = 7;
         elseif hasresult
-          points(index) = 4;
+          points(rloop) = 5;
         elseif isequal(SET(no).Roi(rloop).Name,'Aortic ascending flow')
-          points(index) = 3;
+          points(rloop) = 4;
         elseif isequal(SET(no).Roi(rloop).Name,'Pulmonary artery')
-          points(index) = 2;
-        elseif isempty(strfind(SET(no).Roi(rloop).Name,'ROI-'))
-          points(index) = 1;
+          points(rloop) = 3;
+        elseif not(isempty(strfind(SET(no).Roi(rloop).Name,'Static tissue')))
+          points(rloop) = 2;
         end
+      end
+      if ~isempty(points)
+        maxpoints(index) = max(points);
       end
       index = index +1;
     end
-    [maxval,maxind] = max(points);
-    allmax = find(points == maxval);
+    [maxval,maxind] = max(maxpoints);
+    allmax = find(maxpoints == maxval);
     flowno = flowno(allmax);
   end  
   if length(flowno)>1
-    disp('Detected multiple flow image stacks.Taking first stack (arbitrary decision)');
-    flowno = flowno(1);
+    if ismember(NO,flowno)
+      flowno = NO; %taking current image stack
+    else
+      %disp('Detected multiple flow image stacks.Taking first stack (arbitrary decision)');
+      flowno = flowno(1);
+    end
   end
 end
   
@@ -472,26 +482,33 @@ if ~isempty(flowno)
   for rloop = 1:SET(flowno).RoiN
     hasresult = (length(SET(flowno).Flow.Result)>=rloop && isempty(SET(flowno).Flow.Result(rloop)));
     if isequal(SET(flowno).Roi(rloop).Name,'Aortic ascending flow') && hasresult
-      points(rloop) = 7;
+      points(rloop) = 9;
     elseif isequal(SET(flowno).Roi(rloop).Name,'Pulmonary artery') && hasresult
-      points(rloop) = 6;
-    elseif isempty(strfind(SET(flowno).Roi(rloop).Name,'ROI-')) && hasresult
-      points(rloop) = 5;
+      points(rloop) = 8;
+    elseif not(isempty(strfind(SET(flowno).Roi(rloop).Name,'Static tissue'))) && hasresult
+      points(rloop) = 7;
     elseif hasresult
-      points(rloop) = 4;
+      points(rloop) = 5;
     elseif isequal(SET(flowno).Roi(rloop).Name,'Aortic ascending flow')
-      points(rloop) = 3;
+      points(rloop) = 4;
     elseif isequal(SET(flowno).Roi(rloop).Name,'Pulmonary artery')
+      points(rloop) = 3;
+    elseif not(isempty(strfind(SET(flowno).Roi(rloop).Name,'Static tissue')))
       points(rloop) = 2;
-    elseif isempty(strfind(SET(flowno).Roi(rloop).Name,'ROI-'))
-      points(rloop) = 1;
     end
   end
-  [maxval,maxind] = max(points);
+  if ~isempty(points)
+    [maxval,maxind] = max(points);
+  else
+    maxval = 0;
+  end
   flowroi = find(points == maxval);
   if length(flowroi)>1
-    disp('Detected multiple flow ROI. Taking first stack (arbitrary decision)');
-    flowroi = flowroi(1);
+    if ismember(SET(flowno).RoiCurrent,flowroi)
+      flowroi = SET(flowno).RoiCurrent; 
+    else
+      flowroi = flowroi(1);
+    end
   end
 else
   flowroi = [];
@@ -938,7 +955,7 @@ end;
 %-------------------------------
 function setstack_Callback(type) %#ok<DEFNU>
 %------------------------------
-%open interface for user to manually define flow image stack
+%open interface for user to manually define LV/RV/Flow image stack
 global DATA SET
 switch type
   case 'flow'
@@ -982,7 +999,26 @@ if ~isempty(s) && s~=0
           DATA.FlowROI = [];
         else
           DATA.FlowNO = no;
-          DATA.FlowROI = SET(no).RoiN;
+          [~,flowroi] = findflowaxisno(no); %identify flow ROI based on ROI names
+          DATA.FlowROI = flowroi;
+          
+%           roiaortasc = ismember('Aortic ascending flow',{SET(no).Roi.Name});
+%           roiaortdesc = ismember('Aortic descending flow',{SET(no).Roi.Name});
+%           roipulmart = ismember('Pulmonary artery',{SET(no).Roi.Name});
+%           [~,roistatic] = ismember('Static tissue',{SET(no).Roi.Name});
+%           roinotstatic = setxor(1:SET(no).RoiN,roistatic);
+%           if sum(roiaortasc) 
+%             DATA.FlowROI = find(roiaortasc,1,'last');
+%           elseif sum(roiaortdesc) 
+%             DATA.FlowROI = find(roiaortdesc,1,'last');
+%           elseif sum(roipulmart) 
+%             DATA.FlowROI = find(roipulmart,1,'last');
+%           elseif sum(roinotstatic) 
+%             DATA.FlowROI = roinotstatic(1);
+%           else
+%             DATA.FlowROI = SET(no).RoiCurrent;
+%           end
+
           set(DATA.Handles.flowstackpushbutton,'String',sprintf('Stack #%d',no));
         end
       case 'lv'
@@ -1023,3 +1059,32 @@ for loop=1:length(SET)
 end
 
 no=find(ind==true);
+
+% if isempty(no)
+%   myfailed(['Stack named ', label, ' not found.'])
+% end
+
+
+%-----------------------------------------------------
+function ind = findclosestannotationpoint(x,y,z)
+%-----------------------------------------------------
+%Finds the index of the annotation point closest to the coordinates (x,y,z)
+
+global SET NO
+no=NO;
+T=SET(no).CurrentTimeFrame;
+
+points=find(SET(no).Point.T==T); %find annotation points in current timeframe
+
+if isempty(points)
+  myfailed('No annotation points in current time frame.')
+  return;
+end
+
+dist=nan(size(points));
+for loop=1:length(points) %loop over points and claculate distance from (x,y,z)
+  dist(loop)=sqrt((x-SET(no).Point.X(points(loop)))^2+(y-SET(no).Point.Y(points(loop)))^2+(z-SET(no).Point.Z(points(loop)))^2);
+end
+
+ind=points(find(dist==min(dist)));
+

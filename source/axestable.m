@@ -594,7 +594,7 @@ classdef axestable < handle % inherrit from handle to have persistant objects
             str=obj.defaultclearstring;
           elseif value==round(value)
             str=sprintf('%3d',value);
-          elseif value < 10
+          elseif value < 10 && value > -10
             str=sprintf('%3.2f',value);
           else
             str=sprintf('%3.1f',value);

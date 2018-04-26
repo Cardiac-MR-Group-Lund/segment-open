@@ -202,17 +202,21 @@ end
 
 %Automatically perform Eddy current. Added Einar Heiberg
 if eddycheck
-  if ~isequal(SET(nom).Scanner,'Philips')
-    %Only perform for other scanners than Philips
-    try
-      if isempty(SET(nop).Flow.PhaseCorr)
-        plotonok = true;
-        floweddycurrent('initsmall',plotonok); %When specifying plotonok, then this function is called again when user press ok.
-        return;
+  if isfield(SET(nom).Flow,'PhaseCorrAsk') && SET(nom).Flow.PhaseCorrAsk == false
+  %do not ask if perform eddy current
+  else
+    if ~isequal(SET(nom).Scanner,'Philips')
+      %Only perform for other scanners than Philips
+      try
+        if isempty(SET(nop).Flow.PhaseCorr)
+          plotonok = true;
+          floweddycurrent('initsmall',plotonok); %When specifying plotonok, then this function is called again when user press ok.
+          return;
+        end;
+      catch %Do point of crasch if we can't perform
       end;
-    catch %Do point of crasch if we can't perform
     end;
-  end;
+  end
 end;
 
 %Open GUI
@@ -537,6 +541,8 @@ switch arg
     value = gui.netflow;
   case 'getroiname'
     value = gui.roiname;
+  case 'getpeakvelocitycurve'
+    value = gui.velmax;
 end
 varargout{1} = value;
 

@@ -48,6 +48,7 @@ end
     iconcell{1,end+1}=myicon('panel3',g.Handles.permanenticonholder,g.Icons.config.panel3,'View three image panels',@() drawfunctions('drawall',1,3),1,1);
     iconcell{1,end+1}=myicon('panel4',g.Handles.permanenticonholder,g.Icons.config.panel4,'View four image panels',@() drawfunctions('drawall',2,2),1,1);
     iconcell{1,end+1}=myicon('panel6',g.Handles.permanenticonholder,g.Icons.config.panel6,'View six image panels',@() drawfunctions('drawall',6),1,1);
+    %iconcell{1,end+1}=myicon('orthoview',g.Handles.permanenticonholder,g.Icons.config.orthoview,'Orthogonal view',@() segment('orthoview'),1,1);
     iconcell{1,end+1}=myicon('saveview',g.Handles.permanenticonholder,g.Icons.config.saveview,'Save view',@() segmentview,0);
     
     iconcell{1,end+1}=myicon('viewone',g.Handles.permanenticonholder,g.Icons.config.viewone,'View one slice',@() segment('viewimage_Callback','one'),1,2);
@@ -251,7 +252,6 @@ end
     analysisiconcell{1,end+1}=myicon('perfusionscoring',g.Handles.configiconholder,g.Icons.config.perfusionscoring, 'Perfusion scoring',@() perfusion.perfusionscoring,0);
     analysisiconcell{1,end+1}=myicon('reportperslice',g.Handles.configiconholder,g.Icons.config.reportperslice, 'Report per slice',@() slicereport,0);
     analysisiconcell{1,end+1}=myicon('model3d',g.Handles.configiconholder,g.Icons.config.model3d, 'Show 3D model',@() report3dmodel,0);
-    analysisiconcell{1,end+1}=myicon('generalsegment',g.Handles.configiconholder,g.Icons.config.generalsegment,'General Segmentation',@() levelset,0);
     analysisiconcell{1,end+1}=myicon('hidemeasure',g.Handles.configiconholder,g.Icons.config.hidemeasure,'Hide measurements',@() segment('viewhidemeasures_Callback'),2);
     analysisiconcell{1,end+1}=myicon('hidepoint',g.Handles.configiconholder,g.Icons.config.hidepoint,'Hide annotation points',@() segment('viewhidepoints_Callback'),2);
     analysisiconcell{1,end+1}= roiflowiconcell{1,end-2};%myicon('hideroi',g.Handles.configiconholder,g.Icons.config.hideroi,'Hide ROI',@() segment('viewhideroi_Callback'),2);
@@ -333,7 +333,7 @@ end
       'TX maps and ECV',@() segment('togglebuttontxmap_Callback'),1,1,g.Icons.toggleicons.ribbontxmapon);
     iconCell{6}=myicon('ribbonanalysis',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonanalysisoff,...
       'Analysis',@() segment('togglebuttonAnalysis_Callback'),1,1,g.Icons.toggleicons.ribbonanalysison);
-    iconCell{7}=myicon('ribbonimage',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonimageoff,...
+    iconCell{7}=myicon('ribbon3dp',g.Handles.toggleiconholder,g.Icons.toggleicons.ribbonimageoff,...
       'Image',@() segment('togglebuttonImage_Callback'),1,1,g.Icons.toggleicons.ribbonimageon);
 %   
      g.Handles.toggleiconholder.add(iconCell);   

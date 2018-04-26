@@ -31,9 +31,10 @@ fwaorta = [];
 bwaorta = [];
 fwpulmo = [];
 bwpulmo = [];
+eddycheck = false;
 for floop =  flowmagnitudeno
   if SET(floop).RoiN > 0
-    reportflow('init',floop);
+    reportflow('init',floop,eddycheck);
     rois = reportflow('getroiname');
     aaf = find(strcmp('Aortic ascending flow',rois), 1);
     paf = find(strcmp('Pulmonary artery',rois), 1);

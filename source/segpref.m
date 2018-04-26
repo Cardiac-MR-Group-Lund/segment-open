@@ -49,9 +49,119 @@ if isopengui('segprefadvanced.fig')
   updateadvanced;
 end
 
+% %----------------------------
+% function init_userlogging
+% %----------------------------
+% global DATA
+% val = mygetvalue(DATA.PrefHandles.userloggingcheckbox)
+% 
+% if val == 1
+%       %Initiate log file. Overloaded in most other GUI's
+%     pathname =  DATA.Pref.userpath;
+%     DATA.UserFile = [pathname filesep sprintf('segmentlog_%s.log',datestr(now,'yyyymmddHHMMSS'))];
+%     fid = fopen(g.LogFile,'w');
+%     if isequal(fid,-1)
+%       myfailed(dprintf('Could not create .log file %s.',g.LogFile));
+%     else
+%       fclose(fid); %Close the file, to make it empty
+%       DATA.startlog(DATA.UserFile); %Start diary.
+%     end;
+% end
+
+
+%-----------------------------
+function userlogging_Callback %#ok<DEFNU>
+%-----------------------------
+%started the user logging
+
+global DATA
+val = mygetvalue(DATA.PrefHandlesAdvanced.userloggingcheckbox);
+
+% [~,streng] = system('net localgroup Admin');
+% [~,strswe] = system('net localgroup Administratörer');
+usrname = getenv('USERNAME');
+% if isempty(regexp(streng,usrname,'once')) && isempty(regexp(strswe,usrname,'once'))
+%   myfailed('You do not have administrator priviliges')
+%   return
+% end
+
+%Display message about potentially require admin rights.
+adminrequirement;
+
+if val == 1
+  answer = yesno(sprintf('You are currently logged in as %s. Do you wish to proceed?',usrname));
+else
+  str = sprintf('%s\t%s\t%s\t%s',datestr(now,'yyyy-mm-dd HH:MM'),usrname,'User logging stopped.','-');
+  DATA.adduserevent(str);
+  set(DATA.PrefHandlesAdvanced.setuserlogpathpushbutton,'Enable','off');
+  DATA.Pref.UserLogging = 0;
+  return
+end
+
+if answer~=1
+  DATA.Pref.UserLogging = 0;
+  set(DATA.PrefHandlesAdvanced.userloggingcheckbox,'Value',0);
+  set(DATA.PrefHandlesAdvanced.setuserlogpathpushbutton,'Enable','off');
+  return
+end
+
+DATA.Pref.UserLogging = 1;
+if val == 1
+  %set path for storing current user.
+  if isempty(DATA.Pref.UserLogPath)
+    abort = setuserlogpath;
+    if abort
+      DATA.Pref.UserLogging = 0;
+      return
+    end
+  end
+
+  DATA.init_userlogging
+  if DATA.Pref.UserLogging
+    set(DATA.PrefHandlesAdvanced.setuserlogpathpushbutton,'Enable','on');
+  else
+    set(DATA.PrefHandlesAdvanced.setuserlogpathpushbutton,'Enable','off');
+  end
+  
+else
+  DATA.Pref.UserLogging = 0;
+  set(DATA.PrefHandlesAdvanced.setuserlogpathpushbutton,'Enable','off');
+end
+
+%------------------------------
+function abort = setuserlogpath 
+%------------------------------
+% set the path for storing user logging
+
+global DATA
+abort=0;
+%set path for storing current user.
+temp = myuigetdir(pwd,'Select folder for storing user information');
+if temp == 0
+  mydisp('aborted by user')
+  abort = 1;
+  return
+end
+DATA.Pref.UserLogPath=[temp filesep sprintf('segmentuserlog.txt')];
+
+fail = DATA.adduserevent(sprintf('%s\t%s\t%s\t%s','DATE','USER','EVENT','PATIENT ID'));
+
+if fail
+  set(DATA.PrefHandlesAdvanced.userloggingcheckbox,'Value',DATA.Pref.UserLogging);
+  set(DATA.PrefHandlesAdvanced.userlogpathtext,'String',DATA.Pref.UserLogPath);
+  set(DATA.PrefHandlesAdvanced.setuserlogpathpushbutton,'Enable','off');
+  return
+end
+
+DATA.adduserevent(sprintf('%s\t%s\t%s\t%s',datestr(now,'yyyy-mm-dd HH:MM'),getenv('USERNAME'),sprintf('Changed log path to %s',DATA.Pref.UserLogPath),'-'));
+set(DATA.PrefHandlesAdvanced.userlogpathtext,'String',DATA.Pref.UserLogPath);
+ %set(DATA.PrefHandles.setuserlogpathstring,DATA.Pref.userpath)
+
 %----------------------------
 function setbackgroundcolor(backgroundcolor) %#ok<DEFNU>
 %----------------------------
+%set the background color for the main interface
+
 global DATA SET
 
 if nargin == 0
@@ -178,9 +288,9 @@ DATA.AxesTables.measurement.draw
 %------------------------
 function default_Callback %#ok<DEFNU>
 %------------------------
+%Sets default preferences called from GUI
 global DATA
 
-%Sets default preferences called from GUI
 DATA.defaultpref;
 update;
 
@@ -205,6 +315,9 @@ Pref = DATA.Pref; %#ok<NASGU> %Saved to file
 if exist([pathnamesaveall filesep 'default_preferences.mat']) %,'Pref', DATA.Pref.SaveVersion);
   if not(silent)
     myfailed('Default preferences for all users exists and thereby used prior to local preferences.',DATA.GUI.Segment);
+
+    %lägg till att läsa default preferences och skriva över lokala.
+    %Uppdatera gui.
   end
 end
 
@@ -238,7 +351,6 @@ try
 catch
   myfailed('Could not save preferences. Write permission? Disk full?',DATA.PrefHandles.fig);
 end;
-
 
 %--------------------------------
 function closepushbutton_Callback %#ok<DEFNU>
@@ -1349,7 +1461,7 @@ global DATA
 
 ok = false;
 
-if not(isequal(3,getmodule(2,'Db',[],true))) %'' => make license check silent.
+if not(isequal(3,getmodule(2,'D',[],true))) %'' => make license check silent.
   myfailed('Your license does not include this module.',DATA.GUI.Segment);
   return;
 end;
