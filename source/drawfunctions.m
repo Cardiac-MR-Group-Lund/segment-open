@@ -687,8 +687,6 @@ DATA.Handles.datasetpreviewline =  plot(DATA.Handles.datasetaxes,...
 %Updates viewbuttons zero is crucial else stack overflow
 DATA.setviewbuttons(0)
 
-
-
 %------------------------
 function drawimageno(no)
 %------------------------
@@ -1230,6 +1228,8 @@ elseif ismember(type,{'montagefit','sax3'}) && ...
     %Wrong orientation of view, make new viewim
     segment('makeviewim',panel,no);
     segment('updatemodeldisplay');
+elseif strcmp(type,'montagesegmented')
+    segment('makeviewim',panel,no);
 end;
 if strcmp(type,'sax3')
     DATA.updatesax3display(no,panel);
@@ -1273,9 +1273,9 @@ switch DATA.ViewPanelsType{panel}
             'ylim',SET(no).MontageRowZoomState(3:4));
     case 'montagesegmented'
         %Montagesegmented
-        if isempty(SET(no).MontageFitZoomState)
-            SET(no).MontageFitZoomState = [0.5;size(DATA.ViewIM{panel},2)+0.5;0.5;size(DATA.ViewIM{panel},1)+0.5];
-        end;
+        %if isempty(SET(no).MontageFitZoomState)
+        SET(no).MontageFitZoomState = [0.5;size(DATA.ViewIM{panel},2)+0.5;0.5;size(DATA.ViewIM{panel},1)+0.5];
+        %end;
         set(DATA.Handles.imageaxes(panel),...
             'xlim',SET(no).MontageFitZoomState(1:2),...
             'ylim',SET(no).MontageFitZoomState(3:4));
@@ -1333,13 +1333,14 @@ hold(DATA.Handles.imageaxes(panel),'on');
 %On a detailed scale, this box is in fact wrongly placed, but otherwise the
 %sliceline ends up below other lines. /JU
 if strcmp(DATA.ViewPanelsType{panel},'montagesegmented')
-    slicestoinclude = find(findfunctions('findslicewithendo',no))';
-    if min(slicestoinclude) > 1
-        slicestoinclude = [min(slicestoinclude)-1 slicestoinclude];
-    end
-    if max(slicestoinclude) < SET(no).ZSize;
-        slicestoinclude = [slicestoinclude max(slicestoinclude)+1];
-    end
+%     slicestoinclude = find(findfunctions('findslicewithendo',no)+findfunctions('findslicewithepi',no)+findfunctions('findslicewithrvendo',no))';
+%     if min(slicestoinclude) > 1
+%         slicestoinclude = [min(slicestoinclude)-1 slicestoinclude];
+%     end
+%     if max(slicestoinclude) < SET(no).ZSize;
+%         slicestoinclude = [slicestoinclude max(slicestoinclude)+1];
+%     end
+  slicestoinclude = segment_main('getmontagesegmentedslices',no);
 else
     slicestoinclude = 1:SET(no).ZSize;
 end

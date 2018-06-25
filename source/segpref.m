@@ -1119,7 +1119,7 @@ for i = 1:numel(guis)
   end
 end
 silent = true;
-save_Callback(silent); %Always save
+save_Callback(silent); %Always save, silent true
 
 
 %---------------------------

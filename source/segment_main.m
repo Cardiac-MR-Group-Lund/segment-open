@@ -1130,7 +1130,63 @@ for loop=1:prod(DATA.ViewMatrix)
   no=DATA.ViewPanels(loop);
   set(DATA.Handles.selectslicehandle{loop},'visible','off');
   switch DATA.ViewPanelsType{loop}
-    case {'montage','montagerow','montagefit','montagesegmented'}
+    case {'montage','montagerow','montagefit'}%,'montagesegmented'}
+      if loop~=DATA.CurrentPanel
+        set(DATA.Handles.selectslicehandle{loop}(SET(no).StartSlice:SET(no).EndSlice),'linestyle','--')%'color',[0.7843  0.7843 0.5]);
+      else
+        set(DATA.Handles.selectslicehandle{loop}(SET(no).StartSlice:SET(no).EndSlice),'color',[1 1 0],'linestyle','-');
+      end
+      set(DATA.Handles.selectslicehandle{loop}(SET(no).StartSlice:SET(no).EndSlice),'visible','on');
+    case 'montagesegmented'
+      
+      %safety check so we dont go out of bounds when doing the montage LV
+%       ind=find(findfunctions('findslicewithendoall',no)+...
+%         findfunctions('findslicewithepiall',no)+...
+%         findfunctions('findslicewithrvendo',no)+...
+%         findfunctions('findslicewithrvepi',no));
+        ind= getmontagesegmentedslices(no);
+      
+        if ind(1)>=SET(no).CurrentSlice || ind(end)<=SET(no).CurrentSlice
+          drawfunctions('drawimagepanel',loop)
+        end
+      
+%       if ~isempty(ind)
+%         if SET(no).StartSlice<ind(1)-1
+%           SET(no).StartSlice=ind(1)-1;
+%         end
+%         
+%         if SET(no).StartSlice>ind(end)+1
+%           SET(no).StartSlice=ind(end)+1;
+%         end
+%         
+%         if SET(no).EndSlice<ind(1)-1
+%           SET(no).EndSlice=ind(1)-1;
+%         end
+%         
+%         if SET(no).EndSlice>ind(end)+1
+%           SET(no).EndSlice=ind(end)+1;
+%         end
+%         
+%         if SET(no).EndSlice>SET(no).ZSize
+%           SET(no).EndSlice=SET(no).ZSize;
+%         end
+%         
+%         if SET(no).EndSlice==0
+%           SET(no).EndSlice=1;
+%         end
+%         
+%         if SET(no).StartSlice>SET(no).ZSize
+%           SET(no).StartSlice=SET(no).ZSize;
+%         end
+%         
+%         if SET(no).StartSlice==0
+%           SET(no).StartSlice=1;
+%         end
+%         
+%         SET(no).CurrentSlice = min([SET(no).CurrentSlice,SET(no).EndSlice]);
+%         SET(no).CurrentSlice = max([SET(no).CurrentSlice,SET(no).StartSlice]);
+%       end
+      
       if loop~=DATA.CurrentPanel
         set(DATA.Handles.selectslicehandle{loop}(SET(no).StartSlice:SET(no).EndSlice),'linestyle','--')%'color',[0.7843  0.7843 0.5]);
       else
@@ -1813,13 +1869,18 @@ function movealltowardsapex_Callback
 
 global SET NO
 
+% ind=find(findfunctions('findslicewithendoall',NO)+...
+%         findfunctions('findslicewithepiall',NO)+...
+%         findfunctions('findslicewithrvendo',NO)+...
+%         findfunctions('findslicewithrvepi',NO));
+%       
 % Move SET(NO) towards base
-if SET(NO).CurrentSlice < SET(NO).ZSize
+if SET(NO).CurrentSlice < SET(NO).ZSize 
   slice = SET(NO).CurrentSlice+1;
   SET(NO).CurrentSlice = slice;
   SET(NO).StartSlice = slice;
   SET(NO).EndSlice  = slice;
-
+  
   updateoneim(NO);
   drawfunctions('drawsliceno',NO);
 end;
@@ -11014,10 +11075,21 @@ function slicestoinclude = getmontagesegmentedslices(no)
 %Get slices to include in montage segmented view.
 global SET
 
-slicestoinclude = find(findfunctions('findslicewithendo',no))';
-if min(slicestoinclude) > 1
-  slicestoinclude = [min(slicestoinclude)-1 slicestoinclude];
+slicestoinclude = find(findfunctions('findslicewithendo',no)+findfunctions('findslicewithepi',no)+findfunctions('findslicewithrvendo',no))';
+slicestoinclude=slicestoinclude(1):slicestoinclude(end);
+%this is a test
+if SET(no).CurrentSlice<slicestoinclude(1)
+  slicestoinclude=[SET(no).CurrentSlice:slicestoinclude(1)-1,slicestoinclude];
+else
+  if min(slicestoinclude) > 1
+    slicestoinclude = [min(slicestoinclude)-1 slicestoinclude];
+  end
 end
-if max(slicestoinclude < SET(no).ZSize)
-  slicestoinclude = [slicestoinclude max(slicestoinclude)+1];
+
+if SET(no).CurrentSlice>slicestoinclude(end)
+  slicestoinclude=[slicestoinclude,slicestoinclude(end)+1:SET(no).CurrentSlice];
+else
+  if max(slicestoinclude < SET(no).ZSize)
+    slicestoinclude = [slicestoinclude max(slicestoinclude)+1];
+  end
 end

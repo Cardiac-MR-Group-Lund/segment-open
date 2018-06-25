@@ -141,11 +141,20 @@ if ~isempty(SET(no).StrainTagging) && isfield(SET(no).StrainTagging, 'LVupdated'
   SET(no).StrainTagging.LVupdated = 1;
 end
 
-DATA.updatevolumeaxes
 
+%safety check so we dont go out of bounds when doing the montage LV
+ind=find(findfunctions('findslicewithrvendo',no)+...
+  findfunctions('findslicewithrvepi',no));
+
+if strcmp(DATA.ViewPanelsType{DATA.ViewPanels==no},'montagesegmented') && isempty(ind)
+  DATA.ViewPanelsType{DATA.ViewPanels==no}='montage';
+end
+
+DATA.updatevolumeaxes
 segment('updatemodeldisplay');
 segment('updatevolume');
 if ~silent
+  segment_main('viewimage_Callback')
   drawfunctions('drawimageno');
   drawfunctions('drawallslices');
 end
@@ -154,7 +163,7 @@ end
 function clearallrv_Callback(silent) %#ok<DEFNU>
 %-----------------------------------------
 %Clear all rv segmentation, both endo and epi 
-global SET NO
+global DATA SET NO
 
 if nargin < 1
  silent = false;
@@ -181,9 +190,20 @@ SET(no).RVEpiInterpY = [];
 if ~isempty(SET(no).StrainTagging) && isfield(SET(no).StrainTagging, 'LVupdated')
   SET(no).StrainTagging.LVupdated = 1;
 end
+
+%safety check so we dont go out of bounds when doing the montage LV
+
+ind=find(findfunctions('findslicewithendoall',no)+...
+  findfunctions('findslicewithepiall',no));
+
+if strcmp(DATA.ViewPanelsType{DATA.ViewPanels==no},'montagesegmented') && isempty(ind)
+  DATA.ViewPanelsType{DATA.ViewPanels==no}='montage';
+end
+
 segment('updatemodeldisplay');
 segment('updatevolume');
 if ~silent
+  segment_main('viewimage_Callback')
   drawfunctions('drawimageno');
   drawfunctions('drawallslices');
 end
@@ -199,6 +219,7 @@ if ~isempty(SET(no).Parent)
   no = SET(no).Parent;
 end
 
+  
 removeallpins_Callback(true); %side effect calls enableundo
 removeallinterp_Callback(true);
 SET(no).EndoX = []; 
@@ -259,10 +280,14 @@ if ~isempty(SET(no).StrainTagging) && isfield(SET(no).StrainTagging, 'LVupdated'
   SET(no).StrainTagging.LVupdated = 1;
 end
 
-DATA.updatevolumeaxes
+if strcmp(DATA.ViewPanelsType{DATA.ViewPanels==no},'montagesegmented')
+  DATA.ViewPanelsType{DATA.ViewPanels==no}='montage';
+end
 
+DATA.updatevolumeaxes
 segment('updatemodeldisplay');
 segment('updatevolume');
+segment_main('viewimage_Callback')
 drawfunctions('drawimageno');
 drawfunctions('drawallslices');
 
@@ -566,9 +591,20 @@ if ~isempty(SET(no).StrainTagging) && isfield(SET(no).StrainTagging, 'LVupdated'
   SET(no).StrainTagging.LVupdated = 1;
 end
 
+%safety check so we dont go out of bounds when doing the montage LV
+ind=find(findfunctions('findslicewithendo',no)+...
+  findfunctions('findslicewithepi',no)+...
+  findfunctions('findslicewithrvendo',no)+...
+  findfunctions('findslicewithrvepi',no));
+
+if strcmp(DATA.ViewPanelsType{DATA.ViewPanels==no},'montagesegmented') && isempty(ind)
+  DATA.ViewPanelsType{DATA.ViewPanels==no}='montage';
+end
+
 DATA.updatevolumeaxes
 segment('updatevolume');
 segment('updatemodeldisplay');
+segment('makeviewim',1)
 drawfunctions('drawimageno');
 drawfunctions('drawallslices');
 

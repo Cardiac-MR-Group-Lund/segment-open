@@ -2190,9 +2190,9 @@ if all(ind)
   return;
 end
 
-if yesno('Remove unselected slices (not undoable). Are you sure?',[],DATA.GUI.Segment);
-  removeslices_Callback(ind);
-end;
+%if yesno('Remove unselected slices (not undoable). Are you sure?',[],DATA.GUI.Segment);
+removeslices_Callback(ind);
+%end;
 
 %-----------------------------------
 function removeselected_Callback %#ok<DEFNU>
@@ -2210,9 +2210,9 @@ if all(ind)
   return;
 end
 
-if yesno('Remove selected slices (not undoable). Are you sure?',[],DATA.GUI.Segment);
-  removeslices_Callback(ind);
-end;
+%if yesno('Remove selected slices (not undoable). Are you sure?',[],DATA.GUI.Segment);
+removeslices_Callback(ind);
+%end;
 
 %---------------------------------
 function removesliceshelper(ind)
@@ -3129,11 +3129,11 @@ end
 function removethis_Callback %#ok<DEFNU>
 %-------------------------------
 %Remove current slice.
-global DATA SET NO
+global SET NO
 
-if ~yesno('Remove current slice is not undoable. Do you want to continue and remove the slice?.',[],DATA.GUI.Segment);
-  return;
-end;
+% if ~yesno('Remove current slice is not undoable. Do you want to continue and remove the slice?.',[],DATA.GUI.Segment);
+%   return;
+% end;
 
 %Removes current slice
 ind = true(SET(NO).ZSize,1);
@@ -3823,7 +3823,7 @@ imvpcell={'Short-axis','2CH','3CH','4CH','Flow'};
 imtcell={'Flow (magnitude)','Flow (through plane)'};
 include=zeros(1,length(nos));
 for i = 1 : length(nos)
-    include(i) = ismember(SET(nos(i)).ImageViewPlane,imvpcell)||ismember(SET(nos(i)).ImageType,imtcell);
+  include(i) = ismember(SET(nos(i)).ImageViewPlane,imvpcell)||ismember(SET(nos(i)).ImageType,imtcell);
 end
 
 nos=nos(logical(include));
@@ -3845,6 +3845,7 @@ if ~SET(NO).EDT==SET(NO).EST
   no=NO;
   useother=0;
 end
+nos = unique([nos no]); %ensure that the current image stack is changed
 
 if useother
   for loop = nos
@@ -3891,7 +3892,7 @@ imvpcell={'Short-axis','2CH','3CH','4CH','Flow'};
 imtcell={'Flow (magnitude)','Flow (through plane)'};
 include=zeros(1,length(nos));
 for i = 1 : length(nos)
-    include(i) = ismember(SET(nos(i)).ImageViewPlane,imvpcell)||ismember(SET(nos(i)).ImageType,imtcell);
+  include(i) = ismember(SET(nos(i)).ImageViewPlane,imvpcell)||ismember(SET(nos(i)).ImageType,imtcell);
 end
 
 nos=nos(logical(include));
@@ -3908,6 +3909,7 @@ if isempty(no) || SET(no).EDT==SET(no).EST
   no=NO;
   useother=0;
 end
+nos = unique([nos no]); %ensure that the current image stack is changed
 
 %Adjustments have been made to NO use this instead
 if ~SET(NO).EDT==SET(NO).EST
@@ -5350,6 +5352,7 @@ if isequal(SET(NO).TIncr,0)
   mywarning('Time increment was 0, now set so that R-R is one second.',DATA.GUI.Segment);
 end;
 
+SET(NO).TimeVector = linspace(0,(SET(NO).TSize-1)*SET(NO).TIncr,SET(NO).TSize); % 180502: Added Update of timevector when switching z and t dimensions 
 SET(NO).CurrentTimeFrame = 1;
 SET(NO).CurrentSlice = 1;
 temp = SET(NO).OrgTSize;

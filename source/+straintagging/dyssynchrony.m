@@ -6,7 +6,9 @@ function dyssynchrony(varargin)
 macro_helper(varargin{:});
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 
+%--------------------------------------------
 function init(taggroup,type)
+%--------------------------------------------
 global SET DATA
 
 gui = mygui(fullfile('+straintagging','dyssynchrony.fig'));
@@ -181,7 +183,6 @@ gui.sections2show =1:17;
 end
 
 %do graphical stuff to gui
-
 for ahaloop=1:17
     [ahastri{ahaloop},pos(ahaloop)] = reportbullseye('aha17nameandpos',ahaloop); %Get name and position of export
 end
@@ -192,9 +193,10 @@ for i=gui.sections2show
 end
 
 for i=1:17
-set(gui.handles.(['radiobutton',num2str(i)]),'String',ahastri{i})
+set(gui.handles.(['radiobutton',num2str(pos(i))]),'String',ahastri{i})
 set(gui.handles.(['radiobutton',num2str(i)]),'Callback','straintagging.dyssynchrony(''radio_Callback'')');
 set(gui.handles.(['radiobutton',num2str(i)]),'backgroundcolor',gui.cmap(i,:))
+set(gui.handles.(['text',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i),gui.tfrad(i)))
 end
 
 gui.handles.peakscirc=nan(1,17);
@@ -219,8 +221,10 @@ if strcmp(type,'SAX')
   radio_Callback
 end
 
-
+%------------------------------------------------
 function setpeak_Callback(type,ind)
+%------------------------------------------------
+
 global DATA
 gui = DATA.GUI.dyssynchrony ;
 h=gui.handles.segaxes;
@@ -252,7 +256,10 @@ switch type
     myset(gui.handles.fig,'windowbuttonupfcn',sprintf('straintagging.dyssynchrony(''setpeakbuttonup'',''rad'',%d)',ind));%d)%sprintf('straintagging.dyssynchrony(''setpeakmotion'',%d)',ind))   
 end
 
+%-----------------------------------------------------------
 function setpeakmotion(type,handleind)%type,ind)
+%-----------------------------------------------------------
+
 global DATA
 gui = DATA.GUI.dyssynchrony ;
 h=gui.handles.segaxes;
@@ -272,11 +279,6 @@ x=get(graphhandle,'Xdata');
 y=get(graphhandle,'Ydata');
 set(peakhandle,'Xdata',x(ind),'Ydata',y(ind))
 
-for i=gui.sections2show
-  %set(gui.handles.(['edit',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i)-gui.globcircpeaktf,gui.tfrad(i)-gui.globradpeaktf))
-  set(gui.handles.(['text',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i),gui.tfrad(i)))
-end
-
 switch type
   case 'circ'
     gui.tfcirc(handleind)=x(ind);
@@ -285,9 +287,19 @@ switch type
     gui.tfrad(handleind)=x(ind);
     gui.indrad(handleind)=ind;
 end
+
+for i=gui.sections2show
+  %set(gui.handles.(['edit',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i)-gui.globcircpeaktf,gui.tfrad(i)-gui.globradpeaktf))
+  set(gui.handles.(['text',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i),gui.tfrad(i)))
+end
+
 set(gui.handles.dyssyncedit,'String',sprintf('%0.2f/%0.2f',std(gui.tfcirc(gui.sections2show)),std(gui.tfrad(gui.sections2show))));
 
-function setpeakbuttonup(type,handleind)%type,ind)
+
+%-------------------------------------------------------------
+function setpeakbuttonup(type,handleind)%#ok<DEFNU> %type,ind)
+%-----------------------------------------------------------
+
 global DATA
 gui = DATA.GUI.dyssynchrony ;
 h=gui.handles.segaxes;
@@ -310,13 +322,6 @@ set(peakhandle,'Xdata',x(ind),'Ydata',y(ind))
 set(gui.handles.fig,'windowbuttonmotionfcn',[]);
 set(gui.handles.fig,'windowbuttonupfcn',[])
 
-
-for i=gui.sections2show
-  %set(gui.handles.(['edit',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i)-gui.globcircpeaktf,gui.tfrad(i)-gui.globradpeaktf))
-  set(gui.handles.(['text',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i),gui.tfrad(i)))
-end
-set(gui.handles.dyssyncedit,'String',sprintf('%0.2f/%0.2f',std(gui.tfcirc(gui.sections2show)),std(gui.tfrad(gui.sections2show))));
-
 switch type
   case 'circ'
     gui.tfcirc(handleind)=x(ind);
@@ -328,7 +333,14 @@ switch type
     myset(gui.handles.fig,'ButtonDownFcn',sprintf('straintagging.dyssynchrony(''setpeak_Callback'',%s)','rad'))
 end
 
+for i=gui.sections2show
+  set(gui.handles.(['text',num2str(i)]),'String',sprintf('%0.2f/%0.2f',gui.tfcirc(i),gui.tfrad(i)))
+end
+set(gui.handles.dyssyncedit,'String',sprintf('%0.2f/%0.2f',std(gui.tfcirc(gui.sections2show)),std(gui.tfrad(gui.sections2show))));
+
+%---------------------------------
 function all_Callback
+%---------------------------------
 global DATA
 gui = DATA.GUI.dyssynchrony ;
 
@@ -415,7 +427,7 @@ for i=1:17
   myset(gui.handles.(['radiobutton',num2str(i)]),'Value',0);
 end
 
-anteriorinds=[2 8 14];
+anteriorinds=[1 7 13];
 
 for i=anteriorinds
   myset(gui.handles.(['radiobutton',num2str(i)]),'Value',1);
@@ -436,7 +448,7 @@ for i=1:17
   myset(gui.handles.(['radiobutton',num2str(i)]),'Value',0);
 end
 
-inferiorinds=[5 11 16];
+inferiorinds=[4 10 15];
 
 for i=inferiorinds
   myset(gui.handles.(['radiobutton',num2str(i)]),'Value',1);
@@ -457,7 +469,7 @@ for i=1:17
   myset(gui.handles.(['radiobutton',num2str(i)]),'Value',0);
 end
 
-lateralinds=[3 4 9 10 15];
+lateralinds=[5 6 11 12 16];
 
 for i=lateralinds
   myset(gui.handles.(['radiobutton',num2str(i)]),'Value',1);
@@ -478,7 +490,7 @@ for i=1:17
   myset(gui.handles.(['radiobutton',num2str(i)]),'Value',0);
 end
 
-septalinds=[1 6 7 12 13];
+septalinds=[2 3 8 9 14];
 
 for i=septalinds
   myset(gui.handles.(['radiobutton',num2str(i)]),'Value',1);
@@ -512,7 +524,9 @@ if oneatatime
   updateplot;
 end
 
+%-------------------------------------------
 function radio_Callback
+%-------------------------------------------
 global DATA
 gui = DATA.GUI.dyssynchrony ;
 
@@ -539,8 +553,9 @@ end
 gui.sections2show=find(tmp);
 updateplot;
 
-
+%--------------------------------
 function updateplot
+%-------------------------------
 global DATA
 
 gui = DATA.GUI.dyssynchrony ;
@@ -581,7 +596,7 @@ switch str
     end
     gui.handles.cumplabel=plot(h,[gui.globcircpeaktf,gui.globcircpeaktf],[0,18],'g-','linewidth',2);
     set(h,'ytick',1:17)
-    set(h,'yticklabel',ahastri)
+    set(h,'yticklabel',ahastri(pos))
     ylim(h,[0,18])
     legend(h,gui.handles.cumplabel,'Cumulative strain peak')
     ylabel(h,'')
@@ -593,7 +608,7 @@ switch str
     end
     gui.handles.cumplabel=plot(h,[gui.globradpeaktf,gui.globradpeaktf],[0,18],'g','linewidth',2);
     set(h,'ytick',1:17)
-    set(h,'yticklabel',ahastri)
+    set(h,'yticklabel',ahastri(pos))
     ylim(h,[0,18])  
     legend(h,gui.handles.cumplabel,'Cumulative strain peak')
     ylabel(h,'')
@@ -627,8 +642,9 @@ xlabel(h,'Heart Cycle [s/T]')
 hold(h,'off')
 
 
-
-function export_Callback
+%--------------------------------------
+function export_Callback %#ok<DEFNU>
+%--------------------------------------
 global DATA SET
 %store and close
 gui = DATA.GUI.dyssynchrony;
@@ -647,11 +663,19 @@ outdata{2,2} = SET(no).PatientInfo.ID;
 outdata{3,2} = SET(no).HeartRate;
 outdata{4,2} = sprintf('%s %s',SET(no).ImageType,SET(no).ImageViewPlane);
 
-line = 6;
+outdata{6,1}='Segmental Peak Strain Values For Each Segment.';
 
-outdata{line,2}='Circ. Peak Time [s/T]';
+line = 7;
+
+if strcmp(SET(no).ImageViewPlane,'Short-axis')
+  outdata{line,2}='Circ. Peak Time [s/T]';
+  outdata{line,4}='Circ. Peak [%]';
+else
+  outdata{line,2}='Longit. Peak Time [s/T]';
+  outdata{line,4}='Longit. Peak [%]';
+end
+
 outdata{line,3}='Rad. Peak Time [s/T]';
-outdata{line,4}='Circ. Peak [%]';
 outdata{line,5}='Rad. Peak [%]';
 
 for ahaloop=1:17
@@ -659,7 +683,7 @@ for ahaloop=1:17
 end
 
 for i = 1:17
-  outdata{line+i,1}=ahastri{i};
+  outdata{line+pos(i),1}=ahastri{i};
 end
 
 for i=gui.sections2show;
@@ -669,15 +693,22 @@ for i=gui.sections2show;
   outdata{line+i,5}=gui.bullseyerad_t(i,gui.indrad(i));
 end
 
-outdata{line+19,2}='Dyssynchrony [std]';
-outdata{line+20,1}='Circ. Peak Time';
-outdata{line+21,1}='Rad. Peak Time';
-outdata{line+20,2}=std(gui.tfcirc(gui.sections2show));
-outdata{line+21,2}=std(gui.tfrad(gui.sections2show));
+outdata{line+19,1}='Segmental Peak Time Spread';
+outdata{line+20,2}='Dyssynchrony [std]';
+if strcmp(SET(no).ImageViewPlane,'Short-axis')
+  outdata{line+21,1}='Circ. Peak Time';
+else  
+  outdata{line+21,1}='Longit. Peak Time';
+end
+outdata{line+22,1}='Rad. Peak Time';
+outdata{line+21,2}=std(gui.tfcirc(gui.sections2show));
+outdata{line+22,2}=std(gui.tfrad(gui.sections2show));
 
 segment('cell2clipboard',outdata);
 
+%--------------------------------------
 function save_Callback
+%--------------------------------------
 global DATA SET
 %store and close
 gui = DATA.GUI.dyssynchrony;

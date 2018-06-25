@@ -8,14 +8,23 @@ feval(varargin{:}); % FEVAL switchyard
 
 
 %--------------------------
-function curve_Callback(no) %#ok<DEFNU>
+function curve_Callback(no,path,name) %#ok<DEFNU>
 %--------------------------
 %GUI for reporting the volume curve.
 global SET NO
 
-if nargin < 1
+if nargin == 0
   no = NO;
 end
+
+if nargin <2
+  path = getpreferencespath;
+end
+
+if nargin <3
+  name =  'lvvolumeplot.png';
+end
+
 fig=figure('visible','off');
 set(fig,'Name','Volume curve','numbertitle','off');
 t = 1000*((0:(SET(no).TSize-1))*SET(no).TIncr);
@@ -36,8 +45,8 @@ h = xlabel('Time [ms]'); set(h,'fontsize',14);
 h = ylabel('Volume [ml]'); set(h,'fontsize',14);
 set(0, 'currentfigure', fig);
 currentFolder = pwd;
-cd(getpreferencespath)
-print(fig,'-dpng', 'lvvolumeplot.png')
+cd(path)
+print(fig,'-dpng', name)
 cd(currentFolder)
 delete(fig)
 

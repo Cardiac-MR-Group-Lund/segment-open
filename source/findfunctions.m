@@ -418,7 +418,9 @@ if nargin < 1
   [~,~,flowno] = findno;
   magno = [];
   for noloop = 1:length(flowno)
-    magno = [magno SET(flowno(noloop)).Flow.MagnitudeNo];
+    if ~isempty(SET(flowno(noloop)).Flow) && isfield(SET(flowno(noloop)).Flow,'MagnitudeNo')
+      magno = [magno SET(flowno(noloop)).Flow.MagnitudeNo];
+    end
   end
   flowno = unique(magno);
 end
@@ -660,6 +662,32 @@ else
   ind = temp;
 end;
 
+%--------------------------------------
+function ind = findslicewithrvendoall(no) %#ok<DEFNU>
+%--------------------------------------
+%Find slices with RV endocard in all timeframes
+global SET NO
+
+if nargin<1
+  no = NO;
+end;
+
+if isempty(SET(no).RVEndoX)
+  ind = false(SET(no).ZSize,1);
+  return;
+end;
+
+if SET(no).TSize>1
+  temp = not(isnan(squeeze(SET(no).RVEndoX(1,:,:))));
+  if SET(no).ZSize==1
+    ind = all(temp);
+  else
+    ind = sum(temp,1)==SET(no).TSize;
+  end;
+else
+  ind = squeeze(not(isnan(SET(no).RVEndoX(1,1,:))));
+end;
+
 %----------------------------------
 function ind = findslicewithepi(no,tfs) %#ok<DEFNU>
 %----------------------------------
@@ -711,6 +739,32 @@ if SET(no).TSize>1
   end;  
 else
   ind = temp;
+end;
+
+%--------------------------------------
+function ind = findslicewithrvepiall(no) %#ok<DEFNU>
+%--------------------------------------
+%Find slices with RV endocard in all timeframes
+global SET NO
+
+if nargin<1
+  no = NO;
+end;
+
+if isempty(SET(no).RVEpiX)
+  ind = false(SET(no).ZSize,1);
+  return;
+end;
+
+if SET(no).TSize>1
+  temp = not(isnan(squeeze(SET(no).RVEpiX(1,:,:))));
+  if SET(no).ZSize==1
+    ind = all(temp);
+  else
+    ind = sum(temp,1)==SET(no).TSize;
+  end;
+else
+  ind = squeeze(not(isnan(SET(no).RVEpiX(1,1,:))));
 end;
 
 %--------------------------------

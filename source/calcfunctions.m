@@ -977,7 +977,7 @@ for zloop=1:SET(no).ZSize
 end;
 
 %------------------------------------------------------
-function wallthickness = calcwallthickness(sectors,no) %#ok<DEFNU>
+function [wallthickness,endox,endoy,epix,epiy] = calcwallthickness(sectors,no) %#ok<DEFNU>
 %------------------------------------------------------
 %Calculate wallthickness. Uses calcendoradius and calcepiradius
 %to do the work.
@@ -1009,8 +1009,8 @@ end;
 %Calc radius
 endorad = calcendoradius(no);
 epirad = calcepiradius(no);
-endorad = findmeaninsector('endo',endorad,1:SET(no).ZSize,sectors,no);
-epirad = findmeaninsector('epi',epirad,1:SET(no).ZSize,sectors,no);
+[endorad,~,~,sector_inds_endo,~] = findmeaninsector('endo',endorad,1:SET(no).ZSize,sectors,no);
+[epirad,~,~,sector_inds_epi,~] = findmeaninsector('epi',epirad,1:SET(no).ZSize,sectors,no);
 
 %If endo is missing in the most apical slices, fill in endo in the most apical slices
 for t = 1:size(endorad,3)
@@ -1022,6 +1022,38 @@ end
 %Wallthickness determed as mean epiradius minus mean endoradius
 %within the sector.
 wallthickness = epirad-endorad;
+
+
+if nargout==5
+  sector_inds_endo = sector_inds_endo(1:end-1,:,:);
+  sector_inds_epi = sector_inds_epi(1:end-1,:,:);
+  sector_inds_endo = sector_inds_endo.*(~isnan(endorad));
+  sector_inds_epi = sector_inds_epi.*(~isnan(epirad));
+  
+  %sector_inds_endo(sector_inds_endo==0)=nan;
+  %sector_inds_epi(sector_inds_epi==0)=nan;
+  endox= nan(size(sector_inds_endo,1),size(sector_inds_endo,3),size(sector_inds_endo,2));
+  endoy=endox;
+  epix=endox;
+  epiy=endox;
+  
+  for t = 1:SET(no).TSize
+    for z = 1:SET(no).ZSize
+      tmp = find(sector_inds_endo(:,z,t));
+      if ~isempty(tmp)
+        for p =sector_inds_endo(:,z,t)
+          endox(:,t,z) = SET(no).EndoX(p,t,z);
+          endoy(:,t,z) = SET(no).EndoY(p,t,z);
+        end
+        
+        for p = sector_inds_epi(:,z,t)
+          epix(:,t,z) = SET(no).EpiX(p,t,z);
+          epiy(:,t,z) = SET(no).EpiY(p,t,z);
+        end
+      end
+    end
+  end
+end
 
 %---------------------------------------------------------------------
 function [xout,yout] = calcsegmentationintersections(no,type,viewtype) %#ok<DEFNU>
@@ -1086,7 +1118,7 @@ for loop=1:length(noseg)
     x = SET(noseg(loop)).(xfield);
     y = SET(noseg(loop)).(yfield);
 
-    if ~isempty(x)
+    if ~isempty(x)% || any(findfunctions(['findslicewith',type,'all'],noseg(loop)))
       %calculate corresponding timeframe
       if SET(no).TSize == 2
         if SET(no).CurrentTimeFrame == SET(noseg(loop)).CurrentTimeFrame
@@ -1095,6 +1127,11 @@ for loop=1:length(noseg)
           tfs = [];
           tfdiff = [];
         end
+       elseif any(findfunctions(['findslicewith',type,'all'],noseg(loop)))
+        alltf = (1+((1:40)-1)/(SET(noseg(loop)).TSize-1)*(SET(no).TSize-1));
+        [~,closestsegind] = min(abs(SET(no).CurrentTimeFrame-round(alltf)));
+        tfs = max(1,min(SET(noseg(loop)).TSize,closestsegind));
+        tfdiff = abs(alltf(tfs)-SET(no).CurrentTimeFrame);  
       elseif SET(no).TSize>2
         %find a corresponding (closest) tf in no, for each tf in noseg
         alltf = (1+((1:40)-1)/(SET(noseg(loop)).TSize-1)*(SET(no).TSize-1));
@@ -1102,6 +1139,8 @@ for loop=1:length(noseg)
         tfdiff = abs(alltf(tfs)-SET(no).CurrentTimeFrame);
 %         tf = round(1+(SET(no).CurrentTimeFrame-1)/(SET(no).TSize-1)*(SET(noseg(loop)).TSize-1));
         %[~,tf] = min(abs(SET(noseg(loop)).TimeVector-SET(no).TimeVector(SET(no).CurrentTimeFrame)));
+     
+       % 
       else
         tfs = 1;
       end
@@ -1619,17 +1658,18 @@ if nargin < 9 || isempty(oneextraslice)
 end
 
 %Decide which slices to view
-if segmentedonly
-  slicestoincludeendo = find(findfunctions('findslicewithendo',no,tfs))';
-  slicestoincludeepi = find(findfunctions('findslicewithepi',no,tfs))';
-  slicestoincludervendo = find(findfunctions('findslicewithrvendo',no,tfs))';
-  slicestoinclude = unique([slicestoincludeendo slicestoincludeepi slicestoincludervendo]);
-  if min(slicestoinclude) > 1 && oneextraslice
-    slicestoinclude = [min(slicestoinclude)-1 slicestoinclude];
-  end
-  if max(slicestoinclude) < SET(no).ZSize && oneextraslice
-    slicestoinclude = [slicestoinclude max(slicestoinclude)+1];
-  end
+if segmentedonly %and currentslice
+   slicestoinclude = segment('getmontagesegmentedslices',no);
+%   slicestoincludeendo = find(findfunctions('findslicewithendo',no,tfs))';
+%   slicestoincludeepi = find(findfunctions('findslicewithepi',no,tfs))';
+%   slicestoincludervendo = find(findfunctions('findslicewithrvendo',no,tfs))';
+%   slicestoinclude = unique([slicestoincludeendo slicestoincludeepi slicestoincludervendo]);
+%   if min(slicestoinclude) > 1 && oneextraslice
+%     slicestoinclude = [min(slicestoinclude)-1 slicestoinclude];
+%   end
+%   if max(slicestoinclude) < SET(no).ZSize && oneextraslice
+%     slicestoinclude = [slicestoinclude max(slicestoinclude)+1];
+%   end
 else
   slicestoinclude = 1:SET(no).ZSize;
 end
@@ -1945,7 +1985,7 @@ if nargin<4
 	method='linear*';
   distributed = 'same';
 end
-if nargin < 5
+if nargin < 5 
   distributed = 'same';
 end
 
@@ -2278,6 +2318,12 @@ if nargin<6
   tf = 1:SET(no).TSize;
 end
 
+if strcmp(SET(no).ImageViewPlane,'Short-axis')
+  distributed = 'angle';
+else
+  distributed = 'same';  
+end
+
 %Parse input
 numtf = length(tf);
 numpoints = size(inp,1);
@@ -2287,14 +2333,14 @@ nslices = length(pos);
 %Upsample model
 if not(numpoints==DATA.NumPoints)
   if ~isempty(SET(no).EndoX)
-  [endox,endoy] = resamplemodel(SET(no).EndoX(:,tf,:),SET(no).EndoY(:,tf,:),numpoints);
+  [endox,endoy] = resamplemodel(SET(no).EndoX(:,tf,:),SET(no).EndoY(:,tf,:),numpoints,distributed);
   else
     endox = nan(numpoints,numtf,SET(no).ZSize);
     endoy = endox;
   end;
   
   if ~isempty(SET(no).EpiX)
-    [epix,epiy] = resamplemodel(SET(no).EpiX(:,tf,:),SET(no).EpiY(:,tf,:),numpoints);
+    [epix,epiy] = resamplemodel(SET(no).EpiX(:,tf,:),SET(no).EpiY(:,tf,:),numpoints,distributed);
   else
     epix = nan(numpoints,numtf,SET(no).ZSize);
     epiy = epix;    
