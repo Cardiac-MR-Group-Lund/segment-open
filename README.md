@@ -24,7 +24,7 @@ Some parts of the code is protected (Matlab p-files).
 
  * Have a look in the folder [source/Docs](source/Docs)
  * The [user manual](source/Docs/manual.pdf) shows how to use the program. We also have some [tutorial videos on Medviso's Segment page](http://medviso.com/products/segment/).
- * If you want to develop your own plugins (or if you're just curious), the [tech manual](source/docs/techmanual.pdf) shows how Segment works internally.
+ * If you want to develop your own plugins (or if you're just curious), the [tech manual](source/Docs/techmanual.pdf) shows how Segment works internally.
 
 **It is strongly recommended to use Matlab R2014a.**
  * Performance of the GUI will be reduced with newer versions, as a new GUI framework was introduced in R2014b.
@@ -32,6 +32,13 @@ Some parts of the code is protected (Matlab p-files).
  * You can have several Matlab installations on the same computer at the same time.
 
 ![r2014a](docs/images/matlab_r2014a.png)
+
+## Contributions
+
+We'd love to include your plugins in this repository! Please see the [Contributions Document](docs/CONTRIBUTING.md) for details, as well as the License and Terms of use below.
+
+Found a bug? Do you have a feature request? Please let us know by [opening an issue in the tracker](https://github.com/Cardiac-MR-Group-Lund/segment-open/issues)!
+
 
 ## License and Terms of use
 
@@ -43,7 +50,7 @@ The Segment Source Distribution may not be used for commercial or clinical appli
 The commercial, FDA-approved and CE-marked version of Segment is developed, marketed and sold by [Medviso AB, Lund, Sweden](http://medviso.com/).
 
 We are happy to accept contributions to this source tree if you want to share your work with the world.
-Write your code as a Segment plugin and submit a pull request when you feel ready!
+Write your code as a Segment plugin and submit your work as a pull request when you feel ready. Please see the [Contributions Document](docs/CONTRIBUTING.md) for details.
 
 ### What IS allowed?
 
@@ -66,9 +73,6 @@ Provided that you give proper attribution (see "Papers to cite" below), you can:
 According to the [license agreement](LICENSE.md), proper citation of required when you publish research based on Segment. A complete list is kept at the Medviso homepage: http://medviso.com/research/how-to-refer/
 
 
-## Contributions
-
-We'd love to include your plugins in this repository! Please see the [Contributions Document](docs/CONTRIBUTING.md) for details.
 
 
 ## Frequently asked questions
