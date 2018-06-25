@@ -1019,6 +1019,16 @@ classdef maingui < handle %Handle class
     
     loadpreferences;
     
+    setuplicense; %This is done to set new license system in use
+    
+    if isequal(13,getmodule(12,'Ev',[],true))
+      useragreement
+      if ~ishandle(g.fig)
+        %The software has been terminated
+        return
+      end
+    end
+    
     if g.Pref.UserLogging
       answer = yesno(sprintf('You are currently logged in as %s. Do you wish to proceed?',getenv('USERNAME')));
       
@@ -1037,8 +1047,6 @@ classdef maingui < handle %Handle class
         %g.adduserevent(['Time:', datestr(now,'yyyymmddHHMMSS')])
       end
     end
-    
-    setuplicense; %This is done to set new license system in use
     
     setappdata(0,'UseNativeSystemDialogs',false); %this controls style of uigetdir
 
@@ -4389,6 +4397,9 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
         '4CH','4CH'};
       
       addimvp=0;
+      if isempty(SET(loop).ImageViewPlane)
+          SET(loop).ImageViewPlane = '';
+      end;
       strimvp = strtrim(SET(loop).ImageViewPlane);
       for i = 1:size(imvpmap,1)
         if strcmpi(imvpmap{i,1},strimvp)

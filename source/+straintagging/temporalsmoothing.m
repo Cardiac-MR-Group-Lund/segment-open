@@ -111,7 +111,7 @@ for i=1:length(SET)
   end
 end
 
-segpref('save_Callback');
+segpref('save_Callback',1); %silent true
 
 close(gcbf)
   

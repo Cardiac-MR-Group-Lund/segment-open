@@ -6,6 +6,177 @@ function [varargout] = export(varargin)
 macro_helper(varargin{:});
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 
+
+
+
+%----------------------------------------------
+function utilityslicebasedvolumeexport_Callback %#ok<DEFNU>
+%----------------------------------------------
+global DATA SET NO
+
+pathname = DATA.Pref.datapath;
+pathname = myuigetdir(pathname,'Select a folder with .mat files');
+if isequal(pathname,0)
+  myfailed('Aborted.');
+  return;
+end;
+
+files2load = dir([pathname filesep '*.mat']);
+numfiles = length(files2load);
+
+if numfiles==0
+  myfailed('No files to do area on found.');
+  return;
+end;
+
+outdata = cell(numfiles+1,120);
+
+h = mywaitbarstart(numfiles,'Please wait, processing files.',3);
+outdata{2,1} = 'Filename';
+outdata{2,2} = 'SliceThickness';
+outdata{2,3} = 'SliceGap';
+outdata{2,4} = 'ResolutionX';
+outdata{2,5} = 'ResolutionY';
+outdata{2,6} = 'NoSlicesDrawn';
+outdata{2,7} = 'Startslice';
+outdata{2,8} = 'EndSlice';
+outdata{1,9} = 'Epi volume (basal->apical) ED [ml]';
+outdata{1,9+100} = 'Epi volume (basal->apical) ES [ml]';
+outdata{1,9+200} = 'Endo volume (basal->apical) ED [ml]';
+outdata{1,9+300} = 'Endo volume (basal->apical) ES [ml]';
+
+%So we can write the headers correctly
+maxnumslices=0;
+for loop=1:numfiles
+
+  %--- Load file
+  DATA.Silent = true;
+  disp(sprintf('Loading %s.',files2load(loop).name));
+  SET = []; %#ok<NASGU>
+  load([pathname filesep files2load(loop).name],'-mat');
+  SET = setstruct; 
+  clear setstruct;
+  NO = 1; %#ok<NASGU>
+
+  openfile('setupstacksfrommat',1);
+  segment('renderstacksfrommat');
+  
+  %--- Find correct image stacks
+  [cineno] = findfunctions('findcineshortaxisno');
+  %[cineno] = findfunctions('findscarshortaxisno'); %Temporary change, change back!!!
+  %cineno = 1;
+  
+  if isempty(cineno)
+    [cineno] = findfunctions('findscarshortaxisno');
+    disp('Could not find short axis cine stack. Taking scar instead.');
+  end;
+  
+  if isempty(cineno)
+    disp('Could not find either cine or scar stack. Taking first stack.');
+    cineno = 1;
+  end;
+  
+  NO = cineno;
+  if SET(cineno).EDT==1 && SET(cineno).EST==1
+    tools('autoesed_Callback');
+  end
+
+  %Get volume over the slices
+  [L,E] = calcfunctions('calclvvolume',cineno);
+
+  %Output general info
+  outdata{loop+2,1} = files2load(loop).name;
+  outdata{loop+2,2} = SET(cineno).SliceThickness;
+  outdata{loop+2,3} = SET(cineno).SliceGap;
+  outdata{loop+2,4} = SET(cineno).ResolutionX;
+  outdata{loop+2,5} = SET(cineno).ResolutionY;  
+  outdata{loop+2,6} = size(L,1);
+  endostartslice = 1000;
+  epistartslice = 1000;
+  if ~isempty(SET(cineno).EndoX)
+    endostartslice = find(~isnan(SET(cineno).EndoX(1,SET(cineno).EDT,:)),1);    
+  elseif ~isempty(SET(cineno).EpiX)
+    epistartslice = find(~isnan(SET(cineno).EpiX(1,SET(cineno).EDT,:)),1);    
+  end
+  if isequal(endostartslice,1000) && isequal(epistartslice,1000)
+    disp('No endo- or epicardium exist');
+    temp = [];
+  else
+    [outdata{loop+2,7} minindex] = min([endostartslice epistartslice]);
+    if minindex == 1
+      temp = find(~isnan(SET(cineno).EndoX(1,SET(cineno).EDT,:)));
+    else
+      temp = find(~isnan(SET(cineno).EpiX(1,SET(cineno).EDT,:)));
+    end
+  end
+
+  if ~isempty(temp)
+    outdata{loop+2,8} = temp(end);
+  end;
+  
+  if maxnumslices<=size(L,1)
+    doslicenumheader = 1;
+    maxnumslices = size(L,1);
+  else
+    doslicenumheader = 0;
+  end
+  
+  for sloop=1:size(L,1)
+    if isequal(SET(cineno).EDT,SET(cineno).EST)
+      %EST & EDT same
+      disp('Endsystole and enddiastole occur at the same time.');
+      
+      if doslicenumheader
+        if sloop==1
+          txt = 'Startslice';
+        else
+          txt = ['Startslice + ',num2str(sloop-1)];
+        end
+        outdata{2,8+sloop} = txt;
+        outdata{2,8+100+sloop} = txt;
+      end
+      outdata{loop+2,8+sloop} = E(sloop,SET(cineno).EDT);
+      outdata{loop+2,8+100+sloop} = L(sloop,SET(cineno).EDT);
+    else
+      
+      if doslicenumheader
+        if sloop==1
+          txt = 'Startslice';
+        else
+          txt = ['Startslice + ',num2str(sloop-1)];
+        end
+        outdata{2,8+sloop} =  txt;
+        outdata{2,8+100+sloop} =  txt;
+        outdata{2,8+200+sloop} =  txt;
+        outdata{2,8+300+sloop} =  txt;
+      end
+    
+      
+      outdata{loop+2,8+sloop} = E(sloop,SET(cineno).EDT);
+      outdata{loop+2,8+100+sloop} = E(sloop,SET(cineno).EST);
+      outdata{loop+2,8+200+sloop} = L(sloop,SET(cineno).EDT);
+      outdata{loop+2,8+300+sloop} = L(sloop,SET(cineno).EST);
+    end;
+  end;
+  h = mywaitbarupdate(h);
+end;
+mywaitbarclose(h);
+
+tmp={};
+%make outdata dense
+for i = 1:size(outdata,2)
+  if ~all(cellfun(@isempty,outdata(:,i)))
+    tmp=[tmp,outdata(:,i)];
+  end
+end  
+
+outdata=tmp;
+segment('cell2clipboard',outdata);
+segment('filecloseall_Callback',true);
+
+DATA.Silent = false;
+
+
 %----------------------------------
 function exportslicevolume_Callback %#ok<DEFNU>
 %----------------------------------
@@ -2259,8 +2430,8 @@ for fileloop=1:numfiles
       if isfield(SET(no).StrainTagging,'globalRVstrain') && ~isempty(SET(no).StrainTagging.globalRVstrain)
         outdata{line,10}='Peak mean circ./longit. strain [%] (entire RV)';
         %segmental strain values from bullseye
-        outdata{line-1,11} = 'Segmental peak radial strain [%]';
-        outdata{line-1,28} = 'Segmental peak circ./longit. strain [%]';
+        outdata{line-1,11} = 'Segmental peak radial strain values at global peak time frame [%]';
+        outdata{line-1,28} = 'Segmental peak circ./longit. strain values at global peak time frame [%]';
         %aha sections
         for loop=1:17
           [stri,pos] = reportbullseye('aha17nameandpos',loop); %Get name and position of export
@@ -2269,8 +2440,8 @@ for fileloop=1:numfiles
         end
       else
         %segmental strain values from bullseye
-        outdata{line-1,10} = 'Segmental peak radial strain [%]';
-        outdata{line-1,27} = 'Segmental peak circ./longit. strain [%]';
+        outdata{line-1,10} = 'Segmental peak radial strain values at global peak time frame [%]';
+        outdata{line-1,27} = 'Segmental peak circ./longit. strain values at global peak time frame [%]';
         %aha sections
         for loop=1:17
           [stri,pos] = reportbullseye('aha17nameandpos',loop); %Get name and position of export
@@ -3058,8 +3229,9 @@ for fileloop=1:numfiles
       outdata{line,2} = 'Patient ID';
       outdata{line,3} = 'Heart Rate';
       outdata{line,4} = 'Image Type';
+      outdata{line,5} = 'Global Peak Time Frame [s]';
       
-      outdata{line,5}='Peak mean circ./longit. strain [%] (entire RV)';
+      outdata{line,6}='Peak mean circ./longit. strain [%] (entire RV)';
       line = line+1;
       
       switch SET(no).ImageType;
@@ -3074,12 +3246,12 @@ for fileloop=1:numfiles
       outdata{line,2} = SET(no).PatientInfo.ID;
       outdata{line,3} = SET(no).HeartRate;
       outdata{line,4} = sprintf('%s %s',SET(no).ImageType,SET(no).ImageViewPlane);
-      
+      outdata{line,5} = SET(no).TimeVector(SET(no).StrainTagging.peaktf);
       switch SET(no).ImageViewPlane
         case 'Short-axis'
-          outdata{line,5} = mynanmean(SET(no).StrainTagging.globalRVstrain(1,SET(no).StrainTagging.peaktf,:));
+          outdata{line,6} = mynanmean(SET(no).StrainTagging.globalRVstrain(1,SET(no).StrainTagging.peaktf,:));
           nbrslices = length(SET(no).StrainTagging.saslices);
-          col=6;
+          col=7;
           outdata{line-2,col} = 'Peak circ. strain RV [%]';
           for sliceloop = 1:nbrslices
             outdata{line-1,col} = sprintf('Slice %d',sliceloop);
@@ -3089,32 +3261,83 @@ for fileloop=1:numfiles
           
           segstr={'Lateral','Septum'};
         case '4CH'
-          outdata{line,5} = mynanmean(SET(no).StrainTagging.globalRVstrain(1,SET(no).StrainTagging.peaktf,:));
-          col=6;
+          outdata{line,6} = mynanmean(SET(no).StrainTagging.globalRVstrain(1,SET(no).StrainTagging.peaktf,:));
+          col=7;
           nbrslices=1;
           segstr={'Basal Lateral','Mid Lateral','Apical Lateral','Apical Septum','Mid Septum','Basal Septum'};
       end
       
       numseg=size(SET(no).StrainTagging.segmentalRVstrain,2);
       
-      outdata{line-2,col}='RV Mean Sectional Peaks';
-        for i=1:numseg
-          outdata{line-1,col}=segstr{i};
-          outdata{line,col}=min(mynanmean(SET(no).StrainTagging.segmentalRVstrain(:,i,:),3));
-          col=col+1;
-        end
+      outdata{line-2,col}='RV Segmental Peak Strain Values For Each Segment ';
+      for i=1:numseg
+        outdata{line-1,col}=[segstr{i}, ' [%]'];
+        outdata{line-1,col+1}=[segstr{i},' Time [s]'];
+        [val,timeind] = min(mynanmean(SET(no).StrainTagging.segmentalRVstrain(:,i,:),3));
+        outdata{line,col}=val;
+        outdata{line,col+1}=SET(no).TimeVector(timeind);
+        col=col+2;
+      end
       %Segmental RV
-%       for sliceloop = 1:nbrslices
-%       outdata{line-2,col}=sprintf('RV sectional peaks slice %d',sliceloop);
-%         for i=1:numseg
-%           outdata{line-1,col}=segstr{i};
-%           outdata{line,col}=min(SET(no).StrainTagging.segmentalRV(i,:,sliceloop));
-%           col=col+1;
-%         end
-%       end
-line=line+3;
+      %       for sliceloop = 1:nbrslices
+      %       outdata{line-2,col}=sprintf('RV sectional peaks slice %d',sliceloop);
+      %         for i=1:numseg
+      %           outdata{line-1,col}=segstr{i};
+      %           outdata{line,col}=min(SET(no).StrainTagging.segmentalRV(i,:,sliceloop));
+      %           col=col+1;
+      %         end
+      %       end
+      
+      %Strain rate
+      if ~strcmp(SET(no).ImageViewPlane, 'Short-axis')
+        straincurve = SET(no).StrainTagging.globalRVstrain;
+      else
+        straincurve = mynanmean(SET(no).StrainTagging.globalRVstrain(1,:,:),3);
+      end
+      
+      strainratecurve=conv2([1 0 -1],1,straincurve','valid')/(2*SET(no).TIncr);
+      
+      [downslope,downslopeind]=min(strainratecurve);%min(strainratecurve(1:floor(length(strainratecurve)*0.7)));
+      [upslope,upslopeind]=max(strainratecurve);%max(strainratecurve(1:floor(length(strainratecurve)*0.7)));
+      
+      upslopetime = SET(no).TimeVector(upslopeind+1);
+      downslopetime = SET(no).TimeVector(downslopeind+1);
+      
+      outdata{line-2,col} = 'RV Global Peak Strain Rate Values';
+      outdata{line-1,col} = 'Upslope';
+      outdata{line-1,col+1} = 'Upslope Time [s]';
+      outdata{line-1,col+2} = 'Downslope';
+      outdata{line-1,col+3} = 'Downslope Time [s]';
+      
+      outdata{line,col} = upslope;
+      outdata{line,col+1} = upslopetime;
+      outdata{line,col+2} = downslope;
+      outdata{line,col+3} = downslopetime;
+      col=col+4;
+      
+       outdata{line-2,col} = 'RV Segmental Peak Strain Rate Values For Each Segment ';
+      for i=1:numseg
+        outdata{line-1,col}=[segstr{i},' Upslope'];
+        outdata{line-1,col+1}=[segstr{i},' Upslope Time [s]'];
+        outdata{line-1,col+2}=[segstr{i},' Downslope'];
+        outdata{line-1,col+3}=[segstr{i},' Downslope Time [s]'];
+        straincurve=mynanmean(SET(no).StrainTagging.segmentalRVstrain(:,i,:),3);
+        strainratecurve=conv2([1 0 -1],1,straincurve,'valid')/(2*SET(no).TIncr);
+        [downslope,downslopeind]=min(strainratecurve);%min(strainratecurve(1:floor(length(strainratecurve)*0.7)));
+        [upslope,upslopeind]=max(strainratecurve);%max(strainratecurve(1:floor(length(strainratecurve)*0.7)));
+        upslopetime = SET(no).TimeVector(upslopeind+1);
+        downslopetime = SET(no).TimeVector(downslopeind+1);
+        outdata{line,col} = upslope;
+        outdata{line,col+1} = upslopetime;
+        outdata{line,col+2} = downslope;
+        outdata{line,col+3} = downslopetime;
+        col=col+4;
+      end
+      
+      line=line+3;
     end
   end; %loop over image stack
+  
   
   
   if doStrain

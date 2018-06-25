@@ -1,10 +1,17 @@
 function [x1,y1]=mypoly2cw(x2,y2)
 %Finds clockwise orientation of segmentation 
 %Written by Klas.
-k=convhull(x2,y2);
+try
+  k=convhull(x2,y2);
 %Convhull returns counterclockwise sorted segmentation do flip to get
 %clockwise orientation.
-
+catch
+  %convhull fails for some small accidental drawings return nan in this
+  %case
+  x1=nan(size(x2));
+  y1=nan(size(y2));
+  return
+end
 %Check if index order is mostly flipped by convhull that means curve has
 %mostly clockwise orientation
 if sum(diff(k(2:end))<0)>length(k)/2
