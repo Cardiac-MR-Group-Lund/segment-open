@@ -19,6 +19,7 @@ switch fcn
 
     %Register submenus
     uimenu(varargin{1},'Label','Background correction...','Callback','plugin_exporttofourflow(''background'')');
+    uimenu(varargin{1},'Label','Unwrap flow...','Callback','flowunwrap');
     uimenu(varargin{1},'Label','Remove outer "zero-border" (if needed)','Callback', 'plugin_exporttofourflow(''fixisoborders'')');
     uimenu(varargin{1},'Label','Duplicate heartcycle for 4D stack','Callback', 'plugin_exporttofourflow(''repeat4dcycles'')');
     uimenu(varargin{1},'Label','Export to FourFlow','Callback','fourFlowExportGUI');
