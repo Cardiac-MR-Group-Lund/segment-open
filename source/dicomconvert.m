@@ -35,9 +35,13 @@ if nargin<3
   end;
 end;
 
-if isequal(dinfo.TransferSyntaxUID,'jpeg') || isequal(dinfo.TransferSyntaxUID,'1.2.840.10008.1.2.4.90')
-  usedcmtk = false;
+if isequal(dinfo.TransferSyntaxUID,'jpeg') || isequal(dinfo.TransferSyntaxUID,'1.2.840.10008.1.2.4.90') 
+    usedcmtk = false;
+elseif isequal(dinfo.TransferSyntaxUID,'explicitbigendian') || isequal(dinfo.TransferSyntaxUID,'1.2.840.10008.1.2.2')
+  usedcmtk = true;
 end;
+
+
 
 if usedcmtk
   stri = sprintf('dcmconv%s +te "%s" "%s"',myexecutableext,infile,outfile); %+te write explicit VR little endian.

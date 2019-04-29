@@ -369,7 +369,21 @@ if not(isfield(DATA.Pref,'OpenGLSoftware'))
 end;
 
 if not(isfield(DATA.Pref,'GUIBackgroundColor'))
-    DATA.Pref.GUIBackgroundColor = [0.94 0.94 0.94]; 
+  DATA.Pref.GUIBackgroundColor = [0.94 0.94 0.94];
+end;
+
+if not(isfield(DATA.Pref,'AskAddComment'))
+  DATA.Pref.AskAddComment = true;
+end;
+
+if not(isfield(DATA.Pref,'GPU'))
+  DATA.Pref.GPU = [];
+  DATA.Pref.GPU.NumGPU = gpuDeviceCount; %number of GPU's available
+  if DATA.Pref.GPU.NumGPU > 0
+    DATA.Pref.GPU.Use = true;
+  else
+    DATA.Pref.GPU.Use = false;
+  end;
 end;
 
 %--------------------

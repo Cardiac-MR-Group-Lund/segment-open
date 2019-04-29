@@ -59,6 +59,7 @@ c = mymenu('Choose What Phantom to Load/Create.',{...
   'Patchinessphantom',...
   'Tagging phantom',...
   'PET phantom',...
+  'Coordinate phantom',...
   'Abort Operation'},DATA.GUI.Segment);
 
 switch c
@@ -92,6 +93,8 @@ switch c
     taggingphantom;
   case 15
     petphantom;
+  case 16
+    coordinatephantom;
   otherwise
     mywarning('Aborted by user.',DATA.GUI.Segment);
 end;
@@ -351,8 +354,6 @@ SET(NO).Point.Label = l;
 
 segment('makeviewim');
 drawfunctions('drawall');
-
-
 
 %-----------------------------------
 function plaincylinder(inrad,outrad)
@@ -1300,6 +1301,50 @@ function [res] = vel2segment(vel,venc)
 %Converts from velocity in cm/s to venc
 
 res = 0.5+vel/(2*venc);
+
+%-------------------------
+function coordinatephantom
+%-------------------------
+%Phantom for testing coordinate directions
+global SET NO
+
+%Set image size
+n = 16;
+nx = n;
+ny = n;
+nt = 1;
+nz = n;
+
+no = length(SET)+1;
+im = zeros(nx,ny,nt,nz);
+im(1,1,1,[1 3]) = 1;
+im(2,1,1,[1 3]) = 1;
+im(3,1,1,[1 3]) = 1;
+im(4,1,1,[1 3]) = 1;
+im(1,3,1,1) = 1;
+im(1,5,1,1) = 1;
+im(1,7,1,1) = 1;
+
+SET(no).IM = single(im);
+
+filephantomhelper;
+openfile('setupstacksfromdicom',NO);
+segment('renderstacksfromdicom',NO);
+SET(no).ResolutionX = 1;
+SET(no).ResolutionY = 1;
+SET(no).SliceThickness = 1;
+SET(no).SliceGap = 0;
+SET(no).XSize = nx;
+SET(no).YSize = ny;
+SET(no).TSize = 1;
+SET(no).ZSize = nz;
+SET(no).CenterX = nx/2;
+SET(no).CenterY = ny/2;
+SET(no).RoiN = 0;
+SET(no).TimeVector = 0;
+SET(no).TIncr = [];
+SET(no).ImagePosition = [0 0 0];
+SET(no).ImageOrientation = [1 0 0 0 1 0];
 
 %------------------
 function petphantom

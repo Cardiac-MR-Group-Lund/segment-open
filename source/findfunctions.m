@@ -106,7 +106,7 @@ for loop=1:length(SET)
 end;
 
 %---------------------------------------------
-function cineshortaxisno = findcineshortaxisno(multiple)
+function cineshortaxisno = findcineshortaxisno(multiple) %#ok<DEFNU>
 %---------------------------------------------
 %Find one [LV] or two [LV and RV] cine short axis stack
 global SET
@@ -147,11 +147,11 @@ end;
 %Find if slices equals max
 %Choose the best candidate in order of priority. Each row in A is one
 %image stack, multiply with priority vector. Take largest sum.
-A = [iscine' haslvseg' isshortaxis'  hasrvseg' hasmaxslices'];
+A = [iscine' isshortaxis' haslvseg' hasrvseg' hasmaxslices'];
  
 if multiple
   %find lv and rv stacks that is cine and short-axis
-  score = A*[16;8;4;2;1]; %most important in priority cine, lvseg, shortaxis, rvseg, maxslices
+  score = A*[16;8;4;2;1]; %most important in priority cine, shortaxis, lvseg, rvseg, maxslices
   templvnos = find(haslvseg);
   temprvnos = find(hasrvseg);
   if ~isempty(templvnos)
@@ -170,7 +170,7 @@ if multiple
   end
   cineshortaxisno = [lvno rvno];
 else 
-  score = A*[16;8;4;2;1]; %most important in priority cine, lvseg, shortaxis, rvseg, maxslices
+  score = A*[16;8;4;2;1]; %most important in priority cine, shortaxis, lvseg, rvseg, maxslices
   [~,ind] = max(score);
   cineshortaxisno = cineno(ind);
 end
@@ -572,9 +572,9 @@ end;
 if SET(no).TSize>1
   temp = not(isnan(squeeze(SET(no).EndoX(1,:,:))));
   if SET(no).ZSize==1
-    ind = all(temp);
+    ind = all(temp)';
   else
-    ind = sum(temp,1)==SET(no).TSize;
+    ind = sum(temp,1)'==SET(no).TSize;
   end;
 else
   ind = squeeze(not(isnan(SET(no).EndoX(1,1,:))));
@@ -598,9 +598,9 @@ end;
 if SET(no).TSize>1
   temp = not(isnan(squeeze(SET(no).EpiX(1,:,:))));
   if SET(no).ZSize==1
-    ind = all(temp);
+    ind = all(temp)';
   else
-    ind = sum(temp,1)==SET(no).TSize;
+    ind = sum(temp,1)'==SET(no).TSize;
   end;
 else
   ind = squeeze(not(isnan(SET(no).EpiX(1,1,:))));
@@ -1015,13 +1015,14 @@ switch type
   case 'flow'
     stri = 'Select image stack for flow report';
   case 'lv'
-    stri = 'Salect image stack for LV report';
+    stri = 'Select image stack for LV report';
   case 'rv'
     stri = 'Select image stack for RV report';
 end
 menuitems = cell(1,1);
 nn = 1;
 stacks = [];
+
 for n = 1:length(SET)
   if isempty(SET(n).Parent) || (not(isempty(SET(n).Parent)) && SET(n).Parent == n)
     menuitems{nn} = sprintf('%d. %s',n,[SET(n).ImageType ' / ' SET(n).ImageViewPlane]);
@@ -1029,8 +1030,10 @@ for n = 1:length(SET)
     nn = nn +1;
   end
 end
+
 menuitems{nn} = sprintf('Unselect');
 s = mymenu(stri,menuitems);
+
 if ~isempty(s) && s~=0
   if s == length(menuitems)
     %unselect
@@ -1055,44 +1058,140 @@ if ~isempty(s) && s~=0
           DATA.FlowNO = no;
           [~,flowroi] = findflowaxisno(no); %identify flow ROI based on ROI names
           DATA.FlowROI = flowroi;
-          
-%           roiaortasc = ismember('Aortic ascending flow',{SET(no).Roi.Name});
-%           roiaortdesc = ismember('Aortic descending flow',{SET(no).Roi.Name});
-%           roipulmart = ismember('Pulmonary artery',{SET(no).Roi.Name});
-%           [~,roistatic] = ismember('Static tissue',{SET(no).Roi.Name});
-%           roinotstatic = setxor(1:SET(no).RoiN,roistatic);
-%           if sum(roiaortasc) 
-%             DATA.FlowROI = find(roiaortasc,1,'last');
-%           elseif sum(roiaortdesc) 
-%             DATA.FlowROI = find(roiaortdesc,1,'last');
-%           elseif sum(roipulmart) 
-%             DATA.FlowROI = find(roipulmart,1,'last');
-%           elseif sum(roinotstatic) 
-%             DATA.FlowROI = roinotstatic(1);
-%           else
-%             DATA.FlowROI = SET(no).RoiCurrent;
-%           end
-
           set(DATA.Handles.flowstackpushbutton,'String',sprintf('Stack #%d',no));
         end
       case 'lv'
-        DATA.LVNO = no;
-        set(DATA.Handles.lvstackpushbutton,'String',sprintf('Stack #%d',no));
+        %If longaxis no then we need to find the appropriate set. will use
+        %Karolinas code
+        if any(strcmp(SET(no).ImageViewPlane,{'2CH','3CH','4CH'}))
+          LAX_group = findlaxset;
+          if all(LAX_group==0)
+            DATA.LVNO = no;
+            set(DATA.Handles.lvstackpushbutton,'String',sprintf('Stack #%d',no));            
+          else
+            LAX_group = LAX_group(LAX_group~=0);
+            DATA.LVNO = LAX_group;
+            str = [num2str(LAX_group(1)),',',num2str(LAX_group(2)),',',num2str(LAX_group(3))];
+            set(DATA.Handles.lvstackpushbutton,'String',sprintf('Stack #%s',str));
+          end
+        else
+          DATA.LVNO = no;
+          set(DATA.Handles.lvstackpushbutton,'String',sprintf('Stack #%d',no));
+        end
       case 'rv'
         DATA.RVNO = no;
         set(DATA.Handles.rvstackpushbutton,'String',sprintf('Stack #%d',no));
     end
   end
 end
+
 switch type
   case 'flow'
     DATA.flowreportupdate;
     DATA.updateflowaxes;
   case {'lv','rv'}
+    segment('updatevolume',true)
     DATA.volumereportupdate;
     DATA.updatevolumeaxes;
 end
-    
+%------------------------------------------------------
+function saxno = findctsaxwithsegmentation(type)
+%-----------------------------------------------------
+%Code for finding ct sax image stack with endosegmentation
+global SET NO DATA
+
+switch type
+    case 'Endo'
+        no = DATA.LVNO;
+    case 'RVEndo'
+        no = DATA.RVNO;
+ %   case 'Epi'
+  %      no = DATA.LVNO;
+end
+if ~isempty(no)
+segx = SET(no).([type,'X']);
+else
+    segx=[];
+end
+saxno=[];
+
+if length(no)==1
+    if strcmp(SET(no).ImageViewPlane,'Short-axis')&&  not(isempty(segx))
+        saxno = no;
+    end
+end
+
+if isempty(saxno)
+    for loop = 1:length(SET)
+        if (strcmp(SET(loop).ImageViewPlane,'Short-axis')&&  not(isempty(SET(loop).([type,'X']))))
+            saxno= loop;
+            break
+        end
+        
+    end
+end
+
+
+
+%------------------------------------------------------
+function transno = findcttransversalwithendo(type)
+%-----------------------------------------------------
+%Code for finding ct transversal image stack with endosegmentation
+
+global SET NO DATA
+
+switch type
+    case 'Endo'
+        no = DATA.LVNO;
+    case 'RVEndo'
+        no = DATA.RVNO;
+end
+transno=[];
+
+if ~isempty(no) && (strcmp(SET(no).ImageViewPlane,'Transversal')) && not(isempty(SET(no).([type,'X'])))
+    transno=no;
+    return
+else
+    for loop = 1:length(SET)
+        if (strcmp(SET(loop).ImageViewPlane,'Transversal') &&  not(isempty(SET(loop).([type,'X']))))
+            transno = loop;
+            break
+        end
+    end
+end
+
+
+
+%-----------------------------------------------------
+function LAX_group = findlaxset
+%-----------------------------------------------------
+% Code for finding single slice LAX set with endo segmentation. Data is returned
+% as [CH2, CH3, CH4], temporary data vector if no chamber can be found
+% entry is zero
+global SET
+
+LAX_group=[0 0 0]; %% [CH2, CH3, CH4], temporary data vector
+
+for loop = 1:length(SET)
+  if(strcmp(SET(loop).ImageViewPlane,'2CH')&& SET(loop).ZSize==1 && isempty(SET(loop).StrainTagging) &&  not(isempty(SET(loop).EndoX)))
+    if (LAX_group(1)== 0)
+      LAX_group(1)=loop;
+    end
+  end
+  if(strcmp(SET(loop).ImageViewPlane,'3CH')&& SET(loop).ZSize==1 && isempty(SET(loop).StrainTagging) && not(isempty(SET(loop).EndoX)))
+    if (LAX_group(2)== 0)
+      LAX_group(2)=loop;
+    end
+  end
+  if(strcmp(SET(loop).ImageViewPlane,'4CH')&& SET(loop).ZSize==1 && isempty(SET(loop).StrainTagging) && not(isempty(SET(loop).EndoX)))
+    if (LAX_group(3)== 0)
+      LAX_group(3)=loop;
+    end
+  end
+end
+
+
+
 
 %-----------------------------------------------------
 function no = findstack(label)
@@ -1124,17 +1223,29 @@ function ind = findclosestannotationpoint(x,y,z)
 %-----------------------------------------------------
 %Finds the index of the annotation point closest to the coordinates (x,y,z)
 
-global SET NO
+global SET NO DATA
 no=NO;
-T=SET(no).CurrentTimeFrame;
 
-points=find(SET(no).Point.T==T); %find annotation points in current timeframe
-
-if isempty(points)
-  myfailed('No annotation points in current time frame.')
-  return;
+if ~strcmp(DATA.CurrentTheme,'3dp')
+  T=SET(no).CurrentTimeFrame;
+  
+  points=find(SET(no).Point.T==T); %find annotation points in current timeframe
+  
+  if isempty(points)
+    myfailed('No annotation points in current time frame.')
+    return;
+  end
+else
+  [r,g,b] = segment3dp.tools('xyz2rgb',SET(NO).Point.X,SET(NO).Point.Y, SET(NO).Point.Z);
+  switch SET(NO).LevelSet.Pen.Color
+  case 'r'
+    points= find(round(r)==SET(NO).LevelSet.View.RSlice);
+  case 'g'
+    points= find(round(g)==SET(NO).LevelSet.View.GSlice);
+  case 'b'
+    points= find(round(b)==SET(NO).LevelSet.View.BSlice);
+  end
 end
-
 dist=nan(size(points));
 for loop=1:length(points) %loop over points and claculate distance from (x,y,z)
   dist(loop)=sqrt((x-SET(no).Point.X(points(loop)))^2+(y-SET(no).Point.Y(points(loop)))^2+(z-SET(no).Point.Z(points(loop)))^2);
@@ -1142,3 +1253,15 @@ end
 
 ind=points(find(dist==min(dist)));
 
+%--------------------------------------------------------
+function z = findcorrespondingslice(thisno,otherno,slice) %#ok<DEFNU>
+%--------------------------------------------------------
+%Find slice in otherno stack based on slice in thisno
+global SET
+
+%Einar Heiberg
+
+pos = calcfunctions('xyz2rlapfh',thisno,1,1,slice);
+pos = calcfunctions('rlapfh2xyz',otherno,pos(1),pos(2),pos(3));
+z = pos(3);
+z = min(max(round(z),1),SET(otherno).ZSize);

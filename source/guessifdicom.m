@@ -39,8 +39,18 @@ switch mode
         if sum(filename=='.')>=6
           isdicom = true;
           return;
-        end;        
+        end;
       end;
+      if  ~isempty(strfind(filename,'PSg.')) || ...
+          ~isempty(strfind(filename,'REG.')) || ...
+          ~isempty(strfind(filename,'SRc.')) || ...
+          ~isempty(strfind(filename,'SRd.')) || ...
+          ~isempty(strfind(filename,'SRe.')) || ...
+          ~isempty(strfind(filename,'SRt.'))
+        
+        isdicom = false;
+        return;
+      end
       if isequal(filename(1:3),'im-')
         isdicom = true;
       end;
@@ -60,8 +70,62 @@ switch mode
         return;
       end
     end;
+    if isequal(lower(ext),'.cache')
+      isdicom = false;
+      return;
+    end
+%     if  filename=='.'
+%       isdicom =false;
+%       return;
+%     end
     
-    % if we're still not sure try and load the file
+    if  ~isempty(strfind(filename,'VERSION'))
+      isdicom =false;
+      return;
+    end
+    
+    if not(...
+        isequal(filename,'thumbs.cache') || ...
+        isequal(filename,'folders.cache') || ...
+        isequal(filename,'dicom.cache'))
+      
+      
+      
+      try
+        temp=dicominfo(rawfilename);
+        if isfield(temp,'ImagingFrequency') %Fixed for Toshiba/Canon 3T MRI sending images directly from MRISystem
+          if (round(temp.ImagingFrequency) == 123) && ( strcmpi(temp.Manufacturer,'toshiba')|| strcmpi(temp.Manufacturer,'canon'))
+            if strcmp(temp.ImageType,'ORIGINAL\PRIMARY\OTHER')&&strcmp(temp.SequenceName,'PSMRA')
+              isdicom=true;
+            elseif strcmp(temp.ImageType,'ORIGINAL\PRIMARY\OTHER') || strcmp(temp.ImageType,'DERIVED\SECONDARY\SHIMMING')
+              isdicom=false;
+            else
+              isdicom=true;
+            end
+          else
+            isdicom=true; %For all other MR
+          end
+        else
+          isdicom=true; %In the case that it is not MR but CT
+        end
+        
+        return;
+      catch
+        %mywarning('The File is not DICOM');
+        isdicom =false;
+        return;
+      end
+%       temp=dicominfo(rawfilename);
+%       if isfield(dicominfo(rawfilename),'Format')
+%         if strcmp(temp.Format,'DICOM')
+%           isdicom = true;
+%           return;
+%         end
+%       end
+    end
+   
+      
+     % if we're still not sure try and load the file
     %disp(rawfilename);
     
     try

@@ -1,4 +1,4 @@
-function imissingle=classcheckim(nos)
+function [imissingle, isint16]=classcheckim(nos)
 %This function check if image is single and if not asks if to convert.
 
 %Jane Sjögren, Erik Södervall.
@@ -9,6 +9,15 @@ imissingle=true;
 
 if nargin==0
   nos=NO;
+end
+
+if nargout==2
+  isint16 = zeros(size(nos));
+  for j=1:length(nos)
+    if checkifint16(nos(j))
+      isint16(j)=1; 
+    end
+  end
 end
 
 int16nos=[];
@@ -34,6 +43,7 @@ if not(isempty(int16nos))
     imissingle=false;
   end
 end
+
 
 %------------------------------
 function check=checkifint16(no)

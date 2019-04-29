@@ -98,11 +98,21 @@ set(DATA.Handles.databaseaddicon,'state','off');
 
 [pathname,filename,ext] = fileparts(SET(NO).FileName);
 
-try
-  patientdatabase('savetodatabase',pathname,filename,ext);
-catch me
-  mydispexception(me);
-end;
+if DATA.Pref.AskAddComment
+  try
+    patientdatabase('addcomment_init');
+  catch me
+    mydispexception(me);
+  end
+  
+else
+  
+  try
+    patientdatabase('savetodatabase',pathname,filename,ext,[]);
+  catch me
+    mydispexception(me);
+  end;
+end
 
 %------------------------
 function saveall_Callback
@@ -693,7 +703,7 @@ resetLVNO=0;
 resetRVNO=0;
 resetFlowNO=0;
 
-if no<=DATA.LVNO
+if any(no<=DATA.LVNO)
 resetLVNO=1;
 end
 

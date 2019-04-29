@@ -23,6 +23,16 @@ classdef segloader < handle
     end
     
     %-----------------------
+    function [instancenumber] = getcanonfields(self)
+    %-----------------------
+    if ~isempty(self.dicoms)
+      instancenumber = self.dicoms(1).tags.InstanceNumber;
+    else
+      instancenumber = [];
+    end
+    end
+    
+    %-----------------------
     function setpreviewmode(self)
     %-----------------------
     %Set preview mode to on

@@ -104,6 +104,19 @@ SET(no).CurrentTimeFrame = t;
 
 drawfunctions('drawimageno');
 
+%--------------------------------
+function pointclearall_helper(no)
+%--------------------------------
+%Helperfunction to clear all points
+
+global SET
+
+SET(no).Point = [];
+SET(no).Point.X = [];
+SET(no).Point.Y = [];
+SET(no).Point.T = [];
+SET(no).Point.Z = [];
+SET(no).Point.Label = {};
 
 %----------------------
 function pointclearall
@@ -118,12 +131,7 @@ if ~isempty(SET(NO).Parent)
 end;
 tools('enableundo',no);
 
-SET(no).Point = [];
-SET(no).Point.X = [];
-SET(no).Point.Y = [];
-SET(no).Point.T = [];
-SET(no).Point.Z = [];
-SET(no).Point.Label = {};
+pointclearall_helper(no);
 
 %-------------------------------
 function pointexportall_Callback %#ok<DEFNU>
@@ -417,7 +425,7 @@ drawfunctions('drawimageno');
 function pointclearall_Callback %#ok<DEFNU>
 %------------------------------
 %Clear all points.
-global SET NO
+global SET NO DATA
 
 %Use to point to mag data set
 no = NO;
@@ -426,13 +434,13 @@ if ~isempty(SET(NO).Parent)
 end;
 tools('enableundo',no);
 
-SET(no).Point.X = [];
-SET(no).Point.Y = [];
-SET(no).Point.T = [];
-SET(no).Point.Z = [];
-SET(no).Point.Label = {};
-drawfunctions('drawimageno');
+pointclearall_helper(no);
 
+if strcmp(DATA.CurrentTheme,'3dp')
+  segment3dp.tools('update3DP')
+else
+  drawfunctions('drawimageno');
+end
 %----------------------
 function point_Buttonup %#ok<DEFNU>
 %----------------------

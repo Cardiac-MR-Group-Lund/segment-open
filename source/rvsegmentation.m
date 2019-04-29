@@ -122,7 +122,7 @@ set(gui.fig,'KeyPressFcn', ...
   @(hObject,eventdata)rvsegmentation('keypressed',hObject,eventdata));
 
 %use user defined sliceselction and centerpoint if it exist
-if isfield(SET(gui.saxno),'RV') && ~isempty(SET(gui.saxno).RV) && ~isempty(SET(gui.saxno).RV.centerbasal) && ~isempty(SET(gui.saxno).RV.slicebasal)
+if isfield(SET(gui.saxno),'RV') && ~isempty(SET(gui.saxno).RV) && isfield(SET(gui.saxno).RV,'centerbasal') && ~isempty(SET(gui.saxno).RV.centerbasal) && isfield(SET(gui.saxno).RV,'slicebasal') && ~isempty(SET(gui.saxno).RV.slicebasal)
   SET(gui.saxno).StartSlice = SET(gui.saxno).RV.slicebasal;
   SET(gui.saxno).EndSlice = SET(gui.saxno).RV.sliceapical;
   updateselectedslices;
@@ -544,7 +544,7 @@ gui = DATA.GUI.RVSegmentation;
 segment('switchtoimagestack',gui.saxno);
 oldpol=DATA.ThisFrameOnly;
 DATA.ThisFrameOnly=0;
-rv('segmentrvendo_Callback');
+rv('segmentrvendo_Callback',0);
 close_Callback
 drawfunctions('drawall',DATA.ViewMatrix(1),DATA.ViewMatrix(2));
 figure(DATA.GUI.Segment.fig);

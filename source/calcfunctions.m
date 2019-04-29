@@ -12,6 +12,198 @@ else
   feval(varargin{:}); % FEVAL switchyard
 end
 
+%------------------------------------------
+function [edmax, MaxdiameterPoint, Zslice_no]  = maxsaxdiameter(no,tf,type)
+%------------------------------------------
+%Get maximum endocardial diameter in short-axis cine stack
+% Input:    no - no of stack, 
+%            tf - time frame, 
+%            type - 'RV', 'LV'
+% Output:   edmax - max LV/RV diameter
+%           MaxdiameterPoint - points with the largest distance in form [x,y]
+%           Zslice_no - slice number with largest LV/RV diameter
+% 
+global SET
+xres = SET(no).ResolutionX;
+yres = SET(no).ResolutionY;
+
+switch type
+    case 'LV'
+        edxall = squeeze(SET(no).EndoX(:,tf,:));
+        edyall = squeeze(SET(no).EndoY(:,tf,:));
+        
+        edmax = 0;
+        edmax_temp = 0;
+        MaxdiameterPoint = [];
+        Zslice_no=[];
+        
+        for z = 1:SET(no).ZSize
+            edx = edxall(:,z);
+            if ~isnan(edx(1))
+                edy = edyall(:,z);
+                edxmat = repmat(edx,1,length(edx));
+                edymat = repmat(edy,1,length(edy));
+                eddist = sqrt((xres*(edxmat'-edxmat)).^2+ ...
+                    (yres*(edymat'-edymat)).^2);
+                
+                % edmax = max(edmax,max(eddist(:)));
+                edmax_temp=max(eddist(:));
+                if edmax_temp>edmax
+                    edmax=edmax_temp;
+                    [row, col] = find(ismember(eddist, edmax));
+                    MaxdiameterPoint(1,:)=[edx(row(1)),edy(row(1))];
+                    MaxdiameterPoint(2,:)=[edx(col(1)),edy(col(1))];
+                    Zslice_no=z;  % #slice number
+                end
+            end
+        end
+        %% In case of RV max diameter, first we find center point of LV based on EPI contour
+        % Then we finiding septum, and calculate the middle point of septum
+        % The last part is to find the intersection between line (center LV and center septum) with RV endo contur.
+        % This intersecton defines our maximal RV dimater.
+    case 'RV'
+        edmax = 0;
+        edmax_temp = 0;
+        MaxdiameterPoint=[];
+        Zslice_no=[];
+        
+        edxall = squeeze(SET(no).RVEndoX(:,tf,:));
+        edyall = squeeze(SET(no).RVEndoY(:,tf,:));
+        epxLVall = squeeze(SET(no).EpiX(:,tf,:));
+        epyLVall = squeeze(SET(no).EpiY(:,tf,:));
+        
+      
+        %Center of Epi LV ROI for each slice
+        xLVcen=mean(epxLVall);
+        yLVcen=mean(epyLVall);
+        
+        % Convhull RV roi
+        for z = 1:SET(no).ZSize
+            edx = edxall(:,z);
+            edxLV=epxLVall(:,z);
+            if isnan(edxLV(1))
+                continue
+            end
+            if ~isnan(edx(1))
+                edy = edyall(:,z);
+                k=convhull(edx,edy);
+                
+                xhull=edx(k);
+                yhull=edy(k);
+                
+                len=diff(xhull).^2+diff(yhull).^2;
+                
+                %%maximum length line segment is made out of the septum points. An addition
+                %to make this more robust is to pick out the n largest line segments and check the area of the concavity the maximum area concavity should be the LV.
+                [~,ind]=max(len);
+                a=[xhull(ind),yhull(ind)];
+                b=[xhull(ind+1),yhull(ind+1)];
+                
+                %find closest points on RV contour
+                [~,ind_a]=min((edx-a(1)).^2+(edy-a(2)).^2);
+                [~,ind_b]=min((edx-b(1)).^2+(edy-b(2)).^2);
+               
+                %%number of poinst between A and B
+                if (edx(ind_a) < edx(ind_a+1))&&(edx(ind_b) < edx(ind_b+1))
+                    noABx=[edx(1:ind_a-1); edx(ind_b+1:end)];
+                else
+                    noABx=edx(ind_a+1:ind_b-1);
+                end
+               
+                %% point which is in the middle between A and B
+                ind_midAB=ceil(length(noABx)/2);
+                % middle point
+                if ind_a <= ind_midAB
+                    midRVab=[edx(end-(ind_midAB-ind_a)), edy(end-(ind_midAB-ind_a))];
+                else
+                    midRVab=[edx(ind_a-ind_midAB), edy(ind_a-ind_midAB)];
+                    
+                end
+            
+                %%line between center LV and centre of septal RV
+                x=[xLVcen(z), midRVab(1)];
+                y=[yLVcen(z), midRVab(2)];
+                p = polyfit(x,y,1);
+          
+                %%calculate line
+                x_space=linspace(min(edx), max(edx),100);
+                y_space=p(1)*x_space+p(2);
+               
+                %% Intersection between the line  LV - septal centre and RV segmentation
+                [xi,yi] = polyxpoly(edx,edy,x_space,y_space);
+                
+                %% Max RV diameter
+                edmax_temp=sqrt((xres*diff(xi)).^2+(yres*diff(yi)).^2);
+                if edmax_temp>edmax
+                    edmax=edmax_temp;
+                    MaxdiameterPoint(1,:)=[xi(1),yi(1)];
+                    MaxdiameterPoint(2,:)=[xi(2),yi(2)];
+                    Zslice_no=z;  % #slice number
+                end
+            end
+        end
+end
+
+
+%----------------------------------------
+function [N,xc,yc,zc] = lsplanefit(x,y,z) %#ok<DEFNU>, used by makecut
+%---------------------------------------
+%This function calculates the plane least squares fit to the points given by the
+%x,y,z coordinates. It uses the null space of a matrix formulation of the .
+
+%An idea is to subtract the first point this will force the plane to lie on
+%the first point.
+%x=rand(1,10),y=rand(1,10),z=rand(1,10)
+
+xc =  mean(x);
+yc = mean(y);
+zc = mean(z);
+
+x= x - xc;
+y= y - yc;
+z= z - zc;
+
+% %using leastsquares
+% Sxx = x*x';
+% Sxy = x*y';
+% Syy = y*y';
+% Sxz = x*z';
+% Syz = y*z';
+% 
+% %using that there is no problem with fixating one param in the equation and
+% %that the point cloud is zero centered i.e sum(x)=0 etc we get that it is
+% %sufficient to solve the below system
+% A = [Sxx,Sxy;Sxy,Syy];
+% B = -[Sxz;Syz];
+% 
+% params = A\B;
+% N = [params;1];
+
+%using svd
+A=[x;y;z];
+[U,~,~] = svd(A);
+N = cross(U(:,1),U(:,2));
+
+% point = [0,0,0];
+% normal = N';
+
+%# a plane is a*x+b*y+c*z+d=0
+%# [a,b,c] is the normal. Thus, we have to calculate
+%# d and we're set
+% d = -point*normal'; %'# dot product for less typing
+
+% %# create x,y
+% [xx,yy]=ndgrid(linspace(-1,1,10),linspace(-1,1,10));
+% 
+% %# calculate corresponding z
+% zz = (-normal(1)*xx - normal(2)*yy - d)/normal(3);
+
+%# plot the surface
+% figure
+% surf(xx,yy,zz)
+% hold on 
+% plot3(x',y',z','k*')
+
 %----------------------
 function calcvolume(no) %#ok<DEFNU>
 %----------------------
@@ -319,7 +511,7 @@ alphapart = 1/(2*SET(no).ZSize);
 %--- Calc endo volume
 if ~isempty(SET(no).EndoX) && ~all(isnan(SET(no).EndoX(:)))
   %Calc dx/ds
-  temp = SET(no).ResolutionX*cat(1,SET(no).EndoX(:,:,ind),SET(no).EndoX(1,:,ind))/10; %cm
+  temp = double(SET(no).ResolutionX)*double(cat(1,SET(no).EndoX(:,:,ind),SET(no).EndoX(1,:,ind)))/10; %cm
   if ndims(temp)==2
     dxds = conv2(temp,[1;-1],'same');
     dxds = dxds(1:(end-1),:,:); %Remove "outside" data
@@ -327,7 +519,7 @@ if ~isempty(SET(no).EndoX) && ~all(isnan(SET(no).EndoX(:)))
     dxds = econv3(temp,[-1;1]);
     dxds = dxds(2:end,:,:); %Different convolves have different "outside"
   end;
-  y = SET(no).ResolutionY*(SET(no).EndoY(:,:,ind)-my)/10; %cm
+  y = double(SET(no).ResolutionY)*double((SET(no).EndoY(:,:,ind)-my))/10; %cm
   vol = pi*alphapart*y.^2.*sign(y).*dxds;
   vol = nansum(nansum(vol,1),3);
   SET(no).LVV = vol; %Store
@@ -337,7 +529,7 @@ end;
 
 %--- Calc epi volume
 if ~isempty(SET(no).EpiX) && ~all(isnan(SET(no).EpiX(:)))
-  temp = SET(no).ResolutionX*cat(1,SET(no).EpiX(:,:,ind),SET(no).EpiX(1,:,ind))/10; %cm
+  temp = double(SET(no).ResolutionX)*double(cat(1,SET(no).EpiX(:,:,ind),SET(no).EpiX(1,:,ind)))/10; %cm
   if ndims(temp)==2
     dxds = conv2(temp,[1;-1],'same');
     dxds = dxds(1:(end-1),:,:); %Remove "outside" data
@@ -345,7 +537,7 @@ if ~isempty(SET(no).EpiX) && ~all(isnan(SET(no).EpiX(:)))
     dxds = econv3(temp,[-1;1]);
     dxds = dxds(2:end,:,:); %Different convolves have different "outside"
   end;
-  y = SET(no).ResolutionY*(SET(no).EpiY(:,:,ind)-my)/10; %cm
+  y = double(SET(no).ResolutionY)*double(SET(no).EpiY(:,:,ind)-my)/10; %cm
   vol = pi*alphapart*y.^2.*sign(y).*dxds;
   vol = nansum(nansum(vol,1),3);
   SET(no).EPV = vol; %Store
@@ -369,7 +561,6 @@ end;
 if ~isempty(SET(no).RVEpiX)
   needtodo = true;
 end;
-
 if SET(no).Rotated
   calcrvvolumepolar(no);
   return;
@@ -1632,7 +1823,7 @@ for noloop=1:length(SET);
 end;
 
 %----------------------------------------------------------
-function [outim,slicestoinclude] = calcmontageviewim(no,matrix,segmentedonly,cmap,c,b,im,tfs,oneextraslice) %#ok<DEFNU>
+function [outim,slicestoinclude] = calcmontageviewim(no,matrix,segmentedonly,cmap,c,b,im,tfs,oneextraslice,slices) %#ok<DEFNU>
 %----------------------------------------------------------
 %Calculate view image for montage view.
 global DATA SET
@@ -1658,6 +1849,7 @@ if nargin < 9 || isempty(oneextraslice)
 end
 
 %Decide which slices to view
+if nargin < 10 || isempty(slices)
 if segmentedonly %and currentslice
    slicestoinclude = segment('getmontagesegmentedslices',no);
 %   slicestoincludeendo = find(findfunctions('findslicewithendo',no,tfs))';
@@ -1673,7 +1865,9 @@ if segmentedonly %and currentslice
 else
   slicestoinclude = 1:SET(no).ZSize;
 end
-
+else
+  slicestoinclude = slices;
+end
 %Add papillary visualization
 stateandicon=segment('iconson','hidelv');
 if not(stateandicon{1}) %not(isempty(SET(no).PapillaryIM)) && isequal(get(DATA.Handles.hidepapicon,'state'),'off')
@@ -1906,7 +2100,11 @@ elseif isa(im,'int16'),
    %im=c*im+(b-0.5);%TODO: should scale
    
    z = floor((im-mi)/(ma-mi)*cmax);
-   z = uint8(c.*nthroot(z(:),d)+b-0.5)+1;%uint8(c*z+(b-0.5)*256)+1; %  
+   if d~=1
+     z = uint8(c.*nthroot(z(:),d)+b-0.5)+1;%uint8(c*z+(b-0.5)*256)+1; %
+   else
+     z = uint8(c.*z(:)+b-0.5)+1;
+   end;
    %z = max(min(round(c*z+(b-0.5)),cmax),cmin);   
 else
   myfailed(dprintf('Segment does not (yet) support type:%s',class(im)));
@@ -1932,7 +2130,7 @@ function [xnew,ynew] = resampleclosedcurve(x,y,n,method,distributed)
 %-------------------------------------------------------------------
 %General helper fcn to resample a closed curve.
 if nargin<4
-	method='linear*';
+	method='linear';%used to be linear*
   distributed = 'same';
 end
 if nargin < 5
@@ -1940,6 +2138,7 @@ if nargin < 5
 end
 
 switch distributed
+  
   case 'same'
     xnew = interp1(x,linspace(1,size(x,1),n),method);
     ynew = interp1(y,linspace(1,size(y,1),n),method);
@@ -1982,7 +2181,7 @@ function [xnew,ynew] = resamplemodel(x,y,n,method,distributed)
 %to different number of points (n).
 
 if nargin<4
-	method='linear*';
+	method='linear';%used to be linear*
   distributed = 'same';
 end
 if nargin < 5 
@@ -2319,7 +2518,7 @@ if nargin<6
 end
 
 if strcmp(SET(no).ImageViewPlane,'Short-axis')
-  distributed = 'angle';
+  distributed = 'evenly';
 else
   distributed = 'same';  
 end
@@ -2333,14 +2532,14 @@ nslices = length(pos);
 %Upsample model
 if not(numpoints==DATA.NumPoints)
   if ~isempty(SET(no).EndoX)
-  [endox,endoy] = resamplemodel(SET(no).EndoX(:,tf,:),SET(no).EndoY(:,tf,:),numpoints,distributed);
+  [endox,endoy] = resamplemodel(SET(no).EndoX(:,tf,:),SET(no).EndoY(:,tf,:),numpoints,'linear',distributed);
   else
     endox = nan(numpoints,numtf,SET(no).ZSize);
     endoy = endox;
   end;
   
   if ~isempty(SET(no).EpiX)
-    [epix,epiy] = resamplemodel(SET(no).EpiX(:,tf,:),SET(no).EpiY(:,tf,:),numpoints,distributed);
+    [epix,epiy] = resamplemodel(SET(no).EpiX(:,tf,:),SET(no).EpiY(:,tf,:),numpoints,'linear',distributed);
   else
     epix = nan(numpoints,numtf,SET(no).ZSize);
     epiy = epix;    
@@ -2869,6 +3068,10 @@ nop = SET(nom).Flow.PhaseNo;
 warnedempty = false;
 outsize = [SET(nom).XSize SET(nom).YSize];
 roinbr = SET(nom).RoiCurrent;
+
+if length(SET(nom).Roi(roinbr).T)==1  %For non-time resolved Phase Contrast images
+  SET(nom).TIncr=1;
+end
 
 for tloop = SET(nom).Roi(roinbr).T
   %Create mask

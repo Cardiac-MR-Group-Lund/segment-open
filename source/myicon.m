@@ -6,6 +6,9 @@ classdef myicon < handle %Inherits from handles to get persistent objects.
 
   properties (SetAccess = public)
     name='';
+    dropdowniconcell={};
+    dropdowniconholder=[];
+    dropdownaxes=[];
     parentobj=[];
     mouseovertext=[];
     cdata = [];
@@ -21,7 +24,7 @@ classdef myicon < handle %Inherits from handles to get persistent objects.
   end
 
   methods
-    function g = myicon(name,parentobj,cdata,text,execute,type,group,cdataIndent)%cdataClicked,cdataDisplay)
+    function g = myicon(name,parentobj,cdata,text,execute,type,group,cdataIndent,dropdowniconcell)%cdataClicked,cdataDisplay)
        
       if nargin==1
          text=[];
@@ -46,11 +49,17 @@ classdef myicon < handle %Inherits from handles to get persistent objects.
       g.cdata = cdata;
       g.cdataDisplay=cdata;
       g.execute=execute;
-      if nargin<8
+      
+      if nargin<8 || isempty(cdataIndent)
         g.generateclickeddisabledandindent(cdata)
       else
         g.generateclickeddisabledandindent(cdata,cdataIndent)
       end
+      
+      if nargin==9
+        g.dropdowniconcell=dropdowniconcell;
+      end
+      
     end
     
     function generateclickeddisabledandindent(varargin)
@@ -88,15 +97,16 @@ classdef myicon < handle %Inherits from handles to get persistent objects.
          %Check that if the button we are over is the same as the the
          %clicked button, if so indent it. If not we want to unhighlight the previous button
          currenticon=g.parentobj.geticon;
-         %if isequal(g,g.parentobj.clickedicon) && isequal(hittest(DATA.fig),g.parentobj.imagehandle)
-        if isequal(currenticon,g.parentobj.clickedicon) && isequal(hittest(g.parentobj.fig),g.parentobj.imagehandle)
+         crit1 = isequal(currenticon,g.parentobj.clickedicon);
+         crit2 = isequal(hittest(g.parentobj.fig),g.parentobj.imagehandle);
+         if crit1 && crit2 
          switch g.type
-            case 0
+            case 0 %one click button
              g.cdataDisplay=g.cdata;
-            case 1 %|| ~isempty(g.parentobj.geticon)
+            case 1 %dentstick button
              g.cdataDisplay=g.cdataIndent;
              g.isindented=1;
-            case 2
+            case 2 %toggle button
               if g.isindented
                 g.cdataDisplay=g.cdata;
                 g.isindented=0;
@@ -104,7 +114,14 @@ classdef myicon < handle %Inherits from handles to get persistent objects.
                 g.cdataDisplay=g.cdataIndent;
                 g.isindented=1;
               end
-              
+           case 3 %dropdown button
+             if g.isindented
+                g.cdataDisplay=g.cdata;
+                g.isindented=0;
+              else
+                g.cdataDisplay=g.cdataIndent;
+                g.isindented=1;
+              end
           end
            %Redundant for most cases but assures that play button gets
               %proper appearance
@@ -117,15 +134,102 @@ classdef myicon < handle %Inherits from handles to get persistent objects.
               delete(g.parentobj.timer);
               g.parentobj.timer=[];
             end
-              %profile report
-         %if isequal(hittest(get(g.parentobj.axeshandle,'Parent')),g.parentobj.imagehandle)
-           %segment(g.execute);
-           feval(g.execute); %run(g.execute)
-         %end
+            if g.type~=3
+           feval(g.execute);
+            else
+              %g.setdropdown
+%               if g.isindented
+%               %do dropdown i.e place new temporary iconaxes which contains
+%               %a dropdown iconholder
+%               
+%               %Number of rows and cols in iconholder divide this with the height and width of
+%               %the axes of iconholder also calculate lower left corner of 
+%                [iconcornerx,iconcornery] = buttoncorner(g.parentobj,g.name);
+%               
+%                rows = size(g.parentobj.iconCell,1);
+%                cols = size(g.parentobj.iconCell,2);
+%                pos =plotboxpos(g.parentobj.axeshandle);%get(g.parentobj.axeshandle,'position');
+%                iconheight = pos(4)/rows; %in gui
+%                iconwidth = pos(3)/cols; %in gui
+%                offsety = size(g.dropdowniconcell,1)*iconheight;
+%               
+%               %place new axes on bottom left corner of dropdown icon
+%               newaxespos = [iconcornerx,iconcornery-offsety,iconwidth,offsety+iconheight/2];
+%               fig = get(g.parentobj.axeshandle,'parent');
+%               ax = axes('parent',fig,'units','normalized','position',newaxespos);
+%               g.dropdownaxes=ax; %add to dropdown axes field
+%               %add iconholder to axes and render
+%               g.dropdowniconholder = myiconplaceholder(ax,0,3);
+%               g.parentobj.dropdowniconholders{end+1} = g.dropdowniconholder;               
+%               add(g.dropdowniconholder,g.dropdowniconcell)
+%               
+%               for i = 1:numel(g.dropdowniconcell)
+%                 g.dropdowniconcell{i}.parentobj.axeshandle
+%               end
+%               
+%               else
+%                 g.parentobj.dropdowniconholders([g.parentobj.dropdowniconholders{:}]==g.dropdowniconholder)=[];
+%                 delete(g.dropdownaxes);
+%                 delete(g.dropdowniconholder);
+%                 g.dropdowniconholder = [];
+%                 g.dropdownaxes=[];
+%               end
+            end
          else
            g.cdataDisplay=g.cdata;
          end
        end
+      end
+      
+      
+      function setdropdown(varargin)
+              g=varargin{1};
+              
+              if length(varargin)<2
+                isindented = g.isindented;
+              else
+                isindented = varargin{2};
+              end
+              
+              if isindented
+              %do dropdown i.e place new temporary iconaxes which contains
+              %a dropdown iconholder
+              
+              %Number of rows and cols in iconholder divide this with the height and width of
+              %the axes of iconholder also calculate lower left corner of 
+               [iconcornerx,iconcornery] = buttoncorner(g.parentobj,g.name);
+              
+               rows = size(g.parentobj.iconCell,1);
+               cols = size(g.parentobj.iconCell,2);
+               pos =plotboxpos(g.parentobj.axeshandle);%get(g.parentobj.axeshandle,'position');
+               iconheight = pos(4)/rows; %in gui
+               iconwidth = pos(3)/cols; %in gui
+               offsety = size(g.dropdowniconcell,1)*iconheight;
+              
+              %place new axes on bottom left corner of dropdown icon
+              newaxespos = [iconcornerx,iconcornery-offsety,iconwidth,offsety+iconheight/2];
+              fig = get(g.parentobj.axeshandle,'parent');
+              ax = axes('parent',fig,'units','normalized','position',newaxespos);
+              g.dropdownaxes=ax; %add to dropdown axes field
+              %add iconholder to axes and render
+              g.dropdowniconholder = myiconplaceholder(ax,0,3);
+              if isempty(g.parentobj.dropdowniconholders)
+                 g.parentobj.dropdowniconholders = g.dropdowniconholder;               
+              else
+                g.parentobj.dropdowniconholders(end+1) = g.dropdowniconholder;               
+              end
+              add(g.dropdowniconholder,g.dropdowniconcell)  
+              else
+                
+                if ~isempty(g.parentobj.dropdowniconholders)
+                g.parentobj.dropdowniconholders(g.parentobj.dropdowniconholders==g.dropdowniconholder)=[];
+                 delete(g.dropdownaxes);
+                  delete(g.dropdowniconholder);
+                g.dropdowniconholder = [];
+                g.dropdownaxes=[];
+                end
+                 
+              end
       end
       
       function undent(varargin)

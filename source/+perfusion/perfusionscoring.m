@@ -376,24 +376,16 @@ end
 %---------------------
 function motionfunc
 %-----------------------
+%motion function in the perfusionscoring gui.
 global DATA
 
 gui = DATA.GUI.PerfusionScoring;
 motion(gui.iconholder);
 
-% %-------------------------
-%  function hidecontour
-% %--------------------------
-% global DATA
-% gui = DATA.GUI.PerfusionScoring;
-% gui.hidelv=~gui.hidelv;
-% for type = {'stress','rest'};
-%   drawimages(type{1})
-% end
-
 %---------------------
 function initiconholder
 %-----------------------
+%initiates the iconholder in the perfusionscoring interface
 global DATA
 gui = DATA.GUI.PerfusionScoring;
 
@@ -1263,6 +1255,7 @@ end
 %--------------------
 function score(type)
 %--------------
+%Updates perfusion scoring bullseye according to click
 global DATA
 
 gui=DATA.GUI.PerfusionScoring;

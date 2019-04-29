@@ -24,7 +24,7 @@ if isequal(filename,'copy_Callback')
 end;
 
 %Temporary switch
-stable = true;
+stable = false;
 
 if ~exist(filename,'file')
   myfailed(dprintf('Could not find file %s.',filename));
@@ -32,8 +32,7 @@ if ~exist(filename,'file')
 end;
 
 %debugging
-%system(sprintf('dcmdump%s "%s" > temp.txt',platformextension,filename));
-
+system(sprintf('dcmdump%s "%s" > temp.txt',platformextension,filename));
 set(gcf,'pointer','watch');
 %info = dicominfo(filename)
 
