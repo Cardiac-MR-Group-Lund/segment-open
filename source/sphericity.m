@@ -1,11 +1,12 @@
 function sphericity
+%------------------
 %Tool for calculating sphericity of the left ventricle
 
 global SET
 
 cineno = findfunctions('findno');
 if isempty(cineno)
-  myfailed('No short-axis cine stack found')
+  myfailed('No cine stack found')
   return
 end
 saxno = findfunctions('findcineshortaxisno');
@@ -14,6 +15,10 @@ if ~existfunctions('existendo',saxno)
   return
 end
 cineno = setdiff(cineno,saxno);
+if isempty(cineno)
+  myfailed('Could not find additional cine stack except the short-axis cine stack');
+  return;
+end
 
 edlviewplanes = {};
 edlmeas = [];
@@ -23,7 +28,7 @@ for noloop = cineno
   imvp = SET(noloop).ImageViewPlane;
   measures = [SET(noloop).Measure];
   for i = 1:numel(measures)
-    if strcmp(measures(i).Name,'EDL') 
+    if strcmp(measures(i).Name,'EDL')
       if ~ismember(imvp,edlviewplanes)
         edlmeas = [edlmeas measures(i)];
         edlviewplanes = [edlviewplanes imvp];
@@ -31,7 +36,7 @@ for noloop = cineno
         mywarning(['Found multiple measurements of EDL in the same ' ...
           'image stack. Taking first (arbitrary decision).'])
       end
-    elseif strcmp(measures(i).Name,'ESL') 
+    elseif strcmp(measures(i).Name,'ESL')
       if ~ismember(imvp,eslviewplanes)
         eslmeas = [eslmeas measures(i)];
         eslviewplanes = [eslviewplanes imvp];
@@ -52,7 +57,8 @@ if SET(saxno).EDT == SET(saxno).EST
   mywarning('EDT occurs at the same time as EST in short-axis cine stack');
 end
 
-[edmax,esmax] = maxsaxdiameter(saxno);
+edmax = maxsaxdiameter(saxno,SET(saxno).EDT,'LV');
+esmax = maxsaxdiameter(saxno,SET(saxno).EST,'LV');
 
 c = cell(2,5+numel(edlviewplanes) + numel(eslviewplanes));
 c{1,1} = 'Patient name';
@@ -88,26 +94,28 @@ for loop = 2:size(c,2)
 end
 mymsgbox(stri,'LV Sphericity')
 segment('cell2clipboard',c);
-
 %------------------------------------------
-function [edmax,esmax] = maxsaxdiameter(no)
+function endomax = maxsaxdiameter(no,tf,type)
 %------------------------------------------
 %Get maximum endocardial diameter in short-axis cine stack
+% no - no of stack
+% tf - time frame
+% type - 'RV', 'LV'
 global SET
-
 xres = SET(no).ResolutionX;
 yres = SET(no).ResolutionY;
 
-edxall = squeeze(SET(no).EndoX(:,SET(no).EDT,:));
-edyall = squeeze(SET(no).EndoY(:,SET(no).EDT,:));
+switch type
+  case 'LV'
+    edxall = squeeze(SET(no).EndoX(:,tf,:));
+    edyall = squeeze(SET(no).EndoY(:,tf,:));
+  case 'RV'
+    edxall = squeeze(SET(no).RVEndoX(:,tf,:));
+    edyall = squeeze(SET(no).RVEndoY(:,tf,:));
+end
+endomax = 0;
 
-esxall = squeeze(SET(no).EndoX(:,SET(no).EST,:));
-esyall = squeeze(SET(no).EndoY(:,SET(no).EST,:));
-
-edmax = 0;
-esmax = 0;
-
-for z = 5:SET(no).ZSize
+for z = 1:SET(no).ZSize
   edx = edxall(:,z);
   if ~isnan(edx(1))
     edy = edyall(:,z);
@@ -115,16 +123,7 @@ for z = 5:SET(no).ZSize
     edymat = repmat(edy,1,length(edy));
     eddist = sqrt((xres*(edxmat'-edxmat)).^2+ ...
       (yres*(edymat'-edymat)).^2);
-    edmax = max(edmax,max(eddist(:)));
-  end
-  
-  esx = esxall(:,z);
-  if ~isnan(esx(1))
-    esy = esyall(:,z);
-    esxmat = repmat(esx,1,length(esx));
-    esymat = repmat(esy,1,length(esy));
-    esdist = sqrt((xres*(esxmat'-esxmat)).^2+ ...
-      (yres*(esymat'-esymat)).^2);
-    esmax = max(esmax,max(esdist(:)));
+    endomax = max(endomax,max(eddist(:)));
   end
 end
+

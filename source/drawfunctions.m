@@ -18,11 +18,16 @@ if nargin < 3
     panelstype = cell(sz);
     [panelstype{:}] = deal('one');
 end
-if DATA.CurrentPanel > numel(nos) || nos(DATA.CurrentPanel) ~= NO
-    DATA.CurrentPanel = find(nos==NO,1,'last');
-    if isempty(DATA.CurrentPanel)
-        DATA.CurrentPanel = find(nos,1,'last');
-        NO = nos(DATA.CurrentPanel);
+
+if isempty(nos)
+    nos = NO;
+else
+    if DATA.CurrentPanel > numel(nos) || nos(DATA.CurrentPanel) ~= NO
+        DATA.CurrentPanel = find(nos==NO,1,'last');
+        if isempty(DATA.CurrentPanel)
+            DATA.CurrentPanel = find(nos,1,'last');
+            NO = nos(DATA.CurrentPanel);
+        end
     end
 end
 
@@ -65,6 +70,7 @@ if nargin==0
     end;
 end;
 
+
 if isempty(n)
     n = length(DATA.ViewPanels);
 end;
@@ -82,6 +88,7 @@ if nargin==2
     n = n*m;
     gotrowscols = true;
 end;
+
 %------------------------------------------
 
 %Delete the old ones first
@@ -145,6 +152,20 @@ else
     rows = n/m; %see above, nargin==2 clause before.
     cols = m;
 end;
+
+% if strcmp(DATA.ViewPanelsType{1},'ortho')
+%     panelstype = cell(1,n);
+%     panelstype{1}='one';
+%     sz = [rows,cols];
+%     nos = DATA.ViewPanels(1);
+%     drawimageview(nos,sz,panelstype)
+%     return
+% end
+
+if length(DATA.ViewPanels)<DATA.CurrentPanel
+    DATA.CurrentPanel = 1;
+end
+
 
 %Layout has changed, reset zoom.
 if ~isequal([rows cols],DATA.ViewMatrix)
@@ -286,6 +307,9 @@ DATA.Handles.imagetypetext = empty;
 DATA.Handles.seriesdescriptiontext = empty;
 DATA.Handles.dicomimagetypetext = empty;
 DATA.Handles.slicetimetext = empty;
+DATA.Handles.slicecoordtext = empty;
+DATA.Handles.slicetimetext3dp = empty;
+DATA.Handles.slicecoordtext3dp = empty;
 DATA.Handles.endointerp = empty;
 DATA.Handles.epiinterp = empty;
 DATA.Handles.rvendointerp = empty;
@@ -329,35 +353,31 @@ temppanel2=DATA.CurrentPanel;
 DATA.CurrentPanel=temppanel;
 
 for panel=panelstodo;
-    no = DATA.ViewPanels(panel);
-    drawimagepanel(panel);
-    showedits(no);
+  no = DATA.ViewPanels(panel);
+  drawimagepanel(panel);
+  showedits(no);
+  %adding XYZ coordinates to 3DPtab images 
+  if isequal(DATA.CurrentTheme,'3dp')&& length(panelstodo) == 4 ||...
+    isequal(DATA.CurrentTheme,'3dp')&& length(panelstodo) == 2
+    if panel ~= 2
+        drawimagetypetext3dp(NO,panel)
+      updatevisibility  
+    end
+  end
 end;
 
-%DATA.CurrentPanel=temppanel2;
 segment('switchtopanel',temppanel2,1);
-%DATA.CurrentPanel=temppanel;
 
 segment('updateselectedslices');
+
 %Draw intersections
 drawintersections;
 
-%Enable/Disable play icon etc
-% DATA.updatetimethings;
-
-% %assure DATA.LVNO is set when updating flow table
-% findfunctions('setglobalstacks');
-
-%Update volumeaxes
-%segment('updatevolume');
-%segment('updateflow');
 
 %Update title on window
 DATA.updatetitle;
 
 %Update theme
-%DATA.updateicons;
-%Update callbacks. Needed to set buttondown on intersection line
 updatetool;
 
 %Render iconplaceholders aswell
@@ -366,11 +386,6 @@ DATA.Handles.permanenticonholder.render
 if ~isempty(DATA.Handles.configiconholder.cdata)
   DATA.Handles.configiconholder.render
 end
-%Upate view icons
-%segment('updateviewicons');
-
-% %Updates viewbuttons zero is crucial else stack overflow
-%DATA.setviewbuttons(0)
 
 %Make now one orange
 set(DATA.Handles.imageaxes,...
@@ -378,6 +393,586 @@ set(DATA.Handles.imageaxes,...
 set(DATA.Handles.imageaxes(DATA.CurrentPanel),...
     'xcolor',DATA.GUISettings.AxesColor,'ycolor',DATA.GUISettings.AxesColor,'linewidth',2.5);
 
+  
+%---------------------- START3DDRAWFUNCTIONS ----------------------------
+
+%--------------------------------
+ function displaypoints(view,ima)
+%--------------------------------
+%Draws annotation points in 3dp imageaxes ima according to view. 
+
+global SET DATA NO
+
+%add points
+[r,g,b] = segment3dp.tools('xyz2rgb',SET(NO).Point.X,SET(NO).Point.Y, SET(NO).Point.Z);
+switch view
+  case 'r'
+    pointstoplot = round(r)==SET(NO).LevelSet.View.RSlice;
+    x=g;
+    y=b;
+  case 'g'
+    pointstoplot = round(g)==SET(NO).LevelSet.View.GSlice;
+    x=b; 
+    y=r;
+  case 'b'
+    pointstoplot = round(b)==SET(NO).LevelSet.View.BSlice;
+    x=g;
+    y=r;
+end
+
+delete(DATA.Handles.([view,'text3dp']))%This removes old points
+DATA.Handles.([view,'text3dp']) = [];
+
+if any(pointstoplot)
+  for loop = find(pointstoplot)
+   DATA.Handles.([view,'text3dp'])=[DATA.Handles.([view,'text3dp']),text('parent',ima,...
+      'position',[x(loop) y(loop)],'HorizontalAlignment','center',...
+      'string','+','color',[1,1,1]), text('parent',ima,...
+      'position',[x(loop)+5 y(loop)],'HorizontalAlignment','left',...
+      'string',SET(NO).Point.Label{loop},'color',[1,1,1])];
+    set(DATA.Handles.([view,'text3dp']),'ButtonDownFcn','segment3dp.tools(''delete3dppoints'')');
+  end
+end
+
+
+
+%----------------
+function rupdate
+%----------------
+%Update 'red' image
+
+global DATA SET NO
+
+handles = DATA.Handles;
+imh=handles.imagehandle(strcmp(DATA.ViewPanelsType,'trans3DP'));
+ima=handles.imageaxes(strcmp(DATA.ViewPanelsType,'trans3DP'));
+
+if isempty(ima)
+  return
+end
+
+%if DATA.Handles.configiconholder.findindented('outline')%SET(NO).LevelSet.View.Outline 
+  outlinedraw3dp('r')
+%end
+
+%add points
+displaypoints('r',ima)
+%Update image
+im = getoverlayimage('r');
+%Update image
+set(imh,'cdata',im)
+%zoom state
+set(ima,...
+	'xlim',SET(NO).LevelSet.View.RZoomState(1:2),...
+	'ylim',SET(NO).LevelSet.View.RZoomState(3:4));
+
+
+%------------------
+function gupdate
+%-----------------
+%Update green image
+
+global DATA SET NO
+
+handles = DATA.Handles;
+imh=handles.imagehandle(strcmp(DATA.ViewPanelsType,'sag3DP'));
+ima=handles.imageaxes(strcmp(DATA.ViewPanelsType,'sag3DP'));
+
+if isempty(ima)
+  return
+end
+
+%if DATA.Handles.configiconholder.findindented('outline')
+  outlinedraw3dp('g')
+%end
+
+%add points
+displaypoints('g',ima)
+
+%Update image
+im = getoverlayimage('g');
+
+%Update image
+  set(imh,'cdata',im)
+  
+%zoom state
+set(ima,...
+	'xlim',SET(NO).LevelSet.View.GZoomState(1:2),...
+	'ylim',SET(NO).LevelSet.View.GZoomState(3:4));
+
+%------------------
+function bupdate
+%-----------------
+%Update blue image
+
+global DATA SET NO
+
+handles = DATA.Handles;
+imh=handles.imagehandle(strcmp(DATA.ViewPanelsType,'cor3DP'));
+ima=handles.imageaxes(strcmp(DATA.ViewPanelsType,'cor3DP'));
+
+if isempty(ima)
+  return
+end
+%Add contour
+%if DATA.Handles.configiconholder.findindented('outline')%SET(NO).LevelSet.View.Outline 
+  outlinedraw3dp('b')
+%end
+
+%add points
+displaypoints('b',ima)
+
+%Update image
+im = getoverlayimage('b');
+
+%Update image
+  set(imh,'cdata',im)
+
+%zoom state
+set(ima,...
+	'xlim',SET(NO).LevelSet.View.BZoomState(1:2),...
+	'ylim',SET(NO).LevelSet.View.BZoomState(3:4));
+
+%-----------------------------------
+function outlinedraw3dp(type)
+%------------------------------------
+%Shows contour of 3d segmentation if outline button is indented and motion function isnt running.
+global DATA SET NO
+
+if ~DATA.Handles.configiconholder.findindented('outline')  && ~DATA.LevelSet.motionon
+  return
+end
+
+switch type
+    case 'r'
+      ima=DATA.Handles.imageaxes(strcmp(DATA.ViewPanelsType,'trans3DP'));
+  case 'g'
+    ima=DATA.Handles.imageaxes(strcmp(DATA.ViewPanelsType,'sag3DP'));
+  case 'b'
+    ima=DATA.Handles.imageaxes(strcmp(DATA.ViewPanelsType,'cor3DP'));
+  case 's'
+    ima=DATA.Handles.imageaxes(strcmp(DATA.ViewPanelsType,'speedim'));
+end
+
+if ~DATA.LevelSet.motionon
+  %delete(DATA.Handles.([type, 'contour']))
+  set(DATA.Handles.([type, 'contour']),'visible','off')
+  hold(ima,'on');
+  
+  % if speed im we want to use the current selected imagestack for contour.
+  if strcmp(type,'s')
+    im=double(getimagehelper(SET(NO).LevelSet.BW,SET(NO).LevelSet.Pen.Color));
+  else
+    im = double(getimagehelper(SET(NO).LevelSet.BW,type));
+  end
+  
+  if all(im==0)
+    return
+  end
+  
+  [~,DATA.Handles.([type, 'contour'])] = contour(...
+    ima,...
+    0.5:size(im,2)-0.5,0.5:size(im,1)-0.5,im,[127 127]);
+  
+  switch type
+    case 'r'
+      set(DATA.Handles.([type, 'contour']),'ButtonDownFcn','segment3dp.tools(''click3dp_Callback'',''r'')','linecolor',[0 1 0]);
+  case 'b'
+      set(DATA.Handles.([type, 'contour']),'ButtonDownFcn','segment3dp.tools(''click3dp_Callback'',''b'')','linecolor',[0 1 0]);
+    case 'g'
+      set(DATA.Handles.([type, 'contour']),'ButtonDownFcn','segment3dp.tools(''click3dp_Callback'',''g'')','linecolor',[0 1 0]);
+      case 's'
+      set(DATA.Handles.([type, 'contour']),'ButtonDownFcn','segment3dp.tools(''click3dp_Callback'',''s'')','linecolor',[0 1 0]);
+  end
+  hold(ima,'off');
+else
+  set(DATA.Handles.([type, 'contour']),'Visible','off')
+end
+
+%-----------------------------------------
+function im = getimagehelper(vol,view)
+%----------------------------------------
+%Similar as getimage, but do assme no TSize as stored locally in BW.
+
+global DATA SET NO
+
+switch lower(DATA.LevelSet.imageorientation)
+  case 'transversal'
+    switch view
+      case 'r'
+        im = squeeze(vol(:,:,SET(NO).LevelSet.View.RSlice));
+      case 'g'
+        im = squeeze(vol(:,SET(NO).LevelSet.View.GSlice,:))';
+      case 'b'
+        im = squeeze(vol(SET(NO).LevelSet.View.BSlice,:,:))';
+    end;
+  case 'sagittal'
+    switch view
+      case 'r' 
+        im = squeeze(vol(SET(NO).LevelSet.View.RSlice,:,:));
+      case 'g'
+        im = squeeze(vol(:,:,SET(NO).LevelSet.View.GSlice));
+      case 'b'
+        im = squeeze(vol(:,SET(NO).LevelSet.View.BSlice,:));
+    end;
+  case 'coronal'
+    switch view
+      case 'r' 
+        im = squeeze(vol(SET(NO).LevelSet.View.RSlice,:,:))';
+      case 'g'
+        im = squeeze(vol(:,SET(NO).LevelSet.View.GSlice,:));
+      case 'b'
+        im = squeeze(vol(:,:,SET(NO).LevelSet.View.BSlice));
+    end;
+end;
+
+%------------------------------
+function im = getimage(view)
+%-----------------------------
+%Get image for view given imageorientation, r = transversal, g = sagittal,
+%b=coronal
+
+global DATA SET NO
+
+switch lower(DATA.LevelSet.imageorientation)
+  case 'transversal'
+    switch view
+      case 'r'
+        im = squeeze(SET(NO).IM(:,:,1,SET(NO).LevelSet.View.RSlice));
+      case 'g'
+        im = squeeze(SET(NO).IM(:,SET(NO).LevelSet.View.GSlice,1,:))';
+      case 'b'
+        im = squeeze(SET(NO).IM(SET(NO).LevelSet.View.BSlice,:,1,:))';
+    end;
+  case 'sagittal'
+    switch view
+      case 'r' 
+        im = squeeze(SET(NO).IM(SET(NO).LevelSet.View.RSlice,:,1,:));
+      case 'g'
+        im = squeeze(SET(NO).IM(:,:,1,SET(NO).LevelSet.View.GSlice));
+      case 'b'
+        im = squeeze(SET(NO).IM(:,SET(NO).LevelSet.View.BSlice,1,:));
+    end;
+  case 'coronal'
+    switch view
+      case 'r' 
+        im = squeeze(SET(NO).IM(SET(NO).LevelSet.View.RSlice,:,1,:))';
+      case 'g'
+        im = squeeze(SET(NO).IM(:,SET(NO).LevelSet.View.GSlice,1,:));
+      case 'b'
+        im = squeeze(SET(NO).IM(:,:,1,SET(NO).LevelSet.View.BSlice));
+    end;
+end;
+  
+%----------------------------------------------
+function im = getoverlayimage(view,useroverlay)
+%----------------------------------------------
+%Get image including overlay, view is either of 'r','g','b'.
+
+global SET NO
+
+im = getimage(view);
+bw = getimagehelper(SET(NO).LevelSet.BW,view);
+man = getimagehelper(SET(NO).LevelSet.Man,view);
+
+im = segment3dp.tools('levelsetremapandoverlay',im,bw,man);
+
+%--------------------------------
+function drawintensitymapping %#ok<DEFNU>
+%--------------------------------
+%Draws intensity mapping curve and add gray colorbar
+
+global DATA SET NO
+
+offset = SET(NO).LevelSet.IntensityOffset;
+slope = SET(NO).LevelSet.IntensitySlope;
+[minvalue,maxvalue] = segment3dp.tools('getminmax');
+windowmin = SET(NO).LevelSet.WindowCenter-SET(NO).LevelSet.WindowWidth/2;
+windowmax = SET(NO).LevelSet.WindowCenter+SET(NO).LevelSet.WindowWidth/2;
+
+%Plot mapping--
+DATA.Handles.intensityline = plot(DATA.Handles.intensityaxes,...
+  [minvalue-abs(minvalue) -offset/slope (0.5-offset)/slope (1-offset)/slope maxvalue+abs(maxvalue)],...
+  [0 0 0.5 1 1],...
+  'b-');
+
+set(DATA.Handles.intensityaxes,'ytick',[0 1],...
+	'yticklabel',{'0%' ,'100%'});
+
+if isequal(SET(NO).Modality,'CT') %&& ~isempty(regexpi(class(SET(NO).IM),'int'))
+  mintext = sprintf('%d HU',round(windowmin));
+  maxtext = sprintf('%d HU',round(windowmax));
+  set(DATA.Handles.contrastlistbox,'visible','on');
+else
+  mintext = sprintf('%d',windowmin);
+  maxtext = sprintf('%d',windowmax);
+  set(DATA.Handles.contrastlistbox,'visible','off');
+end;
+
+set(DATA.Handles.intensityaxes,'xtick',...
+  [windowmin windowmax],...
+	'xticklabel',{mintext maxtext});
+
+%Add markers to move the lines
+hold(DATA.Handles.intensityaxes,'on');
+
+%x coordinates for the three points are:
+x1 = max(windowmin,(0-offset)/slope);
+x3 = min(windowmax,(1-offset)/slope);
+x2 = (x1+x3)/2;
+
+%use linear algebra to find y coordinates, y = kx+m
+y1 = x1*slope+offset;
+y2 = x2*slope+offset;
+y3 = x3*slope+offset;
+
+DATA.Handles.intensitypoint1 = plot(DATA.Handles.intensityaxes,windowmin,y1,'bo');
+DATA.Handles.intensitypoint2 = plot(DATA.Handles.intensityaxes,(windowmin+windowmax)/2,y2,'bo');
+DATA.Handles.intensitypoint3 = plot(DATA.Handles.intensityaxes,windowmax,y3,'bo');
+
+set(DATA.Handles.intensitypoint1,'markersize',8,'buttondownfcn','segment3dp.tools(''intensitypoint1buttondown'')');
+set(DATA.Handles.intensitypoint2,'markersize',8,'buttondownfcn','segment3dp.tools(''intensitypoint2buttondown'')');
+set(DATA.Handles.intensitypoint3,'markersize',8,'buttondownfcn','segment3dp.tools(''intensitypoint3buttondown'')');
+
+hold(DATA.Handles.intensityaxes,'off');
+
+extra = (windowmax-windowmin)*0.1;
+set(DATA.Handles.intensityaxes,'ylim',[-0.1 1.1],'xlim',[windowmin-extra windowmax+extra]);
+
+%--------------------------------------------------------
+function [x1,y1,x2,y2,x3,y3] = getpointcoordinates(no,x,y)
+%--------------------------------------------------------
+%Get points on speedmapping
+
+global SET
+
+center = SET(no).LevelSet.Speed.Center;
+width = SET(no).LevelSet.Speed.Width;
+type = SET(no).LevelSet.Speed.MappingMode;
+
+%Get x-coordinate for points
+switch type
+  case {'positiveslope','negativeslope'}
+    x1 = center-width/2;
+    x2 = center;
+    x3 = center+width/2;
+  case 'gaussian'
+    [~,ind] = find(y>=0,1,'first');
+    x1 = x(ind);
+    x2 = center;
+    [~,ind] = find(y>=0,1,'last');
+    x3 = x(ind);    
+end;
+
+%Ensure visible on screen
+if x1<(center-width/2)
+  x1 = center-width/2;
+end;
+
+if x3>(center+width/2)
+  x3 = center+width/2;
+end;
+
+%Find y-coordinates
+y1 = interp1(x,y,x1);
+y2 = interp1(x,y,x2);
+y3 = interp1(x,y,x3);
+
+%-------------------------
+function updatemapping %#ok<DEFNU>
+%-------------------------
+%update the mapping graphically
+
+global DATA SET NO
+
+%y = k(x-offset)
+
+[x,y] = segment3dp.tools('getmappingline',NO);
+
+SET(NO).LevelSet.Speed.IntensityMap = int16(2000*y);
+
+[x1,y1,x2,y2,x3,y3] = getpointcoordinates(NO,x,y);
+
+set(DATA.Handles.speedimline,'xdata',x,'ydata',y);
+set(DATA.Handles.speedpoint1,'xdata',x1,'ydata',y1);
+set(DATA.Handles.speedpoint2,'xdata',x2,'ydata',y2);
+set(DATA.Handles.speedpoint3,'xdata',x3,'ydata',y3); 
+
+%----------------------
+function drawmapping %#ok<DEFNU>
+%----------------------
+%Prepare the mapping area for drawing
+
+global DATA SET NO
+
+windowmin = min(SET(NO).LevelSet.WindowCenter-SET(NO).LevelSet.WindowWidth/2,SET(NO).LevelSet.Speed.Center-SET(NO).LevelSet.Speed.Width/2);
+windowmax = max(SET(NO).LevelSet.WindowCenter+SET(NO).LevelSet.WindowWidth/2,SET(NO).LevelSet.Speed.Center+SET(NO).LevelSet.Speed.Width/2);
+
+%Plot mapping
+[x,y] = segment3dp.tools('getmappingline',NO);
+DATA.Handles.speedimline = plot(DATA.Handles.mappingaxes,x,y,'b-');
+
+set(DATA.Handles.mappingaxes,'ytick',[-1 0 1],...
+	'yticklabel',{'0%' '50%','100%'});
+
+if isequal(SET(NO).Modality,'CT') %&& ~isempty(regexpi(class(SET(NO).IM),'int'))
+  mintext = sprintf('%d HU',round(windowmin));
+  maxtext = sprintf('%d HU',round(windowmax));
+else
+  mintext = sprintf('%d',windowmin);
+  maxtext = sprintf('%d',windowmax);  
+end;
+
+set(DATA.Handles.mappingaxes,'xtick',[windowmin windowmax],...
+	'xticklabel',{mintext maxtext});
+
+%Plot center line
+extra = (windowmax-windowmin)*0.1;
+hold(DATA.Handles.mappingaxes,'on');
+plot(DATA.Handles.mappingaxes,[windowmin-extra windowmax+extra],[0 0],'k:');
+
+%Get coordinates of the points
+[x1,y1,x2,y2,x3,y3] = getpointcoordinates(NO,x,y);
+
+%Add markers to move the lines
+DATA.Handles.speedpoint1 = plot(DATA.Handles.mappingaxes,x1,y1,'bo');
+DATA.Handles.speedpoint2 = plot(DATA.Handles.mappingaxes,x2,y2,'bo');
+DATA.Handles.speedpoint3 = plot(DATA.Handles.mappingaxes,x3,y3,'bo');
+set(DATA.Handles.speedpoint1,'markersize',8,'buttondownfcn','segment3dp.tools(''speedpoint1buttondown'')');
+set(DATA.Handles.speedpoint2,'markersize',8,'buttondownfcn','segment3dp.tools(''speedpoint2buttondown'')');
+set(DATA.Handles.speedpoint3,'markersize',8,'buttondownfcn','segment3dp.tools(''speedpoint3buttondown'')');
+
+hold(DATA.Handles.mappingaxes,'off');
+
+set(DATA.Handles.mappingaxes,'xlim',[windowmin-extra windowmax+extra],'ylim',[-1.05 1.05]);
+
+%Adjust color
+c = [0 0 0];
+set(DATA.Handles.mappingaxes,'xcolor',c,'ycolor',c,'zcolor',c);
+
+%--------------------------------------
+function draw3dpimage(no,panel)
+%--------------------------------------
+%Draws and initiates all necessary handles for a 3dp viewpanel
+
+global DATA SET
+
+segment('makeviewim',panel,no)
+
+%--- Draw image
+axes(DATA.Handles.imageaxes(panel)); %Make sure draw in correct figure.
+hold off
+
+switch DATA.ViewPanelsType{panel}
+  case 'trans3DP'
+    [xsz,ysz,xres,yres] = segment3dp.tools('viewsizeandres','r',no);
+    zoomstate = SET(no).LevelSet.View.RZoomState;
+  case 'sag3DP'
+    [xsz,ysz,xres,yres] = segment3dp.tools('viewsizeandres','g',no);
+    zoomstate = SET(no).LevelSet.View.GZoomState;
+  case 'cor3DP'
+    [xsz,ysz,xres,yres] = segment3dp.tools('viewsizeandres','b',no);
+    zoomstate = SET(no).LevelSet.View.BZoomState;
+  case 'speedim'
+    switch DATA.ViewPanelsType{DATA.CurrentPanel}
+      case 'trans3DP'
+        [xsz,ysz,xres,yres] = segment3dp.tools('viewsizeandres','r',no);
+        zoomstate = SET(no).LevelSet.View.RZoomState;
+      case 'sag3DP'
+        [xsz,ysz,xres,yres] = segment3dp.tools('viewsizeandres','g',no);
+        zoomstate = SET(no).LevelSet.View.GZoomState;
+      case 'cor3DP'
+        [xsz,ysz,xres,yres] = segment3dp.tools('viewsizeandres','b',no);
+        zoomstate = SET(no).LevelSet.View.BZoomState;
+      otherwise
+        [xsz,ysz,xres,yres] = segment3dp.tools('viewsizeandres','r',no);
+        zoomstate = SET(no).LevelSet.View.RZoomState;
+    end
+end
+
+%DATA.Handles.imagehandle(panel) = image([0.5, ysz-0.5],[0.5, xsz-0.5],DATA.ViewIM{panel}(:,:,:),'parent',DATA.Handles.imageaxes(panel));
+DATA.Handles.imagehandle(panel) = image([0, ysz],[0, xsz],DATA.ViewIM{panel}(:,:,:),'parent',DATA.Handles.imageaxes(panel));
+
+set(DATA.Handles.imageaxes(panel),...
+    'color',DATA.GUISettings.BackgroundColor,...
+    'xtick',calcfunctions('calcticks',ysz,yres),...
+    'ytick',calcfunctions('calcticks',xsz,xres),...
+    'xticklabel',[],'yticklabel',[]);
+
+%Add objects
+hold(DATA.Handles.imageaxes(panel),'on');
+switch DATA.ViewPanelsType{panel}
+  case 'trans3DP'
+    DATA.Handles.rbline = plot(DATA.Handles.imageaxes(panel),[0 size(DATA.ViewIM{panel},2)],[0 0],'b-'); %add lines, later correct in lineupdate;
+    DATA.Handles.rgline = plot(DATA.Handles.imageaxes(panel),[0 0],[0 size(DATA.ViewIM{panel},1)],'g-');
+    DATA.Handles.rcontour = [];
+    DATA.Handles.rtext3dp = [];
+    displaypoints('r',DATA.Handles.imageaxes(panel))
+    outlinedraw3dp('r')
+  case 'sag3DP'
+    DATA.Handles.grline = plot(DATA.Handles.imageaxes(panel),[0 size(DATA.ViewIM{panel},2)],[0 0],'r-'); %add lines, later correct in lineupdate;
+    DATA.Handles.gbline = plot(DATA.Handles.imageaxes(panel),[0 0],[0 size(DATA.ViewIM{panel},1)],'b-');
+    DATA.Handles.gcontour = [];
+    DATA.Handles.gtext3dp = [];
+    displaypoints('g',DATA.Handles.imageaxes(panel))
+    outlinedraw3dp('g')
+  case 'cor3DP'
+    DATA.Handles.brline = plot(DATA.Handles.imageaxes(panel),[0 size(DATA.ViewIM{panel},2)],[0 0],'r-'); %add lines, later correct in lineupdate;
+    DATA.Handles.bgline = plot(DATA.Handles.imageaxes(panel),[0 0],[0 size(DATA.ViewIM{panel},1)],'g-');
+    DATA.Handles.bcontour = [];
+    DATA.Handles.btext3dp = [];
+    displaypoints('b',DATA.Handles.imageaxes(panel))
+    outlinedraw3dp('b')
+  case 'speedim'
+    DATA.Handles.scontour = [];
+     outlinedraw3dp('s')
+end
+
+hold(DATA.Handles.imageaxes(panel),'on');
+DATA.Handles.scarcontour{panel} = plot(DATA.Handles.imageaxes(panel),NaN,NaN);
+DATA.Handles.weightedscarcontour{panel} = plot(DATA.Handles.imageaxes(panel),NaN,NaN);
+DATA.Handles.mocontour{panel} = plot(DATA.Handles.imageaxes(panel),NaN,NaN);
+DATA.Handles.moextentcontour{panel} = plot(DATA.Handles.imageaxes(panel),NaN,NaN);
+DATA.Handles.marcontour{panel} = plot(DATA.Handles.imageaxes(panel),NaN,NaN);
+hold(DATA.Handles.imageaxes(panel),'off');
+
+set(DATA.Handles.imageaxes(panel),'dataaspectratio',...
+    [1/yres ...
+    1/xres 1], 'xlim',zoomstate(1:2),'ylim',zoomstate(3:4));
+
+%--- Turn on hold
+hold(DATA.Handles.imageaxes(panel),'on');
+
+%Add selected frame
+DATA.Handles.selectslicehandle{panel} = [];
+
+nop = DATA.ViewPanels(panel);
+if length(SET(nop).Linked)>1
+    %Find what panels are the different data sets
+    temppanels = SET(nop).Linked;
+    panels = [];
+    for loop=1:length(temppanels)
+        temp = find(DATA.ViewPanels==temppanels(loop));
+        panels = [panels;temp(:)]; %#ok<AGROW>
+    end;
+    linkaxes(DATA.Handles.imageaxes(panels),'xy');
+else
+    linkaxes(DATA.Handles.imageaxes(panel),'off');
+end;
+
+%--- Add centerline if rotated data set
+hold(DATA.Handles.imageaxes(panel),'on');
+if SET(no).Rotated
+    DATA.Handles.centerline = plot(DATA.Handles.imageaxes(panel),...
+        [SET(no).RotationCenter SET(no).RotationCenter],...
+        [0 SET(no).XSize],'c:');
+end;
+hold(DATA.Handles.imageaxes(panel),'off');
+
+set(DATA.imagefig,'WindowButtonUpFcn',...
+    sprintf('%s(''buttonup_Callback'')','segment'));
+
+updatevisibility;
 %-----------------------------
 function drawimagepanel(panel)
 %-----------------------------
@@ -474,6 +1069,9 @@ switch DATA.ViewPanelsType{panel}
         drawimagemontage(panel,viashow,marshow)
     case 'mmodetemporal'
         drawimagemmode(no,panel);
+    case {'sag3DP','trans3DP','cor3DP','speedim'}
+        draw3dpimage(no,panel)
+        return
     otherwise
         myfailed(dprintf('Unknown image viewmode %s.',DATA.ViewPanelsType{panel}),DATA.GUI.Segment);
 end;
@@ -715,6 +1313,14 @@ end;
 ind = unique(ind); %remove duplicates.
 for loop=1:length(ind)
     drawimagepanel(ind(loop));
+     %adding XYZ coordinates to 3DPtab images 
+     if isequal(DATA.CurrentTheme,'3dp')&& length(ind) == 4 ||...
+         isequal(DATA.CurrentTheme,'3dp')&& length(ind) == 2
+       if ind(loop) ~= 2
+           drawimagetypetext3dp(NO,ind(loop))
+         updatevisibility
+        end
+     end
     pause(0.05)
 end;
 %
@@ -850,7 +1456,7 @@ function updatenopanels(no,stateandicon)
 %--------------------------
 %Update panels containing image stack no
 global DATA SET
-
+%profile on
 panel = find(DATA.ViewPanels == no);
 if isempty(panel)
     %No panels to update
@@ -871,7 +1477,7 @@ hlamippanels = panel(strcmp(panelstype,'hlamip'));
 vlapanels = panel(strcmp(panelstype,'vla'));
 vlamippanels = panel(strcmp(panelstype,'vlamip'));
 glapanels = panel(strcmp(panelstype,'gla'));
-
+panels3dp = panel(ismember(panelstype,{'trans3DP','speedim','sag3DP','cor3DP'}));
 %Can supply state and icon for enhanced speed for example when dragging
 %timebar.
 if nargin <2
@@ -1029,9 +1635,43 @@ if ~isempty(onepanels)
     else
       stri = dprintf('Slice:%02d Time:%03d ms',SET(no).CurrentSlice,round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
     end
+    
+    if isnan(DATA.Handles.slicetimetext(onepanels))
+      x = SET(no).YSize*0.9;
+      y = SET(no).XSize*0.9;
+      
+      DATA.Handles.slicetimetext(panel) = text(...
+        x,...
+        y,...
+        stri,'interpreter','none');
+      extent = get(DATA.Handles.slicetimetext(panel),'extent');
+      set(DATA.Handles.slicetimetext(panel),...
+        'interpreter','none',...
+        'color','white','position',...
+        [size(DATA.ViewIM{panel},2)-extent(3) ...
+        size(DATA.ViewIM{panel},1)-4*extent(4) 0]);
+    
+ %   striZ = dprintf('Z:%.3f',SET(no).CurrentSlice*((SET(no).SliceThickness+SET(no).SliceGap)));
+    
+%     DATA.Handles.slicecoordtext(panel) = text(...
+%       x,...
+%       y,...
+%       striZ,'interpreter','none');
+%     extent = get(DATA.Handles.slicecoordtext(panel),'extent');
+%     set(DATA.Handles.slicecoordtext(panel),...
+%       'interpreter','none',...
+%       'color','white','position',...
+%       [size(DATA.ViewIM{panel},2)-extent(3) ...
+%       size(DATA.ViewIM{panel},1)-5*extent(4) 0]);
+    else
     set(DATA.Handles.slicetimetext(onepanels),'string',stri);
+%      %Update Z coodinates:
+%     striZ=dprintf('Z:%.3f',SET(no).CurrentSlice*((SET(no).SliceThickness+SET(no).SliceGap)));
+%     set(DATA.Handles.slicecoordtext(onepanels),'string',striZ);
     viewupdatetextposition(onepanels);
     viewupdateannotext(onepanels);
+    end
+   
 end
 for i = 1:4
     %loop over montage, montagerow, montagefit, montagesegmented panels
@@ -1063,8 +1703,13 @@ for i = 1:4
         updatemontagemeasures(no,montagepanels);
         
         %Update slicetimetext
-        stri = dprintf('Time:%03d ms',round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
-        set(DATA.Handles.slicetimetext(montagepanels),'string',stri);
+%         stri = dprintf('Time:%03d ms',round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
+%         set(DATA.Handles.slicetimetext(montagepanels),'string',stri);
+%         
+%         %Update Z coordinate
+%         striZ = dprintf('Z:%.3f',SET(no).CurrentSlice*((SET(no).SliceThickness+SET(no).SliceGap)));
+%         set(DATA.Handles.slicecoordtext(montagepanels),'string',striZ);
+        
         viewupdatetextposition(montagepanels);
         viewupdateannotext(montagepanels);
     end
@@ -1084,6 +1729,11 @@ if ~isempty(sax3panels)
     %Update slicetimetext
     stri = dprintf('Slice:%02d Time:%03d ms',SET(no).CurrentSlice,round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
     set(DATA.Handles.slicetimetext(sax3panels),'string',stri);
+    
+    %Update Z coordinate
+    striZ = dprintf('Z:%.3f',SET(no).CurrentSlice*((SET(no).SliceThickness+SET(no).SliceGap)));
+    set(DATA.Handles.slicecoordtext(sax3panels),'string',striZ);
+    
     viewupdatetextposition(sax3panels);
     viewupdateannotext(sax3panels);
     
@@ -1100,8 +1750,17 @@ if ~isempty(hlapanels)
     updatemeasures(no,hlapanels);
     
     %Update slicetimetext
-    stri = dprintf('Slice:%02d Time:%03d ms',SET(no).HLA.slice,round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
+    if isnan(SET(no).TimeVector(SET(no).CurrentTimeFrame))
+      stri = dprintf('Slice:%02d ',SET(no).HLA.slice);
+    else
+      stri = dprintf('Slice:%02d Time:%03d ms',SET(no).HLA.slice,round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
+    end
     set(DATA.Handles.slicetimetext(hlapanels),'string',stri);
+    
+     %Update Z coordinate
+%     striZ = dprintf('Z:%.3f',SET(no).HLA.slice*((SET(no).SliceThickness+SET(no).SliceGap)));
+%     set(DATA.Handles.slicecoordtext(hlapanels),'string',striZ);
+    
     viewupdatetextposition(hlapanels);
     viewupdateannotext(hlapanels);
 end
@@ -1116,8 +1775,17 @@ if ~isempty(vlapanels)
     updatemeasures(no,vlapanels);
     
     %Update slicetimetext
-    stri = dprintf('Slice:%02d Time:%03d ms',SET(no).VLA.slice,round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
+    if isnan(SET(no).TimeVector(SET(no).CurrentTimeFrame))
+      stri = dprintf('Slice:%02d ',SET(no).VLA.slice);
+    else
+      stri = dprintf('Slice:%02d Time:%03d ms',SET(no).VLA.slice,round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
+    end
     set(DATA.Handles.slicetimetext(vlapanels),'string',stri);
+%     
+    %Update Z coordinate
+%     striZ = dprintf('Z:%.3f',SET(no).CurrentSlice*((SET(no).SliceThickness+SET(no).SliceGap)));
+%     set(DATA.Handles.slicecoordtext(vlapanels),'string',striZ);
+    
     viewupdatetextposition(vlapanels);
     viewupdateannotext(vlapanels);
 end
@@ -1132,6 +1800,11 @@ for i = 1:3
         %Update slicetimetext
         stri = dprintf('Time:%03d ms',round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
         set(DATA.Handles.slicetimetext(panels),'string',stri);
+        
+        %Update Z coordinate
+%         striZ = dprintf('Z:%.3f',SET(no).CurrentSlice*((SET(no).SliceThickness+SET(no).SliceGap)));
+%         set(DATA.Handles.slicecoordtext(panels),'string',striZ);
+        
         viewupdatetextposition(panels);
     end
 end
@@ -1160,8 +1833,15 @@ if ~isempty(glapanels)
     updatemeasures(no,glapanels);
     
     %Update slicetimetext
-    stri = dprintf('Time:%03d ms',round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
+    
+   stri = dprintf('');
+   
     set(DATA.Handles.slicetimetext(glapanels),'string',stri);
+    
+    %Update Z coordinate
+%     striZ = dprintf('Z:%.3f',SET(no).CurrentSlice*((SET(no).SliceThickness+SET(no).SliceGap)));
+%     set(DATA.Handles.slicecoordtext(glapanels),'string',striZ);
+    
     viewupdatetextposition(glapanels);
     viewupdateannotext(glapanels);
 end
@@ -1173,7 +1853,7 @@ if SET(no).TSize>1
   %DATA.updatetimebaraxes;
   t = SET(no).TimeVector*1000;
   %profile on
-  if no == DATA.LVNO
+ if any(no == DATA.LVNO)
     set(DATA.Handles.timebarlv,'xdata',...
       t(SET(no).CurrentTimeFrame)*[1 1])
     
@@ -1189,9 +1869,10 @@ if SET(no).TSize>1
 end;
 
 showedits(no);
+%showedits(no);
 %updatetool(DATA.CurrentTool,panel)
 updatevisibility;
-
+%profile report
 %-----------------------------------------------
 function drawimagemontage(panel,viashow,marshow)
 %-----------------------------------------------
@@ -1886,11 +2567,68 @@ set(DATA.imagefig,'WindowButtonUpFcn',...
     sprintf('%s(''buttonup_Callback'')','segment'));
 updatevisibility;
 
+
+%---------------------------------------
+function xyzcoordtextupdate3dp(panel)
+%---------------------------------------
+%Writes xyz coordinates text in imagepanel
+
+global DATA SET NO
+x = SET(NO).YSize*0.9;
+y = SET(NO).XSize*0.9;
+
+ 
+%if ~DATA.Handles.configiconholder.findindented('showcross')
+if (strcmp(DATA.ViewPanelsType{panel},'sag3DP'));
+  stri=dprintf('Slice:%02d',SET(NO).LevelSet.View.GSlice);
+  set(DATA.Handles.slicetimetext3dp(panel),'string',stri) 
+  
+  striZ = dprintf('Y:%.3f',SET(NO).LevelSet.View.GSlice*SET(NO).ResolutionY);
+  set(DATA.Handles.slicecoordtext3dp(panel),'string',striZ)
+  
+elseif (strcmp(DATA.ViewPanelsType{panel},'trans3DP'));
+  
+  stri=dprintf('Slice:%02d',SET(NO).LevelSet.View.RSlice);
+  set(DATA.Handles.slicetimetext3dp(panel),'string',stri)
+  
+  striZ = dprintf('Z:%.3f',SET(NO).LevelSet.View.RSlice*((SET(NO).SliceThickness+SET(NO).SliceGap)));
+  set(DATA.Handles.slicecoordtext3dp(panel),'string',striZ)
+  
+elseif (strcmp(DATA.ViewPanelsType{panel},'cor3DP'));
+  stri=dprintf('Slice:%02d',SET(NO).LevelSet.View.BSlice);
+  set(DATA.Handles.slicetimetext3dp(panel),'string',stri)
+  
+  striZ = dprintf('X:%.3f',SET(NO).LevelSet.View.BSlice*(SET(NO).ResolutionX));
+  set(DATA.Handles.slicecoordtext3dp(panel),'string',striZ)
+  
+elseif (strcmp(DATA.ViewPanelsType{panel},'speedim')); %to reject
+  stri=dprintf('X:%02d',SET(NO).LevelSet.View.BSlice);
+  set(DATA.Handles.slicetimetext3dp(panel),'string',stri)
+  
+  striZ = dprintf('X:%.3f',SET(NO).LevelSet.View.BSlice*(SET(NO).ResolutionX));
+  set(DATA.Handles.slicecoordtext3dp(panel),'string',striZ)
+end
+
+viewupdatetextposition3dp(panel);
+%   if any(strcmp(DATA.ViewPanelsType,'trans3DP'));
+%     set(handles.rgline,'visible','off');
+%     set(handles.rbline,'visible','off');
+%   end
+%   if any(strcmp(DATA.ViewPanelsType,'cor3DP'));
+%     set(handles.bgline,'visible','off');
+%     set(handles.brline,'visible','off');
+%   end
+  %return
+%end
+
+
+
 %---------------------------------------
 function drawimagetypetext(no,pno,panel)
 %---------------------------------------
+%Writes text describing image type in imagepanel
+
 global DATA SET
-%--- Write text describing image type
 x = SET(no).YSize*0.9;
 y = SET(no).XSize*0.9;
 
@@ -1906,7 +2644,7 @@ extent = get(DATA.Handles.imagetypetext(panel),'extent');
 set(DATA.Handles.imagetypetext(panel),...
     'color','white','position',...
     [size(DATA.ViewIM{panel},2)-extent(3) ...
-    size(DATA.ViewIM{panel},1)-extent(4) 0]);
+    size(DATA.ViewIM{panel},1)-extent(4) 0],'visible','on');
 
 %seriesdescription
 DATA.Handles.seriesdescriptiontext(panel) = text(...
@@ -1952,6 +2690,12 @@ elseif strcmp(DATA.ViewPanelsType{panel},'vla')
   else
     stri = dprintf('Slice:%02d Time:%03d ms',SET(no).VLA.slice,round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
   end
+  elseif strcmp(DATA.ViewPanelsType{panel},'gla')
+  if isnan(SET(no).TimeVector(SET(no).CurrentTimeFrame))
+    stri = dprintf('');
+  else
+    stri = dprintf('');
+  end
 elseif ismember(DATA.ViewPanelsType{panel},{'orthomip','hlamip','vlamip'})
   if isnan(SET(no).TimeVector(SET(no).CurrentTimeFrame))
     stri = '';
@@ -1959,7 +2703,7 @@ elseif ismember(DATA.ViewPanelsType{panel},{'orthomip','hlamip','vlamip'})
     stri = dprintf('Time:%03d ms',round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
   end
 else
-  if isnan(SET(no).TimeVector(SET(no).CurrentTimeFrame))
+  if isnan(SET(no).TimeVector(SET(no).CurrentTimeFrame)) || numel(SET(no).TimeVector)==1
     stri = dprintf('Slice:%02d',SET(no).CurrentSlice);
   else
     stri = dprintf('Slice:%02d Time:%03d ms',SET(no).CurrentSlice,round(1000*SET(no).TimeVector(SET(no).CurrentTimeFrame)));
@@ -1969,8 +2713,132 @@ DATA.Handles.slicetimetext(panel) = text(...
     x,...
     y,...
     stri,'interpreter','none');
+  extent = get(DATA.Handles.slicetimetext(panel),'extent');
+  set(DATA.Handles.slicetimetext(panel),...
+    'interpreter','none',...
+    'color','white','position',...
+    [size(DATA.ViewIM{panel},2)-extent(3) ...
+    size(DATA.ViewIM{panel},1)-4*extent(4) 0]);
+
+% striZ = dprintf('Z:%.3f',SET(no).CurrentSlice*((SET(no).SliceThickness+SET(no).SliceGap)));
+% 
+% DATA.Handles.slicecoordtext(panel) = text(...
+%     x,...
+%     size(DATA.ViewIM{panel},1)-5*extent(4),...
+%     striZ,'interpreter','none','color','white');
+  
+%   if (strcmp(DATA.CurrentTheme,'3dp'))
+%     if (strcmp(DATA.ViewPanelsType{panel},'sag3DP'));
+%       stri=dprintf('Slice:%02d',SET(no).LevelSet.View.GSlice);
+%       DATA.Handles.slicetimetext(panel) = text(...
+%         x,...
+%         y,...
+%         stri,'interpreter','none');
+%       extent = get(DATA.Handles.slicetimetext(panel),'extent');
+%       set(DATA.Handles.slicetimetext(panel),...
+%         'interpreter','none',...
+%         'color','white','position',...
+%         [size(DATA.ViewIM{panel},2)-extent(3) ...
+%         size(DATA.ViewIM{panel},1)-4*extent(4) 0]);
+%       
+%       striZ = dprintf('Y:%.3f',SET(no).LevelSet.View.GSlice*SET(no).ResolutionY);
+%       DATA.Handles.slicecoordtext(panel) = text(...
+%         x,...
+%         size(DATA.ViewIM{panel},1)-5*extent(4),...
+%         striZ,'interpreter','none','color','white');
+%       
+%     elseif (strcmp(DATA.ViewPanelsType{panel},'trans3DP'));
+%       
+%        stri=dprintf('Slice:%02d',SET(no).LevelSet.View.RSlice);
+%       DATA.Handles.slicetimetext(panel) = text(...
+%         x,...
+%         y,...
+%         stri,'interpreter','none');
+%       extent = get(DATA.Handles.slicetimetext(panel),'extent');
+%      
+%       
+%       set(DATA.Handles.slicetimetext(panel),...
+%         'interpreter','none',...
+%         'color','white','position',...
+%         [size(DATA.ViewIM{panel},2)-extent(3) ...
+%         size(DATA.ViewIM{panel},1)-4*extent(4) 0]);
+%       
+%       
+%       striZ = dprintf('Z:%.3f',SET(no).LevelSet.View.RSlice*((SET(no).SliceThickness+SET(no).SliceGap)));
+%       DATA.Handles.slicecoordtext(panel) = text(...
+%         x,...
+%         size(DATA.ViewIM{panel},1)-5*extent(4),...
+%         striZ,'interpreter','none','color','white');
+%       
+%     elseif (strcmp(DATA.ViewPanelsType{panel},'cor3DP'));
+%       stri=dprintf('Slice:%02d',SET(no).LevelSet.View.BSlice);
+%       DATA.Handles.slicetimetext(panel) = text(...
+%         x,...
+%         y,...
+%         stri,'interpreter','none');
+%       extent = get(DATA.Handles.slicetimetext(panel),'extent');
+%       set(DATA.Handles.slicetimetext(panel),...
+%         'interpreter','none',...
+%         'color','white','position',...
+%         [size(DATA.ViewIM{panel},2)-extent(3) ...
+%         size(DATA.ViewIM{panel},1)-4*extent(4) 0]);
+%       
+%       striZ = dprintf('X:%.3f',SET(no).LevelSet.View.BSlice*(SET(no).ResolutionX));
+%       DATA.Handles.slicecoordtext(panel) = text(...
+%         x,...
+%         size(DATA.ViewIM{panel},1)-5*extent(4),...
+%         striZ,'interpreter','none','color','white');
+%       
+%     elseif (strcmp(DATA.ViewPanelsType{panel},'speedim')); %to reject
+%       stri=dprintf('X:%02d',SET(no).LevelSet.View.BSlice);
+%       DATA.Handles.slicetimetext(panel) = text(...
+%         x,...
+%         y,...
+%         stri,'interpreter','none');
+%       extent = get(DATA.Handles.slicetimetext(panel),'extent');
+%       set(DATA.Handles.slicetimetext(panel),...
+%         'interpreter','none',...
+%         'color','white','position',...
+%         [size(DATA.ViewIM{panel},2)-extent(3) ...
+%         size(DATA.ViewIM{panel},1)-4*extent(4) 0]);
+%       
+%       striZ = dprintf('X:%.3f',SET(no).LevelSet.View.BSlice*(SET(no).ResolutionX));
+%       DATA.Handles.slicecoordtext(panel) = text(...
+%         x,...
+%         size(DATA.ViewIM{panel},1)-5*extent(4),...
+%         striZ,'interpreter','none','color','white');
+%     end
+%   else
+%     DATA.Handles.slicetimetext(panel) = text(...
+%       x,...
+%       y,...
+%       stri,'interpreter','none');
+%     extent = get(DATA.Handles.slicetimetext(panel),'extent');
+%     set(DATA.Handles.slicetimetext(panel),...
+%       'interpreter','none',...
+%       'color','white','position',...
+%       [size(DATA.ViewIM{panel},2)-extent(3) ...
+%       size(DATA.ViewIM{panel},1)-4*extent(4) 0]);
+    
+%     striZ = dprintf('Z:%.3f',SET(no).CurrentSlice*((SET(no).SliceThickness+SET(no).SliceGap)));
+%     
+%     DATA.Handles.slicecoordtext(panel) = text(...
+%       x,...
+%       y,...
+%       striZ,'interpreter','none');
+%     extent = get(DATA.Handles.slicecoordtext(panel),'extent');
+%     set(DATA.Handles.slicecoordtext(panel),...
+%       'interpreter','none',...
+%       'color','white','position',...
+%       [size(DATA.ViewIM{panel},2)-extent(3) ...
+%       size(DATA.ViewIM{panel},1)-5*extent(4) 0]);
+%     
+%     
+  %end
 
 viewupdatetextposition(panel);
+
+
 
 %------------------------------
 function drawcontours(no,panel)
@@ -2850,16 +3718,22 @@ if not(isempty(SET(no).Measure))
                 ((SET(no).Measure(loop).T==SET(no).CurrentTimeFrame)||(isnan(SET(no).Measure(loop).T)))
               
               
-              set(DATA.Handles.measureline{panel}{loop},'markersize',DATA.GUISettings.MeasureLineMarkerSize);
+              %set(DATA.Handles.measureline{panel}{loop},'markersize',DATA.GUISettings.MeasureLineMarkerSize);
               [ymax,ix] = max(measure(loop).Y);
               DATA.Handles.measuretext{panel}(loop) = text(...
                 'position',[ymax+1 measure(loop).X(ix)],...
                 'string',sprintf('%s\n%0.1f [mm]',SET(no).Measure(loop).Name,SET(no).Measure(loop).Length),...
                 'parent',DATA.Handles.imageaxes(panel),...
-                'color',[1 1 1],...
+                'color',DATA.GUISettings.MeasureLineSpec{1},...
+                'FontWeight','bold',...
                 'interpreter','none','horizontalalignment','left','backgroundcolor',bgcolor);
               DATA.Handles.measureline{panel}{loop} = plot(DATA.Handles.imageaxes(panel),...
-                measure(loop).Y,measure(loop).X,DATA.GUISettings.MeasureLineSpec);
+                measure(loop).Y,measure(loop).X,...                
+                'Color',DATA.GUISettings.MeasureLineSpec{1},...
+                'Marker', DATA.GUISettings.MeasureLineSpec{2},...
+                'LineStyle',DATA.GUISettings.MeasureLineSpec{3},...
+                'linewidth',DATA.GUISettings.MeasureLineSpec{4},...
+                'markersize',DATA.GUISettings.MeasureLineMarkerSize);
               if ~all(ziv == slice)
                 set(DATA.Handles.measureline{panel}{loop},'LineStyle','--');
               end
@@ -2900,9 +3774,10 @@ if not(isempty(SET(no).Measure))
             set([mlh{:}],...
                 'xdata', measure(loop).Y,...
                 'ydata', measure(loop).X,...
-                'Color',DATA.GUISettings.MeasureLineSpec(1),...
-                'Marker', DATA.GUISettings.MeasureLineSpec(2),...
-                'LineStyle',DATA.GUISettings.MeasureLineSpec(3),...
+                'Color',DATA.GUISettings.MeasureLineSpec{1},...
+                'Marker', DATA.GUISettings.MeasureLineSpec{2},...
+                'LineStyle',DATA.GUISettings.MeasureLineSpec{3},...
+                'linewidth',DATA.GUISettings.MeasureLineSpec{4},...
                 'markersize',DATA.GUISettings.MeasureLineMarkerSize);
             if ~all(ziv == slice)
                 set([mlh{:}], ...
@@ -2912,7 +3787,8 @@ if not(isempty(SET(no).Measure))
             set(cellref(DATA.Handles.measuretext(panel),loop),...
                 'position',[ymax+1 measure(loop).X(ix)],...
                 'string',sprintf('%s\n%0.1f [mm]',SET(no).Measure(loop).Name,SET(no).Measure(loop).Length),...
-                'color',[1 1 1],...
+                'color',DATA.GUISettings.MeasureLineSpec{1},...
+                'FontWeight','bold',...
                 'interpreter','none',...
                 'HorizontalAlignment','left','VerticalAlignment','middle');
             %'parent',DATA.Handles.imageaxes(panel),...
@@ -2951,7 +3827,10 @@ if not(isempty(SET(no).Measure))
             DATA.Handles.measureline{panel}{loop} = plot(DATA.Handles.imageaxes(panel),...
                 OFFSETY+MEASUREY,...
                 OFFSETX+MEASUREX,...
-                DATA.GUISettings.MeasureLineSpec)';
+                'Color',DATA.GUISettings.MeasureLineSpec{1},...
+                'Marker', DATA.GUISettings.MeasureLineSpec{2},...
+                'LineStyle',DATA.GUISettings.MeasureLineSpec{3},...
+                'linewidth',DATA.GUISettings.MeasureLineSpec{4})';
             if size(OFFSETX,2) > 1
                 set(DATA.Handles.measureline{panel}{loop},'LineStyle','--')
             end
@@ -2960,7 +3839,7 @@ if not(isempty(SET(no).Measure))
             DATA.Handles.measuretext{panel}(loop) = text(...
                 'position',[offsety(end)+ymax+1 offsetx(end)+SET(no).Measure(loop).X(ix)],...
                 'string',sprintf('%s\n%0.1f [mm]',SET(no).Measure(loop).Name,SET(no).Measure(loop).Length),...
-                'color',[1 1 1],...
+                'color',DATA.GUISettings.MeasureLineSpec{1},...
                 'parent',DATA.Handles.imageaxes(panel),...
                 'interpreter','none',...
                 'horizontalalignment','center');
@@ -3007,9 +3886,10 @@ if not(isempty(SET(no).Measure))
             set(lineh{:,loop},...
                 {'xdata'}, mat2cell(OFFSETY+MEASUREY,sz(1),ones(1,sz(2)))',...
                 {'ydata'}, mat2cell(OFFSETX+MEASUREX,sz(1),ones(1,sz(2)))',...
-                'Color',DATA.GUISettings.MeasureLineSpec(1),...
-                'Marker', DATA.GUISettings.MeasureLineSpec(2),...
-                'LineStyle',DATA.GUISettings.MeasureLineSpec(3),...
+                'Color',DATA.GUISettings.MeasureLineSpec{1},...
+                'Marker', DATA.GUISettings.MeasureLineSpec{2},...
+                'LineStyle',DATA.GUISettings.MeasureLineSpec{3},...
+                'linewidth',DATA.GUISettings.MeasureLineSpec{4},...
                 'markersize',DATA.GUISettings.MeasureLineMarkerSize);
             if sz(2) > 1
                 set(lineh{:,loop},'LineStyle','--')
@@ -3018,7 +3898,8 @@ if not(isempty(SET(no).Measure))
             set(texth(:,loop),...
                 'position',[offsety(end)+ymax+1 offsetx(end)+SET(no).Measure(loop).X(ix)],...
                 'string',sprintf('%s\n%0.1f [mm]',SET(no).Measure(loop).Name,SET(no).Measure(loop).Length),...
-                'color',[1 1 1],...
+                'color',DATA.GUISettings.MeasureLineSpec{1},...
+                'FontWeight','bold',...
                 'interpreter','none','horizontalalignment','center');
             %'parent',DATA.Handles.imageaxes(panel),...
             DATA.measurefontsize(panel,loop);
@@ -3268,6 +4149,58 @@ DATA.Handles.slicetimetext(panel) = text(...
     stri,...
     'interpreter','none',...
     'parent',DATA.Handles.imageaxes(panel));
+  
+  
+  
+% Z cooridnate image text
+
+% if (strcmp(DATA.CurrentTheme,'3dp'))
+%   if any(strcmp(DATA.ViewPanelsType{panel},'sag3DP'));
+%     striZ = dprintf('Z:%.3f',SET(no).CurrentSlice*((SET(no).SliceThickness+SET(no).SliceGap)));
+%     
+%     DATA.Handles.slicecoordtext(panel) = text(...
+%       size(DATA.ViewIM{panel},2)*0.8,...
+%       size(DATA.ViewIM{panel},1)*0.95,...
+%       striZ,...
+%       'interpreter','none',...
+%       'parent',DATA.Handles.imageaxes(panel));
+%     
+%     
+%   elseif any(strcmp(DATA.ViewPanelsType{panel},'trans3DP'));
+%     striZ = dprintf('Z:%.3f',SET(no).CurrentSlice*((SET(no).SliceThickness+SET(no).SliceGap)));
+%     
+%     DATA.Handles.slicecoordtext(panel) = text(...
+%       size(DATA.ViewIM{panel},2)*0.8,...
+%       size(DATA.ViewIM{panel},1)*0.95,...
+%       striZ,...
+%       'interpreter','none',...
+%       'parent',DATA.Handles.imageaxes(panel));
+%     
+%   elseif any(strcmp(DATA.ViewPanelsType{panel},'cor3DP'));
+%     striZ = dprintf('Z:%.3f',SET(no).CurrentSlice*((SET(no).SliceThickness+SET(no).SliceGap)));
+%     
+%     DATA.Handles.slicecoordtext(panel) = text(...
+%       size(DATA.ViewIM{panel},2)*0.8,...
+%       size(DATA.ViewIM{panel},1)*0.95,...
+%       striZ,...
+%       'interpreter','none',...
+%       'parent',DATA.Handles.imageaxes(panel));
+%    
+%   elseif any(strcmp(DATA.ViewPanelsType{panel},'speedim'));
+%     striZ = dprintf('Z:%.3f',SET(no).CurrentSlice*((SET(no).SliceThickness+SET(no).SliceGap)));
+%     
+%     DATA.Handles.slicecoordtext(panel) = text(...
+%       size(DATA.ViewIM{panel},2)*0.8,...
+%       size(DATA.ViewIM{panel},1)*0.95,...
+%       striZ,...
+%       'interpreter','none',...
+%       'parent',DATA.Handles.imageaxes(panel));
+%     
+%   end
+% end
+
+
+  
 viewupdatetextposition(panel);
 
 
@@ -3880,7 +4813,7 @@ end
 function showedits(no)
 %---------------------
 %Show edits (overlays) of scar and mar if current mode
-global DATA SET
+global DATA SET NO
 
 if isequal(DATA.CurrentTheme,'scar') || ...
         ~isempty(SET(no).Scar) && ~isempty(SET(no).Scar.GreyZone.map) && ...
@@ -3894,6 +4827,8 @@ elseif isequal(DATA.CurrentTheme,'mar')
     if ~stateandicon{1}%isequal(get(DATA.Handles.hidemaricon,'state'),'off')
         showmaredits(no);
     end
+% elseif isequal(DATA.CurrentTheme,'3dp')
+%   drawimagetypetext(NO, no, panel)
 end
 
 %-------------------------------------
@@ -3916,7 +4851,7 @@ myset(DATA.Handles.imagetypetext,'BackgroundColor',bgcolor); %Use myset to handl
 myset(DATA.Handles.seriesdescriptiontext,'BackgroundColor',bgcolor)
 myset(DATA.Handles.dicomimagetypetext,'BackgroundColor',bgcolor)
 myset(DATA.Handles.slicetimetext,'BackgroundColor',bgcolor)
-
+myset(DATA.Handles.slicecoordtext,'BackgroundColor',bgcolor)
 if nargin==1
     ind = panel;
 else
@@ -3930,31 +4865,61 @@ else
     ind = ind(~strcmp(DATA.ViewPanelsType(ind),'mmodetemporal'));
 end
 
-for panel=ind
+if  ~any(strcmp(DATA.ProgramName,{'Segment 3DPrint'}))
+  for panel=ind
     xlim=get(DATA.Handles.imageaxes(panel),'xlim');
     ylim=get(DATA.Handles.imageaxes(panel),'ylim');
     
     extent = get(DATA.Handles.imagetypetext(panel),'extent');
     set(DATA.Handles.imagetypetext(panel),'color','white','position',...
-        [xlim(2)-extent(3) ...
-        ylim(2)-extent(4) 0]);
+      [xlim(2)-extent(3) ...
+      ylim(2)-extent(4) 0]);
     
     extent = get(DATA.Handles.dicomimagetypetext(panel),'extent');
     set(DATA.Handles.dicomimagetypetext(panel),'color','white','position',...
-        [xlim(2)-extent(3) ...
-        ylim(2)-2*extent(4) 0]);
+      [xlim(2)-extent(3) ...
+      ylim(2)-2*extent(4) 0]);
     
     extent = get(DATA.Handles.seriesdescriptiontext(panel),'extent');
     set(DATA.Handles.seriesdescriptiontext(panel),'color','white','position',...
-        [xlim(2)-extent(3) ...
-        ylim(2)-3*extent(4) 0]);
+      [xlim(2)-extent(3) ...
+      ylim(2)-3*extent(4) 0]);
     
     extent = get(DATA.Handles.slicetimetext(panel),'extent');
     set(DATA.Handles.slicetimetext(panel),'color','white','position',...
-        [xlim(2)-extent(3) ...
-        ylim(2)-4*extent(4) 0]);
-end
+      [xlim(2)-extent(3) ...
+      ylim(2)-4*extent(4) 0]);
+    
+%      extent = get(DATA.Handles.slicecoordtext(panel),'extent');
+%     set(DATA.Handles.slicecoordtext(panel),'color','white','position',...
+%       [xlim(2)-extent(3) ...
+%       ylim(2)-5*extent(4) 0]);
 
+%     if (strcmp(DATA.CurrentTheme,'3dp'))
+%     if any(strcmp(DATA.ViewPanelsType,'sag3DP'));
+%       striZ = dprintf('Z:%.3f',SET(NO).CurrentSlice*((SET(NO).SliceThickness+SET(NO).SliceGap)));
+%       DATA.Handles.slicecoordtext(panel) = text(...
+%     x,...
+%     size(DATA.ViewIM{panel},1)-5*extent(4),...
+%     striZ,'interpreter','none','color','white');
+%   
+%     elseif any(strcmp(DATA.ViewPanelsType,'trans3DP'));
+%       striZ = dprintf('Z:%.3f',SET(NO).CurrentSlice*((SET(NO).SliceThickness+SET(NO).SliceGap)));
+%       DATA.Handles.slicecoordtext(panel) = text(...
+%         x,...
+%         size(DATA.ViewIM{panel},1)-5*extent(4),...
+%         striZ,'interpreter','none','color','white');
+%     elseif any(strcmp(DATA.ViewPanelsType,'cor3DP'));
+%        striZ = dprintf('Z:%.3f',SET(NO).CurrentSlice*((SET(NO).SliceThickness+SET(NO).SliceGap)));
+%       DATA.Handles.slicecoordtext(panel) = text(...
+%         x,...
+%         size(DATA.ViewIM{panel},1)-5*extent(4),...
+%         striZ,'interpreter','none','color','white');
+%     end
+%   end
+
+  end
+end
 %------------------------------
 function viewupdateannotext(panel)
 %------------------------------
@@ -4131,7 +5096,10 @@ set(ph,'Visible','on');
 txth1 = [DATA.Handles.imagetypetext ...
     DATA.Handles.seriesdescriptiontext ...
     DATA.Handles.dicomimagetypetext ...
-    DATA.Handles.slicetimetext];
+    DATA.Handles.slicetimetext,...
+    DATA.Handles.slicecoordtext,...
+    DATA.Handles.slicetimetext3dp,...
+    DATA.Handles.slicecoordtext3dp];
 txth2 = [DATA.Handles.roitext{:} ...
     DATA.Handles.measuretext{:} ...
     DATA.Handles.pointtext{:}];
@@ -4249,6 +5217,207 @@ if state%strcmp(get(DATA.Handles.hidetexticon,'state'),'on')
   myset([DATA.Handles.moextentcontour{:}],'Visible','off'); %microvascular obstruction contour
   myset([DATA.Handles.weightedscarcontour{:}],'Visible','off'); %Weighted scar contour  
 end
+%-----3D functions------------------------------------
+
+%-------------------------
+function corspeed_view
+%-------------------------
+%This function initiates the coronal and speed image segment 3DP view
+global DATA SET NO
+DATA.CurrentPanel=1;
+SET(NO).LevelSet.Pen.Color = 'b';
+drawfunctions('drawimageview',[NO NO],[1,2],{'cor3DP','speedim'});
+lineupdate3dp
+
+%-------------------------
+function sagspeed_view
+%-------------------------
+%This function initiates the sagittal and speed image Segment 3DP view
+global DATA SET NO
+DATA.CurrentPanel = 1;
+SET(NO).LevelSet.Pen.Color = 'g';
+drawfunctions('drawimageview',[NO NO],[1,2],{'sag3DP','speedim'});
+lineupdate3dp
+%-------------------------
+function transspeed_view
+%-------------------------
+%This function initiates the transversal and speed image Segment 3DP view
+global DATA SET NO
+DATA.CurrentPanel = 1;
+SET(NO).LevelSet.Pen.Color = 'r';
+drawfunctions('drawimageview',[NO NO],[1,2],{'trans3DP','speedim'});
+lineupdate3dp
+%-------------------------
+function tssc_view
+%-------------------------
+%This function initiates the transversal and speed image Segment 3DP view
+global DATA SET NO
+DATA.CurrentPanel=1;
+SET(NO).LevelSet.Pen.Color = 'r';
+%Go to fourpanel view
+drawfunctions('drawimageview',[NO NO NO NO],[2,2],{'trans3DP','speedim','sag3DP','cor3DP'});
+%drawimagetypetext3dp(NO,1)
+lineupdate3dp
+%-----------------
+function sdraw
+%------------------
+%Draw / initialize the speed part.
+global DATA SET NO
+
+handles = DATA.Handles;
+if isempty(DATA.LevelSet.SpeedIM)
+  updatespeed;
+end;
+  
+%--- 2D Speed image
+try
+  im = getimagehelper(DATA.LevelSet.SpeedIM,SET(NO).LevelSet.Pen.Color);
+  handles.simage = imagesc(im,'parent',handles.speedaxes);
+catch %#ok<CTCH>
+  handles.simage = [];
+end;
+
+[zoomstate,dataaspectratio] = sgetzoomstatehelper;
+
+d = 7;
+if isempty(zoomstate)
+  zoomstate = [1 size(im,1) 1 size(im,2)];
+end;
+handles.stext = text('position',[zoomstate(1)+d/2,zoomstate(3)+d],'string','Object likelihood','parent',handles.speedaxes, 'color', 'w'); %Text
+
+%Aspect ratio
+axis(handles.speedaxes,'off');
+set(handles.speedaxes,'Clim',[-2000 2000],'dataaspectratio',dataaspectratio);
+
+colormap(handles.speedaxes,DATA.LevelSet.colormap);
+
+%----------------
+function supdate
+%----------------
+%Updates the 3dp speed image view
+global DATA SET NO
+
+handles = DATA.Handles;
+imh=handles.imagehandle(strcmp(DATA.ViewPanelsType,'speedim'));
+ima=handles.imageaxes(strcmp(DATA.ViewPanelsType,'speedim'));
+
+%--- Update 2D 'speed' image
+  
+if isempty(SET(NO).LevelSet.SpeedIM)
+  segment3dp.tools('updatespeed');
+end;
+
+tempimage = getimage(SET(NO).LevelSet.Pen.Color);
+%temp = segment3dp.tools('getimage',SET(NO).LevelSet.Pen.Color);
+
+outlinedraw3dp('s')
+
+%Remap the image
+tempremapped = fastremap(tempimage,SET(NO).LevelSet.Speed.IntensityMap,int16(SET(NO).minValue),int16(SET(NO).maxValue)); %Doesnt work with color
+tempremapped = single(tempremapped)/4000+0.5; %scale it 0...1
+tempremapped = uint8(tempremapped*255)+1; %scale it to 1..256
+
+%convert colormap to uint8
+cmap = DATA.LevelSet.colormap;
+cmap = uint8(255*cmap);
+temprgb = cat(2,...
+  cmap(tempremapped,1),...
+  cmap(tempremapped,2),...
+  cmap(tempremapped,3));
+
+temp = reshape(temprgb,[size(tempimage,1) size(tempimage,2) 3]);
+
+switch DATA.ViewPanelsType{DATA.CurrentPanel}
+  case 'trans3DP'
+    [xsz,ysz,xres,yres] = segment3dp.tools('viewsizeandres','r',NO);
+    zoomstate = SET(NO).LevelSet.View.RZoomState;
+  case 'sag3DP'
+    [xsz,ysz,xres,yres] = segment3dp.tools('viewsizeandres','g',NO);
+    zoomstate = SET(NO).LevelSet.View.GZoomState;
+  case 'cor3DP'
+    [xsz,ysz,xres,yres] = segment3dp.tools('viewsizeandres','b',NO);
+    zoomstate = SET(NO).LevelSet.View.BZoomState;
+end
+
+%Update image
+set(imh,'cdata',temp,'xdata',[0.5,ysz-0.5],'ydata',[0.5,xsz-0.5])
+set(ima,...%
+  'dataaspectratio',[1/yres 1/xres 1],...
+  'xlim',zoomstate(1:2),'ylim',zoomstate(3:4));
+
+%---------------------
+function supdatemotion %#ok<DEFNU>
+%---------------------
+%Update speed image, only single slice and from mapping, used by
+%speedpointmotion fncs.
+
+global DATA SET NO
+
+%Get the image
+tempimage = getimage(SET(NO).LevelSet.Pen.Color);
+
+%Remap the image
+tempremapped = fastremap(tempimage,SET(NO).LevelSet.Speed.IntensityMap,int16(SET(NO).minValue),int16(SET(NO).maxValue)); %Doesnt work with color
+tempremapped = single(tempremapped)/4000+0.5; %scale it 0...1
+tempremapped = uint8(tempremapped*255)+1; %scale it to 1..256
+
+%convert colormap to uint8
+cmap = DATA.LevelSet.colormap;
+cmap = uint8(255*cmap);
+temprgb = cat(2,...
+  cmap(tempremapped,1),...
+  cmap(tempremapped,2),...
+  cmap(tempremapped,3));
+temprgb = reshape(temprgb,[size(tempimage,1) size(tempimage,2) 3]);
+
+%Update image
+set(DATA.Handles.imagehandle(strcmp(DATA.ViewPanelsType,'speedim')),'cdata',temprgb)
+ 
+%---------------------
+function lineupdate3dp %#ok<DEFNU>
+%---------------------
+%Updates lines displaying intersections of 3dp imageviews
+
+global DATA SET NO
+
+handles = DATA.Handles;
+
+if ~DATA.Handles.configiconholder.findindented('showcross')
+  if any(strcmp(DATA.ViewPanelsType,'sag3DP'));
+    set(handles.grline,'visible','off');
+    set(handles.gbline,'visible','off');
+  end
+  if any(strcmp(DATA.ViewPanelsType,'trans3DP'));
+    set(handles.rgline,'visible','off');
+    set(handles.rbline,'visible','off');
+  end
+  if any(strcmp(DATA.ViewPanelsType,'cor3DP'));
+    set(handles.bgline,'visible','off');
+    set(handles.brline,'visible','off');
+  end
+  return
+end
+
+
+if any(strcmp(DATA.ViewPanelsType,'sag3DP'));
+  set(handles.grline,'ydata',[SET(NO).LevelSet.View.RSlice SET(NO).LevelSet.View.RSlice],...
+    'ButtonDownFcn','segment3dp.tools(''click3dp_Callback'',''g'')','visible','on');
+  set(handles.gbline,'xdata',[SET(NO).LevelSet.View.BSlice SET(NO).LevelSet.View.BSlice],...
+    'ButtonDownFcn','segment3dp.tools(''click3dp_Callback'',''g'')','visible','on');
+end
+if any(strcmp(DATA.ViewPanelsType,'trans3DP'));
+  set(handles.rgline,'xdata',[SET(NO).LevelSet.View.GSlice SET(NO).LevelSet.View.GSlice],...
+    'ButtonDownFcn','segment3dp.tools(''click3dp_Callback'',''r'')','visible','on');
+  set(handles.rbline,'ydata',[SET(NO).LevelSet.View.BSlice SET(NO).LevelSet.View.BSlice],...
+    'ButtonDownFcn','segment3dp.tools(''click3dp_Callback'',''r'')','visible','on');
+end
+if any(strcmp(DATA.ViewPanelsType,'cor3DP'));
+  set(handles.bgline,'xdata',[SET(NO).LevelSet.View.GSlice SET(NO).LevelSet.View.GSlice],...
+    'ButtonDownFcn','segment3dp.tools(''click3dp_Callback'',''b'')','visible','on');
+  set(handles.brline,'ydata',[SET(NO).LevelSet.View.RSlice SET(NO).LevelSet.View.RSlice],...
+    'ButtonDownFcn','segment3dp.tools(''click3dp_Callback'',''b'')','visible','on');
+end
+
 %------------------------------------
 function updatemodeldisplay(no,panel)
 %------------------------------------
@@ -4572,7 +5741,151 @@ end
 %----------------------------------
 function updateglazoomstate(no,ysz)
 %----------------------------------
+%This function helps with updating the zoom for the gla view when in
+%orthoview mode.
 global SET
 xzoomsz = max(SET(no).XSize,SET(no).YSize);
 repos = (ysz-xzoomsz)/2;
 SET(no).GLA.ZoomState = 0.5+[repos+[0;xzoomsz];0;SET(no).ZSize];
+
+
+
+function drawimagetypetext3dp(no,panel)
+%---------------------------------------
+%Writes text describing image type in imagepanel
+
+global DATA SET
+x = SET(no).YSize*0.9;
+y = SET(no).XSize*0.9;
+
+if (strcmp(DATA.CurrentTheme,'3dp'))
+    if (strcmp(DATA.ViewPanelsType{panel},'sag3DP'));
+      stri=dprintf('Slice:%02d',SET(no).LevelSet.View.GSlice);
+      DATA.Handles.slicetimetext3dp(panel) = text(...
+        x,...
+        y,...
+        stri,'interpreter','none');
+      extent = get(DATA.Handles.slicetimetext3dp(panel),'extent');
+      set(DATA.Handles.slicetimetext3dp(panel),...
+        'interpreter','none',...
+        'color','white','position',...
+        [size(DATA.ViewIM{panel},2)-extent(3) ...
+        size(DATA.ViewIM{panel},1)-extent(4) 0]);
+      
+      striZ = dprintf('Y:%.3f',SET(no).LevelSet.View.GSlice*SET(no).ResolutionY);
+      DATA.Handles.slicecoordtext3dp(panel) = text(...
+        x,...
+        size(DATA.ViewIM{panel},1)-2*extent(4),...
+        striZ,'interpreter','none','color','white');
+      
+    elseif (strcmp(DATA.ViewPanelsType{panel},'trans3DP'));
+      
+       stri=dprintf('Slice:%02d',SET(no).LevelSet.View.RSlice);
+      DATA.Handles.slicetimetext3dp(panel) = text(...
+        x,...
+        y,...
+        stri,'interpreter','none');
+      extent = get(DATA.Handles.slicetimetext3dp(panel),'extent');
+        set(DATA.Handles.slicetimetext3dp(panel),...
+        'interpreter','none',...
+        'color','white','position',...
+        [size(DATA.ViewIM{panel},2)-extent(3) ...
+        size(DATA.ViewIM{panel},1)-extent(4) 0]);
+      
+      
+      striZ = dprintf('Z:%.3f',SET(no).LevelSet.View.RSlice*((SET(no).SliceThickness+SET(no).SliceGap)));
+      DATA.Handles.slicecoordtext3dp(panel) = text(...
+        x,...
+        size(DATA.ViewIM{panel},1)-2*extent(4),...
+        striZ,'interpreter','none','color','white');
+      
+    elseif (strcmp(DATA.ViewPanelsType{panel},'cor3DP'));
+      stri=dprintf('Slice:%02d',SET(no).LevelSet.View.BSlice);
+      DATA.Handles.slicetimetext3dp(panel) = text(...
+        x,...
+        y,...
+        stri,'interpreter','none');
+      extent = get(DATA.Handles.slicetimetext3dp(panel),'extent');
+      set(DATA.Handles.slicetimetext3dp(panel),...
+        'interpreter','none',...
+        'color','white','position',...
+        [size(DATA.ViewIM{panel},2)-extent(3) ...
+        size(DATA.ViewIM{panel},1)-extent(4) 0]);
+      
+      striZ = dprintf('X:%.3f',SET(no).LevelSet.View.BSlice*(SET(no).ResolutionX));
+      DATA.Handles.slicecoordtext3dp(panel) = text(...
+        x,...
+        size(DATA.ViewIM{panel},1)-2*extent(4),...
+        striZ,'interpreter','none','color','white');
+      
+%     elseif (strcmp(DATA.ViewPanelsType{panel},'speedim')); %to reject
+%       stri=dprintf('X:%02d',SET(no).LevelSet.View.BSlice);
+%       DATA.Handles.slicetimetext3dp(panel) = text(...
+%         x,...
+%         y,...
+%         stri,'interpreter','none');
+%       extent = get(DATA.Handles.slicetimetext3dp(panel),'extent');
+%       set(DATA.Handles.slicetimetext3dp(panel),...
+%         'interpreter','none',...
+%         'color','white','position',...
+%         [size(DATA.ViewIM{panel},2)-extent(3) ...
+%         size(DATA.ViewIM{panel},1)-extent(4) 0]);
+%       
+%       striZ = dprintf('X:%.3f',SET(no).LevelSet.View.BSlice*(SET(no).ResolutionX));
+%       DATA.Handles.slicecoordtext3dp(panel) = text(...
+%         x,...
+%         size(DATA.ViewIM{panel},1)-2*extent(4),...
+%         striZ,'interpreter','none','color','white');
+    end
+  end
+
+viewupdatetextposition3dp(panel);
+
+%-------------------------------------
+function viewupdatetextposition3dp(panel)
+%-------------------------------------
+% Updates the location of the corner text, to always stay still.
+% From drawx(), it is called panelwise, since the linked panels aren't
+% ready when the first panel is drawn. From other situations, it is called
+% without arguements, and handles the linkage by itself. /JU
+
+global DATA SET NO
+
+%Input to force black background around corner text to improve visibility
+if DATA.Pref.BackgroundColor
+    bgcolor = 'blue';
+else
+    bgcolor = 'none';
+
+myset(DATA.Handles.slicetimetext3dp,'BackgroundColor',bgcolor)
+myset(DATA.Handles.slicecoordtext3dp,'BackgroundColor',bgcolor)
+end
+if nargin==1
+    ind = panel;
+else
+    no = NO;
+    nos=SET(no).Linked;
+    ind = [];
+    for loop=1:length(nos)
+        ind = [ind find(DATA.ViewPanels==nos(loop))]; %#ok<AGROW>
+    end;
+    ind = unique(ind); %remove duplicates.
+    ind = ind(~strcmp(DATA.ViewPanelsType(ind),'mmodetemporal'));
+end
+
+%if  ~any(strcmp(DATA.ProgramName,{'Segment 3DPrint'}))
+  for panel=ind
+    xlim=get(DATA.Handles.imageaxes(panel),'xlim');
+    ylim=get(DATA.Handles.imageaxes(panel),'ylim');
+    
+  
+    extent = get(DATA.Handles.slicetimetext3dp(panel),'extent');
+    set(DATA.Handles.slicetimetext3dp(panel),'color','white','position',...
+      [xlim(2)-extent(3) ...
+      ylim(2)-extent(4) 0]);
+    
+     extent = get(DATA.Handles.slicecoordtext3dp(panel),'extent');
+    set(DATA.Handles.slicecoordtext3dp(panel),'color','white','position',...
+      [xlim(2)-extent(3) ...
+      ylim(2)-2*extent(4) 0]);
+  end

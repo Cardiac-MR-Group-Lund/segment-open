@@ -180,11 +180,34 @@ if isempty(SET(nom).StartAnalysis)
   SET(nom).StartAnalysis = 1;
 end;
 
-if (SET(nom).EndAnalysis-SET(nom).StartAnalysis)<1
+if (SET(nom).EndAnalysis-SET(nom).StartAnalysis) ==0
+  if ~isopengui('flowonetimephase.fig');
+    gui = mygui('flowonetimephase.fig');
+    DATA.GUI.Flow = gui;
+  else
+    gui = DATA.GUI.Flow;
+  end
+  
+  %Calculate number of ROI's
+rois2take = [];
+
+for loop=1:SET(nom).RoiN
+%   if sum(~isnan(SET(nom).Roi(loop).X(1,:)))>1
+    %More than one timeframe
+    rois2take = [rois2take loop]; %#ok<AGROW>
+%   end;
+end;
+gui.rois2take = rois2take;
+gui.numrois = length(rois2take);
+gui.nom = nom;
+%gui.nop = nop;
+
+showflowroidata(no,0);
+  %%
+elseif (SET(nom).EndAnalysis-SET(nom).StartAnalysis)<0 %1
   myfailed('No timespan, adjust Start/End analysis time (under stress menu or drag red bar).',DATA.GUI.Segment);
   return;
-end;
-
+else   
 nop = SET(nom).Flow.PhaseNo;
 if not(isrectilinear(SET(nom).TimeVector))
   switch mymenu(['Non uniform time steps detected. This is not '...
@@ -220,6 +243,8 @@ if eddycheck
 end;
 
 %Open GUI
+
+
 if ~isopengui('flow.fig');
   gui = mygui('flow.fig');
   DATA.GUI.Flow = gui;
@@ -281,6 +306,8 @@ recalculate(no);
 ok = true;
 
 set(gui.fig,'pointer','arrow');
+end 
+
 
 %---------------------------
 function defineheartrate(no)
@@ -307,6 +334,112 @@ mymsgbox(dprintf('The heart rate is now set to %0.3g',SET(no).Flow.HeartRate),'H
 if nargin < 1
   DATA.flowreportupdate; %update result panel
 end
+
+%-----------------------
+function showflowroidata(no,flag)
+%-----------------------
+%To display flow (cm/s) from  ROI's  for non-time resolved Contrast Phase
+%Images
+global DATA SET
+
+gui = DATA.GUI.Flow;
+nom = gui.nom;
+%nop = gui.nop;
+rois2take = gui.rois2take;
+numrois = gui.numrois;
+
+%SET(no).Flow.Result(roinbr)
+
+
+if flag == 0
+%Calculate Flow
+gui.netflow = zeros(1,numrois);
+gui.posflow = zeros(1,numrois);
+gui.negflow = zeros(1,numrois);
+gui.velmean = zeros(1,numrois);
+gui.velstd = zeros(1,numrois);
+gui.velmax = zeros(1,numrois);
+gui.velmin = zeros(1,numrois);
+gui.roiname = cell(1,numrois);
+gui.roinbr = zeros(1,numrois);
+gui.kenergy=0;
+gui.area=zeros(1,numrois);
+gui.volstri = dprintf('Roi-Name\tTotal vol\tForward vol\tBackward vol\n');
+
+line = 3;
+for rloop=1:numrois
+	%--- Interpolate up
+		
+  %Sum
+  gui.netflow(rloop) = SET(no).Flow.Result(rloop).netflow;
+  gui.posflow(rloop) = SET(no).Flow.Result(rloop).posflow;
+  gui.negflow(rloop) = SET(no).Flow.Result(rloop).negflow;
+  gui.velmean(rloop)  = SET(no).Flow.Result(rloop).velmean;
+  gui.velstd(rloop)  = SET(no).Flow.Result(rloop).velstd;
+  
+  gui.velmax(rloop) = SET(no).Flow.Result(rloop).velmax;
+  gui.velmin(rloop) = SET(no).Flow.Result(rloop).velmean;
+  gui.area(rloop) =SET(no).Flow.Result(rloop).area;
+
+	%Add to stri
+	gui.volstri = [gui.volstri sprintf('%s\t%0.4g\t%0.4g\t%0.4g\n',...
+		SET(nom).Roi(rois2take(rloop)).Name,...
+		gui.netflow(rloop),...
+		gui.posflow(rloop),...
+		gui.negflow(rloop))];
+% 	gui.voltext = [gui.voltext dprintf('ROI: %s:\nNet: %0.3g ml\nNet: %0.3g l/min\nForward: %0.3g ml\nBackward: %0.3g ml\nRegurgitant fraction: %0.3g%%\n\n',...
+% 		SET(nom).Roi(rois2take(rloop)).Name,...
+% 		gui.nettotvol(rloop),...
+% 		gui.nettotvol(rloop)*gui.hr/1000,...
+% 		gui.netforwardvol(rloop),...
+% 		gui.netbackwardvol(rloop),...
+%     abs(100*gui.netbackwardvol(rloop)/gui.netforwardvol(rloop)))];
+  gui.voltext{line} = dprintf('ROI: %s:',SET(nom).Roi(rois2take(rloop)).Name);
+  gui.voltext{line+1} = dprintf('Net Flow: %0.3g ml/s',gui.netflow(rloop));
+	gui.voltext{line+2} = dprintf('Pos Flow: %0.3g ml/s',gui.posflow(rloop));
+	gui.voltext{line+3} = dprintf('Neg Flow: %0.3g ml/s',gui.negflow(rloop));
+  gui.voltext{line+4} = dprintf('Mean Vel: %0.3g cm/s',gui.velmean(rloop));
+  gui.voltext{line+5} = dprintf('Std Vel: %0.3g cm/s',gui.velstd(rloop));
+  gui.voltext{line+6} = dprintf('Max Vel: %0.3g cm/s',gui.velmax(rloop));
+  gui.voltext{line+7} = dprintf('Min Vel: %0.3g cm/s',gui.velmin(rloop));
+gui.voltext{line+8} = dprintf('ROI Area: %0.3g cm^2',gui.area(rloop));
+  line = line+10;
+end;
+else
+  line = 3;
+  for rloop=1:numrois
+	%--- Interpolate up
+
+
+	%Add to stri
+	gui.volstri = [gui.volstri sprintf('%s\t%0.4g\t%0.4g\t%0.4g\n',...
+		SET(nom).Roi(rois2take(rloop)).Name,...
+		gui.netflow(rloop),...
+		gui.posflow(rloop),...
+		gui.negflow(rloop))];
+% 	gui.voltext = [gui.voltext dprintf('ROI: %s:\nNet: %0.3g ml\nNet: %0.3g l/min\nForward: %0.3g ml\nBackward: %0.3g ml\nRegurgitant fraction: %0.3g%%\n\n',...
+% 		SET(nom).Roi(rois2take(rloop)).Name,...
+% 		gui.nettotvol(rloop),...
+% 		gui.nettotvol(rloop)*gui.hr/1000,...
+% 		gui.netforwardvol(rloop),...
+% 		gui.netbackwardvol(rloop),...
+%     abs(100*gui.netbackwardvol(rloop)/gui.netforwardvol(rloop)))];
+  gui.voltext{line} = dprintf('ROI: %s:',SET(nom).Roi(rois2take(rloop)).Name);
+  gui.voltext{line+1} = dprintf('Net Flow: %0.3g cm/s',gui.netflow(rloop));
+	gui.voltext{line+2} = dprintf('Pos Flow: %0.3g cm/s',gui.posflow(rloop));
+	gui.voltext{line+3} = dprintf('Neg Flow: %0.3g cm/s',gui.negflow(rloop));
+  gui.voltext{line+4} = dprintf('Mean Vel: %0.3g cm/s',gui.velmean(rloop));
+  gui.voltext{line+5} = dprintf('Std Vel: %0.3g cm/s',gui.velstd(rloop));
+  gui.voltext{line+6} = dprintf('Max Vel: %0.3g cm/s',gui.velmax(rloop));
+  gui.voltext{line+7} = dprintf('Min Vel: %0.3g cm/s',gui.velmin(rloop));
+  gui.voltext{line+8} = dprintf('ROI Area: %0.3g cm2',gui.area(rloop));
+
+  line = line+10;
+  end
+end
+  
+set(gui.handles.volumelistbox,'String',gui.voltext);
+
 
 %-----------------------
 function recalculate(no)
@@ -1050,6 +1183,34 @@ numrois = gui.numrois;
 rois2take = gui.rois2take;
 tincr = SET(nom).TIncr;
 
+if (SET(nom).EndAnalysis - SET(nom).StartAnalysis) ==0 %For non-time resolved Phase Contrast Images
+  %Create output matrix
+  outdata = cell(numrois,9);
+  outdata{1, 1} = 'ROI no';
+  outdata{1, 2} = 'ROI name';
+  outdata{1, 3} = 'Total flow [ml/s]';
+  outdata{1, 4} = 'Positive flow [ml/s]';
+  outdata{1, 5} = 'Negative flow [ml/s]';
+  outdata{1, 6} = 'Mean vel [cm/s]';
+  outdata{1, 7} = 'SD of vel [cm/s]';
+  outdata{1, 8} = 'Min velocity [cm/s]';
+  outdata{1, 9} = 'Max velocity [cm/s]';
+  outdata{1, 10} = 'Area[cm^2]';
+
+  for loop=1:numrois
+    outdata{1+loop, 1} = loop;
+    outdata{1+loop, 2} = SET(nom).Roi(rois2take(loop)).Name;
+    outdata{1+loop, 3} = gui.netflow(loop);
+    outdata{1+loop, 4} = gui.posflow(loop);
+    outdata{1+loop, 5} = gui.negflow(loop);
+    outdata{1+loop, 6} = gui.velmean(loop);
+    outdata{1+loop, 7} = gui.velstd(loop);
+    outdata{1+loop, 8} = gui.velmin(loop);
+    outdata{1+loop, 9} = gui.velmax(loop);
+    outdata{1+loop, 10} = gui.area(loop); 
+  end;
+  
+else %For time resolved Phase Contrast Images
 if gui.resamped
 	timeframes = 1:gui.tsize;
 	tincr = gui.TIncr;
@@ -1125,7 +1286,7 @@ for loop=1:numrois
   %time ms)/1000*60 => [min]
   row = row+1;
 end;
-
+end
 segment('cell2clipboard',outdata);
 
 %--------------------------------
@@ -1203,9 +1364,41 @@ datacursormode(gui.fig);
 function switchsign_Callback %#ok<DEFNU>
 %---------------------------
 %switch flow sign of current roi and recalucate and update
-global NO
+global NO DATA
+
+gui = DATA.GUI.Flow;
 roi('roiswitchsign_Callback');
-recalculate(NO);
+
+
+
+if DATA.TInt <= 0   %For non-time resolced Phase Contrast Images
+  %switch all the signs where it has impact
+  gui.velmean = - gui.velmean;
+  tmpmax = -gui.velmax;
+  gui.velmax = -gui.velmin;
+  gui.velmin = tmpmax;
+  gui.kenergy = -gui.kenergy; %kg/m^3
+  gui.area = gui.area; %cm^2  %to keep positive sign in rOI area for non-time resolved phase contrast data
+  gui.netflow = -gui.netflow;  %cm^3
+  tmpposflow = -gui.posflow;  %cm^3
+  gui.posflow = abs(gui.negflow);%cm^3
+  gui.negflow = tmpposflow;
+  
+  showflowroidata(NO,1);
+else
+  %switch all the signs where it has impact
+  gui.velmean = - gui.velmean;
+  tmpmax = gui.velmax;
+  gui.velmax = gui.velmin;
+  gui.velmin = tmpmax;
+  gui.kenergy = -gui.kenergy; %kg/m^3
+  gui.area = -gui.area; %cm^2
+  gui.netflow = -gui.netflow;  %cm^3
+  tmpposflow = gui.posflow;  %cm^3
+  gui.posflow = gui.negflow;%cm^3
+  gui.negflow = tmpposflow;
+  recalculate(NO);
+end
 
 
 %-----------------------------

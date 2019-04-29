@@ -125,6 +125,13 @@ end
 %   end
 % end
 
+%Respiratory
+if not(isfield(setstruct,'Respiratory'))
+  for no = 1:length(setstruct)
+    setstruct(no).Respiratory = [];
+  end;
+end;
+
 
 %Start analysis field check
 if not(isfield(setstruct,'StartAnalysis'))
@@ -264,126 +271,131 @@ if not(isfield(setstruct,'LevelSet'))
   for no = 1:length(setstruct)
     setstruct(no).LevelSet = [];
   end;
-else
-  for no = 1:length(setstruct)
-    if not(isempty(setstruct(no).LevelSet))
-      levelset('levelsetdefault',no);%does not change .BW or .Man subfield .Object
-      for fdloop = {'Ind', 'Names', 'Int'}
-        fname = fdloop{:};
-        obname = ['Object' fname];
-        if isfield(setstruct(no).LevelSet,obname)
-          setstruct(no).LevelSet.Object.(fname)=setstruct(no).LevelSet.(obname);
-          setstruct(no).LevelSet=rmfield(setstruct(no).LevelSet,obname);
-        end
-      end
-      if ~isfield(setstruct(no).LevelSet.Object,'Int')
-        setstruct(no).LevelSet.Object.Int = cell(1,length(setstruct(no).LevelSet.Object.Ind));
-        for loop=1:length(setstruct(no).LevelSet.Object.Int)
-          setstruct(no).LevelSet.Object.Int{loop} = repmat(uint8(255),...
-            size(setstruct(no).LevelSet.Object.Ind{loop}));
-        end
-      end
-      
-      %subfield .Speed
-      fnames_old = {'offset', 'mappingmode', 'slope', 'fromseed', ...
-        'ObjInt', 'minInt', 'maxInt', 'histx', 'intensitymap'};
-      fnames_new = {'OffSet', 'MappingMode', 'Slope', 'UseFromSeed', ...
-        'IntensityFromSeed', 'MinIntensity', 'MaxIntensity', 'Histx', ...
-        'IntensityMap'};
-      for floop = 1:numel(fnames_old)
-        f_old = fnames_old{floop};
-        f_new = fnames_new{floop};
-        if isfield(setstruct(no).LevelSet,f_old)
-          setstruct(no).LevelSet.Speed.(f_new) = setstruct(no).LevelSet.(f_old);
-          setstruct(no).LevelSet = rmfield(setstruct(no).LevelSet,f_old);
-        end
-      end
-      
-      %subfield .Segmentation
-      fnames_new = {'Alpha', 'Beta', 'Radius', 'SmoothRadius'};
-      fnames_old = lower(fnames_new);
-      for floop = 1:numel(fnames_old)
-        f_old = fnames_old{floop};
-        f_new = fnames_new{floop};
-        if isfield(setstruct(no).LevelSet,f_old)
-          setstruct(no).LevelSet.Segmentation.(f_new) = setstruct(no).LevelSet.(f_old);
-          setstruct(no).LevelSet = rmfield(setstruct(no).LevelSet,f_old);
-        end
-      end
-      
-      %subfield .View
-      fnames1 = {'MIP', 'Interaction', 'Selection', 'Outline'};
-      fnames2 = {'RZoomState', 'GZoomState', 'BZoomState', ...
-        'CurrentTool', 'ResolutionT', 'Zoom'};
-      fnames3 = {'Pointer', 'RSlice', 'BSlice', 'GSlice', 'TSlice', ...
-        'ZSlice'};
-      fnames_new = [fnames1 fnames2 fnames3];
-      fnames_old = [cellfun(@(x)horzcat('View',x),fnames1,...
-        'UniformOutput',false) fnames2 lower(fnames3)];
-      
-      for floop = 1:numel(fnames_old)
-        f_old = fnames_old{floop};
-        f_new = fnames_new{floop};
-        if isfield(setstruct(no).LevelSet,f_old)
-          setstruct(no).LevelSet.View.(f_new) = setstruct(no).LevelSet.(f_old);
-          setstruct(no).LevelSet = rmfield(setstruct(no).LevelSet,f_old);
-        end
-      end
-      
-      %subfield .Pen
-      fnames_new = {'Radius', 'Color', 'TSize', ...
-        'ZSize', 'Index', 'X', 'Y', 'T', 'Z', 'Value'};
-      fnames_old = {'penradius', 'pencolor', 'pentsize', ...
-        'penzsize', 'pen', 'penX', 'penY', 'penT', 'penZ', 'penvalue'};
-      for floop = 1:numel(fnames_old)
-        f_old = fnames_old{floop};
-        f_new = fnames_new{floop};
-        if isfield(setstruct(no).LevelSet,f_old)
-          setstruct(no).LevelSet.Pen.(f_new) = setstruct(no).LevelSet.(f_old);
-          setstruct(no).LevelSet = rmfield(setstruct(no).LevelSet,f_old);
-        end
-      end
-      if isfield(setstruct(no).LevelSet,'penpsize');
-        setstruct(no).LevelSet.Pen.XSize=setstruct(no).LevelSet.penpsize;
-        setstruct(no).LevelSet.Pen.YSize=setstruct(no).LevelSet.penpsize;
-      end
-      
-      %subfield .Prototype
-      fnames_new = {'ChosenPrototype', 'ViewStartIndex', ...
-        'UsePrototypeParameters', 'UseCurvatureMap', 'LandmarkChanged', ...
-        'Lambda'};
-      fnames_old = {'chosenPrototype', 'ViewStartindex', ...
-        'UsePrototypeParameters', 'UseCurvature', 'LMchanged', 'lambda'};
-      for floop = 1:numel(fnames_old)
-        f_old = fnames_old{floop};
-        f_new = fnames_new{floop};
-        if isfield(setstruct(no).LevelSet,f_old)
-          setstruct(no).LevelSet.Prototype.(f_new) = setstruct(no).LevelSet.(f_old);
-          setstruct(no).LevelSet = rmfield(setstruct(no).LevelSet,f_old);
-        end
-      end
-      
-      %subfield RegionGrowing
-      if isfield(setstruct(no).LevelSet,'expansionfactor');
-        setstruct(no).LevelSet.Prototype.ExpansionFactor=setstruct(no).LevelSet.expansionfactor;
-        setstruct(no).LevelSet=rmfield(setstruct(no).LevelSet,'expansionfactor');
-      end
-      if isfield(setstruct(no).LevelSet,'iterationexponent');
-        setstruct(no).LevelSet.Prototype.IterationExponent=setstruct(no).LevelSet.iterationexponent;
-        setstruct(no).LevelSet=rmfield(setstruct(no).LevelSet,'iterationexponent');
-      end
-      
-      %remove other obsolete fields
-      fnames_old = {'ViewMagIm', 'ViewIm', 'penind', 'pentimes'};
-      for floop = 1:numel(fnames_old)
-        f_old = fnames_old{floop};
-        if isfield(setstruct(no).LevelSet,f_old);
-          setstruct(no).LevelSet=rmfield(setstruct(no).LevelSet,f_old);
-        end
-      end
-    end
-  end
 end
+% if not(isfield(setstruct,'LevelSet'))
+%   for no = 1:length(setstruct)
+%     setstruct(no).LevelSet = [];
+%   end;
+% else
+%   for no = 1:length(setstruct)
+%     if not(isempty(setstruct(no).LevelSet))
+%       levelset('levelsetdefault',no);%does not change .BW or .Man subfield .Object
+%       for fdloop = {'Ind', 'Names', 'Int'}
+%         fname = fdloop{:};
+%         obname = ['Object' fname];
+%         if isfield(setstruct(no).LevelSet,obname)
+%           setstruct(no).LevelSet.Object.(fname)=setstruct(no).LevelSet.(obname);
+%           setstruct(no).LevelSet=rmfield(setstruct(no).LevelSet,obname);
+%         end
+%       end
+%       if ~isfield(setstruct(no).LevelSet.Object,'Int')
+%         setstruct(no).LevelSet.Object.Int = cell(1,length(setstruct(no).LevelSet.Object.Ind));
+%         for loop=1:length(setstruct(no).LevelSet.Object.Int)
+%           setstruct(no).LevelSet.Object.Int{loop} = repmat(uint8(255),...
+%             size(setstruct(no).LevelSet.Object.Ind{loop}));
+%         end
+%       end
+%       
+%       %subfield .Speed
+%       fnames_old = {'offset', 'mappingmode', 'slope', 'fromseed', ...
+%         'ObjInt', 'minInt', 'maxInt', 'histx', 'intensitymap'};
+%       fnames_new = {'OffSet', 'MappingMode', 'Slope', 'UseFromSeed', ...
+%         'IntensityFromSeed', 'MinIntensity', 'MaxIntensity', 'Histx', ...
+%         'IntensityMap'};
+%       for floop = 1:numel(fnames_old)
+%         f_old = fnames_old{floop};
+%         f_new = fnames_new{floop};
+%         if isfield(setstruct(no).LevelSet,f_old)
+%           setstruct(no).LevelSet.Speed.(f_new) = setstruct(no).LevelSet.(f_old);
+%           setstruct(no).LevelSet = rmfield(setstruct(no).LevelSet,f_old);
+%         end
+%       end
+%       
+%       %subfield .Segmentation
+%       fnames_new = {'Alpha', 'Beta', 'Radius', 'SmoothRadius'};
+%       fnames_old = lower(fnames_new);
+%       for floop = 1:numel(fnames_old)
+%         f_old = fnames_old{floop};
+%         f_new = fnames_new{floop};
+%         if isfield(setstruct(no).LevelSet,f_old)
+%           setstruct(no).LevelSet.Segmentation.(f_new) = setstruct(no).LevelSet.(f_old);
+%           setstruct(no).LevelSet = rmfield(setstruct(no).LevelSet,f_old);
+%         end
+%       end
+%       
+%       %subfield .View
+%       fnames1 = {'MIP', 'Interaction', 'Selection', 'Outline'};
+%       fnames2 = {'RZoomState', 'GZoomState', 'BZoomState', ...
+%         'CurrentTool', 'ResolutionT', 'Zoom'};
+%       fnames3 = {'Pointer', 'RSlice', 'BSlice', 'GSlice', 'TSlice', ...
+%         'ZSlice'};
+%       fnames_new = [fnames1 fnames2 fnames3];
+%       fnames_old = [cellfun(@(x)horzcat('View',x),fnames1,...
+%         'UniformOutput',false) fnames2 lower(fnames3)];
+%       
+%       for floop = 1:numel(fnames_old)
+%         f_old = fnames_old{floop};
+%         f_new = fnames_new{floop};
+%         if isfield(setstruct(no).LevelSet,f_old)
+%           setstruct(no).LevelSet.View.(f_new) = setstruct(no).LevelSet.(f_old);
+%           setstruct(no).LevelSet = rmfield(setstruct(no).LevelSet,f_old);
+%         end
+%       end
+%       
+%       %subfield .Pen
+%       fnames_new = {'Radius', 'Color', 'TSize', ...
+%         'ZSize', 'Index', 'X', 'Y', 'T', 'Z', 'Value'};
+%       fnames_old = {'penradius', 'pencolor', 'pentsize', ...
+%         'penzsize', 'pen', 'penX', 'penY', 'penT', 'penZ', 'penvalue'};
+%       for floop = 1:numel(fnames_old)
+%         f_old = fnames_old{floop};
+%         f_new = fnames_new{floop};
+%         if isfield(setstruct(no).LevelSet,f_old)
+%           setstruct(no).LevelSet.Pen.(f_new) = setstruct(no).LevelSet.(f_old);
+%           setstruct(no).LevelSet = rmfield(setstruct(no).LevelSet,f_old);
+%         end
+%       end
+%       if isfield(setstruct(no).LevelSet,'penpsize');
+%         setstruct(no).LevelSet.Pen.XSize=setstruct(no).LevelSet.penpsize;
+%         setstruct(no).LevelSet.Pen.YSize=setstruct(no).LevelSet.penpsize;
+%       end
+%       
+%       %subfield .Prototype
+%       fnames_new = {'ChosenPrototype', 'ViewStartIndex', ...
+%         'UsePrototypeParameters', 'UseCurvatureMap', 'LandmarkChanged', ...
+%         'Lambda'};
+%       fnames_old = {'chosenPrototype', 'ViewStartindex', ...
+%         'UsePrototypeParameters', 'UseCurvature', 'LMchanged', 'lambda'};
+%       for floop = 1:numel(fnames_old)
+%         f_old = fnames_old{floop};
+%         f_new = fnames_new{floop};
+%         if isfield(setstruct(no).LevelSet,f_old)
+%           setstruct(no).LevelSet.Prototype.(f_new) = setstruct(no).LevelSet.(f_old);
+%           setstruct(no).LevelSet = rmfield(setstruct(no).LevelSet,f_old);
+%         end
+%       end
+%       
+%       %subfield RegionGrowing
+%       if isfield(setstruct(no).LevelSet,'expansionfactor');
+%         setstruct(no).LevelSet.Prototype.ExpansionFactor=setstruct(no).LevelSet.expansionfactor;
+%         setstruct(no).LevelSet=rmfield(setstruct(no).LevelSet,'expansionfactor');
+%       end
+%       if isfield(setstruct(no).LevelSet,'iterationexponent');
+%         setstruct(no).LevelSet.Prototype.IterationExponent=setstruct(no).LevelSet.iterationexponent;
+%         setstruct(no).LevelSet=rmfield(setstruct(no).LevelSet,'iterationexponent');
+%       end
+%       
+%       %remove other obsolete fields
+%       fnames_old = {'ViewMagIm', 'ViewIm', 'penind', 'pentimes'};
+%       for floop = 1:numel(fnames_old)
+%         f_old = fnames_old{floop};
+%         if isfield(setstruct(no).LevelSet,f_old);
+%           setstruct(no).LevelSet=rmfield(setstruct(no).LevelSet,f_old);
+%         end
+%       end
+%     end
+%   end
+% end
 
 %Orgsize field check
 if not(isfield(setstruct,'OrgXSize'))
@@ -585,6 +597,19 @@ for no=1:length(setstruct)
 end;
 
 for loop = 1:length(setstruct)
+  if isempty(setstruct(no).PatientInfo)
+    setstruct(no).PatientInfo.Name = setstruct(no).FileName;
+    setstruct(no).PatientInfo.ID = '';
+    setstruct(no).PatientInfo.BirthDate = '';
+    setstruct(no).PatientInfo.Age = '';
+    setstruct(no).PatientInfo.AcquisitionDate = '';
+    setstruct(no).PatientInfo.BSA = 0;
+    setstruct(no).PatientInfo.Weight = 0;
+    setstruct(no).PatientInfo.Length = 0;
+  end;
+end;
+
+for no = 1:length(setstruct)
   if ~isfield(setstruct(no).PatientInfo,'BSA')
     setstruct(no).PatientInfo.BSA = 0;
   end;
@@ -884,9 +909,11 @@ for no=1:length(setstruct)
       setstruct(no).RVEndoInterpX=[];
       setstruct(no).RVEndoInterpY=[];
     elseif size(setstruct(no).RVEndoInterpX,1)~=setstruct(no).TSize %&& size(setstruct(no).EndoInterpX,2)==setstruct(no).ZSize)pad=cell(size(setstruct(no).TSize-setstruct(no).EndoInterpX,1),...
-      pad = cell(setstruct(no).TSize-size(setstruct(no).RVEndoInterpX,1),setstruct(no).ZSize);
-      setstruct(no).RVEndoInterpX=[setstruct(no).RVEndoInterpX;pad];
-      setstruct(no).RVEndoInterpY=[setstruct(no).RVEndoInterpY;pad];
+      setstruct(no).RVEndoInterpX=[];
+      setstruct(no).RVEndoInterpY=[];
+      %       pad = cell(setstruct(no).TSize-size(setstruct(no).RVEndoInterpX,1),setstruct(no).ZSize);
+%       setstruct(no).RVEndoInterpX=[setstruct(no).RVEndoInterpX;pad];
+%       setstruct(no).RVEndoInterpY=[setstruct(no).RVEndoInterpY;pad];
     end
   end
   

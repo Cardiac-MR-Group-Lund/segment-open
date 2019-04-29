@@ -167,33 +167,40 @@ global DATA SET
 if nargin == 0
   mode = mygetvalue(DATA.PrefHandles.backgroundcolorpopupmenu);
   switch mode
-    case 1 %Light gray
-      backgroundcolor=[0.94,0.94,0.94];
-    case 2
-      backgroundcolor=[0.34,0.34,0.34];
+    case 1 %Dark blue-grey
+      backgroundcolor=[0.94,0.94,0.94]; %[0.2118,0.2353,0.2824];
+%       foregroundcolor=[0.94,0.94,0.94];
+    case 2 %Light gray
+      backgroundcolor=[0.34,0.34,0.34]; %[0.94,0.94,0.94]; %
+%       foregroundcolor=[0 0 0];
     case 3
-      backgroundcolor=[0 0 0];
+      backgroundcolor=[0 0 0];      
+%       foregroundcolor=[0.94,0.94,0.94];
   end
 else
   %this is default if not used new addon.
   mode = 1;
   
-  if all(backgroundcolor == [0.94,0.94,0.94])
+  if all(backgroundcolor == [0.94 0.94 0.94]) %[0.2118,0.2353,0.2824])
     mode=1;
+%     foregroundcolor=[0.94,0.94,0.94];
   end
   
-  if all(backgroundcolor == [0.34,0.34,0.34])
+  if all(backgroundcolor == [0.34 0.34 0.34]) %[0.94,0.94,0.94]); %[0.34,0.34,0.34])
     mode=2;
+%     foregroundcolor=[0 0 0];
   end
   
   if all(backgroundcolor == [0,0,0])
     mode=3;
+    foregroundcolor=[0.94,0.94,0.94];
   end
 end
 DATA.Pref.GUIBackgroundColor = backgroundcolor;
 DATA.GUISettings.BackgroundColor=DATA.Pref.GUIBackgroundColor;
+DATA.GUISettings.ForegroundColor=foregroundcolor;
 DATA.GUISettings.BoxAxesColor=[0.1 0.1 0.1];
-if mode == 3
+if mode == 3 % || mode == 1
   slidercolor=[0.5 0.5 0.5];
 else
   slidercolor=[0.86 0.86 0.86];
@@ -220,7 +227,7 @@ set(DATA.Handles.reportpanel,'BackgroundColor',backgroundcolor)
 set(DATA.Handles.slider1text,'BackgroundColor',backgroundcolor)
 set(DATA.Handles.slider2text,'BackgroundColor',backgroundcolor)
 
-if mode == 3
+if mode == 3 %|| mode == 1
   set(DATA.Handles.volumeaxes,'Color',[0.34,0.34,0.34])
   set(DATA.Handles.flowaxes,'Color',[0.34,0.34,0.34])
   set(DATA.Handles.lvuipanel,'HighlightColor',[1,1,1])
@@ -285,6 +292,8 @@ DATA.AxesTables.volume.draw
 DATA.AxesTables.flow.draw
 DATA.AxesTables.measurement.draw
 
+% setinterfacecolor(DATA.fig);
+
 %------------------------
 function default_Callback %#ok<DEFNU>
 %------------------------
@@ -312,7 +321,7 @@ pathname = getpreferencespath;
 pathnamesaveall = pwd; %Segment folder
 Pref = DATA.Pref; %#ok<NASGU> %Saved to file
 %check if preferences for all users already exist
-if exist([pathnamesaveall filesep 'default_preferences.mat']) %,'Pref', DATA.Pref.SaveVersion);
+if exist([pathnamesaveall filesep 'default_preferences.mat'],'file') %,'Pref', DATA.Pref.SaveVersion);
   if not(silent)
     myfailed('Default preferences for all users exists and thereby used prior to local preferences.',DATA.GUI.Segment);
 
@@ -417,8 +426,34 @@ end
   
 update;
 
+
 %-------------------------------------
-function openGL_Callback
+function gpu_Callback %#ok<DEFNU>
+%-------------------------------------
+global DATA
+
+val = get(DATA.PrefHandles.gpucheckbox,'Value');
+if val == 0
+  disp('GPU acceleration disabled.');
+  mymsgbox('GPU acceleration disabled.');
+  DATA.Pref.GPU.NumGPU = 0;
+  DATA.Pref.GPU.Use = false;
+else
+  DATA.Pref.GPU.NumGPU = gpuDeviceCount; 
+  if DATA.Pref.GPU.NumGPU > 0
+    DATA.Pref.GPU.Use = true;
+    disp('GPU acceleration enabled.');
+    mymsgbox('GPU acceleration enabled.');
+  else
+    DATA.Pref.GPU.Use = false;
+    set(DATA.PrefHandles.gpucheckbox,'Value',false);
+    myfailed('Could not detect any GPU on this computer.');
+  end;
+  
+end
+
+%-------------------------------------
+function openGL_Callback %#ok<DEFNU>
 %-------------------------------------
 
 global DATA
@@ -440,7 +475,7 @@ DATA.Pref.OpenGLSoftware = val;
 update;
 
 %---------------------------
-function tempfolder_Callback %#ok<DEFNU>
+function tempfolder_Callback 
 %---------------------------
 %Sets temporaryfolder used by Segment Server and PACS connection (subfolder tempsearch) 
 
@@ -927,6 +962,11 @@ function viewinterpolated_Callback %#ok<DEFNU>
 global DATA
 
 DATA.Pref.ViewInterpolated = get(DATA.PrefHandles.viewinterpolatedcheckbox,'value');
+if ~DATA.Pref.ViewInterpolated
+    DATA.Handles.permanenticonholder.indent('viewpixels',0)
+else
+    DATA.Handles.permanenticonholder.undent('viewpixels',0)
+end
 
 %----------------------------------
 function bgcolor_Callback %#ok<DEFNU>
@@ -972,6 +1012,30 @@ function checkversioncheckbox_Callback %#ok<DEFNU>
 global DATA
 DATA.Pref.CheckVersion = get(DATA.PrefHandles.checkversioncheckbox,'value');
 
+%--------------------------------
+function testproxyserver_Callback  %#ok<DEFNU>
+%--------------------------------
+try
+  stri = urlread('http://www.google.com');
+  if isempty(stri)
+    error('ERROR:SEGMENT','Google page seems to be empty.');
+  end;
+  if nargout == 0
+    mymsgbox('Successfull: Could connect to Internet.');
+  end;
+catch me
+  stri = sprintf([...
+    'Could not connect to Internet.\n\n' ...
+    'Please try your normal web browser. ' ...
+    'If your normal web browser work, then ' ...
+    'the most probable cause is HTTP proxy server. ' ...
+    'Please contact your system administrator to get ' ...
+    'details of find out more about your local configuration. ' ...
+    'Thereafter, please contact support@medviso.com to get a solution.']);
+  myfailed(stri);
+  mydispexception(me);
+end
+
 %-------------------------------------
 function useproxyserver_Callback(value) 
 %-------------------------------------
@@ -1011,11 +1075,16 @@ prompt = {...
   'UserName',...
   'Password'};
 
+% def = {...
+%   DATA.Pref.ProxySettings.HostName ...
+%   DATA.Pref.ProxySettings.Port ...
+%   DATA.Pref.ProxySettings.UserName ...
+%   DATA.Pref.ProxySettings.Password};
 def = {...
   DATA.Pref.ProxySettings.HostName ...
   DATA.Pref.ProxySettings.Port ...
   DATA.Pref.ProxySettings.UserName ...
-  DATA.Pref.ProxySettings.Password };
+  ''};
 
 res = inputdlg(prompt,'Enter data',1,def);
 
@@ -1121,6 +1190,15 @@ end
 silent = true;
 save_Callback(silent); %Always save, silent true
 
+%-----------------------------------
+function askaddcommentcheckbox_Callback
+%-----------------------------------
+%Callback for define if asking for add comment to patient database
+
+global DATA
+
+DATA.Pref.AskAddComment = get(DATA.PrefHandles.checkboxaskaddcomment,'value');
+
 
 %---------------------------
 function webbrowser_Callback %#ok<DEFNU> Callback from segpref.fig
@@ -1169,7 +1247,7 @@ function advancedsettings_Callback %#ok<DEFNU> called from segpref.fig
 global DATA
 
 fig = openfig('segprefadvanced.fig','reuse');
-set(fig,'Color',get(0,'defaultUicontrolBackgroundColor'));
+set(fig,'Color',get(0,'defaultUicontrolBackgroundColor')); %DATA.GUISettings.BackgroundColor); %
 translation.translatealllabels(fig);
 
 % Generate a structure of handles to pass to callbacks, and store it.
@@ -1444,6 +1522,7 @@ end;
 mymsgbox('Stop/Start SegmentStorageServer and SegmentSorterService. Segment will not be responsive before you close services editor. Now starting services.msc.');
 system('services.msc');
 mymsgbox('Services editor closed.');
+
 
 %-----------------------------------
 function statushelper(stri,status,result)

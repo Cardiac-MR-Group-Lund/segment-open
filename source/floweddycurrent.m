@@ -414,6 +414,7 @@ function timedependent_Callback %#ok<DEFNU>
 %User clicks on checkbox time dependent 
 
 findstatic;
+timeslider_Callback;
 recalculate_Callback;
 update;
 

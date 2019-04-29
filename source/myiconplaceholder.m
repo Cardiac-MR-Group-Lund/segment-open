@@ -10,6 +10,7 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
     iconCell={};
     axeshandle = NaN;
     imagehandle = NaN;
+    dropdowniconholders=[];
     texthandle=[];
     displayinfo=0;
     timer=[];
@@ -60,26 +61,22 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
     icons=varargin{2};
     g.numberoficons=numel(icons);
     
-    %Makes the axes usable
-    %graphics
-      g.imagehandle = image(g.cdata,'parent',g.axeshandle);
-      
-      %tooltip handle
-      if g.pull2==2
-        g.texthandle=text(1,1,'','Parent',g.axeshandle,'Background','white','VerticalAlignment','baseline','HorizontalAlignment','Right','HitTest','off');
-      else
-        g.texthandle=text(1,1,'','Parent',g.axeshandle,'Background','white','VerticalAlignment','baseline','HorizontalAlignment','Left','HitTest','off');
-      end
-      set(g.texthandle,'visible','off')
-     
+    %clear any dropdown if adding new icons to placeholder
+    for iconholder = g.dropdowniconholders
+      delete(iconholder.axeshandle)
+      iconholder.axeshandle = NaN;
+      delete(iconholder);
+    end
+    g.dropdowniconholders=[];
+  
+      %if icons are added to a new placeholder this will be their new parent.
+    for i = 1:g.numberoficons
+        icons{i}.parentobj=g;
+    end
       %Adjust axis
       axis(g.axeshandle,'image','off');
       axis(g.axeshandle,'ij') 
       set(g.axeshandle,'DataAspectRatio',[1,1,1]);
-      
-      %Set clickcallback
-       set(g.imagehandle,'ButtonDownFcn',@g.click);
-      
       
     if iscell(icons)
       %try to add entire cell position is linear indices
@@ -90,6 +87,49 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
     end
     %render image
     g.render
+    set(g.imagehandle,'ButtonDownFcn',@g.click);
+    end
+    
+    function enable(varargin)
+      g=varargin{1};
+      if nargin==1
+        for i=1:g.numberoficons
+          if ~g.iconCell{i}.enabled
+          g.iconCell{i}.enabled=1;
+          g.iconCell{i}.cdataDisplay=g.iconCell{i}.cdata;
+          end
+        end
+      else
+        names=varargin{2};
+        for i=1:g.numberoficons
+          if any(strcmp(g.iconCell{i}.name,names)) && ~g.iconCell{i}.enabled
+            g.iconCell{i}.enabled=1;
+            g.iconCell{i}.cdataDisplay=g.iconCell{i}.cdata;
+          end
+        end
+      end
+      g.render
+    end
+    
+    function disable(varargin)
+      g=varargin{1};      
+      
+      if nargin==1
+        for i=1:g.numberoficons
+          g.iconCell{i}.enabled=0;
+          g.iconCell{i}.cdataDisplay=g.iconCell{i}.cdataDisabled;
+        end
+      else
+        names=varargin{2};
+        for i=1:g.numberoficons
+          if any(strcmp(g.iconCell{i}.name,names))
+            %g.iconCell{i}.disable
+            g.iconCell{i}.enabled=0;
+            g.iconCell{i}.cdataDisplay=g.iconCell{i}.cdataDisabled;
+          end
+        end
+      end
+      g.render
     end
     
     function render(varargin)
@@ -107,7 +147,7 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
       set(g.axeshandle,'Units','pixels');
       axpos = get(g.axeshandle,'Position'); 
       height=axpos(4);
-      cdata=imresize(cdata,height/size(cdata,1));%[height,height*g.numberoficons,3]);
+      cdata=imresize(cdata,height/size(cdata,1));%imresize(cdata,height/size(cdata,1));%[height,height*g.numberoficons,3]);
       
       %Here we add a line that fills out the remaining right part of the
       %axes if we are dealing with a ribbon interface
@@ -134,7 +174,20 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
       g.cdata=cdata;
       set(g.axeshandle,'Units','normalized');
       set(g.axeshandle,'Visible','off');
-      set(g.imagehandle,'cdata',[g.cdata,pad]);
+      
+      %graphics
+      if ~ishandle(g.imagehandle)
+        g.imagehandle = image(g.cdata,'parent',g.axeshandle); %If handle lost or not yet created recreate it and the texthandle
+        %tooltip handle
+        if g.pull2==2
+          g.texthandle=text(1,1,'','Parent',g.axeshandle,'Background','white','VerticalAlignment','baseline','HorizontalAlignment','Right','HitTest','off');
+        else
+          g.texthandle=text(1,1,'','Parent',g.axeshandle,'Background','white','VerticalAlignment','baseline','HorizontalAlignment','Left','HitTest','off');
+        end
+        set(g.texthandle,'visible','off')
+      else
+        set(g.imagehandle,'cdata',[g.cdata,pad]);
+      end
       
       %switch that renders images.
       axis(g.axeshandle,'image','on');
@@ -153,6 +206,17 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
         set(g.axeshandle,'position',currentpos);
         case 3
           %Stay where you are
+      end
+     
+      %if any dropdown iconholders there adjust their position
+      for i = 1:numel(g.iconCell)
+        if g.iconCell{i}.type==3 && g.iconCell{i}.isindented %this is the dropdown type 
+          %The below procedure reboots the dropdowns
+          g.iconCell{i}.setdropdown(0)
+          g.iconCell{i}.setdropdown(1)
+        elseif g.iconCell{i}.type==3 && ~g.iconCell{i}.isindented && ~isempty(g.iconCell{i}.dropdownaxes)
+          g.iconCell{i}.setdropdown(0)
+        end
       end
       
       if ~isempty(g.timer)
@@ -277,7 +341,7 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
       %if type toggle tool then traverse list again and make sure all togglers in same group are undented
       if icon.type==1
         for i=1:g.numberoficons
-          if g.iconCell{i}.type==1 && g.iconCell{i}.group==icon.group
+          if g.iconCell{i}.type==1 && g.iconCell{i}.group==icon.group && g.iconCell{i}.enabled==1
             g.iconCell{i}.cdataDisplay=g.iconCell{i}.cdata;
             g.iconCell{i}.isindented=0;
           end
@@ -292,8 +356,6 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
     end
     
     function click(varargin)
-      %global DATA
-      %profile on;
       g=varargin{1};
       g.buttonisdown=1;
       
@@ -302,8 +364,6 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
       
       if isequal(hittest(g.fig),g.imagehandle) 
         set(g.fig,'WindowButtonUpFcn',@g.upclick);
-      %if isequal(hittest(DATA.fig),g.imagehandle) 
-      %  set(DATA.fig,'WindowButtonUpFcn',@g.upclick);
         g.clickedicon=g.geticon;
          if ~isempty(g.clickedicon)
         g.clickedicon.highlight
@@ -325,6 +385,7 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
     function indented=findindented(varargin)
       %returns toggle buttons (icon.type=1) buttons that are indented
       g=varargin{1};
+      if nargin ==1
       indented=[];
        for i=1:(g.numberoficons)
           if g.iconCell{i}.isindented %&& g.iconCell{i}.type==1
@@ -332,7 +393,54 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
             %return;
           end
        end
+      else
+        name=varargin{2};
+        indented = 0;
+        for i=1:(g.numberoficons)
+          if g.iconCell{i}.isindented && strcmp(g.iconCell{i}.name,name)
+            indented=1;
+            return;
+          end
+       end
+      end
+      
     end
+    
+    function [x,y]=buttoncorner(varargin) 
+      g=varargin{1};
+      name=varargin{2};
+      pos =plotboxpos(g.axeshandle);%get(g.axeshandle,'position');
+      cdataCell=cell(size(g.iconCell));
+      for i =1:g.numberoficons
+        cdataCell{i}=g.iconCell{i}.cdataDisplay;
+      end
+      sz =  size(cell2mat(cdataCell));
+      y = zeros(1,size(g.iconCell,1)+1);
+      x = zeros(1,size(g.iconCell,2)+1);
+      
+      for i= 1:size(g.iconCell,1)
+        for j = 1:size(g.iconCell,2)
+          if strcmp(g.iconCell{i,j}.name,name)
+            row = i;
+            col = j;
+          end
+          x(j+1)=size(g.iconCell{i,j}.cdata,2);
+        end
+          y(i+1)=size(g.iconCell{i,j}.cdata,1);
+      end
+      x = cumsum(x(1:end-1));
+      y = cumsum(y(1:end-1));
+      
+      %normalized coordinate system
+      wp= sz(2);
+      wn=pos(3);
+      hp= sz(1);
+      hn=pos(4);
+      x = pos(1)+x(col)/wp*wn;
+      y = pos(2)+y(row)/hp*hn;
+    end
+    
+    
     
     function upclick(varargin)
       %global DATA
@@ -399,7 +507,7 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
    % Check mouse location on screen
    mouseloc=get(0, 'PointerLocation');
    guiloc=get(g.fig, 'Position');
-  state= inpolygon(mouseloc(1),mouseloc(2),[guiloc(1),guiloc(1)+guiloc(3)],[guiloc(1),guiloc(2)+guiloc(4)]) ;
+  state= inpolygon(mouseloc(1),mouseloc(2),[guiloc(1),guiloc(1)+guiloc(3)],[guiloc(2),guiloc(2)+guiloc(4)]) ;%test
    
       %if nolonger over parentaxes kill text
       if ~state%isempty(overobj(DATA.fig))%~isequal(hittest(DATA.fig),g.imagehandle) %&& overobj(DATA.fig)
@@ -592,10 +700,13 @@ classdef myiconplaceholder < handle %Inherits from handles to get persistent obj
       end
     end
     
-    function kill
-      %Function which empties the iconcell and renders
+    function kill(varargin)
+      g = varargin{1};
+      if ~isempty(dropdowniconholders)
+        delete(dropdowniconholders)
+      end
+      delete(g)
     end
-    
   end
 end
   

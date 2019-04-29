@@ -95,7 +95,7 @@ classdef maingui < handle %Handle class
     Overlay = [];
     
     BpInt = 0;
-    MInt = 0;
+    MInt = [0,0];
     TInt = 0;
     
     Pin = [];
@@ -114,6 +114,9 @@ classdef maingui < handle %Handle class
     CursorN = [];
     CursorXOfs = [];
     CursorYOfs = [];
+    imagecursor = [];
+    theta = linspace(0,2*pi,20); %this is used in timecritical cursor display therefore preallocated here.
+      
     
     NeedToSave = 0;
     
@@ -136,6 +139,7 @@ classdef maingui < handle %Handle class
     LicenseNumber = '';
     PayPerCaseS = [];
     
+    GPU = [];
         
   end
   
@@ -207,6 +211,7 @@ classdef maingui < handle %Handle class
 
     %Here all that uses mygui should be added.
     g.GUI.Segment = [];
+    g.GUI.AddComment = [];
     g.GUI.AVPlane = [];
     g.GUI.BrukerReader = [];
     g.GUI.Bullseye = [];
@@ -221,8 +226,6 @@ classdef maingui < handle %Handle class
     g.GUI.Fusion = [];
     g.GUI.GreyZoneHist = [];
     g.GUI.GreyZoneHistAlt = [];
-    g.GUI.GObject = [];
-    g.GUI.GObjectSpeedIM = [];
     g.GUI.Hotkeys = [];
     g.GUI.ImageStacksCT = [];
     g.GUI.InterchangeDelineation =[];
@@ -282,6 +285,7 @@ classdef maingui < handle %Handle class
     g.GUISettings.ReportPanelPixelMax=220;
     g.GUISettings.ThumbnailPanelWidth=100;
     g.GUISettings.BackgroundColor=[0.94 0.94 0.94];%Will later be overwritten by preferences.
+%     g.GUISettings.ForegroundColor=[0 0 0]; %Will later be overwritten by preferences.
     g.GUISettings.ButtonColor = [0.94 0.94 0.94];%[0.92 0.91 0.84];
     g.GUISettings.ButtonSelectedColor = [0.5 0.5 1]; %sometimes [0.6 0.6 0.6]
     g.GUISettings.AxesColorDefault=[1 0.6 0.2];
@@ -299,9 +303,9 @@ classdef maingui < handle %Handle class
     g.GUISettings.SliceLineSpec='y-';
     g.GUISettings.SliceLineSpecMultiSlice='y-';
     g.GUISettings.SliceLineSpecOneSlice='y-';
-    g.GUISettings.MeasureLineSpec='w+-';
-    g.GUISettings.MeasureLineMarkerSize=6;
-    g.GUISettings.BoxAxesColor=[0.1 0.1 0.1];%[0 0 0]; %[0.7 0.2 0.2];
+    g.GUISettings.MeasureLineSpec={[1 1 0],'+', '-',2};%'w+-'; %Orange [0.91 0.41 0.17], pink [1 128/255 128/255], Ljus grå[.8 .8 .8], Orange [240/255 120/255 0]   
+    g.GUISettings.MeasureLineMarkerSize=6;%6;                     % Lila [64/255 0 128/25  5], Brun [128/255 64/255 0], mörkt grön [0 64/255 0], grå [128/255 128/255 128/255]
+    g.GUISettings.BoxAxesColor=[0.1 0.1 0.1];%[0 0 0]; %[0.7 0.2 0.2]; %Blå [128/255 128/255 1], grön-blå [0 128/255 128/255], green-brown .5 .5 0]
     g.GUISettings.VolumeAxesColor = [0 0 0];
     g.GUISettings.ViewPanelsTypeDefault='one';
     g.GUISettings.AskToExitProgram = true;
@@ -334,27 +338,11 @@ classdef maingui < handle %Handle class
     end
 
     end
-    
-    
-    %-------------------------------------------------------
-    function hidetimebar_Callback(varargin)
-    %-------------------------------------------------------
-    end
-    
-    %-------------------------------------------------------
-    function hideresult_Callback(varargin)
-    %-------------------------------------------------------
-    
-    end
-    
-    %-------------------------------------------------------
-    function hideicons_Callback(varargin)
-    %-------------------------------------------------------
-    end
-    
+   
     %--------------------------------------------------------------
     function inithideplaceholder(varargin)
     %-----------------------------------------------------------
+    %Initiates the hideiconholder located to the top right of the gui.
     g=varargin{1};
     
     hideiconcell={};
@@ -381,31 +369,25 @@ classdef maingui < handle %Handle class
     %First check which state we want to toggle to
     stateandicon = segment('iconson',{'hideresult','hideicons'});
     
-%     if get(g.Handles.hideallpanelscheckbox,'value')==1 
-%       state2toggle2  = 'off';
-%     else
-%       state2toggle2  = 'on';
-%     end
-    
     if stateandicon{1,1}
       %Start setting the visible command
       set(g.Handles.barpanel,'Visible','off')
       set(g.Handles.flowuipanel,'Visible','off')
-      %datasetaxeschildren=get(g.Handles.datasetaxes,'children');
-      %set(datasetaxeschildren,'Visible','off')
-      %set(g.Handles.datasetaxes,'Visible','off')
       set(g.Handles.lvuipanel,'Visible','off')
       set(g.Handles.reportpanel,'Visible','off')
+      if any(strcmp(g.ProgramName,{'Segment 3DPrint'})) && strcmp(g.CurrentTheme,'3dp')
+        set(g.Handles.printuipanel,'Visible','off');
+      end
       g.GUISettings.BottomGapHeight = 0.02;
       g.GUISettings.RightGapWidth = 0.02;
     else
       set(g.Handles.barpanel,'Visible','on')
       set(g.Handles.flowuipanel,'Visible','on')
-      %datasetaxeschildren=get(g.Handles.datasetaxes,'children');
-      %set(datasetaxeschildren,'Visible','on')
-      %set(g.Handles.datasetaxes,'Visible','on')
       set(g.Handles.lvuipanel,'Visible','on')
       set(g.Handles.reportpanel,'Visible','on')
+      if any(strcmp(g.ProgramName,{'Segment 3DPrint'})) && strcmp(g.CurrentTheme,'3dp')
+        set(g.Handles.printuipanel,'Visible','on');
+      end
       g.GUISettings.BottomGapHeight = 0.133;
       g.GUISettings.RightGapWidth = 0.21;
     end
@@ -417,6 +399,7 @@ classdef maingui < handle %Handle class
       currentreportpanelpos = get(g.Handles.reportpanel,'position');
       currentthumbnailsliderpos = get(g.Handles.thumbnailslider,'position');
      
+
       currentreportpanelpos(4)=1-currentconfigpos(4);
       currentconfigpos(2)=1-currentconfigpos(4);
       currenthidepos(2)=1-currentconfigpos(4);
@@ -427,6 +410,13 @@ classdef maingui < handle %Handle class
       set(g.Handles.hideaxes,'position',currenthidepos)
       set(g.Handles.datasetaxes,'position',currentdatasetaxespos)
       set(g.Handles.reportpanel,'position',currentreportpanelpos);
+      
+      if any(strcmp(g.ProgramName,{'Segment 3DPrint'}))
+        currentprintpanelpos = get(g.Handles.printuipanel,'position');
+        currentprintpanelpos(4)=1-currentconfigpos(4);
+        set(g.Handles.printuipanel,'position',currentprintpanelpos);
+      end
+      
       set(g.Handles.thumbnailslider,'position',currentthumbnailsliderpos);
       g.GUISettings.TopGapHeight = 0.06;  
     set(g.Handles.iconuipanel,'Visible','off')
@@ -444,6 +434,13 @@ classdef maingui < handle %Handle class
       currentthumbnailsliderpos(4)=currentpanelpos(2);
       currentconfigpos(2)=currentpanelpos(2);
       currenthidepos(2)=currentpanelpos(2);
+      
+      if any(strcmp(g.ProgramName,{'Segment 3DPrint'})) 
+        currentprintpanelpos = get(g.Handles.printuipanel,'position');
+        currentprintpanelpos(4)=currentpanelpos(2);
+        set(g.Handles.printuipanel,'position',currentprintpanelpos);
+      end
+
       set(g.Handles.configaxes,'position',currentconfigpos)
       set(g.Handles.hideaxes,'position',currenthidepos)
       set(g.Handles.datasetaxes,'position',currentdatasetaxespos)
@@ -655,7 +652,7 @@ classdef maingui < handle %Handle class
     currentpos=get(g.Handles.configiconholder.axeshandle,'position');
     set(g.Handles.configiconholder.axeshandle,'position',currentpos-[pos(1),0,0,0]);    
    
-    g.CurrentTheme='misc';
+    g.CurrentTheme='3dp';
     %If no button is indented in config place holder choose the initial
     %buttons according to discussion with Helen
     %for image this is the select tool
@@ -670,8 +667,8 @@ classdef maingui < handle %Handle class
     
     if clickedbutton==0
       indent(g.Handles.configiconholder,'select',1)
-    else
-      indent(g.Handles.configiconholder,iconcell{clickedbutton}.name,1)
+    %else
+      %indent(g.Handles.configiconholder,iconcell{clickedbutton}.name,1)
     end
     end
     
@@ -716,95 +713,78 @@ classdef maingui < handle %Handle class
     %-------------------------------------------------
       function toggleplaceholdermotion(varargin)
         %-------------------------------------------------
+        %Handles the motion function so different functions can be triggered based on what object the cursor is over. 
         g=varargin{1};
         
         handleAddress=hittest(g.fig);
+        
+        %get all iconholder in software check for dropdown iconholders
+        %aswell
+        iconholders = g.Handles.permanenticonholder;
+        iconholders = [iconholders,g.Handles.permanenticonholder.dropdowniconholders];
+        
+        iconholders(end+1) = g.Handles.toggleiconholder;
+        iconholders = [iconholders,g.Handles.toggleiconholder.dropdowniconholders];
+        
         if ~isempty(get(g.Handles.configaxes,'Children'))
-          if isequal(handleAddress,g.Handles.configiconholder.imagehandle)
-            g.Handles.configiconholder.motion
+          iconholders(end+1)=g.Handles.configiconholder;
+          iconholders = [iconholders,g.Handles.configiconholder.dropdowniconholders];
+        end               
+        
+        if ~isempty(get(g.Handles.hideaxes,'Children'))
+          iconholders(end+1)=g.Handles.hideiconholder;
+          iconholders = [iconholders,g.Handles.hideiconholder.dropdowniconholders];
+        end
+        
+        for i = 1:length(iconholders)
+          if isequal(handleAddress,iconholders(i).imagehandle)
+            iconholders(i).motion;
           else
-            g.Handles.configiconholder.notover
+            iconholders(i).notover;
           end
         end
         
-        if isequal(handleAddress,g.Handles.permanenticonholder.imagehandle)
-          g.Handles.permanenticonholder.motion
-        else
-          g.Handles.permanenticonholder.notover
-        end
         
-        if isequal(handleAddress,g.Handles.toggleiconholder.imagehandle)
-          g.Handles.toggleiconholder.motion
-        else
-          g.Handles.toggleiconholder.notover
-        end
-        
-        if ~isempty(get(g.Handles.hideaxes,'Children'))
-        if isequal(handleAddress,g.Handles.hideiconholder.imagehandle)
-          g.Handles.hideiconholder.motion
-        else
-          g.Handles.hideiconholder.notover
-        end
-        end
+%         
+%         
+%         if ~isempty(get(g.Handles.configaxes,'Children'))
+%           if isequal(handleAddress,g.Handles.configiconholder.imagehandle)
+%             g.Handles.configiconholder.motion
+%           else
+%             g.Handles.configiconholder.notover
+%           end
+%         end
+%         
+%         if isequal(handleAddress,g.Handles.permanenticonholder.imagehandle)
+%           g.Handles.permanenticonholder.motion
+%         else
+%           g.Handles.permanenticonholder.notover
+%         end
+%         
+%         if isequal(handleAddress,g.Handles.toggleiconholder.imagehandle)
+%           g.Handles.toggleiconholder.motion
+%         else
+%           g.Handles.toggleiconholder.notover
+%         end
+%         
+%         if ~isempty(get(g.Handles.hideaxes,'Children'))
+%         if isequal(handleAddress,g.Handles.hideiconholder.imagehandle)
+%           g.Handles.hideiconholder.motion
+%         else
+%           g.Handles.hideiconholder.notover
+%         end
+%         end
+%         
+%          if ~isempty(get(g.Handles.tempaxes,'Children'))
+%         if isequal(handleAddress,g.Handles.tempiconholder.imagehandle)
+%           g.Handles.tempiconholder.motion
+%         else
+%           g.Handles.tempiconholder.notover
+%         end
+%         end
+%         
       end
-      
-%     %----------------------------------------
-%     function initpermanentplaceholder(varargin)
-%       %--------------------------------------
-%     g=varargin{1};
-%       
-%     iconcell=cell(1,1);
-%     iconcell{1,1}=myicon('database',g.Handles.permanenticonholder,g.Icons.config.database,'Open patient database',@() segment('fileopen_Callback'),0);
-%     iconcell{1,end+1}=myicon('databaseadd',g.Handles.permanenticonholder,g.Icons.config.databaseadd,'Save to patient database',... 
-%       @() filemenu('savetopatientdatabase_Callback'),0);
-% %     iconcell{1,end+1}=myicon(g.Handles.permanenticonholder,g.Icons.config.connect,'Open PACS connection','pacs(''init_Callback'')',0);
-% %     iconcell{1,end+1}=myicon(g.Handles.permanenticonholder,g.Icons.config.connectadd,'Save to PACS','filemenu(''savetopacs_Callback'')',0);
-%     iconcell{1,end+1}=myicon('closeall',g.Handles.permanenticonholder,g.Icons.config.closeall,'Close all image stacks',@() segment('filecloseall_Callback'),0);
-%     
-%     iconcell{1,end+1}=myicon('panel1',g.Handles.permanenticonholder,g.Icons.config.panel1,'View one image panel',@() drawfunctions('drawall',1),1,1);
-%     iconcell{1,end+1}=myicon('panel2',g.Handles.permanenticonholder,g.Icons.config.panel2,'View two image panels',@() drawfunctions('drawall',1,2),1,1);
-%     iconcell{1,end+1}=myicon('panel2x1',g.Handles.permanenticonholder,g.Icons.config.panel2x1,'View two image panels',@() drawfunctions('drawall',2,1),1,1);
-%     iconcell{1,end+1}=myicon('panel3x1',g.Handles.permanenticonholder,g.Icons.config.panel3x1,'View three image panels',@() drawfunctions('drawall',3,1),1,1);
-%     iconcell{1,end+1}=myicon('panel3',g.Handles.permanenticonholder,g.Icons.config.panel3,'View three image panels',@() drawfunctions('drawall',1,3),1,1);
-%     iconcell{1,end+1}=myicon('panel4',g.Handles.permanenticonholder,g.Icons.config.panel4,'View four image panels',@() drawfunctions('drawall',2,2),1,1);
-%     iconcell{1,end+1}=myicon('panel6',g.Handles.permanenticonholder,g.Icons.config.panel6,'View six image panels',@() drawfunctions('drawall',6),1,1);
-%     iconcell{1,end+1}=myicon('saveview',g.Handles.permanenticonholder,g.Icons.config.saveview,'Save view',@() segmentview,0);
-%     
-%     iconcell{1,end+1}=myicon('viewone',g.Handles.permanenticonholder,g.Icons.config.viewone,'View one slice',@() segment('viewimage_Callback','one'),1,2);
-%     iconcell{1,end+1}=myicon('viewall',g.Handles.permanenticonholder,g.Icons.config.viewall,'View all slices',@() segment('viewimage_Callback','montage'),1,2);
-%     iconcell{1,end+1}=myicon('viewrow',g.Handles.permanenticonholder,g.Icons.config.viewrow,'View all slices in 2 rows',@() segment('viewimage_Callback','montagerow'),1,2);
-%     
-%     iconcell{1,end+1}=myicon('undo',g.Handles.permanenticonholder,g.Icons.config.undo,'Undo last operation',@() tools('undosegmentation_Callback'),0);
-%     iconcell{1,end+1}=myicon('refresh',g.Handles.permanenticonholder,g.Icons.config.refresh,'Refresh image view',@() segment('viewrefreshall_Callback'),0);
-%     
-%     iconcell{1,end+1}=myicon('play',g.Handles.permanenticonholder,g.Icons.config.play,'Play movie of all image stacks',@() segment('playall_Callback'),2);
-%     iconcell{1,end+1}=myicon('next',g.Handles.permanenticonholder,g.Icons.config.next,'Next time frame for all image stacks',@() segment('nextallframe_Callback'),0);
-%     iconcell{1,end+1}=myicon('prev',g.Handles.permanenticonholder,g.Icons.config.prev,'Previous time frame for all image stacks',@() segment('previousallframe_Callback'),0);
-%     iconcell{1,end+1}=myicon('faster',g.Handles.permanenticonholder,g.Icons.config.faster,'Faster frame rate',@() segment('fasterframerate_Callback'),0);
-%     iconcell{1,end+1}=myicon('slower',g.Handles.permanenticonholder,g.Icons.config.slower,'Slower frame rate',@() segment('slowerframerate_Callback'),0);
-%     
-%     iconcell{1,end+1}=myicon('hideall',g.Handles.permanenticonholder,g.Icons.config.hideall,'Hide all overlays (segmentation, point, text,...)',@() segment('viewhideall_Callback'),2);
-%     iconcell{1,end+1}=myicon('clearall',g.Handles.permanenticonholder,g.Icons.config.clearall,'Clear all segmentation in current image stack',@() segment('segmentclearall_Callback'),0);
-%     iconcell{1,end+1}=myicon('clearalledes',g.Handles.permanenticonholder,g.Icons.config.clearalledes,'Clear all segmentation except in ED and ES',@() segment('segmentclearalllvbutsystolediastole_Callback'),0); 
-%     iconcell{1,end+1}=myicon('zoomin',g.Handles.permanenticonholder,g.Icons.config.zoomin,'Zoom in',@() segment('viewzoomin_Callback'),0);
-%     iconcell{1,end+1}=myicon('zoomout',g.Handles.permanenticonholder,g.Icons.config.zoomout,'Zoom out',@() segment('viewzoomout_Callback'),0);
-%     iconcell{1,end+1}=myicon('colorbar',g.Handles.permanenticonholder,g.Icons.config.colorbar,'Hide colorbar',@() segment('viewhidecolorbar_Callback'),2);
-%     iconcell{1,end+1}=myicon('viewpixels',g.Handles.permanenticonholder,g.Icons.config.viewpixels,'Show image pixels',@() segment('viewinterp_Callback'),2);
-%     iconcell{1,end+1}=myicon('reportsheet',g.Handles.permanenticonholder,g.Icons.config.reportsheet,'Open Report sheet generation',@() reporter.reportsheet,0);
-%     iconcell{1,end+1}=myicon('savescreen',g.Handles.permanenticonholder,g.Icons.config.savescreen,'Save screen shot',@() export('screenshot_Callback'),0);
-%     
-%     iconcell{1,end+1}=myicon('settingsgeneral',g.Handles.permanenticonholder,g.Icons.config.settingsgeneral,'Set general preferences',@() segpref,0);
-%     iconcell{1,end+1}=myicon('settingssystem',g.Handles.permanenticonholder,g.Icons.config.settingssystem,'Set patient database preferences',@() segpref('advancedsettings_Callback'),0);
-%     iconcell{1,end+1}=myicon('settingspacs',g.Handles.permanenticonholder,g.Icons.config.settingspacs,'Set PACS connection preferences',@() pacspref,0);
-%     g.Handles.permanenticonholder.add(iconcell);
-%     
-%     pos=plotboxpos(g.Handles.permanenticonholder.axeshandle);
-%     currentpos=get(g.Handles.permanenticonholder.axeshandle,'position');
-%     set(g.Handles.permanenticonholder.axeshandle,'position',currentpos-[pos(1),0,0,0]);
-%     set(g.Handles.iconuipanel,'visible','on')
-%     
-%     end
-    
+
     %------------------------------------
     function startmodeplaceholders(varargin)
     %--------------------------------------
@@ -815,6 +795,12 @@ classdef maingui < handle %Handle class
 
     %empty config and permanent iconplaceholder
     if isfield(g.Handles,'configiconholder')
+      for iconholder = g.Handles.configiconholder.dropdowniconholders
+        delete(iconholder.axeshandle)
+        iconholder.axeshandle = NaN;
+        delete(iconholder);
+      end
+      g.Handles.configiconholder.dropdowniconholders=[];
        delete(get(g.Handles.configaxes,'Children'))
        g.Handles.configiconholder.cdata=[];
     end
@@ -861,6 +847,8 @@ classdef maingui < handle %Handle class
     %---------------------------------------------
     function setviewbuttons(varargin)
     %---------------------------------------------
+    %Assures that the correct view panel configuration and view panel mode
+    %buttons are indented.
     g=varargin{1};
     
     if nargin~=1
@@ -872,7 +860,7 @@ classdef maingui < handle %Handle class
     %First the panel group is found
     str=sprintf('%d%d',g.ViewMatrix(1),g.ViewMatrix(2));
     
-    namelist={'panel1','panel2','panel2x1','panel3','panel3x1','panel4','panel6'};
+    namelist={'panel1','panel2','panel2x1','panel3','panel3x1','panel4','panel6','orthoview'};
     name=[];
     switch str
       case '11'
@@ -887,6 +875,9 @@ classdef maingui < handle %Handle class
         name='panel3x1';
       case '22'
         name='panel4';
+        if strcmp(g.ViewPanelsType{1},'ortho')
+            name='orthoview';
+        end
       case '23'
         name='panel6';
         %case '24'
@@ -928,11 +919,17 @@ classdef maingui < handle %Handle class
     switch g.ViewPanelsType{g.CurrentPanel}
       case 'montage'
         name='viewall';
+        notortho = 1;
       case 'one'
         name='viewone';
+        notortho = 1;
       case 'montagerow'
         name='viewrow';
+      case {'ortho','gla','vla','hla'}
+        name = 'orthoview';
     end
+
+    
     %     end
     iconcell=g.Handles.permanenticonholder.iconCell;
     for i= 1:g.Handles.permanenticonholder.numberoficons
@@ -964,38 +961,55 @@ classdef maingui < handle %Handle class
     
     g=varargin{1};
     
-    updatetool('select');
+    %updatetool('select');
 
     g.initpermanentplaceholder;
     g.inithideplaceholder;
     
-    g.setviewbuttons(1);
+    %g.setviewbuttons(1);
+    g.setviewbuttons(0);
 
-    iconcell=g.Handles.toggleiconholder.iconCell;
-    for i = 1:numel(iconcell)
-      iconcell{i}.enable;
-    end
-    
+g.Handles.toggleiconholder.enable;
+%     for i = 1:numel(iconcell)
+%       iconcell{i}.enable;
+%     end
+%     
     g.Handles.toggleiconholder.disablepad=0;
     
-    %asserts that first button is toggle button.
-    iconcell{1}.cdataDisplay=iconcell{1}.cdataIndent;
-    iconcell{1}.isindented=1;
-    feval(iconcell{1}.execute);
-    g.Handles.toggleiconholder.clickedicon=iconcell{1};
-    g.Handles.toggleiconholder.render;
+    switch g.CurrentTheme
+      case 'lv'
+        g.Handles.toggleiconholder.indent('ribbonlv',1);
+      case 'rv'
+        g.Handles.toggleiconholder.indent('ribbonrv',1);
+      case 'roi'
+        g.Handles.toggleiconholder.indent('ribbonflow',1);
+      case 'scar'
+        g.Handles.toggleiconholder.indent('ribbonviability',1);
+      case '3dp'
+        g.Handles.toggleiconholder.indent('ribbon3dp',1);
+      otherwise
+        g.Handles.toggleiconholder.indent('ribbonlv',1);
+        g.CurrentTheme='lv';
+    end
+%     %asserts that first button is toggle button.
+%     iconcell{1}.cdataDisplay=iconcell{1}.cdataIndent;
+%     iconcell{1}.isindented=1;
+%     feval(iconcell{1}.execute);
+%     g.Handles.toggleiconholder.clickedicon=iconcell{1};
+%     g.Handles.toggleiconholder.render;
     
     %Click the single frame mode button
-    stateandicon = segment('iconson','singleframemode');
-    icon = stateandicon{1,2};
-    icon.cdataDisplay=icon.cdataIndent;
-    icon.isindented=1;
-    g.ThisFrameOnly = true;
-    
+%     stateandicon = segment('iconson','singleframemode');
+%     icon = stateandicon{1,2};
+%     icon.cdataDisplay=icon.cdataIndent;
+%     icon.isindented=1;
+%     g.ThisFrameOnly = true;
+
+    indent(g.Handles.hideiconholder,'singleframemode',1)
     %synchronize click
     indent(g.Handles.hideiconholder,'synchronize',1)
 
-    g.Handles.hideiconholder.render
+    %g.Handles.hideiconholder.render
     %g.thisframeonly(1)
     if ~isempty(SET(1).FileName)
       str = sprintf('%s\t%s\t%s\t%s',datestr(now,'yyyy-mm-dd HH:MM'),getenv('USERNAME'),sprintf('Loaded file %s',SET(1).FileName),SET(1).PatientInfo.ID);
@@ -1042,9 +1056,6 @@ classdef maingui < handle %Handle class
         if fail
           
         end
-        %str = sprintf(sprintf('Software started by %s',getenv('USERNAME'))
-        %g.adduserevent(sprintf('Software started by %s',getenv('USERNAME'))) %starts user logging if preferences says so
-        %g.adduserevent(['Time:', datestr(now,'yyyymmddHHMMSS')])
       end
     end
     
@@ -1102,7 +1113,7 @@ classdef maingui < handle %Handle class
     g.initconfigplaceholder;
     g.inithideplaceholder;
     g.startmodeplaceholders 
-    g.inittoolbar;
+    g.inittoolbar;%obsolete
 
     %--- Checks all parameterfiles, and fills listbox
     if isdeployed
@@ -1157,10 +1168,6 @@ classdef maingui < handle %Handle class
     g.ImagingTechniquesFullNames = stri;
 
     g.NeedToSave = false;
-    set([...
-      g.Handles.filesaveicon ...
-      g.Handles.pacsaddicon ...
-      g.Handles.databaseaddicon],'enable','off');
 
     %Close restores defaults.
     g.filecloseall_Callback(true); %silent
@@ -1219,6 +1226,7 @@ classdef maingui < handle %Handle class
     %----------------------------
     function init_userlogging(g)
     %----------------------------
+    %Initiates user logging
       val = mygetvalue(g.PrefHandlesAdvanced.userloggingcheckbox);
       
       if val == 1
@@ -1245,6 +1253,7 @@ classdef maingui < handle %Handle class
     %---------------------------------
     function fail = adduserevent(g,str)
     %---------------------------------
+    %Adds event to user log
     fail = 0;
     if g.Pref.UserLogging
       fid = fopen(g.Pref.UserLogPath,'a');
@@ -1339,7 +1348,11 @@ classdef maingui < handle %Handle class
     %Switch to slices corresponding to location of user click
     global NO
     
-    segment_main('normal_Buttondown',panel);
+    
+
+    segment('switchtopanel',panel);%segment_main('normal_Buttondown',panel);
+    set(g.imagefig,'WindowButtonUpFcn',...
+      sprintf('%s(''buttonup_Callback'')','segment'));
     [y,x] = mygetcurrentpoint(g.Handles.imageaxes(panel));
     silent = true;
     switch g.ViewPanelsType{panel}
@@ -1525,8 +1538,22 @@ classdef maingui < handle %Handle class
     %Undent and disable all the toggle buttons
 
     g.startmodeplaceholders
-
-
+    if any(strcmp(g.ProgramName,{'Segment CT'}))
+      g.CurrentTool = 'select';
+      g.CurrentTheme = 'lv';
+      set([...
+        g.Handles.pointsmenu ...
+        ],'enable','off');
+    end
+    if any(strcmp(g.ProgramName,{'Segment 3DPrint'}))
+      set(g.Handles.printuipanel,'Visible','off')
+      g.CurrentTool = 'select';
+      g.CurrentTheme = 'lv';
+         set([... 
+       g.Handles.threedpmenu ...       
+       g.Handles.pointsmenu ...
+       ],'enable','off');
+    end
     flushlog;
 
     g.Silent = false;
@@ -1551,13 +1578,17 @@ classdef maingui < handle %Handle class
     %Delete window
     try
       delete(g.Handles.imageaxes);
+      g.Handles.imageaxes = [];
       delete(g.Handles.boxaxes);
+      g.Handles.boxaxes = [];
     catch %#ok<CTCH>
     end;
 
     %Disable non-valid options.
+    %g.Handles.pointsmenu ...
+       %g.Handles.threedpmenu ...
      set([... 
-       g.Handles.measuremenu ...
+       g.Handles.measuremenu ...       
        g.Handles.toolsmenu ...
        g.Handles.roimenu ...
        g.Handles.editmenu ...
@@ -1673,7 +1704,6 @@ classdef maingui < handle %Handle class
     NO = 1;
     SET = [];
     g.NeedToSave = false;
-    set(g.Handles.filesaveicon,'enable','off');
 
     set(g.fig,'pointer','arrow');
 
@@ -1820,6 +1850,7 @@ classdef maingui < handle %Handle class
     segment('stopmovie_Callback');
     %set(g.Handles.fileopenicon,'state','off');
 
+
     if ~isempty(SET)
       m = mymenu('Image stacks already exist',...
         {'Replace existing image stacks',...
@@ -1883,11 +1914,15 @@ classdef maingui < handle %Handle class
     %------------------------------
     %This function displays stacks from a mat files in main gui.
     %Typically called upon loading;
-    global SET
+    global SET NO
 
     %Do not mess with .Silent here since it will be taken care of by lower
     %routine images.
-
+    
+    if ~strcmp(g.ProgramName,'Segment 3DPrint') && isempty(g.ViewPanels) && ~isempty(SET(1).View) && strcmp(SET(1).View.CurrentTheme,'3dp')  %fixes backwards compatibility with trying to load files from CT 3dp edition into CT.
+       SET(1).View = [];
+    end
+    
     %Check if viewing preferences are stored in file.
     if ~isempty(g.ViewPanels)
       %  addtopanels(no); % this is messy when mat files are loaded into mat
@@ -1913,6 +1948,12 @@ classdef maingui < handle %Handle class
       g.ViewPanels = SET(1).View.ViewPanels;
       g.ViewPanelsType = SET(1).View.ViewPanelsType;
       g.ViewPanelsMatrix = SET(1).View.ViewPanelsMatrix;
+      if ~isfield(SET(1).View,'CurrentTheme')
+        g.CurrentTheme = 'lv'; 
+        SET(1).View.CurrentTheme='lv';
+      else
+        g.CurrentTheme = SET(1).View.CurrentTheme;
+      end
       g.ViewIM = cell(1,length(g.ViewPanels));
       g.Overlay = struct('alphadata',[],'cdata',[]);
       g.Overlay(length(g.ViewPanels)) = struct('alphadata',[],'cdata',[]);
@@ -1923,50 +1964,30 @@ classdef maingui < handle %Handle class
       end;
       if isfield(SET(1).View,'CurrentPanel')
         g.CurrentPanel = SET(1).View.CurrentPanel;
-        %     g.CurrentTheme = SET(1).View.CurrentTheme;
-        %     g.CurrentTool = SET(1).View.CurrentTool;
       else
         g.CurrentPanel = 1;
-        %     g.CurrentTheme = 'lv';
-        %     g.CurrentTool = 'select';
       end;
-      drawfunctions('drawall',g.ViewMatrix);
+      
+      NO = g.ViewPanels(g.CurrentPanel);
+
       if isfield(SET(1).View,'ThisFrameOnly')
         %Now default is always on.
         SET(1).View.ThisFrameOnly=1;
         g.ThisFrameOnly = SET(1).View.ThisFrameOnly;
-%          if g.ThisFrameOnly
         g.GUISettings.AxesColor=[1 1 1];
-%          else
-%            g.GUISettings.AxesColor=g.GUISettings.AxesColorDefault;
-%          end
-        
         g.setthisframeonly(g.ThisFrameOnly);
       end;
-      segment('switchtopanel',g.CurrentPanel);
-      %   temp = g.CurrentTool;
-      %   updateicons(g.CurrentTheme);
-      %   updatetool(temp);
       if isfield(SET(1).View,'CurrentTheme')
-%        g.updateicons(SET(1).View.CurrentTheme);
-        updatetool(SET(1).View.CurrentTool);
-      else
-        %g.updateicons('lv');
-        updatetool('select');
+        if strcmp(g.CurrentTheme,'3dp')   
+            segment3dp.tools('init3DP',1,1)
+        end
       end;
     end;
-    
-    %start with no colorbar
-    %segment('viewhidecolorbar_Callback')
-    %set(g.Handles.colorbar,'visible','off')
-
     drawfunctions('drawthumbnails',isempty(g.DATASETPREVIEW)); %False means no calcpreview
-    segment('switchtoimagestack',g.ViewPanels(g.CurrentPanel),true); %force
-    %segment('switchtoimagestack',no,true); %force
     mydisp('Image stacks loaded.');
-    %endoffcalculation;
     
     %Enable all icons
+    drawfunctions('drawall',g.ViewMatrix);
     g.dataloadedplaceholders
     flushlog;
     end
@@ -2798,6 +2819,11 @@ classdef maingui < handle %Handle class
     if g.Interactionlock
       return;
     end;
+    
+    if any(strcmp(DATA.ViewPanelsType(DATA.CurrentPanel),{'trans3DP','sag3DP','cor3DP'}))
+      segment3dp.tools('click3dp_Callback',SET(NO).LevelSet.Pen.Color)
+      return
+    end
 
     segment('switchtopanel',panel);
     no = NO;
@@ -2843,6 +2869,8 @@ classdef maingui < handle %Handle class
           menuitems = {...
             'Apex',...
             'RV insertion',...
+            'RV insertion Anterior',...
+            'RV insertion Inferior',...
             'AV plane',...
             'TV plane',...
             'P1',...
@@ -3366,7 +3394,7 @@ classdef maingui < handle %Handle class
     %Also overloaded in Segment CMR and Segment CT
     figname = 'segpref';
     fig = openfig(figname,'reuse');
-    set(fig,'Color',get(0,'defaultUicontrolBackgroundColor'));
+    set(fig,'Color',get(0,'defaultUicontrolBackgroundColor')); %g.GUISettings.BackgroundColor); %
   
     % Generate a structure of handles to pass to callbacks, and store it.
     g.PrefHandles = guihandles(fig);
@@ -3421,6 +3449,10 @@ classdef maingui < handle %Handle class
     set(g.PrefHandles.fastpreviewloadcheckbox,'Value',g.Pref.FastPreviewLoad);
     set(g.PrefHandles.checkversioncheckbox,'Value',g.Pref.CheckVersion);
     set(g.PrefHandles.useproxyservercheckbox,'Value',g.Pref.UseProxyServer);
+    set(g.PrefHandles.openGLcheckbox,'Value',g.Pref.OpenGLSoftware);
+    set(g.PrefHandles.gpucheckbox,'Value',g.Pref.GPU.Use);
+    set(g.PrefHandles.checkboxaskaddcomment,'Value',g.Pref.AskAddComment);
+    
     if isequal(g.Pref.WebBrowser,'explorer')
       set(g.PrefHandles.webbrowserpopupmenu,'value',1);
     elseif isequal(g.Pref.WebBrowser,[getenv('ProgramFiles') '\Mozilla Firefox\firefox.exe']);
@@ -3550,7 +3582,7 @@ classdef maingui < handle %Handle class
     gui=g.GUI.OpenFile;
     
     % Use system color scheme for figure:
-    set(fig,'Color',get(0,'defaultUicontrolBackgroundColor'));
+    set(fig,'Color',get(0,'defaultUicontrolBackgroundColor')); %g.GUISettings.BackgroundColor); %
 
     % Generate a structure of handles to pass to callbacks, and store it.
     g.Preview.Handles = g.GUI.OpenFile.handles; %guihandles(fig);
@@ -3629,9 +3661,16 @@ classdef maingui < handle %Handle class
     function enableopenfile(g)
     %-------------------------
     %Called by openfile('enablesegmentgui'). Overloaded in CVQgui and RVQgui.
-
+    
+    if any(strcmp(g.ProgramName,{'Segment 3DPrint'}))
+      set([g.Handles.pointsmenu g.Handles.threedpmenu], 'enable','on')
+    end
+    if any(strcmp(g.ProgramName,{'Segment CT'}))
+      set([g.Handles.pointsmenu], 'enable','on')
+    end
+      
 set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysismenu ...g.Handles.t2analysismenu ...
-      g.Handles.measuremenu ...
+      g.Handles.measuremenu ...      
       g.Handles.fileloadnextmenu ...
       g.Handles.toolsmenu ...
       g.Handles.roimenu ...
@@ -3667,8 +3706,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
     set([...
       g.Handles.reportpanel ...
       g.Handles.barpanel ... %g.Handles.thistimeframeonlycheckbox ...%g.Handles.excludepapilarscheckbox ...%g.Handles.uselightcheckbox ...
-      g.Handles.thumbnailslider...
-      ],...
+      ],...%g.Handles.thumbnailslider...
       'visible','on');
    
     end
@@ -3985,7 +4023,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
       set(g.Handles.timebaraxes, ...
         'Color',g.GUISettings.VolumeColorGraph);
     
-    if no == DATA.LVNO
+    if any(no == DATA.LVNO)
       set(DATA.Handles.timebarlv,'xdata',...
         t(SET(no).CurrentTimeFrame)*[1 1])
     end
@@ -4004,7 +4042,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
     global DATA SET
     
     if ~isempty(DATA.LVNO)
-      no = DATA.LVNO;
+      no = DATA.LVNO(1);%first works as this is general for all lax stacks.
     elseif ~isempty(DATA.RVNO)
       no = DATA.RVNO;
     else
@@ -4242,7 +4280,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
       %Time resolved
       t = SET(no).TimeVector*1000;
       %flow curve
-      netflow = SET(no).Flow.Result(roinbr).netflow;
+      netflow = SET(no).Flow.Result(roinbr).netflow; 
       
       %plot in color of roi
       curvecolor=SET(no).Roi(roinbr).LineSpec(1);
@@ -4344,7 +4382,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
     %----------------------------
     %General buttonupfunction. Overloaded in RVQ GUI
     
-    set(g.imagefig,'WindowButtonMotionFcn','');
+    set(g.imagefig,'WindowButtonMotionFcn','segment(''toggleplaceholdermotion'')');
     %drawfunctions('drawsliceno');
     end
       
@@ -4361,8 +4399,10 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
     for loop=1:length(SET)
       dosplit=0;
       margin = fontsize;
-      str = strtrim(SET(loop).ImageType);
-      
+      str = SET(loop).ImageType;
+      if ~isempty(str)
+        str = strtrim(str);      
+      end;
       listmap={'Feature tracking','FT';...
         'Late enhancement','LGE';...
         'Perfusion rest', 'Perf R';...
@@ -4376,7 +4416,9 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
         'T2 map post', 'T2 Post';...
         'T2star', 'T2*';...
         'Flow (magnitude)','Flow';...
-        'Flow (through plane)','Flow'};
+        'Flow (through plane)','Flow';...
+        'Inspiration','Insp';...
+        'Expiration','Exp'};
       
       for i = 1:size(listmap,1)
         if strcmpi(listmap{i,1},str)
@@ -4400,7 +4442,10 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
       if isempty(SET(loop).ImageViewPlane)
           SET(loop).ImageViewPlane = '';
       end;
-      strimvp = strtrim(SET(loop).ImageViewPlane);
+      strimvp = SET(loop).ImageViewPlane;
+      if ~isempty(strimvp)
+        strimvp = strtrim(strimvp);
+      end;
       for i = 1:size(imvpmap,1)
         if strcmpi(imvpmap{i,1},strimvp)
           strimvp=imvpmap{i,2};
@@ -4615,15 +4660,16 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
     %---------------------------------
     %Called when key is pressed. Overloaded in Segment CT GUI.
     global SET NO DATA
-    persistent buffer;
     persistent starttime;  
-    tol=1e-6;
-    diff=rem(now,1)-starttime;
+    tol=0.2;
+    d = datevec(now);
+    tnow = d(6);
+    diff=tnow-starttime;
     if ~isempty(diff) && diff<tol
       starttime=[];
       return
     else
-      starttime = rem(now,1);
+      starttime = tnow;%rem(now,1);
     end
     
     switch nargin
@@ -4647,7 +4693,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
       segmentview('keypressed',key);
       return
     end
-        
+           
     %Use same order as in manual
     switch key
       case 'scrolllock'
@@ -4938,6 +4984,12 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
         g.Handles.configiconholder.indent('select',1);
       case 'ctrl-a'
         segment_main('selectallslices_Callback');
+%       case 'ctrl-s'
+%         if strcmp(g.ProgramName,'Segment')
+%           filemenu('saveall_Callback')
+%         else
+%           filemenu('savetopatientdatabase_Callback')
+%         end
       case 'shift-u' %unselect all image stacks
         segment_main('unselectallslices_Callback');
       case 'shift-a' %shift-a
@@ -4991,6 +5043,9 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
       case 'shift-ctrl-r'
         lvpeter('segmentrefineepi_Callback',false);
       case 'ctrl-alt-r'
+        rv('segmentrefinervendo_Callback',false,false);
+      case 'ctrl-alt-x'
+        segment('copyrvendoforward');
         rv('segmentrefinervendo_Callback',false,false);
       case 'alt-r'
         flow('flowrefine_Callback');
@@ -5298,6 +5353,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
     %------------------------------------------------
     function guitoggletool(varargin)
     %------------------------------------------------
+    %Defines which tool to toggle to for certain coupled tools
     g=varargin{1};
     tool2toggle2=varargin{2};
     oldtool=varargin{3};
@@ -5491,7 +5547,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
     g.EpiEDGE2 = [];
     g.EpiEDGE3 = [];
     g.BpInt = -1;
-    g.MInt = -1;
+    g.MInt = [-1,-1];
     g.TInt = -1;
     g.BalloonLevel = -1;
     g.BALLOON = [];
@@ -6089,6 +6145,7 @@ set([... %g.Handles.reportmenu ... g.Handles.t2starmenu ...g.Handles.t1analysism
       'NM';
       'PT';
       'CTheart';
+      'CT';
       'US';
       'User defined'};
     end

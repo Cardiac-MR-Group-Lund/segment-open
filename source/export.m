@@ -7,11 +7,10 @@ macro_helper(varargin{:});
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 
 
-
-
 %----------------------------------------------
 function utilityslicebasedvolumeexport_Callback %#ok<DEFNU>
 %----------------------------------------------
+%Slice based volume export function for folder with mat files.
 global DATA SET NO
 
 pathname = DATA.Pref.datapath;
@@ -580,6 +579,7 @@ switch m
     newnbr = min(setdiff(1:9999,nbrs));
     filename = sprintf('screenshot_%04.0f.png',newnbr);
     filterindex = 1;
+    DATA.Pref.Pacs.ScreenshotPath=pathname;
   case 0
     filename = 0;
 end
@@ -2265,8 +2265,19 @@ output=questdlg('Do you wish to redo strain analysis?');
 switch output
   case 'Yes'
     doStrain=1;
+    % autoset peaktf?
+    output=questdlg('Do you wish to autodetect peak timeframe?');
+    switch output
+      case 'Yes'
+        doPeaktf=1;
+      case 'No'
+        doPeaktf=0;
+      case 'Cancel'
+        return;
+    end
   case 'No'
     doStrain=0;
+    doPeaktf = 0;
   case 'Cancel'
     return;
 end
@@ -2303,16 +2314,24 @@ for fileloop=1:numfiles
   %For long axis its sufficient to consider one of the images to obtain
   %all information. therefore checked exists
   checked=[];
-    
   bullseyeradial = cell(1,1);
   bullseyecirc = cell(1,1);
   for no=1:length(SET)
     if doStrain
-      if ~isfield(SET(no),'StrainTagging') || isempty(SET(no).StrainTagging) ||~isfield(SET(no).StrainTagging,'transformparameters') %|| ismember(no,checked)
+      if ~isfield(SET(no),'StrainTagging') || isempty(SET(no).StrainTagging)||~isfield(SET(no).StrainTagging,'taggroup') ||~isfield(SET(no).StrainTagging,'transformparameters') || ismember(no,checked) ||  isempty(SET(no).EndoX) || all(isnan(SET(no).EndoX(:))) 
         %Skip this no
       else
         try
           %Do Strain calculations
+          if isfield(SET(no).StrainTagging,'peaktf') && doPeaktf
+            try
+            for tagno = SET(no).StrainTagging.taggroup
+              SET(tagno).StrainTagging.peaktf=[];
+            end
+            catch
+              SET(no).StrainTagging.peaktf=[];
+            end
+          end
           
           switch SET(no).ImageViewPlane
             case 'Short-axis'
@@ -2331,9 +2350,18 @@ for fileloop=1:numfiles
           end
           
           if isequal(type,imagetype)
+            taggroup=straintagging.straintagging('findtaggroup',type,1);
+              for i = taggroup;
+                if ~isfield(SET(i).StrainTagging,'taggroup')
+                  SET(i).StrainTagging.taggroup = taggroup;
+                end
+              end
+            
             NO=no;
             SET(no).StrainTagging.LVupdated=1;
-            straintagging.straintagging('init',imagetype,imageviewplane);
+            DATA.Silent=1;
+            straintagging.straintagging('init',imagetype,imageviewplane, [], [],1);
+            DATA.Silent=0; 
             disp(['Performed strain analysis on no=',num2str(no)]);
             %store bullseye strain values
             gui = DATA.GUI.StrainTagging;
@@ -2352,9 +2380,10 @@ for fileloop=1:numfiles
           checked=[checked,SET(NO).StrainTagging.taggroup];
         end
       end
-    end %end of do calc strain
+    end %end of do calc strain  
   end %end of loop over image stacks
     
+  
   %calculate global mean strain
   globalcirc2ch = NaN;
   globalrad2ch = NaN;
@@ -2373,7 +2402,7 @@ for fileloop=1:numfiles
   tf4ch = 1;
   
   for no=1:length(SET)
-    if ~isfield(SET(no),'StrainTagging')|| isempty(SET(no).StrainTagging) || ~isfield(SET(no).StrainTagging,'globalrad') %|| ismember(no,checked)
+    if ~isfield(SET(no),'StrainTagging')|| isempty(SET(no).StrainTagging) || ~isfield(SET(no).StrainTagging,'globalrad') %|| isempty(SET(no).EndoX) || all(isnan(SET(no).EndoX(:)))%|| ismember(no,checked)
       %Skip no
     else
       
@@ -2382,10 +2411,12 @@ for fileloop=1:numfiles
           imagetype='cine';
         case 'Strain from tagging'
           imagetype='tagging';
-      end
+        case 'General'
+          imagetype='cine';
+      end    
       
       if isequal(type,imagetype)
-        %store global strain values
+        %store global strain values 
          switch SET(no).ImageViewPlane
           case '2CH'
             tf2ch = SET(no).StrainTagging.peaktf;
@@ -2412,7 +2443,7 @@ for fileloop=1:numfiles
   bullseyecirclax = straintagging.straintagging('getbullseyevalueslax',segmentalcirc2ch,segmentalcirc3ch,segmentalcirc4ch,tf2ch,tf3ch,tf4ch);
   bullseyeradiallax = straintagging.straintagging('getbullseyevalueslax',segmentalrad2ch,segmentalrad3ch,segmentalrad4ch,tf2ch,tf3ch,tf4ch);
   for no=1:length(SET)    
-    if ~isfield(SET(no),'StrainTagging')|| isempty(SET(no).StrainTagging) || ~isfield(SET(no).StrainTagging,'globalrad') || ~isfield(SET(no).StrainTagging,'SR')  %|| ismember(no,checked) 
+    if ~isfield(SET(no),'StrainTagging')|| isempty(SET(no).StrainTagging) || ~isfield(SET(no).StrainTagging,'globalrad') || ~isfield(SET(no).StrainTagging,'SR') %|| ~isfield(SET(no).StrainTagging,'saslices') || isempty(SET(no).StrainTagging.saslices)%|| ismember(no,checked) 
       %Skip no
     else
           %--- output ---
@@ -2561,6 +2592,7 @@ for fileloop=1:numfiles
               end
             end
             
+            if isfield(SET(no).StrainTagging,'SR')  && any(SET(no).StrainTagging.SR.include)
             outdata{line-2,col} = 'Radial strain rate [%/s]';
             
             outdata{line-1,col} ='Mean Upslope';
@@ -2612,6 +2644,7 @@ for fileloop=1:numfiles
               outdata{line-1,col+3} = sprintf('Slice %d Downslope time',used(sliceloop));
               outdata{line,col+3} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.circdownind(sliceloop));%SET(no).StrainTagging.downslopecircum(sliceloop,2);
               col = col+4;
+            end
             end
             
             if strcmp(imagetype,'tagging') && isfield(SET(no).StrainTagging,'slice_rotation')
@@ -2708,6 +2741,8 @@ for fileloop=1:numfiles
               outdata{line,col} = SET(no).StrainTagging.globalcirc(SET(no).StrainTagging.peaktf,1);
               col = col+1;
             %end
+            
+               if isfield(SET(no).StrainTagging,'SR') && any(SET(no).StrainTagging.SR.include)
             outdata{line-2,col} = 'Radial strain rate [%/s]';
             %ind=find(SET(no).StrainTagging.taggroup==no);
             switch SET(no).ImageViewPlane
@@ -2753,6 +2788,7 @@ for fileloop=1:numfiles
               col = col+4; 
               line=line+3;
             end
+            end
         end
         %line = line+1;
       %end
@@ -2780,13 +2816,15 @@ for fileloop=1:numfiles
       corruptedfiles=sprintf('%s, %s',corruptedfiles,filename);
       mywarning(dprintf('Image file %s seems to be corrupted from last save. Please load and manually re-analyse strain to ensure that the image is not corrupted before saving',filename));
     else
+      DATA.Silent = 1;
       filemenu('saveallas_helper',pathname,files2load(fileloop).name);
+      DATA.Silent = 0;
       disp(sprintf('Saving %s',[pathname filesep files2load(fileloop).name]));
     end    
     
-    rob.keyPress(KeyEvent.VK_SPACE);
-    pause(0.1);
-    rob.keyRelease(KeyEvent.VK_SPACE);
+%     rob.keyPress(KeyEvent.VK_SPACE);
+%     pause(0.1);
+%     rob.keyRelease(KeyEvent.VK_SPACE);
   end
   h = mywaitbarupdate(h);  
   %close current file
@@ -3126,8 +3164,19 @@ output=questdlg('Do you wish to redo strain analysis?');
 switch output
   case 'Yes'
     doStrain=1;
+    % autoset peaktf?
+    output=questdlg('Do you wish to autodetect peak timeframe?');
+    switch output
+      case 'Yes'
+        doPeaktf=1;
+      case 'No'
+        doPeaktf=0;
+      case 'Cancel'
+        return;
+    end
   case 'No'
     doStrain=0;
+    doPeaktf = 0;
   case 'Cancel'
     return;
 end
@@ -3175,6 +3224,16 @@ for fileloop=1:numfiles
       else
         try
           %Do Strain calculations
+          if isfield(SET(no).StrainTagging,'peaktf') && doPeaktf
+            try
+            for tagno = SET(no).StrainTagging.taggroup
+              SET(tagno).StrainTagging.peaktf=[];
+            end
+            catch
+              SET(no).StrainTagging.peaktf=[];
+            end
+          end
+          
           switch SET(no).ImageViewPlane
             case 'Short-axis'
               imageviewplane = 'shortaxis';
@@ -3194,8 +3253,8 @@ for fileloop=1:numfiles
           if isequal(type,imagetype)
             NO=no;
             SET(no).StrainTagging.LVupdated=1;
-            straintagging.straintagging('init',imagetype,imageviewplane);
-            disp(['Performed strain analysis on no=',num2str(no)]);
+            straintagging.straintagging('init',imagetype,imageviewplane,[],[],1);
+             disp(['Performed strain analysis on no=',num2str(no)]);
             straintagging.straintagging('close_Callback');
           end
         catch
@@ -3278,6 +3337,24 @@ for fileloop=1:numfiles
         outdata{line,col+1}=SET(no).TimeVector(timeind);
         col=col+2;
       end
+      
+      if strcmp(SET(no).ImageViewPlane,'4CH')
+        outdata{line-1,col}='Lateral Mean [%]';
+        outdata{line-1,col+1}='Lateral Mean Time [s]';
+         [val,timeind] = min(mynanmean(SET(no).StrainTagging.segmentalRVstrain(:,1:3),2));
+         outdata{line,col}=val;
+        outdata{line,col+1}=SET(no).TimeVector(timeind);
+        col=col+2;
+        
+        outdata{line-1,col}='Septal Mean [%]';
+        outdata{line-1,col+1}='Septal Mean Time [s]';
+         [val,timeind] = min(mynanmean(SET(no).StrainTagging.segmentalRVstrain(:,4:6),2));
+         outdata{line,col}=val;
+        outdata{line,col+1}=SET(no).TimeVector(timeind);
+        col=col+2;
+      end
+      
+      
       %Segmental RV
       %       for sliceloop = 1:nbrslices
       %       outdata{line-2,col}=sprintf('RV sectional peaks slice %d',sliceloop);
@@ -3322,6 +3399,40 @@ for fileloop=1:numfiles
         outdata{line-1,col+2}=[segstr{i},' Downslope'];
         outdata{line-1,col+3}=[segstr{i},' Downslope Time [s]'];
         straincurve=mynanmean(SET(no).StrainTagging.segmentalRVstrain(:,i,:),3);
+        strainratecurve=conv2([1 0 -1],1,straincurve,'valid')/(2*SET(no).TIncr);
+        [downslope,downslopeind]=min(strainratecurve);%min(strainratecurve(1:floor(length(strainratecurve)*0.7)));
+        [upslope,upslopeind]=max(strainratecurve);%max(strainratecurve(1:floor(length(strainratecurve)*0.7)));
+        upslopetime = SET(no).TimeVector(upslopeind+1);
+        downslopetime = SET(no).TimeVector(downslopeind+1);
+        outdata{line,col} = upslope;
+        outdata{line,col+1} = upslopetime;
+        outdata{line,col+2} = downslope;
+        outdata{line,col+3} = downslopetime;
+        col=col+4;
+      end
+      
+      if strcmp(SET(no).ImageViewPlane,'4CH')
+        outdata{line-1,col}='Lateral Mean Upslope';
+        outdata{line-1,col+1}='Lateral Mean Upslope Time [s]';
+        outdata{line-1,col+2}='Lateral Mean Downslope';
+        outdata{line-1,col+3}='Lateral Mean Downslope Time [s]';
+        
+         straincurve=mynanmean(SET(no).StrainTagging.segmentalRVstrain(:,1:3),2);
+        strainratecurve=conv2([1 0 -1],1,straincurve,'valid')/(2*SET(no).TIncr);
+        [downslope,downslopeind]=min(strainratecurve);%min(strainratecurve(1:floor(length(strainratecurve)*0.7)));
+        [upslope,upslopeind]=max(strainratecurve);%max(strainratecurve(1:floor(length(strainratecurve)*0.7)));
+        upslopetime = SET(no).TimeVector(upslopeind+1);
+        downslopetime = SET(no).TimeVector(downslopeind+1);
+        outdata{line,col} = upslope;
+        outdata{line,col+1} = upslopetime;
+        outdata{line,col+2} = downslope;
+        outdata{line,col+3} = downslopetime;
+        col=col+4;
+        outdata{line-1,col}='Septal Mean Upslope';
+        outdata{line-1,col+1}='Septal Mean Upslope Time [s]';
+        outdata{line-1,col+2}='Septal Mean Downslope';
+        outdata{line-1,col+3}='Septal Mean Downslope Time [s]';
+        straincurve=mynanmean(SET(no).StrainTagging.segmentalRVstrain(:,4:6),2);
         strainratecurve=conv2([1 0 -1],1,straincurve,'valid')/(2*SET(no).TIncr);
         [downslope,downslopeind]=min(strainratecurve);%min(strainratecurve(1:floor(length(strainratecurve)*0.7)));
         [upslope,upslopeind]=max(strainratecurve);%max(strainratecurve(1:floor(length(strainratecurve)*0.7)));

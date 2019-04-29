@@ -44,7 +44,7 @@ for loop = 1:length(f)
       case '.'
       case '..'
       otherwise
-        disp(sprintf('Parsed Directory %s%s%s.',pathname,filesep,f(loop).name))
+        %disp(sprintf('Parsed Directory %s%s%s.',pathname,filesep,f(loop).name))
         [s,z,dirs] = createtree([pathname filesep f(loop).name],s,z,dirs,ext);
         dirs = [dirs {[pathname filesep f(loop).name]}];
     end;

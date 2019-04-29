@@ -145,9 +145,9 @@ end
 %safety check so we dont go out of bounds when doing the montage LV
 ind=find(findfunctions('findslicewithrvendo',no)+...
   findfunctions('findslicewithrvepi',no));
-
-if strcmp(DATA.ViewPanelsType{DATA.ViewPanels==no},'montagesegmented') && isempty(ind)
-  DATA.ViewPanelsType{DATA.ViewPanels==no}='montage';
+msind = find(strcmp({DATA.ViewPanelsType{DATA.ViewPanels==no}},'montagesegmented'));
+if ~isempty(msind) && isempty(ind)
+  DATA.ViewPanelsType{msind}='montage';
 end
 
 DATA.updatevolumeaxes
@@ -193,11 +193,13 @@ end
 
 %safety check so we dont go out of bounds when doing the montage LV
 
+
 ind=find(findfunctions('findslicewithendoall',no)+...
   findfunctions('findslicewithepiall',no));
 
-if strcmp(DATA.ViewPanelsType{DATA.ViewPanels==no},'montagesegmented') && isempty(ind)
-  DATA.ViewPanelsType{DATA.ViewPanels==no}='montage';
+msind = find(strcmp({DATA.ViewPanelsType{DATA.ViewPanels==no}},'montagesegmented'));
+if ~isempty(msind) && isempty(ind)
+  DATA.ViewPanelsType{msind}='montage';
 end
 
 segment('updatemodeldisplay');
@@ -280,8 +282,9 @@ if ~isempty(SET(no).StrainTagging) && isfield(SET(no).StrainTagging, 'LVupdated'
   SET(no).StrainTagging.LVupdated = 1;
 end
 
-if strcmp(DATA.ViewPanelsType{DATA.ViewPanels==no},'montagesegmented')
-  DATA.ViewPanelsType{DATA.ViewPanels==no}='montage';
+msind = find(strcmp({DATA.ViewPanelsType{DATA.ViewPanels==no}},'montagesegmented'));
+if ~isempty(msind) && isempty(ind)
+  DATA.ViewPanelsType{msind}='montage';
 end
 
 DATA.updatevolumeaxes
@@ -597,14 +600,15 @@ ind=find(findfunctions('findslicewithendo',no)+...
   findfunctions('findslicewithrvendo',no)+...
   findfunctions('findslicewithrvepi',no));
 
-if strcmp(DATA.ViewPanelsType{DATA.ViewPanels==no},'montagesegmented') && isempty(ind)
-  DATA.ViewPanelsType{DATA.ViewPanels==no}='montage';
+msind = find(strcmp({DATA.ViewPanelsType{DATA.ViewPanels==no}},'montagesegmented'));
+if ~isempty(msind) && isempty(ind)
+  DATA.ViewPanelsType{msind}='montage';
 end
 
 DATA.updatevolumeaxes
 segment('updatevolume');
 segment('updatemodeldisplay');
-segment('makeviewim',1)
+segment('makeviewim',DATA.CurrentPanel)
 drawfunctions('drawimageno');
 drawfunctions('drawallslices');
 
@@ -973,9 +977,9 @@ end
 function importfromcine2scar_Callback %#ok<DEFNU>
 %----------------------------------------------
 %Import segmentation from cine to scar image stack.
-global DATA SET
+global DATA SET NO
 
-if ~isempty(DATA.LVNO)
+if length(DATA.LVNO)==1 &&  DATA.LVNO ~= NO%(isempty(SET(DATA.LVNO).EndoX) || isempty(SET(DATA.LVNO).EpiX))%doesnt make sense to import to same
   cineshortaxisno = DATA.LVNO;
 else
   cineshortaxisno = findfunctions('findcineshortaxisno');
@@ -1320,6 +1324,7 @@ drawfunctions('updatenopanels',no);
 %----------------------
 function z = score(im,x,y)
 %----------------------
+%score for endo segmentation
 z = sum(interp2(im,x,y,'linear'));
 
 %--------------------------------------

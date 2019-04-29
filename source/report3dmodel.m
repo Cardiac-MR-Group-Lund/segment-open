@@ -67,7 +67,8 @@ else
       report3dmodel('update');
     case 'close'
       gui.closing=true;
-      pause(0.5*SET(gui.no).BeatTime/SET(gui.no).TSize);
+      pause(0.5)
+      %pause(0.5*SET(gui.no).BeatTime/SET(gui.no).TSize);
       %Close the windows
       try
         delete(4);

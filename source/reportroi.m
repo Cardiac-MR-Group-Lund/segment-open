@@ -47,11 +47,14 @@ gui = mygui('roi.fig');
 DATA.GUI.ROI = gui;
 
 if ~isrectilinear(SET(NO).TimeVector)
-  mywarning(['Non uniform time steps detected. Smoothing and display of '...
-    'min/max slope disabled.']);
-  set([gui.handles.smoothcheckbox ...
-    gui.handles.showslopescheckbox],'enable','off');
-end
+  gui.rectilinear = false;
+end;
+
+%  mywarning(['Non uniform time steps detected. Smoothing and display of '...
+%    'min/max slope disabled.']);
+%  set([gui.handles.smoothcheckbox ...
+%    gui.handles.showslopescheckbox],'enable','off');
+%end
 
 %Ask for what ROI's to include
 [gui.rois,~,gui.normalized] = roi('roiselector','',...
@@ -419,10 +422,23 @@ if dosmooth
   
   gui.smoothoutdata = gui.outdata;
   for rloop=1:size(gui.outdata,2)
-    temp = gui.outdata(:,rloop);
-    temp = conv2(temp,f','same')./(eps+conv2(ones(size(temp)),f','same'));
-    gui.smoothoutdata(:,rloop) = temp;
+    
+    %Extract signal
+    signal = gui.outdata(:,rloop);
+        
+    if ~gui.rectilinear
+      signalfiltered = smooth_helper(gui.sigma,SET(gui.no).TimeVector,signal);
+      %signalfiltered = conv2(signal,f','same')./(eps+conv2(ones(size(signal)),f','same'));
+    else
+      %Normalized averaging, rectilinear code
+      signalfiltered = conv2(signal,f','same')./(eps+conv2(ones(size(signal)),f','same'));      
+    end;
+    
+    %Store
+    gui.smoothoutdata(:,rloop) = signalfiltered;        
+    
   end;
+  
 else
   gui.smoothoutdata = gui.outdata;
   gui.t = SET(gui.no).TimeVector*1000;
@@ -748,7 +764,7 @@ else
 end;
 
 %---------------------------
-function datacursor_Callback
+function datacursor_Callback %#ok<DEFNU>
 %---------------------------
 %Function which enables datacursor probing on roi-analysis plots.
 %/SB
@@ -756,3 +772,24 @@ global DATA
 gui = DATA.GUI.ROI;
 
 datacursormode(gui.fig);
+
+%-----------------------------------------
+function [xf] = smooth_helper(sigma,t,x)
+%-----------------------------------------
+%Helper function to interpolate non regular signals
+
+%Interpolate non-rectilinear to rectilinear, use twice as many points as in
+%original signal
+ti = linspace(t(1),t(end),length(t)*2);
+xi = interp1(t,x,ti,'linear');
+
+%create filter
+fx = linspace(-60,60,189); %was 121, approximate how much more points needed to get same smoothing as for rectilinear.
+f = exp(-fx.^2/sigma.^2); %double time resolution
+  
+%Filter using normalized averaging same algorithm as for rectilinear
+%signals.
+xif = conv2(xi,f,'same')./(eps+conv2(ones(size(xi)),f,'same'));
+
+%Resample back to non rectilinear signal
+xf = interp1(ti,xif,t);

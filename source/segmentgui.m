@@ -41,14 +41,14 @@ end
 %     iconcell{1,end+1}=myicon(g.Handles.permanenticonholder,g.Icons.config.connectadd,'Save to PACS','filemenu(''savetopacs_Callback'')',0);
     iconcell{1,end+1}=myicon('closeall',g.Handles.permanenticonholder,g.Icons.config.closeall,'Close all image stacks',@() segment('filecloseall_Callback'),0);
     
-    iconcell{1,end+1}=myicon('panel1',g.Handles.permanenticonholder,g.Icons.config.panel1,'View one image panel',@() drawfunctions('drawall',1),1,1);
-    iconcell{1,end+1}=myicon('panel2',g.Handles.permanenticonholder,g.Icons.config.panel2,'View two image panels',@() drawfunctions('drawall',1,2),1,1);
-    iconcell{1,end+1}=myicon('panel2x1',g.Handles.permanenticonholder,g.Icons.config.panel2x1,'View two image panels',@() drawfunctions('drawall',2,1),1,1);
-    iconcell{1,end+1}=myicon('panel3x1',g.Handles.permanenticonholder,g.Icons.config.panel3x1,'View three image panels',@() drawfunctions('drawall',3,1),1,1);
-    iconcell{1,end+1}=myicon('panel3',g.Handles.permanenticonholder,g.Icons.config.panel3,'View three image panels',@() drawfunctions('drawall',1,3),1,1);
-    iconcell{1,end+1}=myicon('panel4',g.Handles.permanenticonholder,g.Icons.config.panel4,'View four image panels',@() drawfunctions('drawall',2,2),1,1);
-    iconcell{1,end+1}=myicon('panel6',g.Handles.permanenticonholder,g.Icons.config.panel6,'View six image panels',@() drawfunctions('drawall',6),1,1);
-    %iconcell{1,end+1}=myicon('orthoview',g.Handles.permanenticonholder,g.Icons.config.orthoview,'Orthogonal view',@() segment('orthoview'),1,1);
+    iconcell{1,end+1}=myicon('panel1',g.Handles.permanenticonholder,g.Icons.config.panel1,'View one image panel',@() drawfunctions('drawimageview',[],[1,1]),1,1);
+    iconcell{1,end+1}=myicon('panel2',g.Handles.permanenticonholder,g.Icons.config.panel2,'View two image panels',@() drawfunctions('drawimageview',[],[1,2]),1,1);
+    iconcell{1,end+1}=myicon('panel2x1',g.Handles.permanenticonholder,g.Icons.config.panel2x1,'View two image panels',@() drawfunctions('drawimageview',[],[2,1]),1,1);
+    iconcell{1,end+1}=myicon('panel3x1',g.Handles.permanenticonholder,g.Icons.config.panel3x1,'View three image panels',@() drawfunctions('drawimageview',[],[3,1]),1,1);
+    iconcell{1,end+1}=myicon('panel3',g.Handles.permanenticonholder,g.Icons.config.panel3,'View three image panels',@() drawfunctions('drawimageview',[],[1,3]),1,1);
+    iconcell{1,end+1}=myicon('panel4',g.Handles.permanenticonholder,g.Icons.config.panel4,'View four image panels',@() drawfunctions('drawimageview',[],[2,2]),1,1);
+    iconcell{1,end+1}=myicon('panel6',g.Handles.permanenticonholder,g.Icons.config.panel6,'View six image panels',@()  drawfunctions('drawimageview',[],[2,3]),1,1);
+    iconcell{1,end+1}=myicon('orthoview',g.Handles.permanenticonholder,g.Icons.config.orthoview,'Orthogonal view',@() segment('orthoview'),1,1);
     iconcell{1,end+1}=myicon('saveview',g.Handles.permanenticonholder,g.Icons.config.saveview,'Save view',@() segmentview,0);
     
     iconcell{1,end+1}=myicon('viewone',g.Handles.permanenticonholder,g.Icons.config.viewone,'View one slice',@() segment('viewimage_Callback','one'),1,2);
@@ -124,7 +124,10 @@ end
     lviconcell{1,end+1}=myicon('epipen',g.Handles.configiconholder,g.Icons.config.epipen,'Epi pen',@() updatetool('drawepi'));
     lviconcell{1,end+1}=myicon('interpendo',g.Handles.configiconholder,g.Icons.config.interpendo,'Set interpolation points for Endo',@() updatetool('interpendo'));
     lviconcell{1,end+1}=myicon('interpepi',g.Handles.configiconholder,g.Icons.config.interpepi,'Set interpolation points for Epi',@() updatetool('interpepi'));
-    
+    lviconcell{1,end+1}=myicon('smooth',g.Handles.configiconholder,g.Icons.config.smooth,'Smooth latest contour (O)',@() tools('smoothsegmentation_Callback'),0);
+          
+    lviconcell{1,end+1}=myicon('interpseginslice',g.Handles.configiconholder,g.Icons.config.interpseginslice,'Interpolate segmentation over slices',@() lv('interpolatedelineation_Callback'),0);
+    lviconcell{1,end+1}=myicon('interpsegintime',g.Handles.configiconholder,g.Icons.config.interpsegintime,'Interpolate segmentation in time for selected slices',@() segmentation('interpolatedelineationovertime_Callback'),0);
     lviconcell{1,end+1}=myicon('refineendo',g.Handles.configiconholder,g.Icons.config.refineendo,'Refine Endo',@() lvpeter('segmentrefineendo_Callback'),0);
     lviconcell{1,end+1}=myicon('refineepi',g.Handles.configiconholder,g.Icons.config.refineepi,'Refine Epi',@() lvpeter('segmentrefineepi_Callback'),0);
     lviconcell{1,end+1}=myicon('propagateendo',g.Handles.configiconholder,g.Icons.config.propagateendo,'Propagate endo forward in time', @() lvpeter('segmentpropagateendo_Callback'),0);
@@ -132,23 +135,19 @@ end
     
     lviconcell{1,end+1}=myicon('contractendo',g.Handles.configiconholder,g.Icons.config.contractendo,'Contract Endo segmentation',@() lv('segmentexpandcontract_Callback',-1,'endo'),0);
     lviconcell{1,end+1}=myicon('expandendo',g.Handles.configiconholder,g.Icons.config.expandendo,'Expand Endo segmentation',@() lv('segmentexpandcontract_Callback',1,'endo'),0);
-    lviconcell{1,end+1}=myicon('evenoutwall',g.Handles.configiconholder,g.Icons.config.evenoutwall,'Even out wall',@() segment('smoothendowall_Callback'),0);
     lviconcell{1,end+1}=myicon('contractepi',g.Handles.configiconholder,g.Icons.config.contractepi,'Contract Epi segmentation',@() lv('segmentexpandcontract_Callback',-1,'epi'),0);
     lviconcell{1,end+1}=myicon('expandepi',g.Handles.configiconholder,g.Icons.config.expandepi,'Expand Epi segmentation',@() lv('segmentexpandcontract_Callback',1,'epi'),0);
+    lviconcell{1,end+1}=myicon('evenoutwall',g.Handles.configiconholder,g.Icons.config.evenoutwall,'Even out wall',@() segment('smoothendowall_Callback'),0);
     lviconcell{1,end+1}=myicon('copylvup',g.Handles.configiconholder,g.Icons.config.copylvup,'Copy LV upwards and refine',@()tools('copyupward_Callback'),0);
     lviconcell{1,end+1}=myicon('copylvdown',g.Handles.configiconholder,g.Icons.config.copylvdown,'Copy LV downwards and refine',@()tools('copydownward_Callback'),0);
-    
-    
-    lviconcell{1,end+1}=myicon('interpsegintime',g.Handles.configiconholder,g.Icons.config.interpsegintime,'Interpolate segmentation in time for selected slices',@() segmentation('interpolatedelineationovertime_Callback'),0);
-    lviconcell{1,end+1}=myicon('interpseginslice',g.Handles.configiconholder,g.Icons.config.interpseginslice,'Interpolate segmentation over slices',@() lv('interpolatedelineation_Callback'),0);
-    lviconcell{1,end+1}=myicon('volumecurve',g.Handles.configiconholder,g.Icons.config.volumecurve,'Plot Volume Curve',@() lvpeter('plotvolumecurve'),0);
-   
+        
     lviconcell{1,end+1}=myicon('hidelv',g.Handles.configiconholder,g.Icons.config.hidelv,'Hide LV segmentation',@() segment('viewhidelv_Callback'),2);
     lviconcell{1,end+1}=myicon('hideinterp',g.Handles.configiconholder,g.Icons.config.hideinterp,'Hide interpolation points',@() segment('viewhideinterp_Callback'),2);
     lviconcell{1,end+1}=myicon('clearalllv',g.Handles.configiconholder,g.Icons.config.clearalllv,'Clear all LV segmentation',@() segment('segmentclearalllv_Callback'),0);
-    lviconcell{1,end+1}=myicon('clearalllv',g.Handles.configiconholder,g.Icons.config.clearendo,'Clear LV endo in selected slices according to mode',@() segmentation('clearslicesthis_Callback',1,0,0,0),0);
+    lviconcell{1,end+1}=myicon('clearendo',g.Handles.configiconholder,g.Icons.config.clearendo,'Clear LV endo in selected slices according to mode',@() segmentation('clearslicesthis_Callback',1,0,0,0),0);
     lviconcell{1,end+1}=myicon('clearepi',g.Handles.configiconholder,g.Icons.config.clearepi,'Clear LV epi in selected slices according to mode',@() segmentation('clearslicesthis_Callback',0,1,0,0),0);
-    
+    lviconcell{1,end+1}=myicon('volumecurve',g.Handles.configiconholder,g.Icons.config.volumecurve,'Plot Volume Curve',@() lvpeter('plotvolumecurve'),0);
+   
     g.Icons.lviconcell=lviconcell;
     
     %RV
@@ -166,8 +165,8 @@ end
     rviconcell{1,end+1}=myicon('interprvepi',g.Handles.configiconholder,g.Icons.config.interprvepi,'Set interpolation points for RV Epi',@() updatetool('interprvepi'));
     rviconcell{1,end+1}=myicon('refinervendo',g.Handles.configiconholder,g.Icons.config.refinervendo,'Refine RV Endo',@() rv('segmentrefinervendo_Callback'),0);
     %need icon
-    rviconcell{1,end+1}=myicon('copyrvup',g.Handles.configiconholder,g.Icons.config.copyrvup,'Copy RV upwards',@()tools('copyupward_Callback','endo',false,false),0);
-    rviconcell{1,end+1}=myicon('copyrvdown',g.Handles.configiconholder,g.Icons.config.copyrvdown,'Copy RV downwards',@()tools('copydownward_Callback','endo',false,false),0);
+    rviconcell{1,end+1}=myicon('copyrvup',g.Handles.configiconholder,g.Icons.config.copyrvup,'Copy RV endo upwards',@()tools('copyupward_Callback','endo',false,false),0);
+    rviconcell{1,end+1}=myicon('copyrvdown',g.Handles.configiconholder,g.Icons.config.copyrvdown,'Copy RV endo downwards',@()tools('copydownward_Callback','endo',false,false),0);
     
     rviconcell{1,end+1}=myicon('interpsegintime',g.Handles.configiconholder,g.Icons.config.interpsegintime,'Interpolate segmentation in time',@() segmentation('interpolatedelineationovertime_Callback'),0);
     rviconcell{1,end+1}=myicon('interpseginslice',g.Handles.configiconholder,g.Icons.config.interpseginslice,'Interpolate segmentation over slices',@() lv('interpolatedelineation_Callback'),0);
@@ -175,7 +174,8 @@ end
     rviconcell{1,end+1}=myicon('hiderv',g.Handles.configiconholder,g.Icons.config.hiderv,'Hide RV segmentation', @() segment('viewhiderv_Callback'),2);
     rviconcell{1,end+1}=lviconcell{end-4};%myicon('hideinterp',g.Handles.configiconholder,g.Icons.config.hideinterp,'Hide interpolation points',@() segment('viewhideinterp_Callback'),2);
     rviconcell{1,end+1}=myicon('clearallrv',g.Handles.configiconholder,g.Icons.config.clearallrv,'Clear all RV segmentation',@() segment('segmentclearallrv_Callback'),0);
-    rviconcell{1,end+1}=myicon('clearrv',g.Handles.configiconholder,g.Icons.config.clearrv,'Clear RV in selected slices according to mode',@() segmentation('clearslicesthis_Callback',0,0,1,1),0);
+    rviconcell{1,end+1}=myicon('clearrvendo',g.Handles.configiconholder,g.Icons.config.clearrv,'Clear RV endo in selected slices according to mode',@() segmentation('clearslicesthis_Callback',0,0,1,0),0);
+    rviconcell{1,end+1}=myicon('clearrvepi',g.Handles.configiconholder,g.Icons.config.clearrvepi,'Clear RV epi in selected slices according to mode',@() segmentation('clearslicesthis_Callback',0,0,0,1),0);
     rviconcell{1,end+1}=myicon('volumecurve',g.Handles.configiconholder,g.Icons.config.volumecurve,'Plot Volume Curve',@() lvpeter('plotvolumecurve'),0);
     
     g.Icons.rviconcell=rviconcell;
@@ -614,7 +614,7 @@ end
     g.AxesTables.volume.addKey('LVEF','EF','%',bl);
     g.AxesTables.volume.addKey('LVCO','CO','l/min',bl);
     g.AxesTables.volume.addKey('LVHR','HR','bpm',bl);
-    g.AxesTables.volume.addKey('INFO','','','');
+    %g.AxesTables.volume.addKey('INFO','','','');
     
 %     g.AxesTables.volume.addSpace();
     g.AxesTables.volume.addTable('RV',2,1,[0.6 0.4]);
@@ -634,12 +634,12 @@ end
     g.AxesTables.flow.addTable('Flow',2,1,[0.65 0.35]);
     g.AxesTables.flow.addKey('ROI','ROI','','');
     g.AxesTables.flow.addKey('Netvol','Net vol','ml',bl);
-%     g.AxesTables.flow.addKey('Forward','Forward','ml',bl);
+   %g.AxesTables.flow.addKey('Forward','Forward','ml',bl);
     g.AxesTables.flow.addKey('Backward','Backward','ml',bl);
     g.AxesTables.flow.addKey('Regfrac','Regurg. frac.','%',bl);
     g.AxesTables.flow.addKey('FlowCO','FlowCO','l/min',bl);
     g.AxesTables.flow.addKey('FlowHR','HR','bpm',bl);
-   
+ 
     %measurement report table
     g.AxesTables.measurement.backgroundcolor = [0.94 0.94 0.94]; %[0 0 0];%
     g.AxesTables.measurement.fontcolor = [0 0 0]; %[1 1 1];%
@@ -803,7 +803,7 @@ end
     %Update LV and RV report in axestables
     global SET DATA
     
-%       m=g.getmeasurementstruct();
+%       m=g.();
       bla = {'---'};
       
       % -- LV --
@@ -823,16 +823,16 @@ end
       unitcorr=1; %correction for volume unit
       
       if ~isempty(DATA.LVNO) % isfield(DATA,'LVNO') && 
-        no = DATA.LVNO;
+        no = DATA.LVNO(1);
         haslv = ~isempty(SET(no).EpiX) || ~isempty(SET(no).EndoX);
         
         if haslv          
           %Determine last character of key
           prepost = 'LV';
           smallanimal=false;
-          if SET(no).EDV~=0
+          if SET(no).EDV~=0 && ~isnan(SET(no).EDV)
             smallanimal = SET(no).EDV<=1;% && SET(no).EDV~=0;
-          elseif SET(no).ESV~=0
+          elseif SET(no).ESV~=0 && ~isnan(SET(no).ESV)
             smallanimal = SET(no).ESV<=1;
           end
           
@@ -965,7 +965,7 @@ end
     %---------------------------
     %Update flow report in axestables
     
-    global SET DATA
+    global SET DATA NO
     
     updatestruct = struct(...
       'ROI', '',...
@@ -981,8 +981,22 @@ end
     if ~isempty(DATA.FlowNO) && ~isempty(DATA.FlowROI)
       no = DATA.FlowNO;
       roinbr = DATA.FlowROI;
-      %no = SET(no).Flow.MagnitudeNo; %use the magnitude NO since the result is saved in that image stack
-      if ~isempty(SET) && ~isempty(no) && SET(no).RoiN > 0 && ~isempty(SET(no).Flow.Result) && not(isempty(roinbr)) && length(SET(no).Flow.Result)>=roinbr && isfield(SET(no).Flow.Result(roinbr),'nettotvol')
+      %Condition for non-time resolved Phase Contrast Flow measurement
+      if length(SET(no).Roi(roinbr).T) == 1 && ~isempty(SET) && ~isempty(no) && SET(no).RoiN > 0 && ~isempty(SET(no).Flow.Result) && not(isempty(roinbr)) && length(SET(no).Flow.Result)>=roinbr && isfield(SET(no).Flow.Result(roinbr),'nettotvol') %For no time resolved Flow data
+        updatestruct.Netvol = SET(no).Flow.Result(roinbr).nettotvol;
+        updatestruct.Backward = SET(no).Flow.Result(roinbr).negflow;
+        updatestruct.Regfrac ='---';
+        updatestruct.FlowCO='---';
+        updatestruct.FlowHR='---';
+         name.ROI = SET(no).Roi(roinbr).Name;
+         
+         %Update names in tables structures and units
+          g.AxesTables.flow.updateName('Netvol','NetFlow',true);
+          g.AxesTables.flow.updateUnit('Netvol','ml/s',true);
+          g.AxesTables.flow.updateName('Backward','NegFlow',true);
+        g.AxesTables.flow.updateUnit('Backward','ml/s',true);
+        
+      elseif ~isempty(SET) && ~isempty(no) && SET(no).RoiN > 0 && ~isempty(SET(no).Flow.Result) && not(isempty(roinbr)) && length(SET(no).Flow.Result)>=roinbr && isfield(SET(no).Flow.Result(roinbr),'nettotvol')
         
         updatestruct.ROI = '';
         updatestruct.Netvol = SET(no).Flow.Result(roinbr).nettotvol;

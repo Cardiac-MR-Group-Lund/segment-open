@@ -760,7 +760,9 @@ end;
 
 calcpreview = false;
 drawfunctions('drawthumbnails',calcpreview);
-segment('switchtoimagestack',no);
+if ~strcmp(DATA.CurrentTheme,'3dp')% dont do switch if 3dp mode
+  segment('switchtoimagestack',no);
+end
 
 %-----------------------------------------------
 function upsampleimage_Callback(f,inputNO,silent) %#ok<DEFNU>
@@ -772,11 +774,11 @@ global DATA SET NO
 
 %Levelset
 %if not(isempty(SET(no).LevelSet))
-%  SET(no).LevelSet.BW = uint8(upsamplevolume(f,single(SET(no).LevelSet.BW)));
-%  SET(no).LevelSet.Man = int8(upsamplevolume(f,single(SET(no).LevelSet.Man)));
+%  SET(no).LevelSet.BW = uint8(upsampleinplane(f,single(SET(no).LevelSet.BW)));
+%  SET(no).LevelSet.Man = int8(upsampleinplane(f,single(SET(no).LevelSet.Man)));
 %  for objectloop = 1:length(SET(no).LevelSet.Object.Names)
-%    temp = uint8(upsamplevolume(f,single(levelset('levelsetunpack',objectloop,no))));
-%    SET(no).LevelSet.Object.Ind{objectloop} = levelset('levelsetpack',temp);
+%    temp = uint8(upsampleinplane(f,single(segment3dp.tools('levelsetunpack',objectloop,no))));
+%    SET(no).LevelSet.Object.Ind{objectloop} = segment3dp.tools('levelsetpack',temp);
 %  end;
 %end;
 
@@ -806,7 +808,7 @@ nos = SET(inputNO).Linked; %Crop current image stack
 for no = nos;
 
   %Resample
-  SET(no).IM = upsamplevolume(f,SET(no).IM,silent);
+  SET(no).IM = upsampleinplane(f,SET(no).IM,silent);
   
   %--- Things to change
   
@@ -815,22 +817,22 @@ for no = nos;
   SET(no).YSize = size(SET(no).IM,2);
   
   %Delineation
-  if ~isempty(SET(NO).EndoX)
+  if ~isempty(SET(no).EndoX)
     SET(no).EndoX = resamplehelper(f,SET(no).EndoX);
     SET(no).EndoY = resamplehelper(f,SET(no).EndoY);
   end;
   
-  if ~isempty(SET(NO).EpiX)
+  if ~isempty(SET(no).EpiX)
     SET(no).EpiX = resamplehelper(f,SET(no).EpiX);
     SET(no).EpiY = resamplehelper(f,SET(no).EpiY);
   end;
 
-  if ~isempty(SET(NO).RVEndoX)
+  if ~isempty(SET(no).RVEndoX)
     SET(no).RVEndoX = resamplehelper(f,SET(no).RVEndoX);
     SET(no).RVEndoY = resamplehelper(f,SET(no).RVEndoY);
   end;
 
-  if ~isempty(SET(NO).RVEpiX)
+  if ~isempty(SET(no).RVEpiX)
     SET(no).RVEpiX = resamplehelper(f,SET(no).RVEpiX);
     SET(no).RVEpiY = resamplehelper(f,SET(no).RVEpiY);
   end;  
@@ -912,31 +914,31 @@ for no = nos;
   
   %Scar
   if not(isempty(SET(no).Scar))
-    SET(no).Scar.Auto = upsamplevolume(f,SET(no).Scar.Auto)>0.5;
-    SET(no).Scar.Result = upsamplevolume(f,SET(no).Scar.Result)>0.5;
-    SET(no).Scar.Manual = int8(upsamplevolume(f,SET(no).Scar.Manual));
+    SET(no).Scar.Auto = upsampleinplane(f,SET(no).Scar.Auto)>0.5;
+    SET(no).Scar.Result = upsampleinplane(f,SET(no).Scar.Result)>0.5;
+    SET(no).Scar.Manual = int8(upsampleinplane(f,SET(no).Scar.Manual));
     SET(no).Scar.Manual(SET(no).Scar.Manual<0) = int8(-1);
-    SET(no).Scar.MyocardMask = upsamplevolume(f,SET(no).Scar.MyocardMask)>0.5;
-    SET(no).Scar.NoReflow = upsamplevolume(f,SET(no).Scar.NoReflow)>0.5;
-    SET(no).Scar.IM = upsamplevolume(f,SET(no).Scar.IM);
+    SET(no).Scar.MyocardMask = upsampleinplane(f,SET(no).Scar.MyocardMask)>0.5;
+    SET(no).Scar.NoReflow = upsampleinplane(f,SET(no).Scar.NoReflow)>0.5;
+    SET(no).Scar.IM = upsampleinplane(f,SET(no).Scar.IM);
     if ~isempty(SET(no).Scar.GreyZone)
-      SET(no).Scar.GreyZone.map = uint8(upsamplevolume(f,SET(no).Scar.GreyZone.map));
+      SET(no).Scar.GreyZone.map = uint8(upsampleinplane(f,SET(no).Scar.GreyZone.map));
     end
   end;
   
   %MaR
   if not(isempty(SET(no).MaR))
-    SET(no).MaR.Auto = upsamplevolume(f,SET(no).MaR.Auto)>0.5;
-    SET(no).MaR.Result = upsamplevolume(f,SET(no).MaR.Result)>0.5;
-    SET(no).MaR.Manual = int8(upsamplevolume(f,SET(no).MaR.Manual));
+    SET(no).MaR.Auto = upsampleinplane(f,SET(no).MaR.Auto)>0.5;
+    SET(no).MaR.Result = upsampleinplane(f,SET(no).MaR.Result)>0.5;
+    SET(no).MaR.Manual = int8(upsampleinplane(f,SET(no).MaR.Manual));
     SET(no).MaR.Manual(SET(no).MaR.Manual<0) = int8(-1);
-    SET(no).MaR.MyocardMask = upsamplevolume(f,SET(no).MaR.MyocardMask)>0.5;
+    SET(no).MaR.MyocardMask = upsampleinplane(f,SET(no).MaR.MyocardMask)>0.5;
   end;
 
   %Phase correction
   if not(isempty(SET(no).Flow))
     if not(isempty(SET(no).Flow.PhaseCorr))
-      SET(no).Flow.PhaseCorr = upsamplevolume(f,SET(no).Flow.PhaseCorr);
+      SET(no).Flow.PhaseCorr = upsampleinplane(f,SET(no).Flow.PhaseCorr);
     end;
   end;
   
@@ -953,26 +955,20 @@ for no = nos;
 			
 		%resample stored objects, important to resample stored object before
 		%.BW since levelsetunpack uses the size of .BW and pack does not use
-		%the size
-		for obj=1:length(SET(no).LevelSet.Object.Ind)
-      if ndims(SET(no).LevelSet.BW)>3
-        temp=levelset('levelsetunpack',obj,no);
-      else
-        temp=gobject.gobject('levelsetunpack',obj,no);
-      end;
-			temp=upsamplevolume(f,temp);
-      if ndims(SET(no).LevelSet.BW)>3
-        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
-      else
-        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = gobject.gobject('levelsetpack',temp);
+		%the size    
+		for obj=1:length(SET(no).LevelSet.Object.Ind)      
+      temp = segment3dp.tools('levelsetunpack',obj,no);
+      if ~isempty(temp)
+        temp = upsamplevolume2([f,f,1,1],temp);
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = segment3dp.tools('levelsetpack',temp);        
       end;
 		end
 		
 		%resample .BW
-		SET(no).LevelSet.BW=upsamplevolume(f,SET(no).LevelSet.BW);
+		SET(no).LevelSet.BW = uint8(squeeze(upsamplevolume2([f,f,1,1],SET(no).LevelSet.BW)));
 		
 		%resample .Man
-		SET(no).LevelSet.Man=upsamplevolume(f,SET(no).LevelSet.Man);
+		SET(no).LevelSet.Man = int8(squeeze(upsamplevolume2([f,f,1,1],SET(no).LevelSet.Man)));
 		
 		%---things to change
 
@@ -984,9 +980,13 @@ for no = nos;
 		%slice
 		SET(no).LevelSet.View.GSlice=max(1,min(round(resamplehelper(f,SET(no).LevelSet.View.GSlice)),SET(no).YSize));
 		SET(no).LevelSet.View.BSlice=max(1,min(round(resamplehelper(f,SET(no).LevelSet.View.BSlice)),SET(no).XSize));
-		
-		%clear DATA.LevelSet
-		segment('cleardatalevelset');
+		 
+    %resets zoom
+    segment('cleardatalevelset');
+    segment3dp.tools('init3DP',1,1);    
+		%clear DATA.LevelSet %there is no sample dependent data in
+		%data.levelset
+		%segment('cleardatalevelset');
   end
   
   %remove Strain tagging analysis
@@ -1019,11 +1019,16 @@ disableundo;
 
 [tf,loc] = ismember(nos,DATA.ViewPanels);
 [DATA.ViewIM{loc(tf)}] = deal([]);
-if nargin < 2
-segment('makeviewim',DATA.CurrentPanel,NO);
-segment('updatemodeldisplay');
-drawfunctions('drawimageno');
-end
+segment('viewrefreshall_Callback');
+% if nargin < 2
+%   if strcmp(DATA.CurrentTheme,'3dp')
+%     segment3dp.tools('update3DP')
+%   else
+% segment('makeviewim',DATA.CurrentPanel,NO);
+% segment('updatemodeldisplay');
+% drawfunctions('drawimageno');
+% end
+% end
 %--------------------------------------
 function upsampletemporal_Callback(f) %#ok<DEFNU>
 %--------------------------------------
@@ -1071,6 +1076,7 @@ end
 nos = SET(NO).Linked; %Upsample temporal 
 if ~isempty(SET(NO).Flow)
   nos = [nos SET(NO).Flow.PhaseNo SET(NO).Flow.PhaseX SET(NO).Flow.PhaseY SET(NO).Flow.Angio SET(NO).Flow.VelMag SET(NO).Flow.MagnitudeNo];
+  SET(SET(NO).Flow.MagnitudeNo).Flow.Result = []; %This needs to be cleared to avoid future errors.
 end
 nos = union(nos,nos); %Remove duplicates
 
@@ -1213,7 +1219,7 @@ for no = nos;
     %SET(no).StartSlice = 1;
     %SET(no).EndSlice = 1;
     SET(no).CurrentTimeFrame = 1;
-    SET(no).EndAnalysis = size(SET(NO).IM,3);
+    SET(no).EndAnalysis = SET(no).TSize;
     SET(no).EST=round(SET(no).EST*f);
     SET(no).EDT=round(SET(no).EDT*f);
     
@@ -1279,44 +1285,44 @@ end;
 
 switch type
   case 'image'
-    
-    N = size(vol,3);
-    
-    if N>1
-      %Volume is already time resolved
-      tnew = linspace(0,N,round(f*N)+1); tnew(end) = [];
-
-      newvol = zeros(size(vol,1),size(vol,2),length(tnew),size(vol,4));
-      hw = waitbar(0,'Please wait.');
-      for i=1:size(newvol,3)
-        g = 0;
-        kfac = 6;
-        for j=-kfac*size(vol,3):((kfac+1)*size(vol,3)+1)
-          tj = j-1;
-          if abs(tnew(i)-tj)<sqrt(eps)
-            q = 1;
-          else
-            q = sin(pi*(tnew(i)-tj))/(pi*(tnew(i)-tj));
-          end
-          jmod = mod(j-1,size(vol,3))+1;
-          g = g + q*vol(:,:,jmod,:);
-        end
-        newvol(:,:,i,:) = g;
-        
-        waitbar(i/size(newvol,3),hw);
-      end
-      close(hw);
-      
-      if not(isempty(vol))
-        newvol(:,:,1,:) = vol(:,:,1,:);
-      else
-        newvol = [];
-      end
-    else
-      %Volume is not timeresolved duplicate
-      newvol = repmat(vol,[1 1 round(f) 1]);
-    end;    
-
+    newvol= upsamplevolume2([1,1,f,1],vol);
+%     N = size(vol,3);
+%     
+%     if N>1
+%       %Volume is already time resolved
+%       tnew = linspace(0,N,round(f*N)+1); tnew(end) = [];
+% 
+%       newvol = zeros(size(vol,1),size(vol,2),length(tnew),size(vol,4));
+%       hw = waitbar(0,'Please wait.');
+%       for i=1:size(newvol,3)
+%         g = 0;
+%         kfac = 6;
+%         for j=-kfac*size(vol,3):((kfac+1)*size(vol,3)+1)
+%           tj = j-1;
+%           if abs(tnew(i)-tj)<sqrt(eps)
+%             q = 1;
+%           else
+%             q = sin(pi*(tnew(i)-tj))/(pi*(tnew(i)-tj));
+%           end
+%           jmod = mod(j-1,size(vol,3))+1;
+%           g = g + q*vol(:,:,jmod,:);
+%         end
+%         newvol(:,:,i,:) = g;
+%         
+%         waitbar(i/size(newvol,3),hw);
+%       end
+%       close(hw);
+%       
+%       if not(isempty(vol))
+%         newvol(:,:,1,:) = vol(:,:,1,:);
+%       else
+%         newvol = [];
+%       end
+%     else
+%       %Volume is not timeresolved duplicate
+%       newvol = repmat(vol,[1 1 round(f) 1]);
+%     end;    
+% 
   case 'image-fourier'
     % Fourier upsampling of image - useful for flow upsampling
 
@@ -1380,17 +1386,17 @@ if nargin==0
   end;
 
   %Get factor
-  [f,ok] = mygetnumber('Enter upsampling/downsampling factor (<1 => downsample)','Resampling Factor',2,0,10);
+  [f,ok] = mygetnumber('Enter upsampling/downsampling factor (<1 => downsample)','Resampling Factor',2,0,5);
   if ~ok
     myfailed('Invalid upsampling/downsampling factor or aborted.',DATA.GUI.Segment);
     return;
   end;
 end;
 
-imissingle = classcheckim(NO);%checks so that SET(tempnos).IM is single and can also convert from int16 to singel if user wants
-if not(imissingle)
-  return; %question asked in classchekim
-end
+% [imissingle,isint16] = classcheckim(NO);%checks so that SET(tempnos).IM is single and can also convert from int16 to singel if user wants
+% if not(imissingle)
+%   return; %question asked in classchekim
+% end
 
 %Find image stacks to crop
 nos = SET(NO).Linked; %Crop current image stack
@@ -1398,7 +1404,7 @@ nos = SET(NO).Linked; %Crop current image stack
 for no = nos;
   
   %--- Upsample volume
-  SET(no).IM = upsampleslices(f,SET(no).IM);
+  SET(no).IM = upsamplevolume2([1,1,1,f],SET(no).IM);
   SET(no).ZSize = size(SET(no).IM,4);
 
   %--- Upsample contour
@@ -1503,28 +1509,21 @@ for no = nos;
 		%resample stored objects, important to resample stored object before
 		%.BW since levelsetunpack uses the size of .BW and pack does not use
 		%the size
-		for obj=1:length(SET(no).LevelSet.Object.Ind)
-      if ndims(SET(no).LevelSet.BW)>3
-        temp=levelset('levelsetunpack',obj,no);
-      else
-        temp=gobject.gobject('levelsetunpack',obj,no);
-      end;
-			temp=uint8(upsampleslices(f,single(temp)));
-      if ndims(SET(no).LevelSet.BW)>3
-        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
-      else
-        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = gobject.gobject('levelsetpack',temp);
-      end;
-		end
+		for obj = 1:length(SET(no).LevelSet.Object.Ind)
+      temp = segment3dp.tools('levelsetunpack',obj,no);           
+			temp = uint8(upsampleslices(f,single(temp)));      
+      [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = segment3dp.tools('levelsetpack',temp);      
+    end
 		
+    %The next two upsamples never have a time dimension
 		%resample .BW
-		SET(no).LevelSet.BW=uint8(upsampleslices(f,single(SET(no).LevelSet.BW)));
+		SET(no).LevelSet.BW = uint8(squeeze(upsamplevolume2([1,1,f],single(SET(no).LevelSet.BW))));
 		
 		%resample .Man
-		SET(no).LevelSet.Man=int8(upsampleslices(f,single(SET(no).LevelSet.Man)));
+		SET(no).LevelSet.Man = int8(squeeze(upsamplevolume2([1,1,f],single(SET(no).LevelSet.Man))));
 		
 		%---things to change
-
+    
 		%Zoomstate
 		SET(no).LevelSet.View.RZoomState=[];
 		SET(no).LevelSet.View.GZoomState=[];
@@ -1532,13 +1531,16 @@ for no = nos;
 
 		%slice
 		if SET(no).ZSize>1
-			SET(no).LevelSet.View.RSlice=max(1,min(round(resamplehelper(f,SET(no).LevelSet.View.RSlice)),SET(no).ZSize));
+			SET(no).LevelSet.View.RSlice = max(1,min(round(resamplehelper(f,SET(no).LevelSet.View.RSlice)),SET(no).ZSize));
 		else
-			SET(no).LevelSet.View.RSlice=max(1,min(round(resamplehelper(f,SET(no).LevelSet.View.RSlice)),SET(no).TSize));
-		end
-		
+			SET(no).LevelSet.View.RSlice = max(1,min(round(resamplehelper(f,SET(no).LevelSet.View.RSlice)),SET(no).TSize));
+    end
+    
+		%segment('cleardatalevelset');
+    %segment3dp.tools('levelsetreset',no)
 		%clear DATA.LevelSet
 		segment('cleardatalevelset');
+    segment3dp.tools('init3DP',1,1);
   end
   
   %remove Strain tagging analysis
@@ -1564,9 +1566,11 @@ SET(no).EndSlice = 1;
 
 DATA.ViewIM{DATA.CurrentPanel} = [];
 
-segment('makeviewim',DATA.CurrentPanel,NO);
-segment('updatemodeldisplay');
-drawfunctions('drawimageno');
+% segment('makeviewim',DATA.CurrentPanel,NO);
+% segment('updatemodeldisplay');
+% drawfunctions('drawimageno');
+ segment('viewrefreshall_Callback')
+ updatetool
 
 
 %----------------------------------
@@ -1664,24 +1668,41 @@ switch arg
     end;
     
     if ok
-    SET(gui.no).SliceThickness = str2double(get(gui.handles.slicethicknessedit,'String'));
-    SET(gui.no).SliceGap =str2double(get(gui.handles.slicegapedit,'String'));
-    SET(gui.no).ResolutionX = str2double(get(gui.handles.resolutionxedit,'String'));
-    SET(gui.no).ResolutionY = str2double(get(gui.handles.resolutionyedit,'String'));
-    SET(gui.no).TIncr = str2double(get(gui.handles.timeincrementedit,'String'))/1000;
-    SET(gui.no).TimeVector = linspace(0,(SET(gui.no).TSize-1)*SET(gui.no).TIncr,SET(gui.no).TSize);
-    SET(gui.no).BeatTime = SET(gui.no).TIncr*SET(gui.no).TSize;
-    SET(gui.no).HeartRate = round(str2double(get(gui.handles.heartrateedit,'String')));
-    if get(gui.handles.rotatedyesradiobutton,'Value')
-      SET(gui.no).Rotated = true;
-    else
-      SET(gui.no).Rotated = false;
-    end
+      if ~isempty(SET(gui.no).Flow) && (SET(gui.no).Flow.MagnitudeNo==gui.no || SET(gui.no).Flow.PhaseNo==gui.no)
+        nos = [SET(gui.no).Flow.MagnitudeNo, SET(gui.no).Flow.PhaseNo];
+      else
+        nos = gui.no;
+      end
+      
+      %For Flow images these should match therefore if you update one the
+      %other is also adjusted.---------------
+      for no2 = nos
+        SET(no2).SliceThickness = str2double(get(gui.handles.slicethicknessedit,'String'));
+        SET(no2).SliceGap =str2double(get(gui.handles.slicegapedit,'String'));
+        SET(no2).ResolutionX = str2double(get(gui.handles.resolutionxedit,'String'));
+        SET(no2).ResolutionY = str2double(get(gui.handles.resolutionyedit,'String'));
+        SET(no2).TIncr = str2double(get(gui.handles.timeincrementedit,'String'))/1000;
+        SET(no2).TimeVector = linspace(0,(SET(gui.no).TSize-1)*SET(gui.no).TIncr,SET(gui.no).TSize);
+        SET(no2).BeatTime = SET(gui.no).TIncr*SET(gui.no).TSize;
+        SET(no2).HeartRate = round(str2double(get(gui.handles.heartrateedit,'String')));
+        if get(gui.handles.rotatedyesradiobutton,'Value')
+          SET(no2).Rotated = true;
+        else
+          SET(no2).Rotated = false;
+        end
+      end
+    %--------------
+    
     SET(gui.no).NormalZoomState = [];
     SET(gui.no).MontageZoomState = [];
     SET(gui.no).MontageRowZoomState = [];
     segment('viewrefresh_Callback');
-    mymsgbox('Information applied to current image stack.','Done!',DATA.GUI.Segment);
+    
+    if length(nos)>1
+      mymsgbox(sprintf('Information applied to image stacks %d, %d.',nos(1),nos(2)),'Done!',DATA.GUI.Segment);
+    else
+      mymsgbox('Information applied to current image stack.','Done!',DATA.GUI.Segment);
+    end
     else
       return;
     end
@@ -1696,48 +1717,6 @@ switch arg
     myfailed(dprintf('Unknown argument %s to Set image info',arg),DATA.GUI.Segment);
     return;
 end
-
-
-% 
-% [s,ok] = inputstruct(s,'Enter details');
-% 
-% if ok
-%   if s.ResolutionX_mm<=0
-%     myfailed('X Resolution must be positive.',DATA.GUI.Segment);
-%     ok = false;
-%   end;
-%   if s.ResolutionY_mm<=0
-%     myfailed('Y Resolution must be positive.',DATA.GUI.Segment);
-%     ok = false;
-%   end;  
-%   if s.TimeIncrement_ms<=0
-%     myfailed('Timeincrement must be positive.',DATA.GUI.Segment);
-%     ok = false;
-%   end;    
-%   if s.SliceThickness_mm<=0
-%     myfailed('SliceThickness must be positive.',DATA.GUI.Segment);
-%     ok = false;
-%   end;    
-% end;
-% 
-% if ok
-%   SET(NO).SliceThickness = s.SliceThickness_mm;
-%   SET(NO).SliceGap = s.SliceGap_mm;
-%   SET(NO).ResolutionX = s.ResolutionX_mm;
-%   SET(NO).ResolutionY = s.ResolutionY_mm;  
-%   SET(NO).TIncr = s.TimeIncrement_ms/1000;
-%   SET(NO).TimeVector = linspace(0,(SET(NO).TSize-1)*SET(NO).TIncr,SET(NO).TSize);
-%   SET(NO).BeatTime = SET(NO).TIncr*SET(NO).TSize;
-%   SET(NO).HeartRate = 60/SET(NO).BeatTime;
-%   
-%   SET(NO).Rotated = s.Rotated;
-%   SET(NO).NormalZoomState = [];
-%   SET(NO).MontageZoomState = [];
-%   SET(NO).MontageRowZoomState = [];  
-%   segment('viewrefresh_Callback');
-% else
-%   mywarning('Invalid input or aborted, nothing changed.',DATA.GUI.Segment);
-% end;
 
 %-------------------------------
 function imageinfo_Callback(arg) %#ok<DEFNU>
@@ -1966,7 +1945,7 @@ for nloop=1:length(nop)
         SET(no).EchoTime = SET(no).EchoTime(:,ind);
     end
     
-    if isfield(SET(no),'T2prptime') &&numel(SET(no).T2preptime)>1
+    if isfield(SET(no),'T2preptime') &&numel(SET(no).T2preptime)>1
         %T2-Preparation Time: 
         SET(no).T2preptime = SET(no).T2preptime(:,ind);
     end
@@ -2084,9 +2063,9 @@ for nloop=1:length(nop)
     %.BW since levelsetunpack uses the size of .BW and pack does not use
     %the size
     for obj=1:length(SET(no).LevelSet.Object.Ind)
-      temp=levelset('levelsetunpack',obj,no);
+      temp=segment3dp.tools('levelsetunpack',obj,no);
       temp=temp(:,:,ind,:);
-      [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+      [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = segment3dp.tools('levelsetpack',temp);
     end
 
     %crop .BW
@@ -2217,9 +2196,10 @@ removeslices_Callback(ind);
 %---------------------------------
 function removesliceshelper(ind)
 %---------------------------------
+%This is the workhorse when removing slices ind is a logical input of which
+%slices to keep.
 global DATA SET NO
 
-%This is the workhorse when removing slices
 %Used for ROI removal
 oldslices = 1:SET(NO).ZSize;
 slicemap = oldslices;
@@ -2408,13 +2388,13 @@ if ~isempty(SET(no).LevelSet)
   for obj=1:length(SET(no).LevelSet.Object.Ind)
     
     if ndims(SET(no).LevelSet.BW)>3 %Support both old and new levelset
-      temp=levelset('levelsetunpack',obj,no);
-      temp=temp(:,:,:,ind);
-      [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+      temp = segment3dp.tools('levelsetunpack',obj,no);
+      temp = temp(:,:,:,ind);
+      [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = segment3dp.tools('levelsetpack',temp);
     else
-      temp=gobject.gobject('levelsetunpack',obj,no);
-      temp=temp(:,:,ind);
-      [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = gobject.gobject('levelsetpack',temp);
+      temp = segment3dp.tools('levelsetunpack',obj,no);
+      temp = temp(:,:,ind);
+      [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = segment3dp.tools('levelsetpack',temp);
     end;
     
   end
@@ -2465,13 +2445,29 @@ end;
 % remove measures
 if ~isempty(SET(no).Measure)
   mind=[];
+%   for mloop=1:length(SET(no).Measure)
+%     if sum(unique(slicemap(SET(no).Measure(mloop).Z))) >= 1 %ismember(SET(no).Measure(mloop).Z,slicemap)
+%       SET(no).Measure(mloop).Z=slicemap(SET(no).Measure(mloop).Z);
+%       mind = [mind mloop]; %#ok<AGROW>
+%     end
+%   end
+slicestoinclude = find(~isnan(slicemap));
+lowerslice =  slicestoinclude(1);
+upperslice = slicestoinclude(end);
+
   for mloop=1:length(SET(no).Measure)
-    if sum(unique(slicemap(SET(no).Measure(mloop).Z))) >= 1 %ismember(SET(no).Measure(mloop).Z,slicemap)
+    if all(SET(no).Measure(mloop).Z>=lowerslice) && all(SET(no).Measure(mloop).Z<=upperslice) ...
+         %&& SET(no).Measure(mloop).Z(2)>=lowerslice && SET(no).Measure(mloop).Z(2)<=upperslice%sum(unique(slicemap(SET(no).Measure(mloop).Z))) >= 1 %ismember(SET(no).Measure(mloop).Z,slicemap)
       SET(no).Measure(mloop).Z=slicemap(SET(no).Measure(mloop).Z);
       mind = [mind mloop]; %#ok<AGROW>
     end
   end
-  SET(no).Measure = SET(no).Measure(mind);
+  
+  if ~isempty(mind)
+    SET(no).Measure = SET(no).Measure(mind);
+  else
+    SET(no).Measure = [];
+  end
 end
 
 %remove Strain tagging analysis
@@ -2943,13 +2939,13 @@ for no = nos
     %the size
     for obj=1:length(SET(no).LevelSet.Object.Ind)
       if ndims(SET(no).LevelSet.BW)>3
-        temp=levelset('levelsetunpack',obj,no);
+        temp=segment3dp.tools('levelsetunpack',obj,no);
         temp=temp(xind,yind,:,:);
-        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = segment3dp.tools('levelsetpack',temp);
       else
-        temp=gobject.gobject('levelsetunpack',obj,no);
+        temp=segment3dp.tools('levelsetunpack',obj,no);
         temp=temp(xind,yind,:);
-        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = gobject.gobject('levelsetpack',temp);
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = segment3dp.tools('levelsetpack',temp);
       end;
     end
     
@@ -3171,7 +3167,7 @@ else
 end;
 
 %--------------------------------------
-function newvol = upsamplevolume(f,vol,silent)
+function newvol = upsampleinplane(f,vol,silent)
 %--------------------------------------
 %Helper function to upsample a volume vol.
 
@@ -3219,6 +3215,65 @@ for tloop=1:size(vol,3)
   end;
 end;
 if size(vol,3)>1 && ~silent
+  mywaitbarclose(h);
+end;
+myworkoff;
+
+%--------------------------------------
+function newvol = upsamplevolume2(f,vol,silent)
+%--------------------------------------
+%Helper function to upsample a volume vol. in this code f is a vector  with
+%input [inplane x scalefactor, inplane y scale factor, temporal scale factor, slice scale factor]
+global DATA
+
+if nargin < 3
+  silent = 0;
+end
+
+%Find new size
+oldsize = size(vol);
+f = f(1:length(oldsize)); %safety check for example if there is no slice dimension
+newsize = round(size(vol).*f);
+
+  oldtypefunc = str2func(class(vol));
+  h = mywaitbarstart(2,'Please wait.');
+
+  if  ~silent
+    h = mywaitbarupdate(h);
+  end;
+
+  vectors=cell(1,length(oldsize));
+  
+  for i=1:length(vectors)
+    vectors{i} = linspace(1,oldsize(i),newsize(i));
+  end
+  grid=cell(1,sum(oldsize~=1));
+  [grid{:}] = ndgrid(vectors{oldsize~=1});
+  
+  if  ~silent
+    h = mywaitbarupdate(h);
+  end;
+  
+  if DATA.Pref.GPU.Use
+   try
+     newvol = interpn(gpuArray(squeeze(vol)),grid{:},'linear');
+     
+    newvol=gather(newvol);
+     catch
+          %newvol = interpn(single(squeeze(vol)),grid{:},'nearest');
+         %newvol = interpn(single(squeeze(vol)),grid{:},'linear');
+         
+          newvol = interpn(gpuArray(single(squeeze(vol))),grid{:},'linear');
+          newvol=gather(newvol);
+      end
+  else
+        newvol = interpn(single(squeeze(vol)),grid{:},'linear');
+  end
+  
+  
+   newvol = oldtypefunc(reshape(newvol,newsize));
+  
+if  ~silent
   mywaitbarclose(h);
 end;
 myworkoff;
@@ -3337,9 +3392,9 @@ function precomp_Callback %#ok<DEFNU>
 %Function to make intensity precompensation of MR 
 %gradient echo images. This function is somewhat obsoleted.
 
-global SET NO DATA
+global SET NO
 
-tempnos=NO;
+tempnos = NO;
 imissingle=classcheckim(tempnos);%checks so that SET(tempnos).IM is single and can also convert from int16 to singel if user wants
 if not(imissingle)
   return;
@@ -3419,7 +3474,7 @@ else
 end;
 
 %-------------------------------
-function normalize_Callback %#ok<DEFNU>
+function normalize_Callback(no) %#ok<DEFNU>
 %-------------------------------
 %Normalize image data of current image stack. Make sure image
 %intensities are in the range [0..1]. Also stores in so that 
@@ -3427,31 +3482,35 @@ function normalize_Callback %#ok<DEFNU>
 
 global DATA SET NO
 
-if not(isempty(SET(NO).Flow))
-	if ~isempty(SET(NO).Flow.PhaseNo)&&(NO==SET(NO).Flow.PhaseNo)
+if nargin == 0
+  no = NO;
+end
+
+if not(isempty(SET(no).Flow))
+	if ~isempty(SET(no).Flow.PhaseNo)&&(no==SET(no).Flow.PhaseNo)
     myfailed('You can not normalize phase image',DATA.GUI.Segment);
     return;
   end;
-	if ~isempty(SET(NO).Flow.PhaseX)&&(NO==SET(NO).Flow.PhaseX)
+	if ~isempty(SET(no).Flow.PhaseX)&&(no==SET(no).Flow.PhaseX)
 		myfailed('You can not normalize phase image',DATA.GUI.Segment);
 		return;
 	end;
-	if ~isempty(SET(NO).Flow.PhaseY)&&(NO==SET(NO).Flow.PhaseY)
+	if ~isempty(SET(no).Flow.PhaseY)&&(no==SET(no).Flow.PhaseY)
 		myfailed('You can not normalize phase image',DATA.GUI.Segment);
 		return;
 	end;	
-elseif isfield(SET(NO),'Linked') && ~isempty(SET(NO).Linked)
+elseif isfield(SET(no),'Linked') && ~isempty(SET(no).Linked)
   %Normalize all linked stacks
   mydisp('Normalizing data');
-  for no = SET(NO).Linked
-    if isa(SET(no).IM,'single'),
-      [tempmin,tempmax] = mynormalize(SET(no).IM);
+  for linked_no = SET(no).Linked
+    if isa(SET(linked_no).IM,'single'),
+      [tempmin,tempmax] = mynormalize(SET(linked_no).IM);
       
-      SET(no).IntensityScaling = tempmax-tempmin;
-      SET(no).IntensityOffset = tempmin;
+      SET(linked_no).IntensityScaling = tempmax-tempmin;
+      SET(linked_no).IntensityOffset = tempmin;
     else
-      SET(no).IntensityScaling = 1;
-      SET(no).IntensityOffset = 0;
+      SET(linked_no).IntensityScaling = 1;
+      SET(linked_no).IntensityOffset = 0;
     end
   end
   
@@ -3466,14 +3525,14 @@ mydisp('Normalizing data');
   
 % This fcn makes changes to SET(NO).IM directly
 % Very uggly but saves a lot of memory for large datasets.
-if isa(SET(NO).IM,'single'),
-  [tempmin,tempmax] = mynormalize(SET(NO).IM);
+if isa(SET(no).IM,'single'),
+  [tempmin,tempmax] = mynormalize(SET(no).IM);
   
-  SET(NO).IntensityScaling = tempmax-tempmin;
-  SET(NO).IntensityOffset = tempmin;
+  SET(no).IntensityScaling = tempmax-tempmin;
+  SET(no).IntensityOffset = tempmin;
 else
-  SET(NO).IntensityScaling = 1;
-  SET(NO).IntensityOffset = 0;
+  SET(no).IntensityScaling = 1;
+  SET(no).IntensityOffset = 0;
 end
 %The above call is equavivalent to:
 %tempmin = min(SET(NO).IM(:));
@@ -3496,6 +3555,11 @@ if nargin==0
     no = SET(NO).Parent;
   end;
 end;
+
+if strcmp(DATA.CurrentTheme,'3dp')
+  segment3dp.tools('undo_Callback')
+  return
+end
   
 if isempty(DATA.Undo)
   mywarning('Nothing to undo.',DATA.GUI.Segment);
@@ -3646,6 +3710,8 @@ if isequal(DATA.CurrentTool,'drawendo') || isequal(DATA.CurrentTool,'interpendo'
     SET(no).EndoY(1:end-1,SET(no).CurrentTimeFrame,SET(no).CurrentSlice) = centery+smoothedline.*cos(angle-pi/2);
     SET(no).EndoX(end,SET(no).CurrentTimeFrame,SET(no).CurrentSlice) = SET(no).EndoX(1,SET(no).CurrentTimeFrame,SET(no).CurrentSlice);
     SET(no).EndoY(end,SET(no).CurrentTimeFrame,SET(no).CurrentSlice) = SET(no).EndoY(1,SET(no).CurrentTimeFrame,SET(no).CurrentSlice);
+    SET(no).EndoInterpX{SET(no).CurrentTimeFrame,SET(no).CurrentSlice} = [];
+    SET(no).EndoInterpY{SET(no).CurrentTimeFrame,SET(no).CurrentSlice} = [];
   else
     mywarning('No LV endo segmentation to smooth.',DATA.GUI.Segment);
     return;
@@ -3682,6 +3748,8 @@ elseif isequal(DATA.CurrentTool,'drawepi') || isequal(DATA.CurrentTool,'interpep
     SET(no).EpiY(1:end-1,SET(no).CurrentTimeFrame,SET(no).CurrentSlice) = centery+smoothedline.*cos(angle-pi/2);
     SET(no).EpiX(end,SET(no).CurrentTimeFrame,SET(no).CurrentSlice) = SET(no).EpiX(1,SET(no).CurrentTimeFrame,SET(no).CurrentSlice);
     SET(no).EpiY(end,SET(no).CurrentTimeFrame,SET(no).CurrentSlice) = SET(no).EpiY(1,SET(no).CurrentTimeFrame,SET(no).CurrentSlice);
+    SET(no).EpiInterpX{SET(no).CurrentTimeFrame,SET(no).CurrentSlice} = [];
+    SET(no).EpiInterpY{SET(no).CurrentTimeFrame,SET(no).CurrentSlice} = [];
   else
     mywarning('No LV epi segmentation to smooth.',DATA.GUI.Segment);
     return;
@@ -3717,6 +3785,8 @@ elseif isequal(DATA.CurrentTool,'drawrvendo') || isequal(DATA.CurrentTool,'inter
     SET(no).RVEndoY(1:end-1,SET(no).CurrentTimeFrame,SET(no).CurrentSlice) = centery+smoothedline.*cos(angle-pi/2);
     SET(no).RVEndoX(end,SET(no).CurrentTimeFrame,SET(no).CurrentSlice) = SET(no).RVEndoX(1,SET(no).CurrentTimeFrame,SET(no).CurrentSlice);
     SET(no).RVEndoY(end,SET(no).CurrentTimeFrame,SET(no).CurrentSlice) = SET(no).RVEndoY(1,SET(no).CurrentTimeFrame,SET(no).CurrentSlice);
+      SET(no).RVEndoInterpX{SET(no).CurrentTimeFrame,SET(no).CurrentSlice} = [];
+    SET(no).RVEndoInterpY{SET(no).CurrentTimeFrame,SET(no).CurrentSlice} = [];
   else
     mywarning('No RV endo segmentation to smooth.',DATA.GUI.Segment);
     return;
@@ -3753,6 +3823,8 @@ elseif isequal(DATA.CurrentTool,'drawrvepi') || isequal(DATA.CurrentTool,'interp
     SET(no).RVEpiY(1:end-1,SET(no).CurrentTimeFrame,SET(no).CurrentSlice) = centery+smoothedline.*cos(angle-pi/2);
     SET(no).RVEpiX(end,SET(no).CurrentTimeFrame,SET(no).CurrentSlice) = SET(no).RVEpiX(1,SET(no).CurrentTimeFrame,SET(no).CurrentSlice);
     SET(no).RVEpiY(end,SET(no).CurrentTimeFrame,SET(no).CurrentSlice) = SET(no).RVEpiY(1,SET(no).CurrentTimeFrame,SET(no).CurrentSlice);
+    SET(no).RVEpiInterpX{SET(no).CurrentTimeFrame,SET(no).CurrentSlice} = [];
+    SET(no).RVEpiInterpY{SET(no).CurrentTimeFrame,SET(no).CurrentSlice} = [];
   else
     mywarning('No RV epi segmentation to smooth.',DATA.GUI.Segment);
     return;
@@ -3819,7 +3891,7 @@ end
 nos = DATA.ViewPanels(DATA.ViewPanels~=0);%SET(NO).Linked;
 
 %also check for imageviewplane
-imvpcell={'Short-axis','2CH','3CH','4CH','Flow'};
+imvpcell={'Short-axis','Transversal','2CH','3CH','4CH','Flow'};
 imtcell={'Flow (magnitude)','Flow (through plane)'};
 include=zeros(1,length(nos));
 for i = 1 : length(nos)
@@ -3827,7 +3899,7 @@ for i = 1 : length(nos)
 end
 
 nos=nos(logical(include));
-if ~isempty(DATA.LVNO)
+if length(DATA.LVNO)==1
   no = DATA.LVNO;
 else
   no = findfunctions('findcineshortaxisno');
@@ -3845,7 +3917,7 @@ if ~SET(NO).EDT==SET(NO).EST
   no=NO;
   useother=0;
 end
-nos = unique([nos no]); %ensure that the current image stack is changed
+%nos = unique([nos no]); %ensure that the current image stack is changed
 
 if useother
   for loop = nos
@@ -3888,7 +3960,7 @@ end
 nos = DATA.ViewPanels(DATA.ViewPanels~=0);%SET(NO).Linked;
 
 %also check for imageviewplane
-imvpcell={'Short-axis','2CH','3CH','4CH','Flow'};
+imvpcell={'Short-axis','Transversal','2CH','3CH','4CH','Flow'};
 imtcell={'Flow (magnitude)','Flow (through plane)'};
 include=zeros(1,length(nos));
 for i = 1 : length(nos)
@@ -3896,8 +3968,7 @@ for i = 1 : length(nos)
 end
 
 nos=nos(logical(include));
-
-if ~isempty(DATA.LVNO)
+if length(DATA.LVNO)==1%~isempty(DATA.LVNO)
   no = DATA.LVNO;
 else
   no = findfunctions('findcineshortaxisno');
@@ -3909,7 +3980,7 @@ if isempty(no) || SET(no).EDT==SET(no).EST
   no=NO;
   useother=0;
 end
-nos = unique([nos no]); %ensure that the current image stack is changed
+%nos = unique([nos no]); %ensure that the current image stack is changed
 
 %Adjustments have been made to NO use this instead
 if ~SET(NO).EDT==SET(NO).EST
@@ -4506,6 +4577,14 @@ global DATA SET NO
 
 gui = DATA.GUI.SetImageDescription;
 
+if ~isempty(SET(NO).LevelSet)
+  answer = yesno('If you proceed all 3D segmentation will be removed for the selected stack. Are you sure you want to proceed?');
+  segment3dp.tools('deleteall_Callback',1)
+  if ~answer
+    return 
+  end
+end
+
 imagetypenbr = get(gui.handles.listboximagetype,'value');
 imageviewplanenbr = get(gui.handles.listboximageviewplane,'value');
 imagingtechniquenbr = get(gui.handles.listboximagingtechnique,'value');
@@ -4580,9 +4659,7 @@ end
 
 %close the gui
 closesetimagedescription_Callback
-
-drawfunctions('drawimageno',NO);
-drawfunctions('drawthumbnails',false);
+segment('viewrefreshall_Callback')
 
 %-----------------------------
 function setheartrate_Callback %#ok<DEFNU>
@@ -4826,15 +4903,15 @@ for no = nos
 		%the size
 		for obj=1:length(SET(no).LevelSet.Object.Ind)
       if ndims(SET(no).LevelSet.BW)>3
-        temp=levelset('levelsetunpack',obj,no);
+        temp=segment3dp.tools('levelsetunpack',obj,no);
       else
-        temp=gobject.gobject('levelsetunpack',obj,no);
+        temp=segment3dp.tools('levelsetunpack',obj,no);
       end;
 			temp=flip(temp,dim);
       if ndims(SET(no).LevelSet.BW)>3
-        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = segment3dp.tools('levelsetpack',temp);
       else
-        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = gobject.gobject('levelsetpack',temp);
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = segment3dp.tools('levelsetpack',temp);
       end;
     end
     
@@ -5418,9 +5495,9 @@ if not(isempty(SET(NO).LevelSet))
 	%the size
 	for obj=1:length(SET(NO).LevelSet.Object.Ind)
     
-		temp=levelset('levelsetunpack',obj,NO);
+		temp=segment3dp.tools('levelsetunpack',obj,NO);
 		temp=permute(temp,permorder);
-		[SET(NO).LevelSet.Object.Ind{obj},SET(NO).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+		[SET(NO).LevelSet.Object.Ind{obj},SET(NO).LevelSet.Object.Int{obj}] = segment3dp.tools('levelsetpack',temp);
 	end
 
 	%resample .BW
@@ -5572,15 +5649,15 @@ for no = nos;
 		%the size
 		for obj=1:length(SET(no).LevelSet.Object.Ind)
       if ndims(SET(no).LevelSet.BW)>3
-        temp=levelset('levelsetunpack',obj,no);
+        temp=segment3dp.tools('levelsetunpack',obj,no);
       else
-        temp=gobject.gobject('levelsetunpack',obj,no);
+        temp=segment3dp.tools('levelsetunpack',obj,no);
       end;
 			temp=permute(temp,permorder);
       if ndims(SET(no).LevelSet.BW)>3
-        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = segment3dp.tools('levelsetpack',temp);
       else
-        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = gobject.gobject('levelsetpack',temp);
+        [SET(no).LevelSet.Object.Ind{obj},SET(no).LevelSet.Object.Int{obj}] = segment3dp.tools('levelsetpack',temp);
       end;
 		end
 
@@ -5681,41 +5758,29 @@ if not(isempty(SET(NO).LevelSet))
 	%.BW since levelsetunpack uses the size of .BW and pack does not use
 	%the size
 	for obj=1:length(SET(NO).LevelSet.Object.Ind)
-    if ndims(SET(NO).LevelSet.BW)>3
-      temp=levelset('levelsetunpack',obj,NO);
-    else
-      temp=gobject.gobject('levelsetunpack',obj,NO);
-    end;
-    temp=permute(temp,permorder);
-		temp=flip(temp,1);
-    if ndims(SET(NO).LevelSet.BW)>3
-      [SET(NO).LevelSet.Object.Ind{obj},SET(NO).LevelSet.Object.Int{obj}] = levelset('levelsetpack',temp);
-    else
-      [SET(NO).LevelSet.Object.Ind{obj},SET(NO).LevelSet.Object.Int{obj}] = gobject.gobject('levelsetpack',temp);
-    end;
+    temp = segment3dp.tools('levelsetunpack',obj,NO);    
+    temp = permute(temp,permorder);
+		temp = flip(temp,1);
+    [SET(NO).LevelSet.Object.Ind{obj},SET(NO).LevelSet.Object.Int{obj}] = segment3dp.tools('levelsetpack',temp);    
 	end
 
 	%resample .BW
-	temp=permute(SET(NO).LevelSet.BW,permorder);
+	temp = permute(SET(NO).LevelSet.BW,permorder);
 	SET(NO).LevelSet.BW=flip(temp,1);
 
 	%resample .Man
-	temp=permute(SET(NO).LevelSet.Man,permorder);
-	SET(NO).LevelSet.Man=flip(temp,1);
+	temp = permute(SET(NO).LevelSet.Man,permorder);
+	SET(NO).LevelSet.Man = flip(temp,1);
 
 	%slice
-	if size(SET(NO).LevelSet.BW,4)>1
-		SET(NO).LevelSet.View.RSlice=round(size(SET(NO).LevelSet.BW,4)/2);
-	else
-		SET(NO).LevelSet.View.RSlice=round(size(SET(NO).LevelSet.BW,3)/2);
-	end
-	SET(NO).LevelSet.View.GSlice=round(size(SET(NO).LevelSet.BW,2)/2);
-	SET(NO).LevelSet.View.BSlice=round(size(SET(NO).LevelSet.BW,1)/2);
+  SET(NO).LevelSet.View.RSlice = round(size(SET(NO).LevelSet.BW,3)/2);	
+	SET(NO).LevelSet.View.GSlice = round(size(SET(NO).LevelSet.BW,2)/2);
+	SET(NO).LevelSet.View.BSlice = round(size(SET(NO).LevelSet.BW,1)/2);
 
 	%ZoomState
-	SET(NO).LevelSet.View.RZoomState=[];
-	SET(NO).LevelSet.View.BZoomState=[];
-	SET(NO).LevelSet.View.GZoomState=[];
+	SET(NO).LevelSet.View.RZoomState = [];
+	SET(NO).LevelSet.View.BZoomState = [];
+	SET(NO).LevelSet.View.GZoomState = [];
 
 	%clear DATA.LevelSet
 	segment('cleardatalevelset');
@@ -5771,7 +5836,6 @@ function enableundo(no)
 %change the segmentation
 global DATA SET NO
 
-set(DATA.Handles.undosegmentationicon,'enable','on');
 segment('stopmovie_Callback');
 
 if nargin==0
@@ -5982,7 +6046,7 @@ else
 end;
 
 %also check for imageviewplane
-imvpcell={'Short-axis','2CH','3CH','4CH','Flow'};
+imvpcell={'Short-axis','Transversal','2CH','3CH','4CH','Flow'};
 imtcell={'Flow (magnitude)','Flow (through plane)'};
 include=zeros(1,length(SET));
 for i = 1 : length(SET)
@@ -6130,40 +6194,6 @@ function [a,b] = flipvars(b,a)
 %-----------------------------
 %Flip variables. Simple and elegant
 
-%-------------------
-function cropspecial %#ok<DEFNU>
-%-------------------
-%undocumented function
-global SET
-
-no1=1;
-no2=2;
-xsize = min(SET(no1).XSize,SET(no2).XSize);
-ysize = min(SET(no1).YSize,SET(no2).YSize);
-SET(no1).IM=SET(no1).IM(1:xsize,1:ysize,:,:);
-SET(no2).IM=SET(no2).IM(1:xsize,1:ysize,:,:);
-SET(no1).XSize = xsize;
-SET(no2).XSize = xsize;
-SET(no1).YSize = ysize;
-SET(no2).YSize = ysize;
-
-if ~isempty(SET(no1).Scar)
-  SET(no1).Scar.IM = SET(no1).Scar.IM(1:xsize,1:ysize,:);
-  SET(no1).Scar.Auto = SET(no1).Scar.Auto(1:xsize,1:ysize,:);
-  SET(no1).Scar.Result = SET(no1).Scar.Result(1:xsize,1:ysize,:);
-  SET(no1).Scar.Manual = SET(no1).Scar.Manual(1:xsize,1:ysize,:);
-  SET(no1).Scar.NoReflow = SET(no1).Scar.NoReflow(1:xsize,1:ysize,:);
-  SET(no1).Scar.MyocardMask = SET(no1).Scar.MyocardMask(1:xsize,1:ysize,:);
-end;
-
-if ~isempty(SET(no2).Scar)
-  SET(no2).Scar.IM = SET(no2).Scar.IM(1:xsize,1:ysize,:);
-  SET(no2).Scar.Auto = SET(no2).Scar.Auto(1:xsize,1:ysize,:);
-  SET(no2).Scar.Result = SET(no2).Scar.Result(1:xsize,1:ysize,:);
-  SET(no2).Scar.Manual = SET(no2).Scar.Manual(1:xsize,1:ysize,:);
-  SET(no2).Scar.NoReflow = SET(no2).Scar.NoReflow(1:xsize,1:ysize,:);
-  SET(no2).Scar.MyocardMask = SET(no2).Scar.MyocardMask(1:xsize,1:ysize,:);
-end;
 
 %--------------------------------------
 function x = translatecontours_helper(x)
@@ -6526,9 +6556,7 @@ function unlinkimages_Callback %#ok<DEFNU>
 %Unlink images 
 
 global SET NO
-
 mywarning('There is no built-in undo function for this. Are you sure?');
-
 no = NO;
 if ~isempty(SET(NO).Parent)
   no = SET(NO).Parent;
@@ -6545,3 +6573,230 @@ SET(no).Children = [];
 SET(no).Linked = no;
 
 segment('viewrefresh_Callback');
+
+%------------------------------------------------------------
+function orthogonalresamplehelper(no,P,flipv,pos,newdimorder)
+%------------------------------------------------------------
+%Helper function to transversal2sagittal (and more in the future), this
+%function should be genereric for all coordinate transformation if I have
+%not been thinking completly crazy.
+
+%Einar Heiberg
+global SET
+
+%Calculate 3D coordinates, used to calculate image position and image
+%orientation.
+
+[pos1] = calcfunctions('xyz2rlapfh',no,0,0,0); %"origo"
+[pos2] = calcfunctions('xyz2rlapfh',no,P(1,1),P(1,2),P(1,3));
+[pos3] = calcfunctions('xyz2rlapfh',no,P(2,1),P(2,2),P(2,3));
+[pos4] = calcfunctions('xyz2rlapfh',no,P(3,1),P(3,2),P(3,3));
+
+%Calculate directions and resolution
+dir1 = pos2-pos1;
+step1 = norm(dir1,2);
+dir1 = dir1./step1;
+
+dir2 = pos3-pos1;
+step2 = norm(dir2,2);
+dir2 = dir2./step2;
+
+dir3 = pos4-pos1;
+step3 = norm(dir3,2);
+
+%Orientation and imageposition
+orientation = [dir1 dir2];
+imageposition = calcfunctions('xyz2rlapfh',no,pos(1),pos(2),pos(3)); %"origo"
+
+SET(no).ImageOrientation = orientation; 
+SET(no).ImagePosition = imageposition;
+SET(no).ResolutionX = step2;
+SET(no).ResolutionY = step1;
+SET(no).SliceThickness = step3;
+SET(no).SliceGap = 0;
+SET(no).IM = permute(SET(no).IM,newdimorder);
+SET(no).XSize = size(SET(no).IM,1);
+SET(no).YSize = size(SET(no).IM,2);
+SET(no).TSize = size(SET(no).IM,3);
+SET(no).ZSize = size(SET(no).IM,4);
+SET(no).NormalZoomState = [];
+SET(no).MontageZoomState = [];
+
+%Flip if necessary
+for loop = 1:4
+  if flipv(loop)
+    SET(no).IM = flip(SET(no).IM,loop);
+  end;
+end;
+
+%Calculate the preview
+sliderupdated = false;
+calculatepreview = true;
+drawfunctions('drawthumbnails',calculatepreview,sliderupdated);
+segment('switchtoimagestack',no);
+
+%Clear segmentation and other stuff
+segment('segmentclearall_Callback',true);
+SET(no).Scar = []; %Clear scar
+SET(no).LevelSet = []; %Clear levelset
+annotationpoint('pointclearall_helper',no); %Clear points
+SET(no).PapillaryIM = [];
+SET(no).Measure = [];
+roi('roireset',no); %reset ROI's
+SET(no).StartSlice = 1;
+SET(no).EndSlice = 1;
+SET(no).CurrentSlice = round(SET(no).ZSize/2);
+SET(no).Strain = [];
+SET(no).StrainTagging = [];
+SET(no).Stress = [];
+SET(no).MaR = [];
+SET(no).T2 = [];
+SET(no).ECV = [];
+
+%------------------------------------------------------
+function ok = orthogonalresamplecheck(no,dir1,dir2,str)
+%------------------------------------------------------
+%Check if can create orthogonal stack, give error message if not.
+
+%Einar Heiberg
+global SET
+
+ok = false;
+
+if ~yesno('This will clear all segmentation and measurements. Are you sure?')
+  return;
+end;
+  
+%Check it is correct direction
+if (acos(abs(dir1.*SET(no).ImageOrientation(1:3)))*180/pi)>10
+  myfailed(sprintf('Current image stack is not a %s stack.',str));
+  return;
+end;
+
+if (acos((dir2.*SET(no).ImageOrientation(4:6)))*180/pi)>10
+  myfailed(sprintf('Current image stack is not a %s stack.',str));
+  return;
+end;
+
+if ~isempty(SET(no).Flow)
+  myfailed('Can not resample flow image stack.');
+  return;
+end;
+
+if (SET(no).XSize<10) || (SET(no).YSize<10) || (SET(no).ZSize<10)
+  myfailed('Can resample slices with slices.');
+  return;
+end;
+
+%So far good!
+ok = true;
+
+%------------------------------------
+function transversal2coronal_Callback %#ok<DEFNU>
+%------------------------------------
+%Takes a transversal image stack and converts it to a coronal image stack
+
+%Einar Heiberg
+global SET NO
+
+%1 0 0   0 1 0
+if ~orthogonalresamplecheck(NO,[1 0 0],[0 1 0],'transversal');
+  return;
+end;
+
+%Define three points in the image; (x,y,z)
+P = [...
+  0 1 0 ; ...
+  0 0 1 ; ...
+  1 0 0];
+
+flipv = [0 0 0 1]; %flip z
+
+pos = [size(SET(NO).IM,1) 1 1];
+
+%xs,ys,ts,zs => zs,ys,ts,xs
+newdimorder = [4 2 3 1];
+
+orthogonalresamplehelper(NO,P,flipv,pos,newdimorder);
+
+SET(NO).ImageViewPlane = 'Coronal';
+
+%-------------------------------------
+function transversal2sagittal_Callback %#ok<DEFNU>
+%-------------------------------------
+%Takes a transversal image stack and converts it to a sagittal image stack
+
+%Einar Heiberg
+
+global SET NO
+
+if ~orthogonalresamplecheck(NO,[1 0 0],[0 1 0],'transversal');
+  return;
+end;
+
+%Define three points in the image; (x,y,z)
+P = [...
+  1 0 0 ; ... %dir1
+  0 0 1 ; ... %dir2
+  0 1 0];     %dir3
+
+flipv = [0 0 0 0]; %do not flip any direction
+
+pos = [0.5 0.5 0.5];
+
+newdimorder = [4 1 3 2];
+
+orthogonalresamplehelper(NO,P,flipv,pos,newdimorder);
+
+SET(NO).ImageViewPlane = 'Sagittal';
+
+%------------------------------
+function intensitycrop_Callback %#ok<DEFNU>
+%------------------------------
+%Crop intensities above and under HU threshold
+
+global SET NO
+
+no = NO;
+if ~isequal(SET(no).Modality,'CT')
+  myfailed('Only CT are supported.');
+  return;
+end;
+
+%Ask for values
+s = [];
+s.MinHU = -1200;
+s.MaxHU = 1200;
+s = inputstruct(s,'Set HU limit');
+
+if isa(SET(no).IM,'int16')
+  SET(no).IM = max(int16(s.MinHU),SET(no).IM);
+  SET(no).IM = min(int16(s.MaxHU),SET(no).IM);
+  SET(no).minValue = single(min(SET(no).IM(:))); %s.MinHU;
+  SET(no).maxValue = single(max(SET(no).IM(:))); %s.MaxHU;    
+else  
+  %Stored as normalized values
+  
+  %truedata is calculated as:
+  %z = im*SET(no).IntensityScaling+SET(no).IntensityOffset;
+  
+  %maxim*scaling+offset = maxHU
+  %minim*scaling+offset = minHU
+  minim = (s.MinHU-SET(no).IntensityOffset)/SET(no).IntensityScaling;
+  maxim = (s.MaxHU-SET(no).IntensityOffset)/SET(no).IntensityScaling;
+  SET(no).IM = max(SET(no).IM,minim);
+  SET(no).IM = min(SET(no).IM,maxim);
+  
+  %New normalization
+  SET(no).IM = (SET(no).IM-minim)/(maxim-minim);  
+  SET(no).IntensityScaling = SET(no).IntensityScaling/(maxim-minim);
+  SET(no).IntensityScaling = SET(no).IntensityScaling/(maxim-minim);
+  SET(no).IntensityOffset = s.MinHU;
+  
+end;
+
+%Update graphically
+sliderupdated = false;
+calculatepreview = true;
+drawfunctions('drawthumbnails',calculatepreview,sliderupdated);
+drawfunctions('drawcontrastimage',no);

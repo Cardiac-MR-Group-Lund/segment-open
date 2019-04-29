@@ -40,6 +40,27 @@ else
   newtype = DATA.CurrentTool;
   skiptfo = true;
 end;
+
+%This fixes so that when calling drawall
+if strcmp(DATA.CurrentTheme,'3dp')
+  %DATA.Handles.configiconholder.indent(DATA.CurrentTool,1)
+  %set the button down for all panels
+  numpanels = numel(DATA.ViewPanels);
+  for i = 1:numpanels
+    switch DATA.ViewPanelsType{i}
+      case 'trans3DP'
+        set(DATA.Handles.imagehandle(i),'ButtonDownFcn','segment3dp.tools(''click3dp_Callback'',''r'')');
+      case 'sag3DP'
+        set(DATA.Handles.imagehandle(i),'ButtonDownFcn','segment3dp.tools(''click3dp_Callback'',''g'')');
+      case 'cor3DP'
+        set(DATA.Handles.imagehandle(i),'ButtonDownFcn','segment3dp.tools(''click3dp_Callback'',''b'')');
+      case 'speedim'
+        set(DATA.Handles.imagehandle(i),'ButtonDownFcn','segment3dp.tools(''click3dp_Callback'',''s'')');
+    end
+  end
+  return
+end
+
 if isempty(newtype)
   newtype = 'select';
 end;
@@ -54,18 +75,6 @@ if strcmp(newtype,'orthoview')
     indent(DATA.Handles.configiconholder,'select',0) %select is always there
 end
 
-% anyregrunning=zeros(1,length(SET));
-% for tagno=1:length(SET)
-%   if ~isempty(SET(tagno).StrainTagging) && isfield(SET(tagno).StrainTagging,'runningregistration')
-%     anyregrunning(tagno)=SET(tagno).StrainTagging.runningregistration;
-%   end
-% end
-% 
-% if ismember(newtype,{'autocrop','crop'}) && any(anyregrunning)
-%   mywarning('Unable to do crop while imageregistration is performed')
-%   return
-% end  
-  
 oldtype = DATA.CurrentTool;
 DATA.CurrentTool = newtype;
   
@@ -345,8 +354,8 @@ for loop=panelstodo
           DATA.Handles.mocontour{panel} ...
           DATA.Handles.marcontour{panel}],'ButtonDownFcn',...
           sprintf('segment(''orthoview_Buttondown'',%d)',loop));
-        set(DATA.imagefig,'pointer','arrow');
-        
+       
+     
       case 'select'
         %Slice selecttools
         %segment('highlighttool',DATA.Tools.selectslices);

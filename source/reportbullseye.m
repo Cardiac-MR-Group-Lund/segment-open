@@ -17,7 +17,7 @@ end
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 
 %------------
-function init
+function init %#ok<DEFNU>
 %------------
 %Initialize the GUI
 
@@ -45,7 +45,6 @@ if SET(NO).SectorRotation == 0
 else
   startbullseye;
 end
-
 
 %---------------------
 function startbullseye
@@ -198,11 +197,15 @@ updateall;
 %--------------------
 function initlaximage
 %--------------------
+%Initiate long axis image in bullseye gui
 global DATA SET
 gui = DATA.GUI.Bullseye;
 
 tf = SET(gui.no).CurrentTimeFrame;
 if ~isempty(gui.laxno)
+  %find closest tf in normalized heart beat this fixes if LAX image has
+  %different number of timeframes.
+  [~,tf] = min(abs(SET(gui.laxno).TimeVector/SET(gui.laxno).TimeVector(end) - SET(gui.no).TimeVector(tf)/SET(gui.no).TimeVector(end)));
   temp = SET(gui.laxno).IM(:,:,tf);
 else
   if SET(gui.no).EndoCenter
