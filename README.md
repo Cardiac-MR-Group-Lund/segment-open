@@ -87,7 +87,7 @@ A: African or European?
 
 | Who | Role |
 | --- | --- |
-| [Johannes Töger](mailto:johannes.toger@gmail.com) | Segment-open maintainer, Questions on distribution, Contributions, pull requests |
+| [Johannes Töger](mailto:johannes.toger@med.lu.se) | Segment-open maintainer, Questions on distribution, Contributions, pull requests |
 | [Einar Heiberg](mailto:einar@heiberg.se) | Segment creator, Medviso founder, Research collaborations with the Cardiac MR Group in Lund |
 | [Helen Fransson](mailto:helen@medviso.com) | Medviso CEO, Clinical and commercial use of Segment |
 
