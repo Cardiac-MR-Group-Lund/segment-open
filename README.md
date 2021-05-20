@@ -27,12 +27,27 @@ Some parts of the code is protected (Matlab p-files).
  * We also have some [tutorial videos on Medviso's Segment page](http://medviso.com/tutorial-videos/).
  * If you want to develop your own plugins (or if you're just curious), the [tech manual](source/Docs/techmanual.pdf) shows how Segment works internally.
 
-**It is strongly recommended to use Matlab R2014a.**
- * Performance of the GUI will be reduced with newer versions, as a new GUI framework was introduced in R2014b.
+**It is strongly recommended to use Matlab R2019a.**
  * Using older versions may produce bugs due to non-existent functionality.
  * You can have several Matlab installations on the same computer at the same time.
 
-![r2014a](docs/images/matlab_r2014a.png)
+## Matlab toolboxes
+
+To use all features, you need the following Matlab toolboxes
+
+  * Computer Vision Toolbox
+  * Control System Toolbox
+  * Deep Learning Toolbox
+  * Image Processing Toolbox
+  * MATLAB Report Generator
+  * Mapping Toolbox
+  * Optimization Toolbox
+  * Parallel Computing Toolbox
+  * Signal Processing Toolbox
+  * Statistics and Machine Learning Toolbox
+
+
+![r2014a](docs/images/matlab_r2019a.png)
 
 ## Contributions
 
