@@ -47,7 +47,7 @@ To use all features, you need the following Matlab toolboxes
   * Statistics and Machine Learning Toolbox
 
 
-![r2014a](docs/images/matlab_r2019a.png)
+![r2019a](docs/images/matlab_r2019a.jpg)
 
 ## Contributions
 
