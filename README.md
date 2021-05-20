@@ -31,6 +31,9 @@ Some parts of the code is protected (Matlab p-files).
  * Using older versions may produce bugs due to non-existent functionality.
  * You can have several Matlab installations on the same computer at the same time.
 
+![r2019a](docs/images/matlab_r2019a.jpg)
+
+
 ## Matlab toolboxes
 
 To use all features, you need the following Matlab toolboxes
@@ -45,9 +48,6 @@ To use all features, you need the following Matlab toolboxes
   * Parallel Computing Toolbox
   * Signal Processing Toolbox
   * Statistics and Machine Learning Toolbox
-
-
-![r2019a](docs/images/matlab_r2019a.jpg)
 
 ## Contributions
 
