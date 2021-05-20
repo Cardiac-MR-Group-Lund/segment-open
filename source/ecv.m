@@ -81,7 +81,7 @@ if any(not(singslicenos(preno))) || any(not(singslicenos(postno)))
   multislice = true;
   if length(preno) > 1 || length(postno) > 1
     %if multi-slice data, use only NO if that is applicable
-    if ismember(NO,[preno postno]);
+    if ismember(NO,[preno postno])
       if ismember(NO,preno)
         prenonbr = find(ismember(NO,preno));
         suggestedpostno = postno(min(prenonbr,length(postno)));        
@@ -124,8 +124,7 @@ end
 
 %error checks
 if isempty(preno) || isempty(postno)
-  myfailed(['Could not find T1 map pre or T1 map post image stacks with' ...
-    ' ROI''s labelled ''Blood''.']);
+  myfailed(['Could not find T1 map pre or T1 map post image stacks with ROI''s labelled ''Blood''.']);
   return
 end
 if length(preno) ~= length(postno) %SET(preno).ZSize ~= SET(postno).ZSize
@@ -139,7 +138,7 @@ end
 
 %ask for the hematocrit value
 while true
-  hem = inputdlg('Hematocrit [0 1]','Input value');
+  hem = myinputdlg('Hematocrit [0 1]','Input value');
   if isempty(hem)
     return
   else
@@ -185,7 +184,7 @@ if ~isempty(askno)
   end
   %find time frame
   while true
-    premaptftemp = inputdlg(askstri,'Pre T1 map',1,guess);
+    premaptftemp = myinputdlg(askstri,'Pre T1 map',1,guess);
     if isempty(premaptftemp)
       return;
     end
@@ -241,7 +240,7 @@ if ~isempty(askno)
     end
   end
   while true
-    postmaptftemp = inputdlg(askstri,'Post T1 maps',1,guess);
+    postmaptftemp = myinputdlg(askstri,'Post T1 maps',1,guess);
     if isempty(postmaptftemp)
       return;
     end
@@ -277,7 +276,7 @@ if length(preno) > 1
     end
   end
   while true
-    coupledpostnotemp = inputdlg(askstri,'Pre T1 maps',1,guess);
+    coupledpostnotemp = myinputdlg(askstri,'Pre T1 maps',1,guess);
     if isempty(coupledpostnotemp)
       return;
     end
@@ -398,7 +397,7 @@ elseif numel(preno) > 1 || numel(postno) > 1
 end
 
 while true
-  hem = inputdlg('Hematocrit','Input value');
+  hem = myinputdlg('Hematocrit','Input value');
   if isempty(hem)
     return
   else
@@ -514,7 +513,8 @@ for k = 1:length(preno)
         [SET(postno(k)).XSize SET(postno(k)).YSize],...
         postroi.Y(:,postmaptf(k)),postroi.X(:,postmaptf(k)));
       postim = calcfunctions('calctruedata',postT1maptemp(:,:,1,postroi.Z),postno(k));
-      postblood = repmat(mean(postim(postmask)),[1 length(lvsegslicepre)]);
+      postbloodtemp = repmat(mean(postim(postmask)),[1 length(lvsegslicepre)]);
+      postblood(lvsegslicepre) = postbloodtemp;
     else
       myfailed('No ROI labeled ''Blood'' found in post T1 map');
       return;
@@ -557,7 +557,8 @@ for k = 1:length(preno)
         [SET(preno(k)).XSize SET(preno(k)).YSize],...
         preroi.Y(:,premaptf(k)),preroi.X(:,premaptf(k)));
       preim = calcfunctions('calctruedata',preT1maptemp(:,:,1,preroi.Z),preno(k));
-      preblood = repmat(mean(preim(premask)),[1 length(lvsegslicepre)]);
+      prebloodtemp = repmat(mean(preim(premask)),[1 length(lvsegslicepre)]);
+      preblood(lvsegslicepre) = prebloodtemp;
     else
       myfailed('No ROI labeled ''Blood'' found in pre T1 map');
       return;
@@ -738,7 +739,7 @@ for k = 1:length(preno)
 end
 
 %%%%%%%%%%%%%%%% Open GUI %%%%%%%%%%%%%%%%%
-if isopengui('ecvregistration.fig');
+if isopengui('ecvregistration.fig')
   gui = DATA.GUI.ECVRegistration;
   figure(gui.fig);
 else
@@ -1022,8 +1023,8 @@ if length(gui.preno) == 1  && not(multislice) %plot only one image slice
   preT1mapimage  = preT1mapimage *1/max(preT1mapimage (:));
   postT1mapalignedimage  = postT1mapalignedimage *1/max(postT1mapalignedimage (:));
   %set colormap
-  viewimpre = spect.spectperfusionsegmentation('remapuint8',preT1mapimage,graymap);
-  viewimpost = spect.spectperfusionsegmentation('remapuint8',postT1mapalignedimage,graymap);
+  viewimpre = calcfunctions('remapuint8modified',preT1mapimage,graymap);
+  viewimpost = calcfunctions('remapuint8modified',postT1mapalignedimage,graymap);
   %plot images
   gui.handles.preimage = imagesc(viewimpre,'parent',gui.handles.preaxes);
   gui.handles.postimage = imagesc(viewimpost,'parent',gui.handles.postaxes);  
@@ -1060,8 +1061,8 @@ else
   viewimpost = viewimpost*1/max(viewimpost(:));
 
   %create visulaization images
-  viewimpremap = spect.spectperfusionsegmentation('remapuint8',viewimpre,graymap);
-  viewimpostmap = spect.spectperfusionsegmentation('remapuint8',viewimpost,graymap);
+  viewimpremap = calcfunctions('remapuint8modified',viewimpre,graymap);
+  viewimpostmap = calcfunctions('remapuint8modified',viewimpost,graymap);
     
   %plot images
   gui.handles.preimage = imagesc(viewimpremap,'parent',gui.handles.preaxes);
@@ -1073,13 +1074,13 @@ end
 
 %plot colorbars
 precolorbartemp = linspace(0,1,255);
-precolorbar = spect.spectperfusionsegmentation('remapuint8',flipud(precolorbartemp'),graymap);
+precolorbar = calcfunctions('remapuint8modified',flipud(precolorbartemp'),graymap);
 gui.handles.precolorbarimage = imagesc(precolorbar,'parent',gui.handles.precolorbaraxes);
-set(gui.handles.precolorbaraxes,'ytick',linspace(1,255,11),'YTickLabel',linspace(gui.viewmaxpre,0,11),'YAxisLocation','right','xtick',[]);
+set(gui.handles.precolorbaraxes,'ytick',linspace(1,255,11),'YTickLabel',linspace(gui.viewmaxpre,0,11),'YAxisLocation','right','xtick',[],'YColor',DATA.GUISettings.ForegroundColor);
 postcolorbartemp = linspace(0,1,255);
-postcolorbar = spect.spectperfusionsegmentation('remapuint8',flipud(postcolorbartemp'),graymap);
+postcolorbar = calcfunctions('remapuint8modified',flipud(postcolorbartemp'),graymap);
 gui.handles.postcolorbarimage = imagesc(postcolorbar,'parent',gui.handles.postcolorbaraxes);
-set(gui.handles.postcolorbaraxes,'ytick',linspace(1,255,11),'YTickLabel',linspace(gui.viewmaxpost,0,11),'YAxisLocation','right','xtick',[]);
+set(gui.handles.postcolorbaraxes,'ytick',linspace(1,255,11),'YTickLabel',linspace(gui.viewmaxpost,0,11),'YAxisLocation','right','xtick',[],'YColor',DATA.GUISettings.ForegroundColor);
 
 
 %---------------
@@ -1100,7 +1101,7 @@ hotmap = flipud(colormapecv)./256;
 
 if length(gui.preno) == 1 && not(multislice)
   nbrrows = 1;
-  viewimecv = spect.spectperfusionsegmentation('remapuint8',gui.ecvmapplot{1},hotmap);
+  viewimecv = calcfunctions('remapuint8modified',gui.ecvmapplot{1},hotmap);
   gui.handles.ecvimage = imagesc(viewimecv,'parent',gui.handles.ecvaxes);
   axis(gui.handles.ecvaxes,'off','image');
   set(gui.handles.ecvaxes,'clim',[0 1]);      
@@ -1122,7 +1123,7 @@ else
   nbrcols = 1;
   szpre = size(ecvmapimage);
   gui.viewimecv = reshape2layout(ecvmapimage,nbrrows,nbrcols,[szpre(1) szpre(2) nbrrows]);
-  viewimecvmap = spect.spectperfusionsegmentation('remapuint8',gui.viewimecv,hotmap);
+  viewimecvmap = calcfunctions('remapuint8modified',gui.viewimecv,hotmap);
   gui.handles.ecvimage = imagesc(viewimecvmap,'parent',gui.handles.ecvaxes);
   axis(gui.handles.ecvaxes,'off','image')
   set(gui.handles.ecvaxes,'clim',[0 1]);
@@ -1130,9 +1131,9 @@ end
   
 %plot ecv colorbar
 ecvcolorbartemp = linspace(0,1,255);
-ecvcolorbar = spect.spectperfusionsegmentation('remapuint8',flipud(ecvcolorbartemp'),hotmap);
+ecvcolorbar = calcfunctions('remapuint8modified',flipud(ecvcolorbartemp'),hotmap);
 gui.handles.ecvcolorbarimage = imagesc(ecvcolorbar,'parent',gui.handles.ecvcolorbaraxes);
-set(gui.handles.ecvcolorbaraxes,'ytick',linspace(1,255,11),'YTickLabel',linspace(100,0,11),'YAxisLocation','right','xtick',[]);
+set(gui.handles.ecvcolorbaraxes,'ytick',linspace(1,255,11),'YTickLabel',linspace(100,0,11),'YAxisLocation','right','xtick',[],'YColor',DATA.GUISettings.ForegroundColor);
 
 %print stack/slice numbers in the lower left corner of the ecv image
 if nbrrows > 1
@@ -1173,7 +1174,7 @@ else
     nbrrows = length(lvsegslicepre);
     for zloop = 1:nbrrows
       zvisualization = zvisualization+1;  %zloop-paneldivision(panelloop)+1;
-      [xofs,yofs] = spect.spectperfusionsegmentation('calcoffset',zvisualization,nbrcols,sz);
+      [xofs,yofs] = calcfunctions('calcoffsetmodified',zvisualization,nbrcols,sz);
       %Endocontour
       gui.handles.endoxView((1+(zvisualization-1)*(DATA.NumPoints+1)):(zvisualization*(DATA.NumPoints+1)-1)) = ...
         endox(:,1,lvsegslicepre(zloop))+xofs;
@@ -1189,7 +1190,7 @@ else
     nbrrows = length(gui.preno);
     for zloop = 1:nbrrows
       zvisualization = zvisualization+1;  %zloop-paneldivision(panelloop)+1;
-      [xofs,yofs] = spect.spectperfusionsegmentation('calcoffset',zvisualization,nbrcols,sz);
+      [xofs,yofs] = calcfunctions('calcoffsetmodified',zvisualization,nbrcols,sz);
       %Endocontour
       gui.handles.endoxView((1+(zvisualization-1)*(DATA.NumPoints+1)):(zvisualization*(DATA.NumPoints+1)-1)) = ...
         gui.endox{zloop}+xofs;
@@ -1235,12 +1236,12 @@ gui = DATA.GUI.ECVRegistration;
 %present ECV result
 AxesTables = [];
 AxesTables.result = axestable(gui.handles.reportaxes);
-AxesTables.result.backgroundcolor = [0.94 0.94 0.94]; %[0 0 0];%
-AxesTables.result.fontcolor = [0 0 0]; % [1 1 1];%
+AxesTables.result.backgroundcolor = DATA.GUISettings.BackgroundColor;
+AxesTables.result.fontcolor = DATA.GUISettings.ForegroundColor;
 AxesTables.result.fontsize = 10;
 AxesTables.result.ystep = 22;
-AxesTables.result.addTable(sprintf('ECV Result.  Hematocrit: %0.2f',gui.hem),5,4,[0.18 0.25 0.19 0.19 0.19]);
-AxesTables.result.addKey('title','Label',[],{'Area[mm2]','Mean','Min','Max'});
+AxesTables.result.addTable(dprintf('ECV Result.  Hematocrit: %0.2f',gui.hem),5,4,[0.18 0.25 0.19 0.19 0.19]);
+AxesTables.result.addKey('title',dprintf('Label'),[],{dprintf('Area[mm2]'),dprintf('Mean'),dprintf('Min'),dprintf('Max')});
 
 zvisualization = 1;
 sz = size(gui.preT1map{1});
@@ -1259,13 +1260,13 @@ for zloop = 1:nbrrows
   %ecv result string
   roiloop = 1;
   if multislice
-    tabletext = sprintf('Slice %0.0f\n',lvsegslicepre(zloop));
+    tabletext = dprintf('Slice %0.0f\n',lvsegslicepre(zloop));
     roiarea = roiareatemp{zloop};
     roiecv = roiecvalignedtemp{zloop};
     prerois = allroistemp{zloop};
     tfindex = 1;
   else
-    tabletext = sprintf('Image stack %0.0f\n',zloop);
+    tabletext = dprintf('Image stack %0.0f\n',zloop);
     roiarea = gui.roiarea{zloop};
     roiecv = gui.roiecvaligned{zloop};
     prerois = gui.rois{zloop};
@@ -1274,7 +1275,7 @@ for zloop = 1:nbrrows
   AxesTables.result.addTable(tabletext,5,4,[0.2 0.23 0.19 0.19 0.19]);
 %   AxesTables.result.addKey('title2',tabletext,[],{[],[],[],[]});
   %ROI contour
-  [xofs,yofs] = spect.spectperfusionsegmentation('calcoffset',zvisualization,nbrcols,sz);
+  [xofs,yofs] = calcfunctions('calcoffsetmodified',zvisualization,nbrcols,sz);
   zvisualization = zvisualization+1;
   roixView = [];
   roiyView = [];
@@ -1287,7 +1288,7 @@ for zloop = 1:nbrrows
       preroi.Y(:,gui.premaptf(tfindex))+yofs;
     roilabelX(roiloop) = mynanmean(preroi.X(:,gui.premaptf(tfindex))+xofs);
     roilabelY(roiloop) = mynanmean(preroi.Y(:,gui.premaptf(tfindex))+yofs);
-    AxesTables.result.addKey(preroi.Name,preroi.Name,[],{dprintf('%0.2f',roiarea(roiloop)),round(100*mean(roiecv{roiloop})),round(100*min(roiecv{roiloop})),round(100*max(roiecv{roiloop}))});
+    AxesTables.result.addKey(preroi.Name,preroi.Name,[],{sprintf('%0.2f',roiarea(roiloop)),round(100*mean(roiecv{roiloop})),round(100*min(roiecv{roiloop})),round(100*max(roiecv{roiloop}))});
     roiloop = roiloop+1;
   end
   
@@ -1339,8 +1340,8 @@ if length(gui.preno) == 1 && not(gui.multislice)
   preT1mapimage  = preT1mapimage *1/max(preT1mapimage (:));
   postT1mapplotimage  = postT1mapplotimage *1/max(postT1mapplotimage (:));
   %create visulaization images
-  viewimpre = spect.spectperfusionsegmentation('remapuint8',preT1mapimage,graymap);
-  viewimpost = spect.spectperfusionsegmentation('remapuint8',postT1mapplotimage,graymap);
+  viewimpre = calcfunctions('remapuint8modified',preT1mapimage,graymap);
+  viewimpost = calcfunctions('remapuint8modified',postT1mapplotimage,graymap);
   %plot images
   set(gui.handles.preimage,'cdata',viewimpre);
   set(gui.handles.postimage,'cdata',viewimpost);  
@@ -1376,8 +1377,8 @@ else
   viewimpost = viewimpost*1/max(viewimpost(:));
 
   %create visulaization images
-  viewimpremap = spect.spectperfusionsegmentation('remapuint8',viewimpre,graymap);
-  viewimpostmap = spect.spectperfusionsegmentation('remapuint8',viewimpost,graymap);
+  viewimpremap = calcfunctions('remapuint8modified',viewimpre,graymap);
+  viewimpostmap = calcfunctions('remapuint8modified',viewimpost,graymap);
       
   %plot images
   set(gui.handles.preimage,'cdata',viewimpremap);
@@ -1405,7 +1406,7 @@ hotmap = colormap(jet(256));
 %plot ECV map
 
 if length(gui.preno) == 1 && not(gui.multislice)
-  viewimecvmap = spect.spectperfusionsegmentation('remapuint8',gui.ecvmapplot{1},hotmap);
+  viewimecvmap = calcfunctions('remapuint8modified',gui.ecvmapplot{1},hotmap);
   set(gui.handles.ecvimage,'cdata',viewimecvmap);
       
 else
@@ -1426,7 +1427,7 @@ else
   nbrcols = 1;
   szpre = size(ecvmapimage);
   gui.viewimecv = reshape2layout(ecvmapimage,nbrrows,nbrcols,[szpre(1) szpre(2) nbrrows]);
-  viewimecvmap = spect.spectperfusionsegmentation('remapuint8',gui.viewimecv,hotmap);
+  viewimecvmap = calcfunctions('remapuint8modified',gui.viewimecv,hotmap);
   set(gui.handles.ecvimage,'cdata',viewimecvmap);
 end
 
@@ -1473,7 +1474,7 @@ for zloop = 1:nbrrows
     prerois = gui.rois{zloop};
   end
   for preroi = prerois
-    updatestruct = {dprintf('%0.2f',roiarea(roiloop)),round(100*mean(roiecv{roiloop})),round(100*min(roiecv{roiloop})),round(100*max(roiecv{roiloop}))};
+    updatestruct = {sprintf('%0.2f',roiarea(roiloop)),round(100*mean(roiecv{roiloop})),round(100*min(roiecv{roiloop})),round(100*max(roiecv{roiloop}))};
     AxesTables.result.updateKey(preroi.Name,updatestruct,true);
     roiloop = roiloop+1;
   end
@@ -1688,6 +1689,7 @@ global DATA SET NO
 
 gui = DATA.GUI.ECVRegistration;
 
+
 %create ECV map image stack
 for zloop = 1:length(gui.preno)
   nbr = length(SET)+1;
@@ -1716,8 +1718,11 @@ for zloop = 1:length(gui.preno)
   [SET(no).YSize,SET(no).OrgYSzie] = deal(size(gui.ecvmap{zloop},1));
   [SET(no).CenterX,SET(no).Mmode.X] = deal(round(SET(no).XSize/2));
   [SET(no).CenterY,SET(no).Mmode.Y] = deal(round(SET(no).YSize/2));
+  SET(no).NormalZoomState = [];
   SET(no).Linked = no;
-  annotationpoint('pointclearall'); %erase annotation points
+  SET(no).Parent = [];
+  SET(no).Children = no;
+  callbackfunctions('pointclearall_Callback'); %erase annotation points
   %fix LV segmentation
   SET(no).EndoX = gui.endox{zloop};
   SET(no).EndoY = gui.endoy{zloop};
@@ -1740,6 +1745,11 @@ for zloop = 1:length(gui.preno)
     SET(no).Roi(rloop).X = SET(no).Roi(rloop).X(:,gui.premaptf);
     SET(no).Roi(rloop).Y = SET(no).Roi(rloop).Y(:,gui.premaptf);
     SET(no).Roi(rloop).T = 1;
+    [~,area]=calcfunctions('calcroiarea',no,rloop);
+    SET(no).Roi(rloop).Area = area;
+    [m,sd]=calcfunctions('calcroiintensity',no,rloop);
+    SET(no).Roi(rloop).Mean = m;
+    SET(no).Roi(rloop).StD = sd;
   end
   
   tools('setcolormap_Callback','ecv',no);
@@ -1748,11 +1758,20 @@ for zloop = 1:length(gui.preno)
   SET(no).Scar = [];
 end
 
+
+%
+SET(no).ECV.reportecvim = frame2im(mygetframe(gui.handles.ecvaxes));
+SET(no).ECV.reportpreim = frame2im(mygetframe(gui.handles.preaxes));
+
+
 segment('updatevolume'); %Included in next callback??
-segment('viewrefreshall_Callback');
-force = true;
-segment('switchtoimagestack',no,force);
+viewfunctions('setview',1,1,no,{'one'})
+% segment('viewrefreshall_Callback');
+% force = true;
+% segment('switchtoimagestack',no,force);
 tools('setcolormap_Callback','ecv',no);
+
+
 % drawfunctions('drawimageno');
 % drawfunctions('drawsliceno');
 % drawfunctions('drawall',length(DATA.ViewPanels));

@@ -11,7 +11,7 @@ feval(varargin{:}); % FEVAL switchyard
 function curve_Callback(no,path,name) %#ok<DEFNU>
 %--------------------------
 %GUI for reporting the volume curve.
-global SET NO
+global SET NO DATA
 
 if nargin == 0
   no = NO;
@@ -26,7 +26,7 @@ if nargin <3
 end
 
 fig=figure('visible','off');
-set(fig,'Name','Volume curve','numbertitle','off');
+set(fig,'Name',dprintf('Volume curve'),'numbertitle','off');
 t = 1000*((0:(SET(no).TSize-1))*SET(no).TIncr);
 h = plot(t,SET(no).LVV,'r.-');
 set(h,'linewidth',2);
@@ -37,14 +37,14 @@ xlim([t(1) t(end)]);
 %   h = plot([t(1) t(end)],[mean(SET(no).EPV-SET(no).LVV) mean(SET(no).EPV-SET(no).LVV)],'g:');
 %   %set(h,'linewidth',2);
 % end;
-legend('LV volume [ml]','Myocard volume [ml]','Mean myocard volume [ml]','location','SouthEast');
+legend(dprintf('LV volume [ml]'),'location','SouthEast'); %'Myocard volume [ml]','Mean myocard volume [ml]',
 hold off;
 grid on;
 % h = title('Volume versus time');set(h,'fontsize',14);
-h = xlabel('Time [ms]'); set(h,'fontsize',14);
-h = ylabel('Volume [ml]'); set(h,'fontsize',14);
+h = xlabel(dprintf('Time [ms]')); set(h,'fontsize',14);
+h = ylabel(dprintf('Volume [ml]')); set(h,'fontsize',14);
 set(0, 'currentfigure', fig);
-currentFolder = pwd;
+currentFolder = DATA.SegmentFolder;
 cd(path)
 print(fig,'-dpng', name)
 cd(currentFolder)

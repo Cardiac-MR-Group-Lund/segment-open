@@ -4,7 +4,7 @@ function [varargout] = plugin_exporttofourflow(fcn,varargin)
 %Plugin for export flow to fourflow
 if nargin==0
   myfailed('Need at least one input argument.');
-end;
+end
 
 switch fcn
   case 'getname'
@@ -13,9 +13,6 @@ switch fcn
 
     %Set the main "summarize" menu to not perform a callback.
     set(varargin{1},'Callback','');
-
-    %Check if valid license, then display options
-    %if isequal(3,getmodule(2,'3',[],true)) %'' => make license check silent.
 
     %Register submenus
     uimenu(varargin{1},'Label','Background correction...','Callback','plugin_exporttofourflow(''background'')');
@@ -47,7 +44,7 @@ switch fcn
   otherwise
     macro_helper(fcn,varargin{:});
     [varargout{1:nargout}] = feval(fcn,varargin{:}); % FEVAL switchyard
-end;
+end
 
 %--------------------------------
 function fixisoborders %#ok<DEFNU>
@@ -108,7 +105,7 @@ end
 question = {'Select Nbr of heart cycles: '};
 dlgtitle = 'Please select desired number of heartbeats: ';
 default = {'2'};
-userinput = inputdlg(question, dlgtitle, 1, default);
+userinput = myinputdlg(question, dlgtitle, 1, default);
 reps = round(str2double(userinput{1}));
 
 if reps>1
@@ -152,7 +149,7 @@ end
 if no < 1 || no > length(SET) || isempty(SET(no).Flow)
   myfailed('Error need to be flow data to do automatic background correction.');
   return;
-end;
+end
 
 %Ensure that no is magnitude image
 no = SET(no).Flow.MagnitudeNo;
@@ -165,7 +162,7 @@ nz = SET(no).Flow.PhaseNo;
 if isempty([nx ny nz])
   myfailed('Error need to be flow data to do automatic background correction.');
   return;
-end;
+end
 
 %--- User input
 dostore = yesno('Do you want to store background correction?', [], DATA.GUI.Segment);
@@ -183,9 +180,9 @@ dim = mymenu('Select order of background correction',...
   '4th order');
 
 if isequal(dim,0)
-  myfailed('Aborted.');
+%   myfailed('Aborted.');
   return;
-end;
+end
 
 dim = dim-1; %since first choice should return 0
 
@@ -197,9 +194,9 @@ instruct.MagnitudeThresholdPercentage = 10;
 [instruct,ok] = inputstruct(instruct,'Enter settings');
 
 if ~ok
-  myfailed('Aborted.');
+%   myfailed('Aborted.');
   return;
-end;
+end
 
 if SET(no).ZSize == 1
   if instruct.VoxelEdgeCut > 0.15*min([SET(no).XSize SET(no).YSize])
@@ -211,11 +208,11 @@ else
     myfailed('Too large edge cut. Aborted.');
     return;
   end
-end;
+end
 if instruct.MagnitudeThresholdPercentage>70
   myfailed('Too large magnitude threshold (max 70). Aborted.');
   return;
-end;
+end
 
 %If dostore then 4 new image stacks are formed with mag,and phasecorrection.
 %If dostaticphantom is used to do background correction for flow phantoms
@@ -263,7 +260,7 @@ switch dim
       x.^3 y.^3 z.^3 x.^2.*y x.^2.*z y.^2.*x y.^2.*z z.^2.*x z.^2.*y x.*y.*z ...
       x.^4 y.^4 z.^4 x.^3.*y x.^3.*z y.^3.*x y.^3.*z z.^3.*x z.^3.*y x.^2.*y.^2 x.^2.*z.^2 x.^2.*y.*z y.^2.*z.^2 y.^2.*x.*z z.^2.*x.*y ...
       ];
-end;
+end
 
 switch datatype
   case {'in vivo', 'static phantom'}
@@ -344,11 +341,11 @@ if isequal(datatype, 'static phantom')
   velmag = repmat(single(0),[SET(no).XSize,SET(no).YSize 1 SET(no).ZSize]);
   for nloop=1:length(nop)
     velmag = velmag+max(abs(SET(nop(nloop)).IM-single(0.5)),[],3).^2;
-  end;
+  end
   velmag = sqrt(velmag);
   sdw(velmag>0.04) = 0; %0.05 = 10% of VENC
   clear velmag;
-end;
+end
 
 %Extract which ones to take
 logind = (sdw~=0);
@@ -372,10 +369,10 @@ axis equal
 axis tight
 colorbar;
 
-if ~yesno('Do you want to proceed?', [], DATA.GUI.Segment);
+if ~yesno('Do you want to proceed?', [], DATA.GUI.Segment)
   myworkoff;
   return;
-end;
+end
 
 if dostore
   %If dostore create new image stacks
@@ -395,12 +392,12 @@ if dostore
    
     nextno = nextno+1;
   end
-end;
+end
 
 %Loop over the three velocity components.
 h = waitbar(0,'Please wait background correction.');
 savewarn = warning;
-warning off; %#ok<WNOFF>
+warning off; 
 
 XVcut = XV(logind,:);
 
@@ -421,7 +418,7 @@ for tloop=1:SET(no).TSize
 
   if dostore
     SET(nw).IM(:,:,tloop,:) = w;
-  end;
+  end
 
   % Loop over directions
   for nloop=1:3
@@ -448,7 +445,7 @@ for tloop=1:SET(no).TSize
   end
   
   waitbar(stepsdone/steps,h);
-end;
+end
 
 close(h);
 warning(savewarn);
@@ -545,21 +542,21 @@ flowno = find4dflowstacks;
 if isempty(flowno)
   myfailed('No 3D flow image stacks found',DATA.GUI.Segment);
   return;
-end;
+end
 
 %Ask in a menu if more than one 4D flow
 if length(flowno)>1
   names = cell(1,length(flowno));
   for loop=1:length(flowno)
     names{loop} = sprintf('Stack %d: %s',flowno(loop),SET(flowno(loop)).ImageType);
-  end;
+  end
   m = mymenu('Choose 3D image stack to take from',names{:});
   if isequal(m,0)
-    myfailed('Aborted.');
+%     myfailed('Aborted.');
     return;
-  end;
+  end
   flowno = flowno(m);
-end;
+end
 
 
 %--------------------------------
@@ -578,7 +575,7 @@ for nloop = 1:length(SET)
       not(isempty(SET(nloop).Flow.PhaseY)) && ...
       isequal(SET(nloop).Flow.MagnitudeNo,nloop)
     flownos = [flownos nloop]; %#ok<AGROW>
-  end;
+  end
 end
 
 
@@ -604,25 +601,25 @@ if not(isequal(size(z,3),frames))
       outim = zeros([size(z,1) size(z,2) frames size(z,4)]);
     else
       outim = repmat(single(0),[size(z,1) size(z,2) frames size(z,4)]);
-    end;
+    end
     switch ndims(z)
       case 3
         for tloop=1:length(intpos)
           outim(:,:,tloop) = ...
             (1-intpos(tloop)+intleft(tloop))*z(:,:,intleft(tloop))+...
             (1-intright(tloop)+intpos(tloop))*z(:,:,intright(tloop));
-        end;
+        end
       case 4
         for tloop=1:length(intpos)
           outim(:,:,tloop,:) = ...
             (1-intpos(tloop)+intleft(tloop))*z(:,:,intleft(tloop),:)+...
             (1-intright(tloop)+intpos(tloop))*z(:,:,intright(tloop),:);
-        end;
+        end
       otherwise
         myfailed('Upsampling in time not defined for this dimensionality.');
-    end;
-  end; %Timeresolved clause
+    end
+  end %Timeresolved clause
 else
   %Copy
   outim = z;
-end;
+end

@@ -20,8 +20,6 @@ function autocontrastcardiac(no)
 
 global SET NO DATA
 
-set(DATA.Handles.autocontrasticon,'state','off');
-
 if nargin == 0
   no = NO;
 end
@@ -116,7 +114,12 @@ SET(no).IntensityMapping.Contrast=contrast;
 SET(no).IntensityMapping.Brightness=brightness;
 
 %update image
-drawfunctions('drawcontrastimage',no);
+for p = find(DATA.ViewPanels==no)
+    DATA.ViewIM{p} = [];
+    drawfunctions('drawimages',p)
+    createfunctions('addcolorbar',p)
+end
+
 
 myworkoff;
 
@@ -127,8 +130,6 @@ function autocontrastcardiacall
 %Do auto contrast for all loaded image stacks
 
 global SET DATA
-
-set(DATA.Handles.autocontrastallicon,'state','off');
 
 h = mywaitbarstart(length(SET)*2,'Auto contrast in process',0,DATA.GUI.Segment);
 for no = 1:length(SET)

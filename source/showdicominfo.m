@@ -8,31 +8,31 @@ global DATA
 
 if nargin==0  
   filename = DATA.Preview.PreviewFile;
-end;
+end
 
 %Check if not a filename
 pos = strfind(filename,'_Callback');
 if ~isempty(pos)
   eval(filename); %it is not a filename, it is a function
   return;
-end;
+end
 
 %Check if copy_Callback 
 if isequal(filename,'copy_Callback')
   copy_Callback;
   return;
-end;
+end
 
 %Temporary switch
-stable = false;
+stable = true;
 
 if ~exist(filename,'file')
   myfailed(dprintf('Could not find file %s.',filename));
   return;
-end;
+end
 
 %debugging
-system(sprintf('dcmdump%s "%s" > temp.txt',platformextension,filename));
+%system(sprintf('dcmdump%s "%s" > temp.txt',platformextension,filename));
 set(gcf,'pointer','watch');
 %info = dicominfo(filename)
 
@@ -49,14 +49,14 @@ try
       dinfo = fastdicominfo(filename);
       if ischar(dinfo)
         error(dinfo)
-      end;
-    end;
-  end;
+      end
+    end
+  end
 catch me
   myfailed('Major problems parsing file.');
   mydispexception(me);
   dinfo.Error = 'Could not parse the file using ordninary parser. DICOM?';
-end;
+end
 
 fields = fieldnames(dinfo);
 [~,ind] = sort(fields);
@@ -68,18 +68,18 @@ maxlen = 0;
 for loop=1:length(fields)
   if length(fields{loop})>maxlen
     maxlen = length(fields{loop});
-  end;
-end;
+  end
+end
 
 priv = false(length(fields),1);
 for loop=1:length(fields)
   if findstr(fields{loop},'Private')
     priv(loop) = true;
-  end;
+  end
   name = [fields{loop} repmat(' ',1,maxlen-length(fields{loop}))];
   f = getfield(dinfo,fields{loop});
   res{loop} = writefield(f,name);
-end;
+end
 
 res = res([find(not(priv));find(priv)]);
 set(gcf,'pointer','arrow');
@@ -106,13 +106,13 @@ switch class(f)
       res = sprintf('%s:%s',name,mynum2str(f));
     else
       res = sprintf('%s:[double size %s]',name,num2str(size(f)));
-    end;    
+    end    
   case 'single'
     if numel(f)<=10
       res = sprintf('%s:%s',name,mynum2str(f));
     else
       res = sprintf('%s:[single size %s]',name,num2str(size(f)));
-    end;        
+    end        
   case 'char'
     res = sprintf('%s:%s',name,f);
   case {'int8','uint8','int16','uint16','int32','uint32','int64','uint64'}
@@ -120,7 +120,7 @@ switch class(f)
       res = sprintf('%s:%s',name,sprintf('%d ',f));
     else
       res = sprintf('%s:[%d] ... %s',name,numel(f),sprintf('%d ',f(1:5)));
-    end;
+    end
   case 'struct'
     if length(fieldnames(f))>2
       res = sprintf('%s:[Struct]',name);
@@ -132,13 +132,13 @@ switch class(f)
           tempstri = [tempstri sprintf('%s:%s',subnames{subloop},getfield(f,subnames{subloop})) ' ']; %#ok<AGROW>
         else
           tempstri = [tempstri sprintf('%s:%s',subnames{subloop},class(getfield(f,subnames{subloop}))) ' ']; %#ok<AGROW>
-        end;
-      end;
+        end
+      end
       res = sprintf('%s=>%s',name,tempstri);
-    end;
+    end
   otherwise
     res = sprintf('%s:[%s]',name,class(f));
-end;
+end
   
 %-------------------------
 function stri = mynum2str(vec)
@@ -158,8 +158,8 @@ for loop = 1:length(fnames)
   else
     disp(sprintf('New: %s',writefield(gui.dinfo.(fnames{loop}),fnames{loop}))); %#ok<DSPS>
     disp(sprintf('Old: %s',writefield(gui.olddinfo.(fnames{loop}),fnames{loop}))); %#ok<DSPS>
-  end;
-end;
+  end
+end
 
 %----------------------
 function store_Callback %#ok<DEFNU>
@@ -187,7 +187,7 @@ stri = cstri{v};
 pos = find(stri==':',1);
 if ~isempty(pos)
   stri = stri(pos+1:end);
-end;
+end
 
 segment('cell2clipboard',{stri});
 

@@ -9,11 +9,11 @@ global DATA
 
 if nargin<1
   error('Expected at least one input arguments (prompt).');
-end;
+end
 
 if nargin<2
   titlestr = '';
-end;
+end
 %translation
 titlestr = translation.dictionary(titlestr);
 
@@ -22,16 +22,16 @@ if isa(DATA,'maingui')
     testing = DATA.Testing;
   else
     testing = false;
-  end;
+  end
   if DATA.RecordMacro
     recordmacro = DATA.RecordMacro;
   else
     recordmacro = false;
-  end;
+  end
 else
   testing = false;
   recordmacro = false;
-end;
+end
 
 ok = false;
 if testing
@@ -41,17 +41,21 @@ if testing
     ok = true;
   else
     error('No path selection in buffer.');
-  end;
+  end
 else
   %Ask user
+  if DATA.isSiemensVersion
+    % in Open apps version the path is fixed
+    pathname = '\\tsclient\c';
+  end
   pathname = uigetdir(pathname, titlestr);
   if isequal(pathname,0)
     return;
-  end;
+  end
   ok = true;
-end;
+end
 
 if recordmacro
   macro_helper('put',sprintf('pushtobuffer(''Dir'',''%s'') ; %%add to buffer',pathname));
   macro_helper('switchorder'); %We need to store data in buffer before the callback
-end;
+end

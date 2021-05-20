@@ -23,15 +23,13 @@ function init %#ok<DEFNU>
 
 global DATA SET NO
 
-set(DATA.Handles.reportbullseyeicon,'state','off');
-
 if isempty(SET(NO).EndoX)
   myfailed('No LV endocardium available.',DATA.GUI.Segment);
   return;
 elseif isempty(SET(NO).EpiX)
   myfailed('No LV epicardium available.',DATA.GUI.Segment);
   return;
-end;
+end
 
 tempnos = NO;
 imissingle = classcheckim(tempnos);%checks so that SET(tempnos).IM is single and can also convert from int16 to singel if user wants
@@ -69,7 +67,7 @@ if isempty(SET(NO).StartSlice)
   myfailed('No slices selected.',DATA.GUI.Segment);
 %   close_Callback;
   return;
-end;
+end
 
 %ensure current time frame have LV seg
 tf = SET(NO).CurrentTimeFrame;
@@ -77,55 +75,61 @@ if isnan(mynanmean(mynanmean(SET(NO).EndoX(:,tf,:))))
   %change to first time frame with LV seg
   tffirst = find(~isnan(mynanmean(SET(NO).EndoX(1,:,:),3)),1,'first');
   SET(NO).CurrentTimeFrame = tffirst;
-  segment('updatemodeldisplay');
-  segment('makeviewim',DATA.CurrentPanel,NO);
-  drawfunctions('drawimageno',NO);
+  DATA.ViewIM{DATA.CurrentPanel} = [];
+  drawfunctions('drawno',NO);
 end
 
+%KG, 2019-06-19
+%Took away resampling below because function for removing duplicate points already exists in
+%calcfunctions('resamplecurve')
+%
 %Resample model to ensure distributed points.
-for tloop=1:SET(NO).TSize
-  for zloop=1:SET(NO).ZSize
-    
-    %Check endo
-    if not(isnan(SET(NO).EndoX(1,tloop,zloop)))
-      %Calculate distances between points
-      len = sqrt(...
-        conv2(SET(NO).EndoX(:,tloop,zloop),[1;-1],'valid').^2+...
-        conv2(SET(NO).EndoY(:,tloop,zloop),[1;-1],'valid').^2);
-      %Remove indices of duplicate points (len(i) == 0)
-      ind = [true; len > 0];
-      len = len(ind(2:end));
-      len = [0;len(:)]; %Add zero first
-      len = cumsum(len);
-      totallength = len(end);
-      
-      if totallength>0
-        %Resample
-        SET(NO).EndoX(:,tloop,zloop) = interp1(len,SET(NO).EndoX(ind,tloop,zloop),linspace(0,totallength,DATA.NumPoints));
-        SET(NO).EndoY(:,tloop,zloop) = interp1(len,SET(NO).EndoY(ind,tloop,zloop),linspace(0,totallength,DATA.NumPoints));
-      end;
-    end;
-    
-    %Check epi
-    if ~isempty(SET(NO).EpiX)
-      if not(isnan(SET(NO).EpiX(1,tloop,zloop)))
-        len = sqrt(...
-          conv2(SET(NO).EpiX(:,tloop,zloop),[1;-1],'valid').^2+...
-          conv2(SET(NO).EpiY(:,tloop,zloop),[1;-1],'valid').^2);
-        len = [0;len(:)]; %Add zero first
-        len = cumsum(len);
-        totallength = len(end);
-        
-        if totallength>0
-          %Resample
-          SET(NO).EpiX(:,tloop,zloop) = interp1(len,SET(NO).EpiX(:,tloop,zloop),linspace(0,totallength,DATA.NumPoints));
-          SET(NO).EpiY(:,tloop,zloop) = interp1(len,SET(NO).EpiY(:,tloop,zloop),linspace(0,totallength,DATA.NumPoints));
-        end;
-      end;
-    end;
-    
-  end;
-end;
+% for tloop=1:SET(NO).TSize
+%   for zloop=1:SET(NO).ZSize
+%     
+%     %Check endo
+%     if not(isnan(SET(NO).EndoX(1,tloop,zloop)))
+%       %Calculate distances between points
+%       len = sqrt(...
+%         conv2(SET(NO).EndoX(:,tloop,zloop),[1;-1],'valid').^2+...
+%         conv2(SET(NO).EndoY(:,tloop,zloop),[1;-1],'valid').^2);
+%       %Remove indices of duplicate points (len(i) == 0)
+%       ind = [true; len > 0];
+%       len = len(ind(2:end));
+%       len = [0;len(:)]; %Add zero first
+%       len = cumsum(len);
+%       totallength = len(end);
+%       
+%       if totallength>0
+%         %Resample
+%         SET(NO).EndoX(:,tloop,zloop) = interp1(len,SET(NO).EndoX(ind,tloop,zloop),linspace(0,totallength,DATA.NumPoints));
+%         SET(NO).EndoY(:,tloop,zloop) = interp1(len,SET(NO).EndoY(ind,tloop,zloop),linspace(0,totallength,DATA.NumPoints));
+%       end
+%     end
+%     
+%     %Check epi
+%     if ~isempty(SET(NO).EpiX)
+%       if not(isnan(SET(NO).EpiX(1,tloop,zloop)))
+%         len = sqrt(...
+%           conv2(SET(NO).EpiX(:,tloop,zloop),[1;-1],'valid').^2+...
+%           conv2(SET(NO).EpiY(:,tloop,zloop),[1;-1],'valid').^2);
+%          %Remove indices of duplicate points (len(i) == 0)
+%          ind = [true; len > 0];
+%          len = len(ind(2:end));
+%          len = [0;len(:)]; %Add zero first
+%          len = cumsum(len);
+%          totallength = len(end);
+%         
+%         if totallength>0
+%           %Resample
+%           SET(NO).EpiX(:,tloop,zloop) = interp1(len,SET(NO).EpiX(ind,tloop,zloop),linspace(0,totallength,DATA.NumPoints));
+%           SET(NO).EpiY(:,tloop,zloop) = interp1(len,SET(NO).EpiY(ind,tloop,zloop),linspace(0,totallength,DATA.NumPoints));
+%         end
+%       end
+%     end
+%     
+%   end
+% end
 
 gui = mygui('bullseye.fig');
 DATA.GUI.Bullseye = gui;
@@ -157,7 +161,7 @@ else
   gui.numsectors = str2num(temp{mygetlistbox(gui.handles.sectorslistbox)}); %#ok<ST2NM>
 end
   
-set(gui.handles.slicetext,'String',sprintf('Slice %d',gui.slice));
+set(gui.handles.slicetext,'String',dprintf('Slice %d',gui.slice));
 if SET(NO).ZSize > 1
   set(gui.handles.sliceslider,'Min',1,'Max',...
     SET(NO).ZSize,'Value',SET(NO).ZSize-gui.slice+1,'SliderStep',...
@@ -171,7 +175,7 @@ gui.ahaoutdata = []; %in 17 segment format.
 
 if isempty(gui.slice)
   gui.slice = 1;
-end;
+end
 
 if ~DATA.GUISettings.PointsEnabled
   set(gui.handles.rotationfromannotationcheckbox,'visible','off','value',0);
@@ -249,7 +253,7 @@ for loop = 1:zsz
   else
     [x,y] = calcfunctions('calcplaneintersections',gui.no,gui.no,'hla','one',loop,hslice);
   end
-  if isempty(x) || isempty(y);
+  if isempty(x) || isempty(y)
     x = nan;
     y = nan;
   end
@@ -295,7 +299,7 @@ end
 %check so gui.slice is inside selected slices
 gui.slice = min(max(gui.slice,SET(gui.no).StartSlice),SET(gui.no).EndSlice);
 set(gui.handles.sliceslider,'Value',SET(gui.no).ZSize-gui.slice+1);
-set(gui.handles.slicetext,'String',sprintf('Slice %d',gui.slice));
+set(gui.handles.slicetext,'String',dprintf('Slice %d',gui.slice));
 updatesliceimage;
 
 %update all views
@@ -393,7 +397,7 @@ switch i
   case 17
     stri = 'Apex';
     pos = 17;
-end;
+end
     
 %--------------------------
 function varargout = export %#ok<DEFNU>
@@ -412,8 +416,8 @@ if mygetvalue(gui.handles.sectorradiobutton)  %isempty(gui.ahaoutdata)
   stri = [stri sprintf('\t')];
   for sectorloop=size(gui.outdata,1):-1:1
     stri = [stri sprintf('sector%d\t',sectorloop)]; %#ok<AGROW>
-  end;
-  stri = [stri sprintf('\n')];
+  end
+  stri = [stri newline];
   for sliceloop=1:size(gui.outdata,2)
     if sliceloop==1
       stri = [stri sprintf('Slice%d (basal)\t',sliceloop)]; %#ok<AGROW>
@@ -422,25 +426,25 @@ if mygetvalue(gui.handles.sectorradiobutton)  %isempty(gui.ahaoutdata)
         stri = [stri sprintf('Slice%d (apical)\t',sliceloop)]; %#ok<AGROW>
       else
         stri = [stri sprintf('Slice%d\t',sliceloop)]; %#ok<AGROW>
-      end;
-    end;
+      end
+    end
     for sectorloop=1:size(gui.outdata,1)
       stri = [stri sprintf('%0.5g\t',gui.outdata(sectorloop,sliceloop))]; %#ok<AGROW>
-    end;
-    stri = [stri sprintf('\n')]; %#ok<AGROW>
-  end;
+    end
+    stri = [stri newline]; %#ok<AGROW>
+  end
   if nargout==0
     clipboard('copy',stri);
     mymsgbox('Data copied to clipboard.','Done!',DATA.GUI.Segment);
   else
     varargout{1} = stri;
-  end;
+  end
 elseif mygetvalue(gui.handles.smoothradiobutton)
   %--- Smooth output to .bin file
   tempim = get(get(gui.handles.bullseyeaxes,'children'),'cdata');
   
   if nargout==0
-    filename = inputdlg({'Enter file name'},'File name',1,{sprintf('%s_%s',SET(gui.no).PatientInfo.ID,gui.parameter)});
+    filename = myinputdlg({'Enter file name'},'File name',1,{sprintf('%s_%s',SET(gui.no).PatientInfo.ID,gui.parameter)});
     fid = fopen([filename{1},'.bin'],'w');
     fwrite(fid,tempim,'float32');
     status = fclose(fid);
@@ -452,15 +456,15 @@ elseif mygetvalue(gui.handles.smoothradiobutton)
   else
     stri = sprintf('%s\t%s\t%d\t%d\n',gui.parameter,gui.outunit,SET(gui.no).StartSlice,SET(gui.no).EndSlice);
     stri = [stri sprintf('\t')];
-    stri = [stri sprintf('\n')];
+    stri = [stri newline];
     for rowloop = 1:size(tempim,1)
       for columnloop = 1:size(tempim,2)
         stri = [stri sprintf('%0.5g\t',tempim(rowloop,columnloop))]; %#ok<AGROW>
       end
-      stri = [stri sprintf('\n')]; %#ok<AGROW>
+      stri = [stri newline]; %#ok<AGROW>
     end
     varargout{1} = stri;
-  end;
+  end
 elseif mygetvalue(gui.handles.aharadiobutton)
   %--- AHA output
   outcell = cell(3,17);
@@ -472,14 +476,14 @@ elseif mygetvalue(gui.handles.aharadiobutton)
       stri,...
       gui.outunit);
     outcell{3,pos} = gui.ahaoutdata(loop);
-  end;
+  end
   outcell{1,1} = gui.parameter;
   if nargout==0
     segment('cell2clipboard',outcell);
   else
     varargout{1} = segment('cell2clipboard',outcell);
-  end;
-end;
+  end
+end
 
 %---------------------------------------
 function plotmethodpanel_SelectionChange %#ok<DEFNU>
@@ -506,7 +510,7 @@ else
   gui.numsectors = str2double(temp{mygetlistbox(gui.handles.sectorslistbox)});
   set(gui.handles.volumeconsistentcheckbox,'enable','on');
   gui.volumeconsistent = get(gui.handles.volumeconsistentcheckbox,'value');
-end;
+end
 updateall;
 
 %---------------
@@ -552,13 +556,13 @@ slices = false(1,SET(no).ZSize);
 for loop = 1:length(SET(no).Point.Z)
   if isequal(SET(no).Point.Label{loop},'RV insertion') || isequal(SET(no).Point.Label{loop},'P1')|| isequal(SET(no).Point.Label{loop},'P2')
     slices(SET(no).Point.Z(loop)) = true;
-  end;
-end;
+  end
+end
 
 %Find slices
 pos = find(slices);
 if isempty(pos)
-  disp(dprintf('No RV points found. Current sector rotation is %0.5g',SET(no).SectorRotation)); 
+  disp(sprintf('No RV points found. Current sector rotation is %0.5g',SET(no).SectorRotation)); 
   return
 end
 
@@ -566,7 +570,7 @@ end
 doepi = true;
 if isempty(SET(no).EpiX)
   doepi = false;
-end;
+end
 
 %Find sector rotation
 sectorrot = 0; %mean sector rotation
@@ -579,7 +583,7 @@ for loop = 1:length(pos)
   else
     x = SET(no).EndoX(:,SET(no).EDT,pos(loop));
     y = SET(no).EndoY(:,SET(no).EDT,pos(loop));
-  end;
+  end
   
   mx = mean(x);
   my = mean(y);
@@ -589,8 +593,8 @@ for loop = 1:length(pos)
   for rloop = 1:length(SET(no).Point.Z)
     if (isequal(SET(no).Point.Label{rloop},'RV insertion') || isequal(SET(no).Point.Label{rloop},'P2') || isequal(SET(no).Point.Label{rloop},'P1')) && isequal(pos(loop),SET(no).Point.Z(rloop))
       ind = [ind rloop]; %#ok<AGROW>
-    end;
-  end;
+    end
+  end
   
   if length(ind) < 2
     message = dprintf('Expected two insertion points, found %d.',length(ind));
@@ -611,7 +615,7 @@ for loop = 1:length(pos)
     [ind1,ind2] = ind2sub([length(ind) length(ind)],largestdist);
     ind = sort([ind(ind1) ind(ind2)]);
     %     return;
-  end;
+  end
   
   p1x = SET(no).Point.X(ind(1));
   p1y = SET(no).Point.Y(ind(1));
@@ -638,7 +642,7 @@ for loop = 1:length(pos)
   else
     xr = [x(indp2:end);x(1:indp1)];
     yr = [y(indp2:end);y(1:indp1)];
-  end;
+  end
   
   %Extract point
   x = xr(round(length(xr)/2));
@@ -659,10 +663,10 @@ for loop = 1:length(pos)
   alpha = atan2(y-my,x-mx);
   alpha = alpha*180/pi;
   sectorrot = sectorrot-(90+alpha); %add all then divide
-end;
+end
 
 sectorrot = sectorrot/length(pos);
-disp(dprintf('LV rotated %d degrees',round(sectorrot)));
+disp(sprintf('LV rotated %d degrees',round(sectorrot)));
 SET(no).SectorRotation = sectorrot;
 
 %---------------------------------------
@@ -674,25 +678,28 @@ global DATA SET
 
 gui = DATA.GUI.Bullseye;
 
-v = get(gui.handles.rotationfromannotationcheckbox,'value');
-if v
-  pos = LVrotation('rotationfromannotationhelper',gui.no);
-  if isempty(pos) %No points for rotation found
-    set(gui.handles.rotationfromannotationcheckbox,'value',0)
-  end
+pos = LVrotation('rotationfromannotationhelper',gui.no);
+if isempty(pos) %No points for rotation found
+  return;
 end
-
 %update slider
 set(gui.handles.rotationslider,'value',SET(gui.no).SectorRotation);
 
 %call to graphically update rotation & bullseye
 updatesliceimage;
+updateplot;
 
 %-------------------------------
 function rotationslider_Callback %#ok<DEFNU>
 %-------------------------------
 %Callback for rotation slider. Update slice image.
+global DATA SET
+gui = DATA.GUI.Bullseye;
+
 updatesliceimage;
+
+%Enable update button
+set(gui.handles.updatepushbutton,'enable','on','BackgroundColor',[0.929 0.694 0.125],'ForegroundColor',[0 0 0]);
 
 
 %---------------------------
@@ -729,9 +736,6 @@ gui = DATA.GUI.Bullseye;
 if nargin == 0
   plotseperate = false;
 end
-
-%Enable update button
-set(gui.handles.updatepushbutton,'enable','on');
 
 tf = SET(gui.no).CurrentTimeFrame;
 SET(gui.no).SectorRotation = mygetvalue(gui.handles.rotationslider);
@@ -786,7 +790,7 @@ else  %plot in seperate window
   axis(ax,'image','off');
   cmap = gray(256);
   colormap(ax,cmap);
-  title('LV rotation');
+  title(dprintf('LV rotation'));
 end
 
 %Update longaxisimage
@@ -797,19 +801,19 @@ if not(DATA.Pref.RadialProfiles == DATA.NumPoints)
   [endox,endoy] = calcfunctions('resamplemodel',SET(gui.no).EndoX(:,tf,gui.slice),SET(gui.no).EndoY(:,tf,gui.slice),DATA.Pref.RadialProfiles);
   if ~isempty(SET(gui.no).EpiX)
     [epix,epiy] = calcfunctions('resamplemodel',SET(gui.no).EpiX(:,tf,gui.slice), SET(gui.no).EpiY(:,tf,gui.slice),DATA.Pref.RadialProfiles);
-  end;
+  end
 else
   endox = SET(gui.no).EndoX(:,tf,gui.slice);
   endoy = SET(gui.no).EndoY(:,tf,gui.slice);
   if ~isempty(SET(gui.no).EpiX)
     epix = SET(gui.no).EpiX(:,tf,gui.slice);
     epiy = SET(gui.no).EpiY(:,tf,gui.slice);
-  end;
-end;
+  end
+end
 if isempty(SET(gui.no).EpiX)
   epix = NaN;
   epiy = NaN;
-end;
+end
 
 %Plot contours
 if ~plotseperate
@@ -819,15 +823,15 @@ if ~plotseperate
     set(gui.handles.endocontour,'linewidth','visible','off');
   else
     set(gui.handles.endocontour,'linewidth',DATA.Pref.LineWidth);
-  end;
+  end
   if ~isempty(SET(gui.no).EpiX)
     gui.handles.epicontour = plot(gui.handles.imageaxes,epiy,epix,'g-');
     if DATA.Pref.LineWidth==0
       set(gui.handles.epicontour,'linewidth','visible','off');
     else
       set(gui.handles.epicontour,'linewidth',DATA.Pref.LineWidth);
-    end;
-  end;
+    end
+  end
   
 else %plot in seperate window
   hold(ax,'on');
@@ -836,7 +840,7 @@ else %plot in seperate window
   if ~isempty(SET(gui.no).EpiX)
     epicontour = plot(ax,epiy,epix,'g-');
     set(epicontour,'linewidth',DATA.Pref.LineWidth);
-  end;
+  end
 end
 
 
@@ -865,16 +869,16 @@ if isnan(epix(1))
       else
         h = plot(gui.handles.imageaxes,[min(imsize(2),max(1,gui.meany)) min(imsize(2),max(1,xpos))], ...
           [min(imsize(1),max(1,gui.meanx)) min(imsize(1),max(1,ypos))],'w-');
-      end;
+      end
       if gui.numsectors>1 && gui.numsectors<=20
         gui.handles.numtext{loop} = text(xposm,yposm,sprintf('%d',gui.numsectors+1-loop),'parent',gui.handles.imageaxes);
         set(gui.handles.numtext{loop},'color','y','fontsize',12);
-      end;
+      end
       if DATA.Pref.LineWidth==0
         set(h,'linewidth','visible','off');
       else
         set(h,'linewidth',DATA.Pref.LineWidth);
-      end;
+      end
     else %plot in seperate window
       if (loop==1)
         %Draw an extra long line
@@ -882,7 +886,7 @@ if isnan(epix(1))
           [min(imsize(1),max(1,gui.meanx)) min(imsize(1),max(1,1.5*ypos-0.5*gui.meany))],'y-');
         set(h,'linewidth',DATA.Pref.LineWidth);
       end
-    end;
+    end
   end    
     
   else
@@ -909,16 +913,16 @@ if isnan(epix(1))
         else
           gui.handles.line{loop} = plot(gui.handles.imageaxes,[min(imsize(2),max(1,gui.meany)) min(imsize(2),max(1,xpos))], ...
             [min(imsize(1),max(1,gui.meanx)) min(imsize(1),max(1,ypos))],'w-');
-        end;
+        end
         if gui.numsectors>1 && gui.numsectors<=20
           gui.handles.numtext{loop} = text(xposm,yposm,sprintf('%d',gui.numsectors+1-loop),'parent',gui.handles.imageaxes);
           set(gui.handles.numtext{loop},'color','y','fontsize',12);
-        end;
+        end
         if DATA.Pref.LineWidth==0
           set(gui.handles.line{loop},'linewidth','visible','off');
         else
           set(gui.handles.line{loop},'linewidth',DATA.Pref.LineWidth);
-        end;
+        end
         
       else %plot in seperate window
         if (loop==1)
@@ -926,11 +930,11 @@ if isnan(epix(1))
           line = plot(ax,[min(imsize(2),max(1,gui.meany)) min(imsize(2),max(1,1.5*xpos-0.5*gui.meany))], ...
             [min(imsize(1),max(1,gui.meanx)) min(imsize(1),max(1,1.5*ypos-0.5*gui.meanx))],'y-');
           set(line,'linewidth',DATA.Pref.LineWidth);
-        end;
+        end
       end
       
-    end;
-end;
+    end
+end
 if ~plotseperate
   hold(gui.handles.imageaxes,'off');
 else
@@ -943,13 +947,11 @@ function close_Callback
 %Properly close the GUI.
 
 global DATA
-
 try
-  DATA.GUI.Bullseye=close(DATA.GUI.Bullseye);  %close the flow gui
-catch %#ok<CTCH>
-  delete(gcbf)
+  close(DATA.GUI.Bullseye);  %close the flow gui
+catch
+  close(gcbf);
 end
-
 DATA.GUI.Bullseye= [];
 
 %-----------------------
@@ -978,19 +980,19 @@ if not(DATA.Pref.RadialProfiles==DATA.NumPoints)
   [endox,endoy] = calcfunctions('resamplemodel',SET(gui.no).EndoX(:,tf,gui.slice),SET(gui.no).EndoY(:,tf,gui.slice),DATA.Pref.RadialProfiles);
   if ~isempty(SET(gui.no).EpiX)
     [epix,epiy] = calcfunctions('resamplemodel',SET(gui.no).EpiX(:,tf,gui.slice), SET(gui.no).EpiY(:,tf,gui.slice),DATA.Pref.RadialProfiles);
-  end;
+  end
 else
   endox = SET(gui.no).EndoX(:,tf,gui.slice);
   endoy = SET(gui.no).EndoY(:,tf,gui.slice);
   if ~isempty(SET(gui.no).EpiX)
     epix = SET(gui.no).EpiX(:,tf,gui.slice);
     epiy = SET(gui.no).EpiY(:,tf,gui.slice);
-  end;
-end;
+  end
+end
 if isempty(SET(gui.no).EpiX)
   epix = NaN;
   epiy = NaN;
-end;
+end
 
 %Plot contours
 hold on;
@@ -999,7 +1001,7 @@ if DATA.Pref.LineWidth==0
   set(h,'linewidth','visible','off');
 else
   set(h,'linewidth',DATA.Pref.LineWidth);
-end;
+end
 
 if ~isempty(SET(gui.no).EpiX)
   h = plot(epiy,epix,'g-');
@@ -1007,8 +1009,8 @@ if ~isempty(SET(gui.no).EpiX)
     set(h,'linewidth','visible','off');
   else
     set(h,'linewidth',DATA.Pref.LineWidth);
-  end;
-end;
+  end
+end
 
 %Plot sectors
 hold on;
@@ -1030,17 +1032,17 @@ if isnan(epix(1))
       h = plot([gui.meany 1.5*xpos-0.5*gui.meany],[gui.meanx 1.5*ypos-0.5*gui.meany],'y-');
     else
       h = plot([gui.meany xpos],[gui.meanx ypos],'y-');
-    end;
+    end
     if DATA.Pref.LineWidth==0
       set(h,'linewidth','visible','off');
     else
       set(h,'linewidth',DATA.Pref.LineWidth);
-    end;
+    end
     if gui.numsectors<=20
       h = text(xposm,yposm,sprintf('%d',gui.numsectors+1-loop));
       set(h,'color','y','fontsize',12);
-    end;
-  end;
+    end
+  end
   
 else
   %--- Epi exists => draw both
@@ -1060,18 +1062,18 @@ else
       h = plot([gui.meany 1.5*xpos-0.5*gui.meany],[gui.meanx 1.5*ypos-0.5*gui.meanx],'y-');
     else
       h = plot([gui.meany xpos],[gui.meanx ypos],'y-');
-    end;
+    end
     if DATA.Pref.LineWidth==0
       set(h,'linewidth','visible','off');
     else
       set(h,'linewidth',DATA.Pref.LineWidth);
-    end;
+    end
     if gui.numsectors<=20
       h = text(xposm,yposm,sprintf('%d',gui.numsectors+1-loop));
       set(h,'color','y','fontsize',12);
-    end;
-  end;
-end;
+    end
+  end
+end
 hold off;
 
 %----------------------------
@@ -1165,7 +1167,8 @@ global DATA SET
 gui = DATA.GUI.Bullseye;
 
 %Grey out update button
-set(gui.handles.updatepushbutton,'enable','off');
+set(gui.handles.updatepushbutton,'enable','off',...
+  'BackgroundColor',DATA.GUISettings.BackgroundColor,'ForegroundColor',DATA.GUISettings.ForegroundColor);
 
 %Get String
 temp = mygetlistbox(gui.handles.bullseyelistbox);
@@ -1198,7 +1201,7 @@ tf = 1;
 outtf = [];
 
 engparameter = translation.dictionary(tempstri{temp},'English',DATA.Pref.Language); %ensure that it is English
-switch lower(engparameter);
+switch lower(engparameter)
   case 'maximal expansion velocity (temporal max)'
     radvel = calcfunctions('calcradialvelocity',gui.no);
     meanradvel = calcfunctions('findmeaninsector','endo',radvel,find(ind),gui.numsectors,gui.no);
@@ -1243,7 +1246,7 @@ switch lower(engparameter);
   case 'fractional wallthickening'
     if isequal(SET(gui.no).EDT,SET(gui.no).EST)
       mywarning('Warning, end-diastole occurs at the same time as end-systole. Use autodetect under edit menu.',DATA.GUI.Segment);
-    end;
+    end
     wallthickness = calcfunctions('calcwallthickness',gui.numsectors,gui.no);
     outdata = (wallthickness(:,ind,SET(gui.no).EST)-wallthickness(:,ind,SET(gui.no).EDT))./wallthickness(:,ind,SET(gui.no).EDT);
     outdata = outdata*100;
@@ -1297,9 +1300,9 @@ switch lower(engparameter);
     s.Epicardium_percent = 20;
     [s,ok] = inputstruct(s,'Selected coverage.');
     if ~ok
-      myfailed('Aborted.');
+%       myfailed('Aborted.');
       return;
-    end;
+    end
     
     endo = s.Endocardium_percent/100;
     epi = s.Epicardium_percent/100;
@@ -1325,10 +1328,10 @@ switch lower(engparameter);
     outtf = tf;
     
   case 'scar transmurality area based'
-    if isempty(SET(gui.no).Scar);
+    if isempty(SET(gui.no).Scar)
       myfailed('No infarct data available, use report myocardial intensity before.',DATA.GUI.Segment);
       return;
-    end;
+    end
     tf = SET(gui.no).CurrentTimeFrame;
     [~,outdata] = calcfunctions('calcintensityanddefect',SET(gui.no).IM,tf,DATA.Pref.RadialProfiles,gui.numsectors,DATA.Pref.RadialProfiles, ...
       find(ind),gui.no, ...
@@ -1336,27 +1339,27 @@ switch lower(engparameter);
       [SET(gui.no).XSize SET(gui.no).YSize],[SET(gui.no).ResolutionX SET(gui.no).ResolutionY],SET(gui.no).Scar.Result,1,false);
     outunit = '%';
   case 'scar transmurality line based'
-    if isempty(SET(gui.no).Scar);
+    if isempty(SET(gui.no).Scar)
       myfailed('No infarct data available, use report myocardial intensity before.',DATA.GUI.Segment);
       return;
-    end;
+    end
     tf = SET(gui.no).CurrentTimeFrame;
     outdata = viability('calctransmuralityline',gui.numsectors,gui.no);
     outunit = '%';
   case 'max scar transmurality (spatial max)'
-    if isempty(SET(gui.no).Scar);
+    if isempty(SET(gui.no).Scar)
       myfailed('No infarct data available, use report myocardial intensity before.',DATA.GUI.Segment);
       return;
-    end;
+    end
     valuetype = 'max';
     tf = SET(gui.no).CurrentTimeFrame;
     [~,outdata] = viability('calctransmuralityline',gui.numsectors,gui.no);
     outunit = '%';
   case 'scar transmurality area based and myocardial intensity'
-    if isempty(SET(gui.no).Scar);
+    if isempty(SET(gui.no).Scar)
       myfailed('No Scar data available.',DATA.GUI.Segment);
       return;
-    end;
+    end
     tf = SET(gui.no).CurrentTimeFrame;
     outdata = calcfunctions('calcintensityanddefect',SET(gui.no).IM,tf,DATA.Pref.RadialProfiles,gui.numsectors,DATA.Pref.RadialProfiles, ...
       find(ind),gui.no,SET(gui.no).EndoX,SET(gui.no).EndoY,SET(gui.no).EpiX,SET(gui.no).EpiY, ...
@@ -1383,16 +1386,16 @@ switch lower(engparameter);
     outdata = outdata.*defect;
     outunit = '';
   case 'weighted infarct transmurality'
-    if isempty(SET(gui.no).Scar);
+    if isempty(SET(gui.no).Scar)
       myfailed('No Scar data available.',DATA.GUI.Segment);
       return;
-    end;
+    end
     %Call viabilityweight to get weighting of infarct
     tf = SET(gui.no).CurrentTimeFrame;
     [~,infarctweightmap] = viability('viabilityweight',gui.no);
     if isempty(infarctweightmap)
       infarctweightmap = ones(size(SET(gui.no).Scar.Result));
-    end;    
+    end 
     meaninfarctweight = calcfunctions('calcintensityanddefect', ...
       infarctweightmap.*SET(gui.no).Scar.Result,tf,DATA.Pref.RadialProfiles, ...
       gui.numsectors,DATA.Pref.RadialProfiles,find(ind),gui.no, ...
@@ -1402,10 +1405,10 @@ switch lower(engparameter);
     outdata = 100*meaninfarctweight;    
     outunit = '%';
   case 'grayzone transmurality area based'
-    if isempty(SET(gui.no).Scar);
+    if isempty(SET(gui.no).Scar)
       myfailed('No infarct data available, use report myocardial intensity before.',DATA.GUI.Segment);
       return;
-    end;
+    end
     mapsz = size(SET(gui.no).Scar.GreyZone.map);
     rescale = @(x)(0.5+mapsz(1)/SET(gui.no).XSize*(x-0.5));
     im = zeros(mapsz); %imresize(SET(gui.no).IM,mapsz,'bilinear');
@@ -1417,10 +1420,10 @@ switch lower(engparameter);
       mapsz(1:2),[SET(gui.no).ResolutionX SET(gui.no).ResolutionY],SET(gui.no).Scar.GreyZone.map==1);
     outunit = '%';
   case 'core transmurality area based'
-    if isempty(SET(gui.no).Scar);
+    if isempty(SET(gui.no).Scar)
       myfailed('No infarct data available, use report myocardial intensity before.',DATA.GUI.Segment);
       return;
-    end;
+    end
     mapsz = size(SET(gui.no).Scar.GreyZone.map);
     rescale = @(x)(0.5+mapsz(1)/SET(gui.no).XSize*(x-0.5));
     im = zeros(mapsz); %imresize(SET(gui.no).IM,mapsz,'bilinear');
@@ -1432,10 +1435,10 @@ switch lower(engparameter);
       mapsz(1:2),[SET(gui.no).ResolutionX SET(gui.no).ResolutionY],SET(gui.no).Scar.GreyZone.map==2);
     outunit = '%';
   case 'mar transmurality area based'
-    if isempty(SET(gui.no).MaR);
+    if isempty(SET(gui.no).MaR)
       myfailed('No MaR data available.',DATA.GUI.Segment);
       return;
-    end;
+    end
     tf = SET(gui.no).CurrentTimeFrame;
     [~,outdata] = calcfunctions('calcintensityanddefect',SET(gui.no).IM,tf,DATA.Pref.RadialProfiles,gui.numsectors,DATA.Pref.RadialProfiles, ...
       find(ind),gui.no, ...
@@ -1444,29 +1447,29 @@ switch lower(engparameter);
     outunit = '%';
     outtf = tf;
   case 'mar transmurality line based'
-    if isempty(SET(gui.no).MaR);
+    if isempty(SET(gui.no).MaR)
       myfailed('No MaR data available.',DATA.GUI.Segment);
       return;
-    end;
+    end
     tf = SET(gui.no).CurrentTimeFrame;
     outdata = mar('calctransmuralityline',gui.numsectors,gui.no);
     outunit = '%';
     outtf = tf;
   case 'max mar transmurality (spatial max)'
-    if isempty(SET(gui.no).MaR);
+    if isempty(SET(gui.no).MaR)
       myfailed('No MaR data available.',DATA.GUI.Segment);
       return;
-    end;
+    end
     valuetype = 'max';
     tf = SET(gui.no).CurrentTimeFrame;
     [~,outdata] = mar('calctransmuralityline',gui.numsectors,gui.no);
     outunit = '%';
     outtf = tf;
   case 'mar transmurality area based and myocardial intensity'
-    if isempty(SET(gui.no).MaR);
+    if isempty(SET(gui.no).MaR)
       myfailed('No MaR data available.',DATA.GUI.Segment);
       return;
-    end;
+    end
     tf = SET(gui.no).CurrentTimeFrame;
     [outdata,defect] = calcfunctions('calcintensityanddefect',SET(gui.no).IM,tf,DATA.Pref.RadialProfiles,gui.numsectors,DATA.Pref.RadialProfiles, ...
       find(ind),gui.no, ...
@@ -1499,23 +1502,23 @@ switch lower(engparameter);
     if not(ok)
       myfailed('Could not import clipboard data.',DATA.GUI.Segment);
       return;
-    end;
+    end
     tf = 1;
     outunit = '';
   otherwise
     gui.parameter = '';
     outunit = '';
-end;
+end
 
 %Determine max and min value
 [maxv,ok] = str2num(mygetedit(gui.handles.maxedit)); %#ok<ST2NM>
 if not(ok) || isempty(maxv)
   maxv = max(outdata(:));
-end;
+end
 [minv,ok] = str2num(mygetedit(gui.handles.minedit)); %#ok<ST2NM>
 if not(ok) || isempty(minv)
   minv = min(outdata(:));
-end;
+end
 
 %Store
 gui.outdata = outdata;
@@ -1523,20 +1526,24 @@ gui.outunit = outunit;
 gui.outtf = outtf;
 
 %Find axes to plot in
+isseparetewindow = false;
 if get(gui.handles.separatewindowcheckbox,'value')
-  figure(22);
-  set(22,'Name','Bulleseye plot','numbertitle','off');
+  separatewindowfig = figure(22);
+  setupicon(separatewindowfig);
+  set(separatewindowfig,'Name','Bullseye plot','numbertitle','off');
+  set(separatewindowfig,'Color',DATA.GUISettings.BackgroundColor);
   tempax = gca;
+  isseparetewindow = true;
 else
   tempax = gui.handles.bullseyeaxes;
-end;
+end
 
 %get number of points in image
 [n,ok] = str2num(mygetedit(gui.handles.nedit)); %#ok<ST2NM>
 if not(ok)
   mywarning('Not a valid number for n.',DATA.GUI.Segment);
   n = 200;
-end;
+end
 
 %Determine if smooth bulleye version or not.
 gui.ahaoutdata = [];
@@ -1550,28 +1557,31 @@ elseif mygetvalue(gui.handles.aharadiobutton)
   [maxv,ok] = str2num(mygetedit(gui.handles.maxedit)); %#ok<ST2NM>
   if not(ok)
     maxv = max(gui.ahaoutdata(:));
-  end;
+  end
   [minv,ok] = str2num(mygetedit(gui.handles.minedit)); %#ok<ST2NM>
   if not(ok)
     minv = min(gui.ahaoutdata(:));
-  end;
-end;
+  end
+end
 
 %Adjust max/min
 if ~isempty(minv) && ~isempty(maxv) && not(isnan(minv)) && not(isnan(maxv)) && (maxv>minv)
   set(tempax,'clim',[minv maxv]);
-end;
+end
 
 %Add title
 if isempty(gui.outunit) && isempty(gui.outtf)
-  title(tempax,sprintf('%s',gui.parameter));
+  title(tempax,sprintf('%s',gui.parameter),'Color',DATA.GUISettings.ForegroundColor);
 elseif isempty(gui.outunit) && ~isempty(gui.outtf)
-  title(tempax,sprintf('%s in time frame %d',gui.parameter,gui.outtf)); 
+  title(tempax,dprintf('%s in time frame %d',gui.parameter,gui.outtf),'Color',DATA.GUISettings.ForegroundColor); 
 elseif ~isempty(gui.outunit) && isempty(gui.outtf)
-  title(tempax,sprintf('%s [%s]',gui.parameter,gui.outunit));
+  title(tempax,sprintf('%s [%s]',gui.parameter,gui.outunit),'Color',DATA.GUISettings.ForegroundColor);
 else
-  title(tempax,sprintf('%s [%s] in time frame %d',gui.parameter,gui.outunit,gui.outtf));  
-end;
+  title(tempax,dprintf('%s [%s] in time frame %d',gui.parameter,gui.outunit,gui.outtf),'Color',DATA.GUISettings.ForegroundColor);  
+end
+if isseparetewindow
+  tempax.Title.FontSize = 14;
+end
 
 %Colormap
 v = mygetlistbox(gui.handles.colormaplistbox);
@@ -1586,16 +1596,21 @@ switch v
     cmap = spect(256);
   case 5
     cmap = gray(256);
-end;
+end
 
 if get(gui.handles.invertcolorscheckbox,'value')
   cmap = flipud(cmap);
-end;
+end
 
 colormap(tempax,cmap);
 
 %Add colorbar
 gui.handles.colorbar = colorbar('peer',tempax);
+if isseparetewindow
+  gui.handles.colorbar.LineWidth = 1.0;
+  gui.handles.colorbar.FontSize = 12;
+end
+set(gui.handles.colorbar,'Color',DATA.GUISettings.ForegroundColor);
 
   
 %----------------------------
@@ -1607,7 +1622,7 @@ gui = DATA.GUI.Bullseye;
 
 gui.slice = SET(gui.no).ZSize-round(mygetvalue(gui.handles.sliceslider))+1;
 set(gui.handles.sliceslider,'Value',round(mygetvalue(gui.handles.sliceslider)));
-set(gui.handles.slicetext,'String',sprintf('Slice %d',gui.slice));
+set(gui.handles.slicetext,'String',dprintf('Slice %d',gui.slice));
 updatesliceimage;
 updatelongaxisimage
 if 0%mygetvalue(gui.handles.thissliceonlycheckbox)
@@ -1632,7 +1647,7 @@ global DATA
 
 if nargin<4
   valuetype = 'mean'; %default;
-end;
+end
 
 if nargin<5
   linetype='w-';
@@ -1649,7 +1664,7 @@ else
   if size(m,1)~=24
     myfailed('Expected 24 sectors as input size.',DATA.GUI.Segment);
     return;
-  end;
+  end
 
   %Reshape the transmurality by replicating each slice into three
   numslices = size(m,2);
@@ -1722,14 +1737,14 @@ else
       temp=max(reshape(temp(:),[6 4]),[],1);
       v = [v;temp(:)]; %Add apical slices
       v = [v;max(m(:,1))];  %apex
-  end;
-end; %End of v calculation
+  end
+end %End of v calculation
 
 doplot = true;
 
 if (nargin<2)||isempty(ax)
   doplot = false;
-end;
+end
 
 %Unpack vector to matrix
 m = zeros(12,4);
@@ -1772,7 +1787,7 @@ if doplot || (nargout>1)
   im = m(idx);
   im(rad>(numslices+1)) = NaN;
   %im = rad;
-end;
+end
 
 if doplot
   scale = n/(numslices+1);
@@ -1792,7 +1807,7 @@ if doplot
   for loop=1:(numslices+1)
     h = plot(ax,n+1+scale*loop*xc,n+1+scale*loop*yc,linetype);
     set(h,'linewidth',2);
-  end;
+  end
   hold(ax,'off');
 
   %Draw lines
@@ -1813,16 +1828,16 @@ if doplot
   h = plot(ax,scale*[4+4*a 4+2*a],scale*[4+4*b 4+2*b],linetype); set(h,'linewidth',2);
   h = plot(ax,scale*[4+4*a 4+2*a],scale*[4-4*b 4-2*b],linetype); set(h,'linewidth',2);
   hold(ax,'off');
-end;
+end
 
 %returns value if necessary.
 if nargout>0
   varargout{1} = v;
-end;
+end
 
 if nargout>1
   varargout{2} = im;
-end;
+end
 
 %---------------------------------------------------
 function [varargout] = bullseye2(m,ax,n,flipx,vc,no)
@@ -1859,7 +1874,7 @@ minnbrsectors = 40;
 if size(m,2) < minnbrsectors
   m = imresize(repmat(m,1,3),minnbrsectors,'bilinear');
   m = m(1:minnbrsectors:end,size(m,2)/3+1:2*size(m,2)/3);
-end;
+end
 
 %Determine size
 sectors = size(m,2);
@@ -1929,7 +1944,7 @@ alpha = double(not(isnan(im)));
 
 if flipx
   im = fliplr(im);
-end;
+end
 
 if nargout==0
   h = imagesc(im,'parent',ax);
@@ -1937,7 +1952,7 @@ if nargout==0
   axis(ax,'image','off');
 else
   varargout{1} = im;
-end;
+end
 
 %-----------------------------------
 function im = bullseye(m,ax,n,vc,no,tf)
@@ -2065,7 +2080,7 @@ if doplot
       h = plot(ax,n+1+scale*loop*xc,n+1+scale*loop*yc,'w-');
     end
     set(h,'linewidth',2);
-  end;
+  end
   hold(ax,'off');
   
   %Label sectors
@@ -2076,6 +2091,6 @@ if doplot
     h = text(n+1+scale*1.5*cos(omega(loop)),...
       n+1+scale*1.5*sin(omega(loop)),sprintf('%d',sectors+1-loop),'parent',ax);
     set(h,'color',[1 1 1])
-  end;
+  end
   hold(ax,'off');
 end

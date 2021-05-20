@@ -16,23 +16,26 @@ global DATA
 
 if nargin<3
   error('Expected at least three input arguments (prompt,title,default).');
-end;
+end
 
 if nargin==4
   error('When minimal value is specified, then also maximal value needs to be specified.');
-end;
+end
 
 if DATA.Testing
   testing = DATA.Testing;
 else
   testing = false;
-end;
+end
 
 if DATA.RecordMacro
   recordmacro = DATA.RecordMacro;
 else
   recordmacro = false;
-end;
+end
+
+promptstri = translation.dictionary(promptstri);
+titlestri = translation.dictionary(titlestri);
 
 if testing
   %Take from buffer
@@ -41,11 +44,11 @@ if testing
     ok = true;
   else
     error('No number in buffer.');
-  end;
+  end
 else
   %Ask user
   z = [];
-  s = inputdlg({promptstri},titlestri,1,{sprintf('%0.9g',default)});
+  s = myinputdlg({promptstri},titlestri,1,{sprintf('%0.9g',default)});
   if isempty(s)
     ok = false;
     return;
@@ -53,28 +56,28 @@ else
     [z,ok] = str2num(s{1}); %#ok<ST2NM>
     if not(ok)
       return;
-    end;
+    end
     if length(z)>1 || isempty(z)
       ok = false;
       myfailed('Need to be a scalar value.');
       return;
-    end;
+    end
     if nargin>3
       if z<minval
         myfailed(dprintf('Too small value. [%0.5g %0.5g]',minval,maxval));
         ok = false;
         return;
-      end;
+      end
       if z>maxval
         myfailed(dprintf('Too large value. [%0.5g %0.5g]',minval,maxval));
         ok = false;
         return;
-      end;
-    end;
-  end;
-end;
+      end
+    end
+  end
+end
 
 if recordmacro
   macro_helper('put',sprintf('pushtobuffer(''Number'',[ %0.9g DATA.Buffer.Number]); %%add to buffer',z));
   macro_helper('switchorder'); %We need to store data in buffer before the callback
-end;
+end

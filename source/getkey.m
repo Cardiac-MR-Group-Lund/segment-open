@@ -19,24 +19,28 @@ if ~isempty(evnt(1).Modifier)
         modifier = [modifier 'shift']; %#ok<AGROW>
       case 'alt'
         modifier = [modifier 'alt']; %#ok<AGROW>
-    end;
+    end
     if loop<length(evnt.Modifier)
       modifier = [modifier '-']; %#ok<AGROW>
-    end;
-  end;
-end;
+    end
+  end
+end
 
 key = evnt.Key;
 
 switch key
   case {'control','alt','shift'}
     key = '';
-end;
+end
 
 if ~isempty(modifier)
   if ~isempty(key)
-    key = [modifier '-' key];
+    ch = evnt.Character;
+    if ~isempty(key) && strcmp(ch,'+')
+      key = ch;
+    end
+      key = [modifier '-' key];
   else
     key = modifier;
-  end;
-end;
+  end
+end

@@ -49,12 +49,12 @@ end
 
 if isempty(SET(no).Perfusion)
   initdefault(no);
-end;
+end
 
 if isempty(SET(no).EndoX)
   myfailed('No LV endocardium available.');
   return;
-end;
+end
 
 %Create mask, allways update, segmentation could have changed.
 SET(no).Perfusion.MyocardMask = false([SET(no).XSize SET(no).YSize SET(no).TSize SET(no).ZSize]);
@@ -82,10 +82,10 @@ for zloop=1:length(slicetomask)
     manualtemp(~mask)=int8(0);
     SET(no).Perfusion.Manual(:,:,tloop,slicetomask(zloop)) = manualtemp;
   end
-end;
+end
 
 %-----------------------
-function calcvolume(no) %#ok<DEFNU>
+function calcvolume(no) 
 %-----------------------
 global SET NO
 
@@ -107,7 +107,7 @@ global DATA
 
 if nargin==0
   arg = 'toggle';
-end;
+end
 
 switch arg
   case 'toggle'
@@ -116,7 +116,7 @@ switch arg
       set(DATA.Handles.Perfusionshowmanualinteractionmenu,'checked','off');
     else
       set(DATA.Handles.Perfusionshowmanualinteractionmenu,'checked','on');      
-    end;
+    end
   case 'on'
     set(DATA.Handles.Perfusionshowmanualinteractionmenu,'checked','off');
   case 'off'
@@ -125,7 +125,7 @@ switch arg
     %Do nothing
   otherwise
     error('Invalid option to showmanualinteraction_Callback, should not occur.');    
-end;
+end
 
 %Update
 c = get(DATA.Handles.Perfusionshowmanualinteractionmenu,'checked');
@@ -134,7 +134,7 @@ if isequal(c,'on')
   segment('unlighttool',DATA.Tools.Perfusionhide);  
 else
   segment('highlighttool',DATA.Tools.Perfusionhide);
-end;
+end
 
 update;
 
@@ -148,7 +148,7 @@ SET(NO).Perfusion = [];
 
 update;
 segment('updatevolume');
-drawfunctions('drawimageno');
+viewfunctions('setview');  %drawfunctions('drawimageno');
 
 %--------------
 function update(no,silent)
@@ -174,8 +174,8 @@ if not(isempty(SET(no).Perfusion))
   segment('updatevolume');
 
   if isequal(SET(no).Perfusion.Mode,'manual')&&not(silent)
-    drawfunctions('drawimageno'); %Make sure graphically updated when manual mode.
-  end;
+    viewfunctions('setview');  %drawfunctions('drawimageno'); 
+  end
 end
 
 %---------------------------------------------------
@@ -186,19 +186,19 @@ global DATA SET
 
 if isempty(SET(no).Perfusion)
   initdefault;
-end;
+end
 
 if nargin<1
   error('Expected one input argument to getPerfusionmask.');
-end;
+end
 
 if nargin<2
   timeframe = SET(no).CurrentTimeFrame;
-end;
+end
 
 if nargin<3
   slice = SET(no).CurrentSlice;
-end;
+end
 
 mask = SET(no).Perfusion.Result(:,:,timeframe,slice);
 
@@ -219,7 +219,7 @@ switch DATA.ViewPanelsType{panel}
     result = SET(no).Perfusion.Result(:,:,SET(no).CurrentTimeFrame,SET(no).CurrentSlice);
   otherwise 
     myfailed('Unknown viewtype in Perfusion-drawhelper.');
-end;
+end
 
 if (sum(result(:))>0) 
   
@@ -233,10 +233,10 @@ if (sum(result(:))>0)
     set(DATA.Handles.Perfusioncontour{panel},'linewidth',DATA.Pref.LineWidth);
   else
     set(DATA.Handles.Perfusioncontour{panel},'visible','off');
-  end;
+  end
 else
   DATA.Handles.Perfusioncontour{panel} = [];
-end;  
+end  
 
 %---------------------
 function showedits(no)
@@ -246,22 +246,22 @@ global DATA SET NO
 
 if nargin==0
   no = NO;
-end;
+end
 
 if isempty(SET(no).Perfusion)
   return;
-end;
+end
 
 %Check if menu is enabled
 if isequal(get(DATA.Handles.hideoverlayicon,'state'),'on')
   manualinteraction = false;
 else
   manualinteraction = true;
-end;
+end
 
 if not(manualinteraction)
   return;
-end;
+end
 
 tempnos=no;
 imissingle=classcheckim(tempnos);%checks so that SET(tempnos).IM is single and can also convert from int16 to singel if user wants
@@ -273,7 +273,7 @@ if nargin==0
   panelstodo = find(DATA.ViewPanels==no);
 else
   panelstodo = DATA.CurrentPanel;
-end;
+end
 
 for panel=panelstodo
 
@@ -283,7 +283,7 @@ for panel=panelstodo
     isrgbimage = true;
   else
     isrgbimage = false;
-  end;
+  end
   
   clear temp;
   
@@ -297,7 +297,7 @@ for panel=panelstodo
       else  %Default grayscale image
         tempuint8 = min(uint8(255),uint8(1)+calcfunctions('remapuint8',temp));
         tempuint8 = repmat(tempuint8,[1 1 3]); %EH:
-      end;
+      end
       clear temp;
       sz=size(tempuint8);
       Perfusionimrgb = reshape(tempuint8,[prod(sz(1:2)) 3]);
@@ -343,7 +343,7 @@ no = NO;
 
 if isempty(SET(no).Scar)
   myfailed('No Scar to import from.');
-end;
+end
 
 if isempty(SET(no).Perfusion)
   initdefault;
@@ -372,7 +372,7 @@ no = NO;
 
 if nargin==0
   %Find what imagestack
-  s = inputdlg({'Enter what image stack to take from '},'ImageStack',1,{sprintf('%d',1)});
+  s = myinputdlg({'Enter what image stack to take from '},'ImageStack',1,{sprintf('%d',1)});
 
   if isempty(s)
     myfailed('Invalid image stack.',DATA.GUI.Segment);
@@ -382,18 +382,18 @@ if nargin==0
     if not(ok)
       myfailed('Invalid image stack.',DATA.GUI.Segment);
       return;
-    end;
-  end;
-end;
+    end
+  end
+end
 
 if fromno==no
   myfailed('Cannot import from same image stack.',DATA.GUI.Segment);
   return;
-end;
+end
 if (fromno>length(SET))||(fromno<1)
   myfailed('Invalid image stack selected.',DATA.GUI.Segment);
   return;
-end;
+end
 
 if isempty(SET(fromno).Perfusion)
   myfailed('Perfusion must be present in image stack to import form');
@@ -422,7 +422,7 @@ no = NO;
 
 if isempty(SET(no).Perfusion)
   myfailed('No Perfusion to export from.');
-end;
+end
 
 if SET(NO).TSize>1
   myfailed('Can only exprot to Scar when Perfusion is non-timeresolved.');
@@ -446,7 +446,7 @@ global SET NO DATA
 
 if isempty(SET(NO).Perfusion)
   initdefault;
-end;
+end
 
 tools('enableundo');
 %Clear manual interaction
@@ -471,7 +471,7 @@ global DATA SET NO
 
 if nargin<2
   no = NO;
-end;
+end
 
 pos = SET(no).StartSlice:SET(no).EndSlice;
 numslices = length(pos);
@@ -481,16 +481,16 @@ endind = res;
 if isempty(SET(no).Perfusion)
   myfailed('No Perfusion data available.',DATA.GUI.Segment);  
   return;
-end;
+end
 
 if isempty(SET(no).EndoX)
   myfailed('No LV endocardium available.',DATA.GUI.Segment);
   return;
-end;
+end
 if isempty(SET(no).EpiX)
   myfailed('No LV epicardium available.',DATA.GUI.Segment);
   return;
-end;
+end
   
 %Upsample model
 if not(DATA.Pref.RadialProfiles==DATA.NumPoints)
@@ -501,7 +501,7 @@ else
   endoy = SET(no).EndoY;
   epix = SET(no).EpiX;
   epiy = SET(no).EpiY;
-end;
+end
 
 maxtrans = zeros(numsectors,numslices);
 transmurality = zeros(DATA.Pref.RadialProfiles,1,SET(no).ZSize);
@@ -545,8 +545,8 @@ for sloop=1:length(pos) %Loop over slices
       if length(sectorind)>2
         sectorendind(indepi,1,pos(sloop)) = (sectorind(end)-1)/49;
         sectorstartind(indepi,1,pos(sloop)) = (sectorind(1)-1)/49;
-      end;
-    end; %loop over datapoints
+      end
+    end %loop over datapoints
     tempres = calcfunctions('findmeaninsector','epi',transmurality,pos(sloop),numsectors,no);  % [res(:,sloop),tempa,tempa,tempa,maxtrans(:,sloop)] = 
     res(:,sloop) = tempres(:,tf);
     tempres = calcfunctions('findmeaninsector','epi',sectorendind,pos(sloop),numsectors,no);
@@ -565,16 +565,16 @@ totextent = 100*nansum(endorad(:).*(transmurality(:)>0))/nansum(endorad(:));
 varargout =   cell(nargout-1,1);
 if nargout>1
   varargout{1} = maxtrans;
-end;
+end
 if nargout>2
   varargout{2} = meantrans4infarct;
-end;
+end
 if nargout>3
   varargout{3} = totextent;
-end;
+end
 if nargout>4
   varargout{4} = startind;
-end;
+end
 if nargout>5
   varargout{5} = endind;
 end

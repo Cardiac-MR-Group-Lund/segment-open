@@ -13,22 +13,20 @@ function init
 %Initiate GUI
 global DATA SET NO
 
-set(DATA.Handles.reportpersliceicon,'state','off');
-
 if SET(NO).TSize<2
   myfailed('Data needs to be time resolved.',DATA.GUI.Segment);
   return;
-end;
+end
 
 if isempty(SET(NO).EndoX)
   myfailed('No LV endocardium available.',DATA.GUI.Segment);
   return;
-end;
+end
 
 if sum(findfunctions('findslicewithendo',NO))==0
   myfailed('No LV endocardium available.',DATA.GUI.Segment);
   return;
-end;
+end
 
 tempnos=NO;
 imissingle=classcheckim(tempnos);%checks so that SET(tempnos).IM is single and can also convert from int16 to singel if user wants
@@ -39,7 +37,6 @@ end
 %Generate figure and GUI
 gui = mygui('slicereport.fig');
 DATA.GUI.SliceReport = gui;
-
 
 temp = get(gui.handles.sectorslistbox,'String');
 gui.numsectors = str2num(temp{mygetlistbox(gui.handles.sectorslistbox)}); %#ok<ST2NM>
@@ -63,6 +60,7 @@ if ~DATA.GUISettings.PointsEnabled
 end
 
 update; %Update more
+try set(gui.figure1,'Visible','on'); catch, end
 
 %----------------------
 function close_Callback
@@ -89,7 +87,7 @@ if DATA.Record
   drawnow;
   DATA.MovieFrame = mygetframe(gui.fig);
   export('exportmovierecorder_Callback','newframe');
-end;
+end
 parameter;
 
 %--------------
@@ -112,12 +110,12 @@ if get(gui.handles.rotationfromannotationcheckbox,'value')
     if isequal(SET(NO).Point.Label{loop},'Sector start')
       if ~isnan(px)
         mywarning('More than one sector start found, take ''latest''.',DATA.GUI.Segment);
-      end;
+      end
       px = SET(NO).Point.X(loop);
       py = SET(NO).Point.Y(loop);
       pz = SET(NO).Point.Z(loop);
-    end;
-  end;
+    end
+  end
   if isnan(px)
     myfailed('Could not find an annotation point labelled ''Sector start''',DATA.GUI.Segment);
     set(gui.handles.rotationfromannotationcheckbox,'value',0);
@@ -126,15 +124,15 @@ if get(gui.handles.rotationfromannotationcheckbox,'value')
     mx = mean(SET(NO).EndoX(:,SET(NO).EDT,pz));
     my = mean(SET(NO).EndoY(:,SET(NO).EDT,pz));
     SET(NO).SectorRotation = angle(complex(my-py,mx-px))*180/pi;
-  end;
+  end
   set(gui.handles.rotationslider,'value',...
     SET(NO).SectorRotation);
-end;
+end
 
 if gui.numsectors>DATA.Pref.RadialProfiles
   mywarning('Reporting in more sectors than evaluating. Reverting back to same number of sectors as evaluation the profile along. For details see preferences. ',DATA.GUI.Segment);
   gui.numsectors = DATA.Pref.RadialProfiles;
-end;
+end
 
 [gui.meanx,gui.meany,gui.sectors] = ...
   calcfunctions('findmeaninsectorslice',gui.type,DATA.NumPoints,SET(NO).CurrentTimeFrame,gui.slice,gui.numsectors);
@@ -146,19 +144,13 @@ gui.handles.playimage = image(calcfunctions('remapuint8',SET(NO).IM(:,:,tf,gui.s
 colormap(gray(256));
 axis image off;
 hold on;
-gui.handles.endocontour = plot(...
-  SET(NO).EndoY(:,tf,gui.slice),...
-  SET(NO).EndoX(:,tf,gui.slice),...
-  'r-');
+gui.handles.endocontour = line('parent',gui.handles.playaxes,'XData',SET(NO).EndoY(:,tf,gui.slice),'YData',SET(NO).EndoX(:,tf,gui.slice),'Color','r','LineStyle','-');
 
 if ~isempty(SET(NO).EpiX)
-  gui.handles.epicontour = plot(...
-    SET(NO).EpiY(:,tf,gui.slice),...
-    SET(NO).EpiX(:,tf,gui.slice),...
-    'g-');
+  gui.handles.epicontour = line('parent',gui.handles.playaxes,'XData',SET(NO).EpiY(:,tf,gui.slice),'YData',SET(NO).EpiX(:,tf,gui.slice),'Color','g','LineStyle','-');
 else
-  gui.handles.epicontour = plot(NaN,NaN);
-end;
+  gui.handles.epicontour = line('parent',gui.handles.playaxes,'XData',NaN,'YData',NaN);
+end
 hold off;
 
 %--- Plot overview image
@@ -167,19 +159,13 @@ gui.handles.image = image(calcfunctions('remapuint8',SET(NO).IM(:,:,tf,gui.slice
 axis image off;
 
 hold on;
-h = plot(...
-  SET(NO).EndoY(:,tf,gui.slice),...
-  SET(NO).EndoX(:,tf,gui.slice),...
-  'r-');
+h = line('parent',gui.handles.imageaxes,'XData',SET(NO).EndoY(:,tf,gui.slice),'YData',SET(NO).EndoX(:,tf,gui.slice),'Color','r','LineStyle','-');
 set(h,'linewidth',3);
 if ~isempty(SET(NO).EpiX)
-  h = plot(...
-    SET(NO).EpiY(:,tf,gui.slice),...
-    SET(NO).EpiX(:,tf,gui.slice),...
-    'g-');
+  h = line('parent',gui.handles.imageaxes,'XData',SET(NO).EpiY(:,tf,gui.slice),'YData',SET(NO).EpiX(:,tf,gui.slice),'Color','g','LineStyle','-');
 else
-  h = plot(NaN,NaN);
-end;
+  h = line('parent',gui.handles.imageaxes,'XData',NaN,'YData',NaN);
+end
 
 set(h,'linewidth',3);
 if not(isnan(gui.meanx))
@@ -202,19 +188,17 @@ if not(isnan(gui.meanx))
         SET(NO).EndoX(gui.sectors(loop+1),tf,gui.slice));
       xpos = SET(NO).EndoY(gui.sectors(loop),tf,gui.slice);
       ypos = SET(NO).EndoX(gui.sectors(loop),tf,gui.slice);
-    end;
-    plot([gui.meany xpos],[gui.meanx ypos],'y-');
+    end
+    line('parent',gui.handles.imageaxes,'XData',[gui.meany xpos],'YData',[gui.meanx ypos],'Color','y','LineStyle','-');
     if (loop==1)
-      plot(...
-        [xpos xpos-(gui.meany-xpos)],...
-        [ypos ypos-(gui.meanx-ypos)],'y-');
-    end;
+      line('parent',gui.handles.imageaxes,'XData',[xpos xpos-(gui.meany-xpos)],'YData',[ypos ypos-(gui.meanx-ypos)],'Color','y','LineStyle','-');
+    end
     if (loop==1)||(gui.numsectors<20)
       h = text(xposm,yposm,sprintf('%d',loop));
       set(h,'color','y','fontsize',14);
-    end;
-  end; %loop
-end; %if isnan
+    end
+  end %loop
+end %if isnan
 hold off;
 
 %-------------
@@ -253,14 +237,14 @@ switch mygetlistbox(gui.handles.parameterlistbox)
       gui.type = 'epi';
       wallthickness = calcfunctions('calcwallthickness',gui.numsectors,NO);
       gui.outdata = squeeze(wallthickness(:,gui.slice,:));
-      gui.title = 'Wallthickness';
+      gui.title = dprintf('Wall thickness');
       gui.outunit = 'mm';
-    end;
+    end
   case 2
     %Fractional thickening
     if isequal(SET(NO).EDT,SET(NO).EST)
       mywarning('Warning, end-diastole occurs at the same time as end-systole. Use autodetect under edit menu.',DATA.GUI.Segment);
-    end;
+    end
     if isempty(SET(NO).EpiX)
       myfailed('No LV epicardium available.',DATA.GUI.Segment);
       set(gui.handles.parameterlistbox,'value',3);
@@ -272,9 +256,9 @@ switch mygetlistbox(gui.handles.parameterlistbox)
       minthick = repmat(gui.outdata(:,SET(NO).EDT),[1 SET(NO).TSize]);
       gui.outdata = (gui.outdata-minthick)./minthick;
       gui.outdata = gui.outdata*100;
-      gui.title = 'Fractional wallthickening';
+      gui.title = dprintf('Fractional wallthickening');
       gui.outunit = '%';
-    end;
+    end
   case 3
     %Radial velocity
     gui.type = 'endo';
@@ -284,8 +268,8 @@ switch mygetlistbox(gui.handles.parameterlistbox)
         'endo',radvel,gui.slice,gui.numsectors);
     else
       gui.outdata = [];
-    end;
-    gui.title = 'Radial velocity';
+    end
+    gui.title = dprintf('Radial velocity');
     gui.outunit = 'cm/s';
   case 4
     %Radius
@@ -296,38 +280,40 @@ switch mygetlistbox(gui.handles.parameterlistbox)
         'endo',rad,gui.slice,gui.numsectors);
     else
       gui.outdata = [];
-    end;
-    gui.title = 'Radius';
+    end
+    gui.title = dprintf('Radius');
     gui.outunit = 'mm';
   otherwise
     myfailed('Unknown option to reportslice.',DATA.GUI.Segment);
-end;
+end
 gui.outdata = squeeze(gui.outdata);
 axes(gui.handles.plotaxes);
-if not(isempty(gui.outdata))
-  h = plot(t,gui.outdata);
+if not(isempty(gui.outdata))  
+  h = plot(repmat(t,size(gui.outdata,1),1)',gui.outdata');
   set(h,'linewidth',2,'marker','.');
   %hold on;
   %plot([t(1),t(end)],[0 0],'k:');
   %hold off;
   
-  title(sprintf('%s [%s]',gui.title,gui.outunit));
+  title(sprintf('%s [%s]',gui.title,gui.outunit),'color',DATA.GUISettings.ForegroundColor);
   
   %Fix legend
   if gui.numsectors<20
     l = cell(1,gui.numsectors);
-    for loop=1:gui.numsectors;
+    for loop=1:gui.numsectors
       l{loop} = dprintf('Sector %d',loop);
-    end;
+    end
     legend(l{:});
-  end;
+  end
   
-  ylabel(sprintf('[%s]',gui.outunit));
+  ylabel(sprintf('[%s]',gui.outunit),'color',DATA.GUISettings.ForegroundColor);
+  set(gui.handles.plotaxes,'xcolor',DATA.GUISettings.ForegroundColor);
+  set(gui.handles.plotaxes,'ycolor',DATA.GUISettings.ForegroundColor);
 else
-  plot(t,zeros(size(t)));
-  title(dprintf('%s not available.',gui.title));
-end;
-xlabel('Time');
+  plot('parent',gui.handles.plotaxes,'XData',t,'YData',zeros(size(t)));
+  title(dprintf('%s not available.',gui.title),'color',DATA.GUISettings.ForegroundColor);
+end
+xlabel(dprintf('Time'));
 sector;
 
 %-------------------
@@ -345,12 +331,12 @@ if ~isempty(SET(NO).EpiX)
   set(gui.handles.epicontour,...
     'xdata',SET(NO).EpiY(:,SET(NO).CurrentTimeFrame,gui.slice),...
     'ydata',SET(NO).EpiX(:,SET(NO).CurrentTimeFrame,gui.slice));
-end;
+end
 if DATA.Record
   drawnow;
   DATA.MovieFrame = mygetframe(gui.fig);
   export('exportmovierecorder_Callback','newframe');
-end;
+end
 
 %------------
 function play
@@ -368,10 +354,10 @@ try
     pause(0.5*SET(NO).BeatTime/SET(NO).TSize);
     %pause(0.01);
     frameupdate;
-  end;
+  end
 catch %#ok<CTCH>
   %Do nothing
-end;
+end
 
 %-----------------------
 function export_Callback
@@ -386,15 +372,15 @@ stri = [stri sprintf('%s\t%s\n',gui.title,gui.outunit)];
 stri = [stri sprintf('Time\t')];
 for sector=1:gui.numsectors
   stri = [stri sprintf('Sector%d\t',sector)]; %#ok<AGROW>
-end;
+end
 stri = [stri sprintf('\n')];
 for tloop=1:SET(NO).TSize
   stri = [stri sprintf('%0.5g\t',t(tloop))]; %#ok<AGROW>
   for sector=1:gui.numsectors
     stri = [stri sprintf('%0.5g\t',gui.outdata(sector,tloop))]; %#ok<AGROW>
-  end;
+  end
   stri = [stri sprintf('\n')]; %#ok<AGROW>
-end;
+end
 clipboard('copy',stri);
 mymsgbox('Data Exported.','Done!',DATA.GUI.Segment);
 
@@ -406,7 +392,7 @@ global SET NO
 SET(NO).CurrentTimeFrame=SET(NO).CurrentTimeFrame+1;
 if SET(NO).CurrentTimeFrame>SET(NO).TSize
   SET(NO).CurrentTimeFrame=1;
-end;
+end
 frameupdate;
 
 %------------
@@ -417,7 +403,7 @@ global SET NO
 SET(NO).CurrentTimeFrame=SET(NO).CurrentTimeFrame-1;
 if SET(NO).CurrentTimeFrame<1
   SET(NO).CurrentTimeFrame=SET(NO).TSize;
-end;
+end
 frameupdate;
       
 %------------

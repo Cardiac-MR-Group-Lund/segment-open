@@ -13,7 +13,7 @@ segment('filecloseall_Callback',1);
 pathname = DATA.Pref.datapath;
 pathname = myuigetdir(pathname,'Select a folder with .mat files');
 if isequal(pathname,0)
-  myfailed('Aborted.');
+%   myfailed('Aborted.');
   return;
 end
 %find the .mat files
@@ -92,12 +92,7 @@ for fileloop = 1:numfiles
   if doanalysis
     for loop = 1:length(SET)
       SET(loop).Linked = loop;
-      segment('switchtoimagestack',loop);
-      DATA.ViewPanels(1) = NO;
-      DATA.ViewIM{1} = [];
-      DATA.Overlay(1) = struct('alphadata', [], 'cdata', []);
-      drawfunctions('drawimageno',NO);
-      DATA.switchtoimagestack(NO,true); %force
+      viewfunctions('setview',1,1,NO,{'one'})
       tools('setcolormap_Callback','spect');
       if SET(NO).ResolutionX > 4
         tools('upsampleimage_Callback',2);
@@ -147,17 +142,8 @@ for fileloop = 1:numfiles
     end
   end
   
-%   spect.spectperfusionsegmentation('perfusionanalyze_Callback',0);
-  %viewing
-%   segment('viewallimagestacks_Callback');
-%   for j = 1:length(SET)
-%     segment('switchtoimagestack',j);
-%     DATA.switchtoimagestack(NO,true); %force
-%     DATA.CurrentPanel = j;
-%     segment('viewimage_Callback','montage');
-%     segment('viewrefresh_Callback');
-%   end  
-  segment('viewrefreshall_Callback');
+  viewfunctions('setview')
+
   %saving file
   DATA.Buffer.KeyStroke = {'ok'}; %Put ok in queue for confirm box.
   filemenu('saveall_Callback')

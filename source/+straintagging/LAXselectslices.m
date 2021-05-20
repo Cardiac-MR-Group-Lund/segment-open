@@ -65,7 +65,8 @@ for tagno=taggroup
     case '2CH'
       axh(tagno)=gui.handles.LAX2CH_axes;
       colormap(axh(tagno),gray(255));
-      gui.handles.im2CH=imshow(twochamber,'Parent',axh(tagno));
+      gui.handles.im2CH=image(cat(3,twochamber,twochamber,twochamber),'Parent',axh(tagno));
+      axis(axh(tagno),'off','image')
       hold(axh(tagno), 'on')
       set(axh(tagno),'plotboxaspectratio',[max(zsz)*...
         ysz(tagno)*yres(tagno) xsz(tagno)*xres(tagno) 1]);
@@ -75,7 +76,8 @@ for tagno=taggroup
     case '3CH'
       axh(tagno)=gui.handles.LAX3CH_axes;
       colormap(axh(tagno),gray(255));
-      gui.handles.im3CH=imshow(threechamber,'Parent',axh(tagno));
+      gui.handles.im3CH=image(cat(3,threechamber,threechamber,threechamber),'Parent',axh(tagno));
+      axis(axh(tagno),'off','image')
       hold(axh(tagno), 'on')
       set(axh(tagno),'plotboxaspectratio',[max(zsz)*...
         ysz(tagno)*yres(tagno) xsz(tagno)*xres(tagno) 1]);
@@ -85,7 +87,8 @@ for tagno=taggroup
     case '4CH'
       axh(tagno)=gui.handles.LAX4CH_axes;
       colormap(axh(tagno),gray(255));
-      gui.handles.im4CH=imshow(fourchamber,'Parent',axh(tagno));
+      gui.handles.im4CH=image(cat(3,fourchamber,fourchamber,fourchamber),'Parent',axh(tagno));
+      axis(axh(tagno),'off','image')
       hold(axh(tagno), 'on')
       set(axh(tagno),'plotboxaspectratio',[max(zsz)*...
         ysz(tagno)*yres(tagno) xsz(tagno)*xres(tagno) 1]);
@@ -128,14 +131,30 @@ function ok_callback %#ok<DEFNU>
 %-------------------
 %generates new stack then terminates the gui and start strain analysis
 
-global DATA 
+global DATA SET
 
 gui=DATA.GUI.LAXselectslices;
 taggroup=gui.taggroup;
-strainno=LAXgenerateimagestack(taggroup);
+strainno=LAXgenerateimagestack(taggroup);  %generates new image stacks
+
+%correct the taggroup, should be in order 2CH, 3CH, 4CH as they exist
+
+%find order for 2CH, 3CH, 4CH
+chamberexist(1,:)=strcmp('2CH',{SET.ImageViewPlane});
+chamberexist(2,:)=strcmp('3CH',{SET.ImageViewPlane});
+chamberexist(3,:)=strcmp('4CH',{SET.ImageViewPlane});
+taggroupnew = [];
+for chloop = 1:3
+  taggroupnew = [taggroupnew find(chamberexist(chloop,:))];
+end
+straingroup = strainno;
+straingroup(isnan(strainno)) = taggroup(isnan(strainno));
+for noloop = straingroup
+  SET(noloop).StrainTagging.taggroup = taggroupnew;
+end
 
 close_callback;
-straintagging.straintagging('init','cine','longaxis');
+straintagging.straintagging('init','cine','longaxis',straingroup(1));
 
 %----------------------
 function close_callback
@@ -151,10 +170,12 @@ catch   %#ok<CTCH>
 end
 
 %----------------------------------
-function strainno=LAXgenerateimagestack(taggroup)
+function strainnoall=LAXgenerateimagestack(taggroup)
 %----------------------------------
 global DATA SET
 gui=DATA.GUI.LAXselectslices;
+strainnoall = [];
+ind = 1;
 
 for tagno=taggroup
   if SET(tagno).ZSize>1
@@ -219,6 +240,7 @@ for tagno=taggroup
     strainno = numel(SET)+1;
     SET(strainno) = laxset;
     SET(strainno).KeptSlices = gui.slicestouse{tagno};
+    strainnoall(ind) = strainno;
     
     %Change some descriptors in previous making obscured for strain
     %analysis
@@ -226,15 +248,13 @@ for tagno=taggroup
     SET(tagno).ImageViewPlane='Unspecified';
     
     %draw new image stack and update volumes
-    DATA.switchtoimagestack(strainno);
-    segment_main('viewimage_Callback','montage');
+    viewfunctions('setview',1,1,strainno,{'montage'})    
     drawfunctions('drawthumbnails');
-    drawfunctions('drawallslices');
-    drawfunctions('drawimageno');
     segment_main('updatevolume');
-    segment_main('updatemodeldisplay');
-    updatetool('select');
+  else
+    strainnoall(ind) = NaN;
   end
+  ind = ind+1;
 end
 
 %-----------------------------------------

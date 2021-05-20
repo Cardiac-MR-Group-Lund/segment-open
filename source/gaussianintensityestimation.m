@@ -14,7 +14,7 @@ function [mu sigma,alpha]=gaussianintensityestimation(intensity,mu,sigma,fixclas
 %sigma: standard deviation for the two classes (size 1*K)
 
 if nargin<3
-  myfailed('Gaussianmixtureestimation requires at least 3 inputs');
+  disp('Gaussianmixtureestimation requires at least 3 inputs');
 end
 
 K=length(mu);%number of classes

@@ -11,7 +11,7 @@ function varargout = plugin_imageloader(fcn,varargin)
 if nargin==0
   myfailed('Expects at least one input argument.');
   return;
-end;
+end
 
 switch fcn
   case 'getname'
@@ -45,7 +45,7 @@ switch fcn
   otherwise
     macro_helper(fcn,varargin{:});
     [varargout{1:nargout}] = feval(fcn,varargin{:}); % FEVAL switchyard
-end;
+end
 
 %---------------------
 function resetpreview
@@ -106,6 +106,11 @@ DATA.Preview.YSize = size(SET(NO).IM,2);
 openfile('setupstacksfromdicom',NO);
 segment('renderstacksfromdicom',NO);
 
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+ 
 %-------------------------
 function loadmany_Callback %#ok<DEFNU>
 %-------------------------
@@ -121,17 +126,17 @@ end
 files = dir([pathname filesep '*.jpg']);
 if isempty(files)
   files = dir([pathname filesep '*.JPG']);
-end;
+end
 if isempty(files)
   myfailed('Could not find any files.');
-end;
+end
 
 %Get factor
 [f,ok] = mygetnumber('Enter upsampling/downsampling factor (<1 => downsample)','Resampling Factor',0.1,0,10);
 if ~ok
   myfailed('Invalid upsampling/downsampling factor or aborted.');
   return;
-end;
+end
   
 h = waitbar(0,'Please wait.');
 for fileloop = 1:length(files)
@@ -155,9 +160,14 @@ for fileloop = 1:length(files)
   segment('renderstacksfromdicom',NO);
   
   waitbar(fileloop/length(files),h);
-end;
+end
 close(h);
 
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+ 
 %------------------------
 function loaddir_Callback %#ok<DEFNU>
 %------------------------
@@ -206,6 +216,11 @@ DATA.Preview.ZSize = size(SET(NO).IM,4);
 openfile('setupstacksfromdicom',NO);
 segment('renderstacksfromdicom',NO);
 
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+ 
 %-----------------------
 function r = isimage(f)
 %-----------------------

@@ -27,7 +27,7 @@ if nargin < 4
   end
 end
 
-gui = mygui(['straintagging' filesep 'cropstraintagging.fig']);
+gui = mygui(['+straintagging' filesep 'cropstraintagging.fig']);
 DATA.GUI.CropStrainTagging = gui;
 gui.state = false;
 

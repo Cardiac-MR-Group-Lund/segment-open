@@ -14,14 +14,14 @@ else
   else
     v = popfrombuffer('ListboxValue');
     set(h,'value',v); %Store the value
-  end;
-end;
+  end
+end
 
 if DATA.RecordMacro
   stri = get(h,'tag');
   macro_helper('put',sprintf('pushtobuffer(''ListboxValue'',%0.5g); %% %s',v,stri));
   macro_helper('switchorder'); %We need to position the slider data before the callback
-end;
+end
 catch  %#ok<CTCH>
   %This catch is to catch when DATA struct is not initialized
   v = get(h,'value');

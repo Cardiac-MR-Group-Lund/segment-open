@@ -65,9 +65,8 @@ else
 end
 
 calcpreview = true;
-segment('makeviewim',DATA.CurrentPanel,NO);
-segment('updatemodeldisplay');
-drawfunctions('drawimageno');
+DATA.ViewIM{DATA.CurrentPanel} = [];
+drawfunctions('drawno',NO)
 drawfunctions('drawthumbnails',calcpreview);
 end
 end

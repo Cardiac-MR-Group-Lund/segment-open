@@ -16,7 +16,7 @@ global DATA SET NO
 if SET(NO).RoiN<2
   myfailed('Need 2 ROIs for transit time calculations.',DATA.GUI.Segment);
   return;
-end;
+end
 
 tempnos=NO;
 imissingle=classcheckim(tempnos);%checks so that SET(tempnos).IM is single and can also convert from int16 to singel if user wants
@@ -28,11 +28,11 @@ DATA.investigationaluselabel; %In Segment CMR: Warning Only for investigational 
 
 if isempty(SET(NO).EndAnalysis)
   SET(NO).EndAnalysis = SET(NO).TSize;
-end;
+end
 
 if isempty(SET(NO).StartAnalysis)
   SET(NO).StartAnalysis = 1;
-end;
+end
 
 %if (SET(NO).EndAnalysis-SET(NO).StartAnalysis)<1
 %  myfailed('No timespan, adjust Start/End analysis time (under stress menu or drag red bar).',DATA.GUI.Segment);
@@ -88,8 +88,8 @@ x = linspace(-60,60,121);
 f = exp(-x.^2/gui.sigma.^2);
 figure(22);
 plot(x,f);
-xlabel('Timeframes');
-title('Smoothing applicability.');
+xlabel(dprintf('Timeframes'));
+title(dprintf('Smoothing applicability.'));
 
 %--------------
 function recalc
@@ -119,7 +119,7 @@ for rloop=1:length(gui.rois)
         temp = SET(gui.no).IM(:,:,tloop,z);
       else
         temp = calcfunctions('calctruedata',SET(gui.no).IM(:,:,tloop,z),gui.no);
-      end;
+      end
       roimask = segment('createmask',...
         [SET(gui.no).XSize SET(gui.no).YSize],...
         SET(gui.no).Roi(gui.rois(rloop)).Y(:,tloop),...
@@ -130,15 +130,15 @@ for rloop=1:length(gui.rois)
         gui.roimax(tloop,rloop) = max(temp(ind));
         gui.roiint(tloop,rloop) = mean(temp(ind));
         gui.roistd(tloop,rloop) = std(temp(ind));
-      end;
+      end
       gui.roisize(tloop,rloop) = (1/100)*stablepolyarea(...
         SET(gui.no).ResolutionY*SET(gui.no).Roi(gui.rois(rloop)).Y(:,tloop),...
         SET(gui.no).ResolutionX*SET(gui.no).Roi(gui.rois(rloop)).X(:,tloop));
       gui.roisizepix(tloop,rloop) = sum(roimask(:))*SET(gui.no).ResolutionX*SET(gui.no).ResolutionY/100;
       h = mywaitbarupdate(h);
-    end;
-  end;
-end;
+    end
+  end
+end
 mywaitbarclose(h);
 doplot;
 set(gui.fig,'Pointer','Arrow');
@@ -174,7 +174,7 @@ switch parameter
     myfailed('Not yet implemented.',DATA.GUI.Segment);
     gui.outdata = [];
     gui.outname = '';
-end;
+end
 
 bl1 = str2double(get(gui.handles.inbaseedit,'String'));
 if ~isnan(bl1)
@@ -203,7 +203,7 @@ if false && get(gui.handles.detrendcheckbox,'value')
   detrend = detrend(:); %reshape
   detrend = repmat(detrend,[1 size(gui.outdata,2)]); %reshape
   gui.outdata = gui.outdata-detrend;
-end;
+end
 
 
 %--- Do smoothing
@@ -221,11 +221,11 @@ if dosmooth
     temp = gui.outdata(:,rloop);
     temp = conv2(temp,f','same')./(eps+conv2(ones(size(temp)),f','same'));
     gui.smoothoutdata(:,rloop) = temp;
-  end;
+  end
 else
   gui.smoothoutdata = gui.outdata;
   gui.t = SET(gui.no).TimeVector;
-end;
+end
 
 basecheckbox = [gui.handles.inbasecheckbox gui.handles.outbasecheckbox];
 
@@ -287,7 +287,7 @@ if SET(gui.no).TSize>1
     else
       gui.fwhmstart(rloop) = pos(1);
       gui.fwhmend(rloop) = pos(end);
-    end;
+    end
     
     %Centerofgravity
     temp = gui.smoothoutdata(gui.limits(rloop,1):gui.limits(rloop,2),rloop);
@@ -303,7 +303,7 @@ if SET(gui.no).TSize>1
       gui.centergravity(rloop) = temp_nom/temp_den;
     else
       gui.centergravity(rloop) = NaN;
-    end;
+    end
     
     %Plot max/min
     if get(gui.handles.showminmaxcheckbox,'value')
@@ -311,7 +311,7 @@ if SET(gui.no).TSize>1
       plot(handles(rloop),gui.t(gui.maxind(rloop)),gui.maxv(rloop),'k*');
       plot(handles(rloop),[gui.t(1) gui.t(end)],[gui.minv(rloop) gui.minv(rloop)],'k:');
       plot(handles(rloop),[gui.t(1) gui.t(end)],[gui.maxv(rloop) gui.maxv(rloop)],'k:');
-    end;
+    end
     
     %Plot min/max slopes
     if get(gui.handles.showslopescheckbox,'value')
@@ -332,7 +332,7 @@ if SET(gui.no).TSize>1
       right = temp(gui.maxindd(rloop))+gui.maxvd(rloop)*deltat;
       plot(handles(rloop),gui.t(gui.maxindd(rloop))+[-deltat deltat],[left right],'k-');
       plot(handles(rloop),[gui.t(gui.maxindd(rloop)) gui.t(gui.maxindd(rloop))],ylim,'k:');
-    end;
+    end
     
     %Plot FWHM
     if get(gui.handles.showfwhmcheckbox,'value')&&~isnan(gui.fwhmstart(rloop))
@@ -340,7 +340,7 @@ if SET(gui.no).TSize>1
       plot(handles(rloop),[gui.t(1) gui.t(end)],[gui.fwhm(rloop) gui.fwhm(rloop)],'k:');
       plot(handles(rloop),[gui.t(gui.fwhmstart(rloop)) gui.t(gui.fwhmstart(rloop))],ylim,'k:');
       plot(handles(rloop),[gui.t(gui.fwhmend(rloop)) gui.t(gui.fwhmend(rloop))],ylim,'k:');
-    end;
+    end
     
     %Plot CenterGravity
     
@@ -349,9 +349,9 @@ if SET(gui.no).TSize>1
     if get(gui.handles.showcentergravitycheckbox,'value')
       ylim = get(handles(rloop),'ylim');
       plot(handles(rloop),centergravityt*[1 1],ylim,'k:');
-    end;
+    end
     
-  end; %rloop
+  end %rloop
   
   onradiobuttons = [...
     gui.handles.onminradiobutton ...
@@ -376,7 +376,7 @@ if SET(gui.no).TSize>1
 %       set(h,'linewidth',2);
 %       
 %     end;
-  end;
+  end
     
   %Add baseline crop
   if mygetvalue(gui.handles.inbasecheckbox)
@@ -418,10 +418,10 @@ if SET(gui.no).TSize>1
   legend(gui.handles.inflowaxes,legendstring{1});
   legend(gui.handles.outflowaxes,legendstring{2});
   
-  xlabel(gui.handles.inflowaxes,'Time [s]');
-  ylabel(gui.handles.inflowaxes,'Signal Intensity [a.u.]');
-  xlabel(gui.handles.outflowaxes,'Time [s]');
-  ylabel(gui.handles.outflowaxes,'Signal Intensity [a.u.]');
+  xlabel(gui.handles.inflowaxes,dprintf('Time [s]'));
+  ylabel(gui.handles.inflowaxes,dprintf('Signal Intensity [a.u.]'));
+  xlabel(gui.handles.outflowaxes,dprintf('Time [s]'));
+  ylabel(gui.handles.outflowaxes,dprintf('Signal Intensity [a.u.]'));
   
   yticks = get(gui.handles.inflowaxes,'YTick');
   yticksspaced = yticks(1):0.01:yticks(end);
@@ -444,7 +444,7 @@ else %not time resolved
   bar(gui.handles.inflowaxes,gui.outdata(gui.rois)');
   %set(gui.handles.inflowaxes,'xticklabel',legendstring);
 
-end;
+end
 
 %------------------------------------
 function baseline_Buttondown(inorout)
@@ -539,14 +539,14 @@ switch [inorout '-' type]
     gui.limits(2,1) = x;
   case 'offset-endbar'
     gui.limits(2,2) = x;    
-end;
+end
 
 for rloop = 1:2
   if gui.limits(rloop,1) > gui.limits(rloop,2)
     temp = gui.limits(rloop,1);
     gui.limits(rloop,1)=gui.limits(rloop,2);
     gui.limits(rloop,2)=temp;
-  end;
+  end
 end
 
 %------------------
@@ -559,7 +559,7 @@ s = mygetedit(gui.handles.sigmaedit);
 n = str2double(s);
 if not(isnan(n))
   gui.sigma = n;
-end;
+end
 gui.sigma = min(max(gui.sigma,get(gui.handles.smoothslider,'min')),get(gui.handles.smoothslider,'max'));
 set(gui.handles.sigmaedit,'string',sprintf('%0.5g',gui.sigma));
 set(gui.handles.smoothslider,'value',gui.sigma);
@@ -615,12 +615,12 @@ if dosmooth
   c{16,2} = gui.sigma;
 else
   c{16,1} = 'No smoothing';
-end;
+end
 if get(gui.handles.cropzerocheckbox,'value')
   c{17,1} = 'Cropping';
 else
   c{17,1} = 'No cropping';
-end;
+end
 for rloop=1:length(gui.rois)
   c{3,2+(rloop-1)*2} = SET(gui.no).Roi(gui.rois(rloop)).Name;
   c{4,2+(rloop-1)*2} = 'Value';
@@ -647,7 +647,7 @@ for rloop=1:length(gui.rois)
   c{13,3+(rloop-1)*2} = gui.t(gui.fwhmend(rloop));
   
   c{14,3+(rloop-1)*2} = (gui.centergravity(rloop)-1)*SET(gui.no).TIncr;
-end;
+end
 segment('cell2clipboard',c);
 
 %----------------------

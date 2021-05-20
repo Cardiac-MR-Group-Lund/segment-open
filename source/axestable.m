@@ -121,11 +121,11 @@ classdef axestable < handle % inherrit from handle to have persistant objects
       end
       %set all values to clearStr in table.
       for loop=1:length(obj.Key) %Update all values.
-        for vloop=1:length(obj.Key{loop}.values),
+        for vloop=1:length(obj.Key{loop}.values)
           obj.Key{loop}.values{vloop}=clearStr;
         end
         if draw&&not(obj.createHandles)
-          for vloop=1:length(obj.Key{loop}.values),
+          for vloop=1:length(obj.Key{loop}.values)
             set(obj.Key{loop}.valuesHandle{vloop},'String',clearStr);
           end
         end
@@ -148,11 +148,11 @@ classdef axestable < handle % inherrit from handle to have persistant objects
 
       for loop=1:length(obj.Key) %Update all values.
         if strcmp(obj.Key{loop}.Unit,unit)
-          for vloop=1:length(obj.Key{loop}.values),
+          for vloop=1:length(obj.Key{loop}.values)
             obj.Key{loop}.values{vloop}=clearStr;
           end
           if draw&&not(obj.createHandles)
-            for vloop=1:length(obj.Key{loop}.values),
+            for vloop=1:length(obj.Key{loop}.values)
               set(obj.Key{loop}.valuesHandle{vloop},'String',clearStr);
             end
           end
@@ -186,12 +186,12 @@ classdef axestable < handle % inherrit from handle to have persistant objects
     %-----------------
     function draw(obj)
     %-----------------
-      if obj.NbrTables==0,
+      if obj.NbrTables==0
         disp('No tables to draw');
         return
       end
 
-      if obj.hidden && not(obj.createHandles),
+      if obj.hidden && not(obj.createHandles)
         return %dont do anything when object is invisible.
       end
 
@@ -215,7 +215,7 @@ classdef axestable < handle % inherrit from handle to have persistant objects
         set(obj.Table{loop}.Handle,'String',stri,'color',obj.fontcolor)
       end
       for loop=1:length(obj.Key) %Update all values.
-        for vloop=1:length(obj.Key{loop}.values),
+        for vloop=1:length(obj.Key{loop}.values)
           stri=obj.parseValue(obj.Key{loop}.values{vloop});
           set(obj.Key{loop}.valuesHandle{vloop},...
             'String',stri,...
@@ -260,7 +260,7 @@ classdef axestable < handle % inherrit from handle to have persistant objects
       if nargin<5
         obj.Table{obj.NbrTables}.xstep=ones(1,col)*obj.FigWith/col;
       elseif sum(colsize)<1+1e-5&&sum(colsize)>1-1e-5 &&...
-          length(colsize)==col,
+          length(colsize)==col
         obj.Table{obj.NbrTables}.xstep=colsize*(obj.FigWith-obj.xstart);
       else
         obj.Table{obj.NbrTables}.xstep=ones(1,col)*obj.FigWith/col;
@@ -292,12 +292,12 @@ classdef axestable < handle % inherrit from handle to have persistant objects
         return
       end
 
-      if obj.Table{obj.NbrTables}.nbrValues+1~=length(column_names),
+      if obj.Table{obj.NbrTables}.nbrValues+1~=length(column_names)
         disp('addTableHeader: Wrong number or fields.');
         return;
       end
 
-      if obj.Table{obj.NbrTables}.CurCols~=1,
+      if obj.Table{obj.NbrTables}.CurCols~=1
         disp('addTableHeader: Call this method directly after addTable');
         return;
       end
@@ -325,7 +325,7 @@ classdef axestable < handle % inherrit from handle to have persistant objects
         error('Forbidden to add Keys once table is drawn')
       end
 
-      if obj.NbrTables==0,
+      if obj.NbrTables==0
         error('No table, call newtable');
       end
 
@@ -333,7 +333,7 @@ classdef axestable < handle % inherrit from handle to have persistant objects
         values={values};
       end
 
-      if length(values)~=obj.Table{obj.NbrTables}.nbrValues,
+      if length(values)~=obj.Table{obj.NbrTables}.nbrValues
         error('Wrong number of values for current table');
       end
 
@@ -356,7 +356,7 @@ classdef axestable < handle % inherrit from handle to have persistant objects
       obj.Key{nbr_keys}.valuesXpos=[];
       obj.Key{nbr_keys}.valuesYpos=[];
 
-      for loop=1:length(values),%figure out postition
+      for loop=1:length(values) %figure out postition
         obj.Key{nbr_keys}.valuesXpos(loop)=obj.xpos;
         obj.Key{nbr_keys}.valuesYpos(loop)=obj.ypos;
         obj.xpos=obj.xpos+obj.Table{obj.NbrTables}.xstep(obj.Table{obj.NbrTables}.CurCols);
@@ -364,7 +364,7 @@ classdef axestable < handle % inherrit from handle to have persistant objects
       end
 
       if obj.Table{obj.NbrTables}.CurCols>...
-          obj.Table{obj.NbrTables}.Cols,
+          obj.Table{obj.NbrTables}.Cols
         obj.ypos=obj.ypos+obj.Table{obj.NbrTables}.ystep;
         obj.Table{obj.NbrTables}.CurCols=1;
         obj.xpos=obj.xstart;
@@ -374,7 +374,7 @@ classdef axestable < handle % inherrit from handle to have persistant objects
     %---------------------
     function addSpace(obj)
     %---------------------
-      if obj.NbrTables==0,
+      if obj.NbrTables==0
         obj.ypos=obj.ypos+obj.ystep;
       else
         obj.xpos=obj.xstart;
@@ -397,14 +397,14 @@ classdef axestable < handle % inherrit from handle to have persistant objects
       end
 
       for loop=1:length(obj.Key)
-        if strcmp(obj.Key{loop}.Key,key),
-          if length(values)~=length(obj.Key{loop}.values),
+        if strcmp(obj.Key{loop}.Key,key)
+          if length(values)~=length(obj.Key{loop}.values)
             error('Nbr of values does not match');
           end
           obj.Key{loop}.values=values;
 
           if draw&&~obj.createHandles
-            for vloop=1:length(values),
+            for vloop=1:length(values)
               stri=obj.parseValue(obj.Key{loop}.values{vloop});
               set(obj.Key{loop}.valuesHandle{vloop},'String',stri);
             end
@@ -436,7 +436,7 @@ classdef axestable < handle % inherrit from handle to have persistant objects
       end
 
       for loop=1:length(obj.Key)
-        if strcmp(obj.Key{loop}.Key,key),
+        if strcmp(obj.Key{loop}.Key,key)
 %           if length(names)~=length(obj.Key{loop}.Name),
 %             error('Nbr of names does not match');
 %           end
@@ -459,7 +459,7 @@ classdef axestable < handle % inherrit from handle to have persistant objects
       end
 
       for loop=1:length(obj.Key)
-        if strcmp(obj.Key{loop}.Key,key),
+        if strcmp(obj.Key{loop}.Key,key)
 %           if length(names)~=length(obj.Key{loop}.Name),
 %             error('Nbr of names does not match');
 %           end
@@ -493,7 +493,7 @@ classdef axestable < handle % inherrit from handle to have persistant objects
         draw=false;
       end
       for loop=1:length(obj.Key)
-        if strcmp(obj.Key{loop}.Key,key),
+        if strcmp(obj.Key{loop}.Key,key)
           obj.Key{loop}.showKey=visible;
 
           if visible
@@ -503,7 +503,7 @@ classdef axestable < handle % inherrit from handle to have persistant objects
           end
           if draw&&not(obj.createHandles)
             set(obj.Key{loop}.keyHandle,'Visible',vis);
-            for vloop=1:length(obj.Key{loop}.values),
+            for vloop=1:length(obj.Key{loop}.values)
               set(obj.Key{loop}.valuesHandle{vloop},'Visible',vis);
             end
           end
@@ -553,12 +553,12 @@ classdef axestable < handle % inherrit from handle to have persistant objects
           obj.Table{loop}.Title,obj.Table{loop}.xpos,obj.Table{loop}.ypos);
         obj.Table{loop}.LineHandle = putline(obj,obj.Table{loop}.ypos);
 
-        if isfield(obj.Table{loop},'Head'),
+        if isfield(obj.Table{loop},'Head')
           obj.Table{loop}.Head.LineHandle=...
             putline(obj,obj.Table{loop}.Head.lineypos);
           col_lenth=length(obj.Table{loop}.Head.Title);
           x_pos=[obj.xstart obj.xstart+cumsum(obj.Table{obj.NbrTables}.xstep(1:end-1))];
-          for vloop=1:col_lenth*obj.Table{loop}.Head.Repeat;
+          for vloop=1:col_lenth*obj.Table{loop}.Head.Repeat
             ind=mod(vloop-1,col_lenth)+1;
             obj.Table{loop}.Head.TitleHandle{vloop}=putstring(obj,...
               obj.Table{loop}.Head.Title{ind}, x_pos(vloop) ,...
@@ -637,12 +637,12 @@ classdef axestable < handle % inherrit from handle to have persistant objects
       for loop=1:length(obj.Key) %Update all values.
         if obj.Key{loop}.showKey
           set(obj.Key{loop}.keyHandle,'Visible',value);
-          for vloop=1:length(obj.Key{loop}.values),
+          for vloop=1:length(obj.Key{loop}.values)
             set(obj.Key{loop}.valuesHandle{vloop},'Visible',value);
           end
         else
           set(obj.Key{loop}.keyHandle,'Visible','off');
-          for vloop=1:length(obj.Key{loop}.values),
+          for vloop=1:length(obj.Key{loop}.values)
             set(obj.Key{loop}.valuesHandle{vloop},'Visible','off');
           end
         end

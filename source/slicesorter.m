@@ -10,8 +10,8 @@ global DATA
 try
   pathname = DATA.Pref.datapath;
 catch %#ok<CTCH>
-  pathname = pwd;
-end;
+  pathname = DATA.SegmentFolder;
+end
 
 %If loader is running
 try
@@ -22,22 +22,22 @@ try
     if (length(f) == 1) && f(1).isdir
       pathname = [DATA.Preview.PathName filesep f(1).name];
     end
-  end;
+  end
 catch %#ok<CTCH>
-end;
+end
 
 [pathname,ok] = myuigetdir(pathname,'Select folder to sort');
 if ~ok
-  myfailed('Aborted');
+%   myfailed('Aborted');
   return;
-end;
+end
 
 outpathname = [pathname '-sorted'];
 ok = mymkdir(outpathname);
 if ~ok
   myfailed(dprintf('Could not create output path %s',outpathname));
   return;  
-end;
+end
 
 f = dir(pathname);
 
@@ -46,7 +46,7 @@ for loop = 1:length(f)
   if ~f(loop).isdir
     %Not a folder => filename
     filename = [pathname filesep f(loop).name];
-    if guessifdicom(filename,1); %1=heuristic mode
+    if guessifdicom(filename,1) %1=heuristic mode
       
       info = fastdicominfo(filename);
       if ischar(info) || isequal(info.TransferSyntaxUID,'jpeg') || isequal(info.TransferSyntaxUID,'1.2.840.10008.1.2.4.90')
@@ -54,8 +54,8 @@ for loop = 1:length(f)
         info = fastdicominfo(filename);
         if ischar(info)
           error(info);
-        end;
-      end;
+        end
+      end
       %Use this instead of sliceLocation which sometimes is buggy
       normal = cross(info.ImageOrientation(1:3),info.ImageOrientation(4:6));
       sl = sum(normal.*info.ImagePosition);
@@ -66,12 +66,12 @@ for loop = 1:length(f)
         slicestring = [strtrim(info.SeriesDescription) '_'];    
       else
         slicestring = '';
-      end;
+      end
       if sl<0
         slicestring = [slicestring '-']; %#ok<AGROW>
       else
         slicestring = [slicestring '']; %#ok<AGROW>
-      end;      
+      end     
       slicestring = [slicestring sprintf('%03d',floor(abs(sl)))]; %#ok<AGROW>
       slicestring = [slicestring '.']; %#ok<AGROW>
       slicestring = [slicestring sprintf('%03d',round(1000*rem(abs(sl),1)))]; %#ok<AGROW>          
@@ -79,13 +79,13 @@ for loop = 1:length(f)
       newfolder = [outpathname filesep slicestring];
       if ~exist(newfolder,'dir')
         mkdir(newfolder);
-      end;
+      end
       [status,msg] = copyfile(filename,[newfolder filesep f(loop).name]);
       if ~isequal(status,1)
-        disp(dprintf('Failed moving file %s. Error message %s',f(loop).name,msg)); %#ok<DSPS>
-      end;
-    end;
-  end;
+        disp(sprintf('Failed moving file %s. Error message %s',f(loop).name,msg)); 
+      end
+    end
+  end
   h = mywaitbarupdate(h);
-end;
+end
 mywaitbarclose(h);

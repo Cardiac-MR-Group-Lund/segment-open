@@ -13,13 +13,13 @@ function [varargout] = mymkdir(d)
 sucess = true;
 if ~exist(d,'dir')
   sucess = mkdir(d);
-end;
+end
 
 varargout = cell(1,nargout);
 if nargout>0
   varargout{1} = sucess;
-end;
+end
 if nargout>1
   error('No more than one output argument.');
-end;
+end
 

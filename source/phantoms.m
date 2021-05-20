@@ -33,7 +33,7 @@ DATA.Preview.YSize = size(SET(NO).IM,2);
 DATA.Preview.TSize = size(SET(NO).IM,3);
 DATA.Preview.ZSize = size(SET(NO).IM,4);
 DATA.Preview.TIncr = 1;
-DATA.Preview.TimeVector = 0:1:size(SET(NO).IM,3)-1;
+DATA.Preview.TimeVector = 0:1:size(SET(NO).IM,3)-1; 
 DATA.Preview.Bitstored = 12;
 DATA.Preview.TriggerTime = DATA.Preview.TimeVector;
 
@@ -97,12 +97,12 @@ switch c
     coordinatephantom;
   otherwise
     mywarning('Aborted by user.',DATA.GUI.Segment);
-end;
+end
 
 %----------------
 function phantom1
 %----------------
-global SET NO
+global DATA SET NO
 
 %phantom1
 nx = 64;
@@ -114,7 +114,7 @@ NO = length(SET)+1;
 SET(NO).IM = repmat(single(0),[nx ny nt nz]);
 for loop=1:size(SET(NO).IM,3)
   SET(NO).IM(:,:,loop,:) = repmat(single(sqrt((x-nx/2).^2+(y-ny/2).^2)<4*sqrt(loop)),[1 1 1 nz]);
-end;
+end
 
 SET(NO).IM(:,34,:,:) = 1-SET(NO).IM(:,34,:,:);
 SET(NO).CenterX = nx/2;
@@ -126,6 +126,11 @@ filephantomhelper;
 openfile('setupstacksfromdicom',NO);
 segment('renderstacksfromdicom',NO);
 
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+ 
 %-----------------------------
 function cylinder(inrad,outrad)
 %-----------------------------
@@ -135,7 +140,7 @@ global DATA SET NO
 
 if nargin==0
   %ask inner radius
-  s = inputdlg({'Enter inner radius (endocard)'},'InnerRadius',1,{sprintf('%d',30)});
+  s = myinputdlg({'Enter inner radius (endocard)'},'InnerRadius',1,{sprintf('%d',30)});
   if isempty(s)
     myfailed('Invalid inner radius.',DATA.GUI.Segment);
     return;
@@ -144,10 +149,10 @@ if nargin==0
     if not(ok)
       myfailed('Invalid inner radius.',DATA.GUI.Segment);
       return;
-    end;
-  end;
+    end
+  end
   %ask outer radius
-  s = inputdlg({'Enter outer radius (epicard)'},'OuterRadius',1,{sprintf('%d',50)});
+  s = myinputdlg({'Enter outer radius (epicard)'},'OuterRadius',1,{sprintf('%d',50)});
   if isempty(s)
     myfailed('Invalid outer radius.',DATA.GUI.Segment);
     return;
@@ -156,9 +161,9 @@ if nargin==0
     if not(ok)
       myfailed('Invalid outer radius.',DATA.GUI.Segment);
       return;
-    end;
-  end;
-end;
+    end
+  end
+end
 
 nx = 128;
 ny = 128;
@@ -177,20 +182,38 @@ filephantomhelper;
 openfile('setupstacksfromdicom',NO);
 segment('renderstacksfromdicom',NO);
 
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+ 
 %----------------
 function phantom3
 %----------------
-global SET NO
+global DATA SET NO
 
+%Initialize image
 nx = 256;
 x = ndgrid(1:nx,1:nx);
+
+%Find which is the next position in SET structu
 NO = length(SET)+1;
-SET(NO).IM = single(x)/nx;
+
+%Assign image
+SET(NO).IM = single(x)/nx; %x, y , t, z
+
+%Call helper function to setup DATA variable correctly
 filephantomhelper;
 
+%Code for setting up the SET struct
 openfile('setupstacksfromdicom',NO);
 segment('renderstacksfromdicom',NO);
 
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+ 
 %----------------
 function phantom4
 %----------------
@@ -201,9 +224,9 @@ ny = 100;
 NO = length(SET)+1;
 im = single(zeros(nx,ny));
 im = repmat(im,[1 1 1 10]);
-for loop=1:10;
+for loop=1:10
   im((loop):(loop+10),40:60,1,loop) = 1;
-end;
+end
 SET(NO).IM = single(im);
 filephantomhelper;
 DATA.Preview.ResolutionX = 1;
@@ -212,6 +235,11 @@ DATA.Preview.ResolutionY = 0.25;
 openfile('setupstacksfromdicom',NO);
 segment('renderstacksfromdicom',NO);
 
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+ 
 %----------------------------
 function im = helpfilter(im,n)
 %----------------------------
@@ -306,7 +334,7 @@ im(:,:,16) = rand(nx,ny);
 %Apply mask
 for loop = 1:size(im,4)
   im(:,:,loop) = im(:,:,loop).*single(mask);
-end;
+end
 
 %Store image
 SET(NO).IM = single(im);
@@ -348,12 +376,14 @@ SET(NO).Point.Z = 1:nz;
 l = cell(1,nz);
 for loop = 1:nz
   l{loop} = sprintf('%0.3g',fullindex(loop));
-end;
+end
 
 SET(NO).Point.Label = l;
 
-segment('makeviewim');
-drawfunctions('drawall');
+DATA.ViewIM{DATA.CurrentPanel} = [];
+drawfunctions('drawno',NO)
+% segment('makeviewim');
+% drawfunctions('drawall');
 
 %-----------------------------------
 function plaincylinder(inrad,outrad)
@@ -364,7 +394,7 @@ global DATA SET NO
 
 if nargin==0
   %ask inner radius
-  s = inputdlg({'Enter inner radius (endocard)'},'InnerRadius',1,{sprintf('%d',20)});
+  s = myinputdlg({'Enter inner radius (endocard)'},'InnerRadius',1,{sprintf('%d',20)});
   if isempty(s)
     myfailed('Invalid inner radius.',DATA.GUI.Segment);
     return;
@@ -373,10 +403,10 @@ if nargin==0
     if not(ok)
       myfailed('Invalid inner radius.',DATA.GUI.Segment);
       return;
-    end;
-  end;
+    end
+  end
   %ask outer radius
-  s = inputdlg({'Enter outer radius (epicard)'},'OuterRadius',1,{sprintf('%d',30)});
+  s = myinputdlg({'Enter outer radius (epicard)'},'OuterRadius',1,{sprintf('%d',30)});
   if isempty(s)
     myfailed('Invalid outer radius.',DATA.GUI.Segment);
     return;
@@ -385,9 +415,9 @@ if nargin==0
     if not(ok)
       myfailed('Invalid outer radius.',DATA.GUI.Segment);
       return;
-    end;
-  end;
-end;
+    end
+  end
+end
 
 nx = 100;
 ny = 100;
@@ -405,6 +435,11 @@ openfile('setupstacksfromdicom',NO);
 SET(NO).TIncr = 1;
 segment('renderstacksfromdicom',NO);
 
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+ 
 %-------------
 function torus
 %-------------
@@ -439,10 +474,15 @@ mymsgbox(...
   sprintf('Innerradius=10, Outerradius=15, Radius of torso (center)=30, volume=%0.5g ml',...
   volume),'',DATA.GUI.Segment);
 
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+ 
 %-----------------
 function qflowtest
 %-----------------
-global SET NO
+global DATA SET NO
 
 %Qflow test
 nx = 64;
@@ -473,7 +513,7 @@ t = 0.5*cos(linspace(0,2*pi,nt));
 phase = mag;
 for tloop=1:nt
   phase(:,:,tloop,:) = (mag(:,:,tloop,:)>0.3)*t(tloop)+0.5;
-end;
+end
 log = (mag<0.3);
 phase(log) = 1;
 
@@ -510,6 +550,11 @@ SET(phaseno).ImageType = 'Flow (Through plane)';
 
 segment('renderstacksfromdicom',NO);
 
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+ 
 %------------------------------
 function yi = upsamplehelper(y,n)
 %------------------------------
@@ -554,7 +599,7 @@ function pwhelper(rad,flow,roiname)
 %----------------------------------
 %Helper function to add image stacks
 
-global SET NO
+global DATA SET NO
 
 nx = 256;
 ny = 256;
@@ -586,17 +631,17 @@ phasevalue = 0.5+0.5*velocity/venc;
 
 if max(phasevalue)>1
   error('Wrapping.');
-end;
+end
 
 if max(phasevalue)<0
   error('Wrapping.');
-end;
+end
 
 %Phase image
 phase = mag;
 for tloop=1:nt
   phase(:,:,tloop,:) = phasevalue(tloop)*mag(:,:,tloop,:);
-end;
+end
 
 phase(phase==0) = 0.5;
 phase(1) = 0; %Ensure normalization
@@ -655,7 +700,11 @@ SET(magno).TIncr = SET(magno).TimeVector(2)-SET(magno).TimeVector(1);
 SET(phaseno).TimeVector = linspace(0,1,nt);
 SET(phaseno).TIncr = SET(phaseno).TimeVector(2)-SET(phaseno).TimeVector(1);
 
-
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+ 
 %---------------
 function pwvtest
 %---------------
@@ -736,10 +785,10 @@ for loop = 1:length(points);
       subplot(2,1,2);
       plot(imp);
       pause;
-    end;
+    end
     
     tmeas(tloop) = pwtestcalchelper(aorticflow,abdominalflow);
-  end;
+  end
   
   truevel = aorticlength./ttrue;
   measvel = aorticlength./tmeas;
@@ -755,7 +804,7 @@ for loop = 1:length(points);
     
   if loop==16
     1
-  end;
+  end
   
   disp(sprintf('%d timeframes: %0.5g+-%0.5g',points(loop),mean(truevel-measvel),std(truevel-measvel)));
   
@@ -774,9 +823,9 @@ for loop = 1:length(points);
   h = ylabel('Measured pulse wave velocity [m/s]'); set(h,'fontsize',fs);
   h = title(dprintf('Derived from %d timeframes',points(loop))); set(h,'fontsize',fs);  
   set(69+loop,'color',[1 1 1]);
-  end;
+  end
   
-end;
+end
 
 figure(190);
 h = plot(points,errorpercent20,'r-');set(h,'linewidth',2); set(h,'markersize',6);
@@ -804,7 +853,7 @@ for loop=20:40
   outdata{loop-19,7} = errorpercent14(loop-19);
   outdata{loop-19,8} = errorpercent10(loop-19);
   outdata{loop-19,9} = errorpercent4(loop-19);
-end;
+end
 
 segment('cell2clipboard',outdata);
 
@@ -845,7 +894,7 @@ for i = 1:2
     flowcurve = flow1;
   else
     flowcurve = flow2;
-  end;
+  end
   
   timevec = linspace(0,1000,length(flow1));
   tmax = max(tmax,timevec(end));
@@ -873,7 +922,7 @@ deltat = diff(slopet);
 %-----------------
 function flow3test
 %-----------------
-global SET NO
+global DATA SET NO
 
 %3D flow test
 nx = 64;
@@ -903,7 +952,7 @@ t = 0.5*cos(linspace(0,2*pi,nt));
 phase = mag;
 for tloop=1:nt
   phase(:,:,tloop,:) = (mag(:,:,tloop,:)>0.3)*t(tloop)+0.5;
-end;
+end
 log = find((mag<0.3));
 phase(log) = 1;
 phase(log) = phase(log).*rand(size(log));
@@ -941,6 +990,11 @@ SET(phaseno).ImageType = 'Flow (Through plane)';
 
 segment('renderstacksfromdicom',NO);
 
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+ 
 %-------------------
 function straintest1
 %-------------------
@@ -971,7 +1025,7 @@ SET(2).IM = SET(1).IM;
 v = 0.5-0.5*single(sin(2*pi*(0:(nt-1))/nt));
 for loop=1:nt
   SET(2).IM(:,:,loop,1) = v(loop);
-end;
+end
 phasenox = 2;
 NO = 2;     
 filephantomhelper;
@@ -1022,6 +1076,11 @@ SET(1).ImageViewPlane = '2CH';
 
 segment('renderstacksfromdicom',NO);
 
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+ 
 %-------------------
 function straintest2
 %-------------------
@@ -1074,7 +1133,7 @@ pos = cumsum(vel)*DATA.Preview.TIncr*10; %position of "piston" in mm, *10 due to
 SET(1).IM = repmat(single(0),[nx ny nt nz]);
 for tloop=1:nt
   SET(1).IM(16:round(48-pos(tloop)),16:48,tloop) = 1;
-end;
+end
 
 NO = 1;
 magno = NO;
@@ -1101,7 +1160,7 @@ for tloop=1:nt
   
   sweep = sweep(:); %Reshape it.
   SET(2).IM(:,16:48,tloop) = repmat(sweep,[1 33]); %Store into the matrix.
-end;
+end
 
 max(SET(2).IM(:))
 min(SET(2).IM(:))
@@ -1165,9 +1224,16 @@ SET(magno).TIncr = tincr;
 SET(phasenox).TIncr = tincr;
 SET(phasenoy).TIncr = tincr;
 
-drawfunctions('drawall');
+% drawfunctions('drawall');
 segment('renderstacksfromdicom',NO);
 
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+
+viewfunctions('setview');
+ 
 %-----------------------------
 function t2starphantom(noisef)
 %-----------------------------
@@ -1175,7 +1241,7 @@ global DATA SET NO
 
 if nargin==0
   noisef = 0.01;
-end;
+end
 
 nx = 100;
 ny = nx;
@@ -1201,8 +1267,8 @@ for xloop=1:10
   for yloop=1:10
     t2map((1+(xloop-1)*10):(xloop*10),(1+(yloop-1)*10):(yloop*10)) = t2(pos);
     pos = pos+1;    
-  end;
-end;
+  end
+end
 
 r2map = 1./t2map;
 
@@ -1214,9 +1280,9 @@ for tloop=1:nt
   for xloop=1:nx
     for yloop=1:ny
       SET(NO).IM(xloop,yloop,tloop) = single(exp(-r2map(xloop,yloop)*echotimes(tloop)));
-    end;
-  end;
-end;
+    end
+  end
+end
 
 %Add noise
 SET(NO).IM = SET(NO).IM+noisef*randn(size(SET(NO).IM));
@@ -1226,6 +1292,11 @@ openfile('setupstacksfromdicom',NO);
 SET(NO).EchoTime = echotimes;
 
 segment('renderstacksfromdicom',NO);
+
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
 
 %----------------------
 function taggingphantom
@@ -1295,6 +1366,11 @@ SET(NO).ImageType = 'Strain from tagging';
 SET(NO).ImageViewPlane = 'Short-axis';
 segment('renderstacksfromdicom',NO);
 
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+
 %-------------------------------------
 function [res] = vel2segment(vel,venc)
 %-------------------------------------
@@ -1350,8 +1426,8 @@ SET(no).ImageOrientation = [1 0 0 0 1 0];
 function petphantom
 %------------------
 % PET phantom
-% John Heerfordt Sjöqvist & Mattias Albinsson
-global SET NO
+% John Heerfordt Sj?qvist & Mattias Albinsson
+global DATA SET NO
 
 %Set image size
 nx = 64;
@@ -1468,6 +1544,11 @@ openfile('setupstacksfromdicom',NO);
 segment('renderstacksfromdicom',NO);
 SET(no).TimeVector = t_frames;
 SET(no).TIncr = [];
+
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
 
 %-------------------------------
 function C_a = input_function(t)

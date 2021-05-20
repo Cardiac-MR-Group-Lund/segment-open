@@ -11,16 +11,16 @@ filter = false; %Assume without filter
 
 if nargin<2
   checkfilter = true;
-end;
+end
 
 if checkfilter
-  try    
+  try
     %get(DATA.Preview.Handles); This line disabled filter action
     filter = get(DATA.Preview.Handles.filtercheckbox,'value');
   catch %#ok<CTCH>
     filter = false;
-  end;
-end;
+  end
+end
 
 %DATA might not be correctly set => put inside catch clause
 try
@@ -29,14 +29,14 @@ try
   end
 catch %#ok<CTCH>
   filter = false;
-end;
-  
-if ~filter  
-      f = dir(pathname); %names = ls(pathname);      
+end
+
+if ~filter
+  f = dir(pathname); %names = ls(pathname);
 else
   %--- Use filter(s)
   filtersstri = mygetedit(DATA.Preview.Handles.filteredit);
-
+  
   %Extract filters
   numfilters = sum(filtersstri==';')+1;
   filters = cell(1,numfilters+1);
@@ -48,22 +48,22 @@ else
     filters{loop} = filtersstri(1:(pos-1));
     filtersstri = filtersstri((pos+1):end);
     loop = loop+1;
-  end;
+  end
   filters{loop} = filtersstri;
-
+  
   %Set up template
   f = [];
-
+  
   for loop=1:length(filters)
     f = cat(1,f,dir([pathname filesep filters{loop}]));
-  end;
-
- end;
+  end
+  
+end
 %  names=cellstr(names);
 %  names=strtrim(names);
 %  isd=num2cell(cellfun(@isempty,strfind(names,'.')));
 %  f=struct('name',names,'isdir',isd);
-%  
+%
 % % Windows 10(?) bugfix: Sometimes isdir is not set for . and ..
 for floop = 1:length(f)
   fname = f(floop).name;
@@ -81,32 +81,32 @@ ind = true(size(f));
 for loop=1:length(f)
   if isequal(f(loop).name,'thumbs.cache')
     ind(loop) = false;
-  end;
+  end
   if isequal(f(loop).name,'folders.cache')
     ind(loop) = false;
-  end;
+  end
   if isequal(f(loop).name,'dicom.cache')
     ind(loop) = false;
-  end;
+  end
   if isequal(lower(f(loop).name),'dicomdir')
     ind(loop) = false;
-  end;
-	if isequal(f(loop).name,'.svn'),
-		ind(loop) = false;
   end
- % if strcmp(f(loop).name,'..'),
-	%	ind(loop) = false;
+  if isequal(f(loop).name,'.svn')
+    ind(loop) = false;
+  end
+  % if strcmp(f(loop).name,'..'),
+  %	ind(loop) = false;
   %end
   %if strcmp(f(loop).name,'.'),
-		%ind(loop) = false;
-%   %end
-%   if strcmp(f(loop).name,''),
-% 		ind(loop) = false;
-% 	end
-end;
+  %ind(loop) = false;
+  %   %end
+  %   if strcmp(f(loop).name,''),
+  % 		ind(loop) = false;
+  % 	end
+end
 
 % Exclude hidden files on unix, i.e. starting with . but isn't . or ..
-if DATA.Pref.HideFilesUnix && isunix
+if isunix && isfield(DATA.Pref,'HideFilesUnix')&& DATA.Pref.HideFilesUnix
   for loop = 1:length(f)
     if ~isequal(f(loop).name, '.') && ~isequal(f(loop).name, '..')
       thisname = f(loop).name;

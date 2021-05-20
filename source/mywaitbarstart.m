@@ -11,7 +11,7 @@ function h = mywaitbarstart(varargin)
 %minimize CPU consumption. Function returns a handle to a 
 %MYWAITBAROBJECT. FIGHANDLE is optional and indicates alignment
 %
-%See also MYWAITBARUPDATE, MYWAITBARCLOSE.
+%See also MYWAITBARUPDATE, MYWAITBARSET, MYWAITBARCLOSE.
 
 %Einar Heiberg
 
@@ -22,5 +22,5 @@ if ismethod(DATA,'mywaitbarmainstart')
 else
   %Well seems not to be overloaded => 
   h = maingui.mywaitbarstart(varargin{:});
-end;
+end
 

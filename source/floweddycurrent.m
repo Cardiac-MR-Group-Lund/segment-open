@@ -6,7 +6,7 @@ function varargout = floweddycurrent(varargin)
 if nargin==0
   init;
   return;
-end;
+end
 
 macro_helper(varargin{:});
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
@@ -22,12 +22,12 @@ global DATA
 [ok,no] = safetychecks;
 if ~ok
   return;
-end;
+end
 
 %Check if we should plot after user press ok
 if nargin<1
   plotonok = false;
-end;
+end
 
 %Initalize
 DATA.GUI.EddyCurrent = mygui('floweddycurrent.fig');
@@ -35,7 +35,7 @@ gui = DATA.GUI.EddyCurrent;
 
 initvariables(no);
 gui.plotonok = plotonok;
-
+set(gui.fig, 'Pointer','arrow')
 %Initialize graphics
 graphicalinit;
 
@@ -56,19 +56,19 @@ global DATA
 [ok,no] = safetychecks;
 if ~ok
   return;
-end;
+end
 
 %Check if we should plot after user press ok
 if nargin<1
   plotonok = false;
-end;
+end
 
 %Initalize
 DATA.GUI.EddyCurrent = mygui('floweddycurrentsmall.fig');
 gui = DATA.GUI.EddyCurrent;
 
 %Hide gui
-set(gui.fig,'visible','off');
+%set(gui.fig,'visible','off');
 
 initvariables(no);
 gui.biggui = false; %Mark that the smaller GUI
@@ -81,7 +81,7 @@ findstatic;
 recalculate_Callback; %This also calls update
 
 %Show GUI
-set(gui.fig,'visible','on');
+set(gui.fig,'visible','on','Pointer','arrow');
 
 %-------------------------
 function initvariables(no)
@@ -101,7 +101,7 @@ gui.badfit = [];
 gui.biggui = true; %When true it is the main gui which is initialized.
 gui.ignorerois = false; %If true then we do not care about stationary tissue or non stationary tissue
 
-if isfield(SET(gui.phaseno).Flow, 'PhaseCorrRemoveBadFit');
+if isfield(SET(gui.phaseno).Flow, 'PhaseCorrRemoveBadFit')
   gui.usebadfit = SET(gui.phaseno).Flow.PhaseCorrRemoveBadFit;
 else
   gui.usebadfit = true;
@@ -109,23 +109,23 @@ end
 
 if ~isfield(SET(gui.phaseno).Flow,'PhaseCorr')
   SET(gui.no).Flow.PhaseCorr = [];
-end;
+end
 
 if ~isfield(SET(gui.phaseno).Flow,'PhaseCorrPercentiles')
   SET(gui.phaseno).Flow.PhaseCorrPercentiles = 0.6;
-end;
+end
 if ~isfield(SET(gui.phaseno).Flow,'PhaseCorrMagnitudeThreshold')
   SET(gui.phaseno).Flow.PhaseCorrMagnitudeThreshold = 0.1;
-end;
+end
 if ~isfield(SET(gui.phaseno).Flow,'PhaseCorrMethod')
   SET(gui.phaseno).Flow.PhaseCorrMethod = 'linear';
-end;
+end
 if ~isfield(SET(gui.phaseno).Flow,'PhaseCorrTimeResolved')
   SET(gui.phaseno).Flow.PhaseCorrTimeResolved = false;
-end;
+end
 if ~isfield(SET(gui.phaseno).Flow,'PhaseCorrStaticTissueRois')
   SET(gui.phaseno).Flow.PhaseCorrStaticTissueRois = false;
-end;
+end
 
 %---------------------
 function graphicalinit
@@ -138,7 +138,7 @@ gui = DATA.GUI.EddyCurrent;
 %This function only updates the big gui
 if ~gui.biggui
   return;
-end;
+end
 
 %Update boxes, sliders etc.
 set(gui.handles.phaseslider,'Value',100*SET(gui.phaseno).Flow.PhaseCorrPercentiles);
@@ -164,7 +164,7 @@ switch SET(gui.phaseno).Flow.PhaseCorrMethod
   otherwise
     myfailed(dprintf('Unknown method %s.',SET(gui.phaseno).Flow.PhaseCorrMethod));
     return;
-end;
+end
 set(gui.handles.methodlistbox,'value',v);
 set(gui.handles.timeresolvedcheckbox,'value',double(SET(gui.phaseno).Flow.PhaseCorrTimeResolved));
 set(gui.handles.statictissueroischeckbox,'value',double(SET(gui.phaseno).Flow.PhaseCorrStaticTissueRois));
@@ -174,12 +174,12 @@ if SET(gui.phaseno).ZSize>1
   set(gui.handles.sliceslider,'min',1,'max',SET(gui.phaseno).ZSize,'value',gui.slice);
 else
   set([gui.handles.slicetext gui.handles.sliceslider],'visible','off');
-end;
+end
 
 set(gui.handles.timeslider,'min',1,'max',SET(gui.phaseno).TSize,'value',gui.timeframe);
 if ~SET(gui.phaseno).Flow.PhaseCorrTimeResolved
   set([gui.handles.timetext gui.handles.timeslider],'visible','off');
-end;
+end
 
 %-------------------------------
 function [res,no] = safetychecks
@@ -199,7 +199,7 @@ end
 if isempty(SET(NO).Flow)
   myfailed('No flow data.');
   return;
-end;
+end
 
 if isequal(NO,SET(NO).Flow.MagnitudeNo)
   %Check if only one phase is available.
@@ -212,8 +212,8 @@ if isequal(NO,SET(NO).Flow.MagnitudeNo)
   else
     myfailed('Can not do eddy current compensation on magnitude image with multiple phase images. Select a phase image stack.');
     return;
-  end;
-end;
+  end
+end
 
 %If this statement is reached then ok.
 res = true;
@@ -236,7 +236,7 @@ findstatic;
 recalculate_Callback;
 
 %---------------------------
-function timeslider_Callback %#ok<DEFNU>
+function timeslider_Callback 
 %---------------------------
 %Timeslider Callback
 
@@ -253,7 +253,7 @@ if SET(gui.phaseno).Flow.PhaseCorrTimeResolved
 else
   set([gui.handles.timetext gui.handles.timeslider],'visible','off');
   gui.timeframe = 1;
-end;
+end
 
 update;
 
@@ -308,7 +308,7 @@ if SET(gui.phaseno).ZSize>1
   gui.slice = min(max(round(gui.handles.slice),1),SET(gui.phaseno).ZSize);
 else
   gui.slice = 1;
-end;
+end
 
 update;
 
@@ -330,7 +330,7 @@ switch v
     SET(gui.phaseno).Flow.PhaseCorrMethod = 'quadratic';
   case 3
     SET(gui.phaseno).Flow.PhaseCorrMethod = 'ge';
-end;
+end
 
 recalculate_Callback;
 
@@ -441,23 +441,23 @@ switch SET(no).Flow.PhaseCorrMethod
     %experiment.
     
     type = '';
-    if isequal(SET(no).Flow.PhaseX,no);
+    if isequal(SET(no).Flow.PhaseX,no)
       type = 'x';
-    end;
+    end
     
-    if isequal(SET(no).Flow.PhaseY,no);
+    if isequal(SET(no).Flow.PhaseY,no)
       type = 'y';
-    end;
+    end
     
-    if isequal(SET(no).Flow.PhaseNo,no);
+    if isequal(SET(no).Flow.PhaseNo,no)
       type = 'z';
-    end;
+    end
     
     if isempty(type)
       myfailed(dprintf('Could not determine direction of flow (x,y,z).'));
       myworkoff;
       return;
-    end;
+    end
     
     %--- Find corresponding phase image
     point = SET(no).ImagePosition;
@@ -474,16 +474,16 @@ switch SET(no).Flow.PhaseCorrMethod
             case 'x'
               if isequal(SET(loop).Flow.PhaseX,loop)
                 candidate = true;
-              end;
+              end
             case 'y'
               if isequal(SET(loop).Flow.PhaseY,loop)
                 candidate = true;
-              end;
+              end
             case 'z'
               if isequal(SET(loop).Flow.PhaseNo,loop)
                 candidate = true;
-              end;
-          end;
+              end
+          end
           
           if candidate
             tempdir = cross(...
@@ -496,12 +496,12 @@ switch SET(no).Flow.PhaseCorrMethod
             if abs(sum(point(:).*tempdir(:))-d)<1e-4
               %The point fits in this plane, add it!.
               match = [match loop]; %#ok<AGROW>
-            end;
-          end;
+            end
+          end
           
-        end; %not same magnitude
-      end; %Flow data set
-    end; %Loop over image stacks
+        end %not same magnitude
+      end %Flow data set
+    end %Loop over image stacks
     
     if isempty(match)
       myfailed(dprintf('No matches found.'));
@@ -509,33 +509,32 @@ switch SET(no).Flow.PhaseCorrMethod
       try
         set(gui.handles.methodlistbox,'value',1);
       catch
-      end;
+      end
       myworkoff;
       return;
-    end;
+    end
     
     %Create cell array
     matchcell = cell(1,length(match));
     for loop=1:length(match)
       matchcell{loop} = match(loop);
-    end;
+    end
     
     if length(match)>1
-      mywarning(dprintf('More than one plane candidate found.'));
-      m = mymenu('Choose image stack',mathcell);
+      m = mymenu('More than one plane candidate found. Choose image stack',mathcell);
     else
       m = 1;
-    end;
+    end
     
     if isequal(m,0)
       myfailed(dprintf('Aborted.'));
       myworkoff;
       return;
-    end;
+    end
     
     match = match(m);
     
-    gui.phasecorr = 0.5-SET(match).IM;
+    gui.phasecorr = SET(match).IM-0.5; %Changed 2021-03-25 after being notified by Erik Andreas Rye Berg <erik.a.berg@ntnu.no>. Checked it was incorrect: was 0.5-SET(match).IM;
     
     gui.logim = SET(SET(match).Flow.MagnitudeNo).IM(:,:,1)>0.05; %ge limit
     temp = gui.phasecorr;
@@ -556,8 +555,8 @@ switch SET(no).Flow.PhaseCorrMethod
         for rloop=1:SET(gui.magno).RoiN
           if isequal(SET(gui.magno).Roi(rloop).Name,'Static tissue')
             rois = [rois rloop]; %#ok<AGROW>
-          end;
-        end;
+          end
+        end
       
         if isempty(rois)
           myfailed(dprintf('No static tissue regions marked.'));
@@ -567,21 +566,44 @@ switch SET(no).Flow.PhaseCorrMethod
           catch
           end
           return;
-        end;
+        end
       
         gui.logim = false([SET(no).XSize SET(no).YSize SET(no).ZSize]);
       
         for rloop=1:length(rois)
           frames = SET(gui.magno).Roi(rois(rloop)).T(1); %handles.NO is the magnitude image stack
           slice = SET(gui.magno).Roi(rois(rloop)).Z(1);
-          for tloop = 1:length(frames)
+          roix = SET(gui.magno).Roi(rois(rloop)).X;
+          roiy = SET(gui.magno).Roi(rois(rloop)).Y;
+          % check if ROI is time resolved
+          numframes = length(frames);
+          nany = isnan(roiy(:));
+          nanx = isnan(roix(:));
+          if any(nanx) || any(nany)
+            % roi is not time resolved
+            % -> find time frame that has segmentation
+            [~,tf] = find(~isnan(roix));
+            if ~isempty(tf)
+              tf = min(tf);
+              SET(gui.magno).Roi(rois(rloop)).X = repmat(roix(:,tf),[1,SET(no).TSize]);
+              SET(gui.magno).Roi(rois(rloop)).Y = repmat(roiy(:,tf),[1,SET(no).TSize]);
+              roiarea = SET(gui.magno).Roi(rois(rloop)).Area(1,tf);
+              SET(gui.magno).Roi(rois(rloop)).Area = repmat(roiarea,[1,SET(no).TSize]);
+              roistd = SET(gui.magno).Roi(rois(rloop)).StD(1,tf);
+              SET(gui.magno).Roi(rois(rloop)).StD = repmat(roistd,[1,SET(no).TSize]);
+              roimean = SET(gui.magno).Roi(rois(rloop)).Mean(1,tf);
+              SET(gui.magno).Roi(rois(rloop)).Mean = repmat(roimean,[1,SET(no).TSize]);
+            end
+            
+          end
+          for tloop = 1:numframes
             gui.logim(:,:,slice) = gui.logim(:,:,slice) | segment('createmask',...
               [SET(no).XSize SET(no).YSize],...
-              SET(gui.magno).Roi(rois(rloop)).Y(:,frames(tloop)),...
-              SET(gui.magno).Roi(rois(rloop)).X(:,frames(tloop)));
-          end;
-        end;
-      end;
+               SET(gui.magno).Roi(rois(rloop)).Y(:,frames(tloop)),...
+               SET(gui.magno).Roi(rois(rloop)).X(:,frames(tloop)));
+          end
+        end
+      end
       
     else
       
@@ -599,11 +621,11 @@ switch SET(no).Flow.PhaseCorrMethod
               [SET(no).XSize SET(no).YSize],...
               rois(rloop).Y(:,frames(tloop)),...
               rois(rloop).X(:,frames(tloop)));
-          end;
-        end;
+          end
+        end
       else
         excludeim = false([SET(no).XSize SET(no).YSize SET(no).ZSize]);
-      end;
+      end
       
       %Calculate the temporal standard deviation
       stdmap = std(SET(no).IM,0,3);
@@ -651,14 +673,14 @@ switch SET(no).Flow.PhaseCorrMethod
       %Remove zeros
       logim(stdmap==0) = false;
       gui.logim = logim;
-    end;
+    end
     %Recalculate
     %floweddycurrent_Callback('recalculate');
   otherwise
     myfailed(dprintf('Method %s not implemented.',SET(no).Flow.PhaseCorrMethod));
     myworkoff;
     return;
-end;
+end
 
 %--- Exclude non static tissue
 if ~gui.ignorerois
@@ -668,8 +690,8 @@ if ~gui.ignorerois
   for rloop=1:SET(gui.magno).RoiN
     if isequal(SET(gui.magno).Roi(rloop).Name,'Non-static tissue')
       rois = [rois rloop]; %#ok<AGROW>
-    end;
-  end;
+    end
+  end
       
   %Loop over ROI's and exclude them
   for rloop=1:length(rois)
@@ -680,8 +702,8 @@ if ~gui.ignorerois
         [SET(no).XSize SET(no).YSize],...
         SET(gui.magno).Roi(rois(rloop)).Y(:,frames(tloop)),...
         SET(gui.magno).Roi(rois(rloop)).X(:,frames(tloop)));
-    end;
-  end;
+    end
+  end
   
   %Later fix for multiple slices
   gui.logim = staticfix(gui.logim);
@@ -693,8 +715,8 @@ if ~gui.ignorerois
   for rloop=1:SET(gui.magno).RoiN
     if isequal(SET(gui.magno).Roi(rloop).Name,'Static tissue')
       rois = [rois rloop]; %#ok<AGROW>
-    end;
-  end;
+    end
+  end
   
   %Loop over ROI's and exclude them
   for rloop=1:length(rois)
@@ -705,12 +727,12 @@ if ~gui.ignorerois
         [SET(no).XSize SET(no).YSize],...
         SET(gui.magno).Roi(rois(rloop)).Y(:,frames(tloop)),...
         SET(gui.magno).Roi(rois(rloop)).X(:,frames(tloop)));
-    end;
-  end;
+    end
+  end
   
   %Later fix for multiple slices
   gui.logim = staticfix(gui.logim);
-end; %do not do this if ignorerois are true
+end %do not do this if ignorerois are true
 
 %Calculate number of static pixels, this is only for research purposes and
 %can later be deleted.
@@ -721,7 +743,7 @@ if nargout>1
   numlower = sum(sum(gui.logim((half+1):end,:)));  
   varargout{1} = numupper;
   varargout{2} = numlower;
-end;
+end
 
 myworkoff;
 
@@ -748,7 +770,7 @@ else
   numtimes = 10;
   if SET(gui.phaseno).Flow.PhaseCorrTimeResolved
     numtimes = 2;
-  end;
+  end
   if stop
     return;
   end
@@ -766,7 +788,7 @@ else
     end
   end
   
-end;
+end
 
 %Graphical update
 update;
@@ -796,7 +818,7 @@ switch SET(no).Flow.PhaseCorrMethod
   case 'ge'
     findstatic; %Check that this works
     return;
-end;
+end
 
 %Creat grid
 [x,y,z] = ndgrid(1:SET(no).XSize,1:SET(no).YSize,1:SET(no).ZSize);
@@ -806,14 +828,14 @@ if isempty(gui.badfit)
   ind = find(gui.logim);
 else
   ind = find(gui.logim & (~gui.badfit)); %Remove badfit pixels
-end;
+end
 
 if length(ind)<50
   myfailed('Too few points, aborting.');
   stop = true;
   myworkoff;
   return;
-end;
+end
 
 %Cut away coordinates
 xi = x(:); yi=y(:); zi=z(:);
@@ -828,13 +850,13 @@ switch order
       A = [ones(size(xi)) xi yi zi];
     else
       A = [ones(size(xi)) xi yi];
-    end;
+    end
   case 2
     if SET(no).ZSize>1
       A = [ones(size(xi)) xi yi zi xi.*yi xi.*zi yi.*zi xi.^2 yi.^2 zi.^2];
     else
       A = [ones(size(xi)) xi yi xi.*yi xi.^2 yi.^2];
-    end;
+    end
     %case 3
     %  if SET(handles.no).ZSize>1
     %    myfailed('Not yet implemented.');
@@ -848,9 +870,9 @@ switch order
     %    A(:,5) = yi;          %y
     %    A(:,6) = A(:,5).*yi;  %y^2
     %    A(:,7) = A(:,6).*yi;  %y^3
-    %  end;
+    %  end
     
-end;
+end
 
 %Build matrix
 switch order
@@ -859,16 +881,16 @@ switch order
       Abuild = [ones([size(x,1)*size(x,2)*size(x,3) 1]) x(:) y(:) z(:)];
     else
       Abuild = [ones([size(x,1)*size(x,2) 1]) x(:) y(:)];
-    end;
+    end
   case 2
     if SET(no).ZSize>1
       Abuild = [ones([size(x,1)*size(x,2)*size(x,3) 1]) x(:) y(:) z(:) x(:).*y(:) x(:).*z(:) y(:).*z(:) (x(:)).^2 (y(:)).^2 (z(:)).^2];
     else
       Abuild = [ones([size(x,1)*size(x,2) 1]) x(:) y(:) x(:).*y(:) (x(:)).^2 (y(:)).^2];
-    end;
+    end
   case 3
     
-end;
+end
 
 %Check if timeresolved
 if SET(no).Flow.PhaseCorrTimeResolved
@@ -876,7 +898,7 @@ if SET(no).Flow.PhaseCorrTimeResolved
   handles.phasecorr = repmat(single(0),size(SET(no).IM));
 else
   timeframes = 1;
-end;
+end
 
 %--- Loop over timeframes if timeresolved other wise loop just once.
 handles.maxvel = 0;
@@ -889,7 +911,7 @@ for tloop=1:timeframes
     phase = SET(no).IM(:,:,tloop,:)-0.5;
   else
     phase = mean(SET(no).IM(:,:,:,:),3)-0.5;
-  end;
+  end
   
   %Make as vector
   phase = phase(:);
@@ -899,7 +921,7 @@ for tloop=1:timeframes
   
   B = phase;
   tempstate = warning;
-  warning('off'); %#ok<WNOFF>
+  warning('off'); 
   c = A\double(B); %Solve!
   warning(tempstate);
   
@@ -910,14 +932,14 @@ for tloop=1:timeframes
   else
     gui.phasecorr = reshape(Abuild*c,[size(x,1) size(x,2) 1 SET(no).ZSize]);
     temp = gui.phasecorr;
-  end;
+  end
   
   temp(gui.logim) = 0;
   gui.maxvel = max(gui.maxvel,max(temp(:)));
   
   h = mywaitbarupdate(h);
   
-end; %End of tloop
+end %End of tloop
 mywaitbarclose(h);
 myworkoff;
 
@@ -941,7 +963,7 @@ if SET(gui.phaseno).Flow.PhaseCorrTimeResolved
   diffvel = vel-mean(gui.phasecorr,3)*2*SET(gui.phaseno).VENC;
 else
   diffvel = vel-gui.phasecorr*2*SET(gui.phaseno).VENC;
-end;
+end
 
 %Take only static pixels
 diffvel(~gui.logim) = 0;
@@ -964,7 +986,7 @@ if nargout>0
   %--- warning messages if not enough (bad balanced support).
   [bwim] = bwlabel(mask,4); %4 connected regions
   varargout{1} = max(bwim(:));
-end;
+end
 
 %----------------------
 function clear_Callback %#ok<DEFNU>
@@ -999,7 +1021,7 @@ function done_Callback %#ok<DEFNU>
 %---------------------
 %Done button
 
-global DATA
+global DATA NO SET
 
 gui = DATA.GUI.EddyCurrent;
 
@@ -1007,18 +1029,20 @@ magno = gui.magno;
 plotonok = gui.plotonok;
 
 close(gui);
-drawfunctions('drawimageno');
+drawfunctions('drawno',NO) 
 
 if isopengui('flow.fig')
   reportflow('recalculate', magno);
   return;
-end;
+end
 
 if plotonok
   %Call plot function
   eddycheck = false;
   reportflow('init',magno,eddycheck);
-end;
+end
+SET(magno).Flow.PhaseCorrAsk = false; %not ask this again for this stack
+segment('updateflow'); %update flow values in main result panel
 
 %----------------------------
 function smallcancel_Callback %#ok<DEFNU>
@@ -1034,28 +1058,32 @@ plotonok = gui.plotonok;
 SET(magno).Flow.PhaseCorrAsk = false;
 
 close(gui);
-drawfunctions('drawimageno');
+drawfunctions('drawno',magno);
 
 if isopengui('flow.fig')
   reportflow('recalculate', magno);
   return;
-end;
+end
 
 if plotonok
   %Call plot function
   eddycheck = false;
   reportflow('init',magno,eddycheck);
-end;
+end
+SET(magno).Flow.PhaseCorrAsk = false; %not ask this again for this stack
+segment('updateflow'); %update flow values in main result panel
 
 
-%----------------
+%-----------------------
 function cancel_Callback %#ok<DEFNU>
 %-----------------------
 %callback for cancel Eddy current compensation
  
+global NO
+
 if ~isopengui('flow.fig')
-  drawfunctions('drawimageno'); %update in main GUI
-end;
+  drawfunctions('drawno',NO); %update in main GUI
+end
 close_Callback;
 
 %----------------------
@@ -1103,7 +1131,7 @@ for slice = 1:numslices
   %Loop over objects and find number of pixels
   for loop = 1:maxclasses
     sizevec(loop) = sum(rowim==loop);
-  end;
+  end
   
   %Find suitable threshold of object sizes
   maxsize = max(sizevec);
@@ -1114,12 +1142,12 @@ for slice = 1:numslices
   for loop = 1:maxclasses
     if sizevec(loop)>sizethreshold
       mergeim(im==loop) = true;
-    end;
-  end;
+    end
+  end
 
   %Store it
   fixim(:,:,slice) = mergeim;
-end;
+end
 
 %----------------------------
 function smalladjust_Callback %#ok<DEFNU>
@@ -1152,20 +1180,23 @@ magno = gui.magno;
 plotonok = gui.plotonok;
 
 %Close
+no = gui.magno;
 close(gui);
 
-drawfunctions('drawimageno');
+drawfunctions('drawno',no);
 
 %updated the flow interface if it is open
 if isopengui('flow.fig')
   reportflow('recalculate', magno);
   return;
-end;
+end
 
 if plotonok
   eddycheck = false;
   reportflow('init',magno,eddycheck);
 end
+SET(no).Flow.PhaseCorrAsk = false; %not ask this again for this stack
+segment('updateflow'); %update flow values in main result panel
 
 %--------------
 function update
@@ -1180,21 +1211,23 @@ gui = DATA.GUI.EddyCurrent;
 if ~gui.biggui
   updatesmall;
   return;
-end;
+else
+  set(gui.fig,'Pointer', 'arrow')
+end
 
 %Update timeresolved or not
 if SET(gui.phaseno).Flow.PhaseCorrTimeResolved
   set([gui.handles.timetext gui.handles.timeslider],'visible','on');  
 else
   set([gui.handles.timetext gui.handles.timeslider],'visible','off');
-end;
+end
 
 %Extract maximum velocity
 gui.maxvel = max(abs(gui.phasecorr(:)));
 
 if isempty(gui.maxvel)
   gui.maxvel = 1;
-end;
+end
 
 %--- Show velocity
 if SET(gui.phaseno).Flow.PhaseCorrTimeResolved
@@ -1204,11 +1237,11 @@ if SET(gui.phaseno).Flow.PhaseCorrTimeResolved
 else
   temp = 2*SET(gui.phaseno).VENC*(mean(SET(gui.phaseno).IM(:,:,:,gui.slice),3)-0.5);
   temp(not(gui.logim(:,:,gui.slice))) = 0; %just show the static pixels
-end;
+end
 
 if ~isempty(gui.badfit)
   temp(gui.badfit(:,:,gui.slice)) = 0; %clear also badfit
-end;
+end
   
 imagesc(temp,'parent',gui.handles.phaseaxes);
 axis(gui.handles.phaseaxes,'image','off');
@@ -1218,7 +1251,7 @@ clim = 2*SET(gui.phaseno).VENC*[-gui.maxvel gui.maxvel];
 %Check if valid range
 if isequal(clim(1),0)
   clim = [-1 1];
-end;
+end
 set(gui.handles.phaseaxes,'clim',clim);
 %colorbar('peer',handles.phaseaxes,'south');
 
@@ -1228,7 +1261,7 @@ if ~isempty(gui.phasecorr)
     imagesc(gui.phasecorr(:,:,gui.timeframe,gui.slice)*2*SET(gui.phaseno).VENC,'parent',gui.handles.phaseerroraxes);
   else
     imagesc(gui.phasecorr(:,:,1,gui.slice)*2*SET(gui.phaseno).VENC,'parent',gui.handles.phaseerroraxes);
-  end;
+  end
   axis(gui.handles.phaseerroraxes,'image','off');
   %clim = get(handles.phaseaxes,'clim');
   %clim = max(abs(clim));
@@ -1239,7 +1272,7 @@ else
   imagesc(zeros(SET(gui.phaseno).XSize,SET(gui.phaseno).YSize),'parent',gui.handles.phaseerroraxes);
   colorbar('peer',gui.handles.phaseerroraxes,'East');
   axis(gui.handles.phaseerroraxes,'image','off');
-end;
+end
 
 %--- Show magnitude image
 magno = SET(gui.phaseno).Flow.MagnitudeNo;
@@ -1249,7 +1282,7 @@ if SET(gui.phaseno).Flow.PhaseCorrTimeResolved
 else
   %Not timeresolved
   tempim = calcfunctions('remapuint8',mean(SET(magno).IM(:,:,:,gui.slice),3),magno,graymap);
-end;
+end
 
 %Fix the red image
 tempr = tempim;
@@ -1261,7 +1294,7 @@ if ~isempty(gui.badfit)
   tempg(gui.badfit(:,:,gui.slice)) = uint8(255);
 else
   tempg = tempim;
-end;
+end
 
 %Combine to an RGB image
 tempim = cat(3,tempr,tempg,tempim);
@@ -1274,17 +1307,17 @@ if ~isempty(SET(gui.phaseno).Flow.PhaseCorr)
     temp = SET(gui.phaseno).Flow.PhaseCorr(:,:,gui.timeframe,gui.slice);
   else
     temp = SET(gui.phaseno).Flow.PhaseCorr(:,:,1,gui.slice);
-  end;
+  end
 else
   temp = zeros(SET(gui.phaseno).XSize,SET(gui.phaseno).YSize);
-end;
+end
 temp = 2*SET(gui.phaseno).VENC*temp;
 imagesc(temp,'parent',gui.handles.appliedphasecorraxes);
 axis(gui.handles.appliedphasecorraxes,'image','off');
 colormap(gui.handles.appliedphasecorraxes,jet);
 if ~exist('clim','var')
   clim = [-gui.maxvel gui.maxvel];
-end;
+end
 set(gui.handles.appliedphasecorraxes,'clim',clim);
 colorbar('peer',gui.handles.appliedphasecorraxes,'East');
 
@@ -1294,11 +1327,11 @@ srois = [];
 for rloop=1:SET(gui.magno).RoiN
   if isequal(SET(gui.magno).Roi(rloop).Name,'Non-static tissue')
     nrois = [nrois rloop]; %#ok<AGROW>
-  end;
+  end
   if isequal(SET(gui.magno).Roi(rloop).Name,'Static tissue')
     srois = [srois rloop]; %#ok<AGROW>
-  end;
-end;            
+  end
+end           
       
 %Loop over ROI's and exclude them
 for rloop=1:length(nrois)  
@@ -1316,8 +1349,8 @@ for rloop=1:length(nrois)
       SET(gui.magno).Roi(nrois(rloop)).X(:,1),'r-');
     hold(gui.handles.previewaxes,'off');
 
-  end;
-end;
+  end
+end
 
 for rloop=1:length(srois)  
   slice = SET(gui.magno).Roi(srois(rloop)).Z(1);
@@ -1333,8 +1366,8 @@ for rloop=1:length(srois)
       SET(gui.magno).Roi(srois(rloop)).Y(:,1),...
       SET(gui.magno).Roi(srois(rloop)).X(:,1),'b-');
     hold(gui.handles.previewaxes,'off');
-  end;  
-end;
+  end 
+end
 
 %Enable/disable relevant handles.
 h = [...
@@ -1348,7 +1381,7 @@ if static
   set(h,'enable','off');
 else
   set(h,'enable','on');
-end;
+end
 
 
 %-------------------
@@ -1365,7 +1398,7 @@ gui.maxvel = max(abs(gui.phasecorr(:)));
 
 if isempty(gui.maxvel)
   gui.maxvel = 1;
-end;
+end
 
 %--- Show magnitude with overlayed velocity
 
@@ -1377,7 +1410,7 @@ if SET(gui.phaseno).Flow.PhaseCorrTimeResolved
 else
   vel = 2*SET(gui.phaseno).VENC*(mean(SET(gui.phaseno).IM(:,:,:,gui.slice),3)-0.5);
   vel(not(gui.logim(:,:,gui.slice))) = 0; %just show the static pixels
-end;
+end
 
 %Create magnitude image
 magno = SET(gui.phaseno).Flow.MagnitudeNo;
@@ -1387,7 +1420,7 @@ if SET(gui.phaseno).Flow.PhaseCorrTimeResolved
 else
   %Not timeresolved
   im = calcfunctions('remapuint8',mean(SET(magno).IM(:,:,:,gui.slice),3),magno,graymap);
-end;
+end
 
 %Create the RGB image
 rim = im;
@@ -1427,7 +1460,7 @@ if ~isempty(gui.phasecorr)
     imagesc(gui.phasecorr(:,:,gui.timeframe,gui.slice)*2*SET(gui.phaseno).VENC,'parent',gui.handles.corraxes);
   else
     imagesc(gui.phasecorr(:,:,1,gui.slice)*2*SET(gui.phaseno).VENC,'parent',gui.handles.corraxes);
-  end;
+  end
   axis(gui.handles.corraxes,'image','off');
   clim = 2*SET(gui.phaseno).VENC*[-gui.maxvel gui.maxvel];
   set(gui.handles.corraxes,'clim',clim);
@@ -1436,7 +1469,7 @@ else
   imagesc(zeros(SET(gui.phaseno).XSize,SET(gui.phaseno).YSize),'parent',gui.handles.phaseerroraxes);
   colorbar('peer',gui.handles.corraxes,'East');
   axis(gui.handles.corraxes,'image','off');
-end;
+end
 
 %Find ROI's to graphically display
 nrois = [];
@@ -1444,11 +1477,11 @@ srois = [];
 for rloop=1:SET(gui.magno).RoiN
   if isequal(SET(gui.magno).Roi(rloop).Name,'Non-static tissue')
     nrois = [nrois rloop]; %#ok<AGROW>
-  end;
+  end
   if isequal(SET(gui.magno).Roi(rloop).Name,'Static tissue')
     srois = [srois rloop]; %#ok<AGROW>
-  end;
-end;            
+  end
+end            
       
 %Loop over ROI's and exclude them
 for rloop=1:length(nrois)  
@@ -1460,8 +1493,8 @@ for rloop=1:length(nrois)
       SET(gui.magno).Roi(nrois(rloop)).X(:,1),'r-');
     hold(gui.handles.magaxes,'off');
     
-  end;
-end;
+  end
+end
 
 for rloop=1:length(srois)  
   slice = SET(gui.magno).Roi(srois(rloop)).Z(1);
@@ -1472,6 +1505,6 @@ for rloop=1:length(srois)
       SET(gui.magno).Roi(srois(rloop)).X(:,1),'b-');
     hold(gui.handles.magaxes,'off');
   
-  end;  
-end;
+  end  
+end
 

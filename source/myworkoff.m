@@ -1,4 +1,4 @@
-function myworkoff
+function myworkoff(fignr)
 %MYWORKOFF Graphically show that calculation is
 %  finished by restoring pointer.
 
@@ -7,17 +7,22 @@ function myworkoff
 global DATA
 %resume last pointer
 
+if nargin==0
+  fignr = gcf;  
+end
+
 if ~isempty(DATA)
-  set(gcf,'pointer',DATA.LastPointer);
+  set(fignr,'pointer',DATA.LastPointer);
 else
+  close(fignr)
   return;
-end;
+end
 
 if ~isempty(DATA)
   if isequal(DATA.LastPointer,'custom')
     set(DATA.imagefig,'pointer',DATA.LastPointer,...
       'pointershapecdata',DATA.LastPointerShapeCData);
-  end;
-end;
+  end
+end
 flushlog;
       

@@ -5,7 +5,7 @@ global DATA SET NO
 
 if nargin == 0
   arg = 'init';
-end;
+end
 
 switch arg
   case 'init'
@@ -15,16 +15,27 @@ switch arg
     try
       gui = DATA.GUI.PapillarySlider;
       
+      %This solution does not seem to work
+      %warning off
+      %jFig = get(DATA.fig,'JavaFrame');
+      %jFig.requestFocus;
+      %warning on
+
       v = get(gui.handles.papillarythresholdslider,'value');
-      SET(NO).PapillaryThreshold = v;
-           
+      if isapproxequal(abs(SET(NO).PapillaryThreshold-v),0.0082)
+        v = SET(NO).PapillaryThreshold;
+        set(gui.handles.papillarythresholdslider,'value',v);
+      else
+        SET(NO).PapillaryThreshold = v;
+      end
+      
       if ~isempty(SET(NO).EndoX)
         lvpeter('segmentestimatepapilaryvolume_Callback');
         figure(gui.fig);
-      end;
+      end
     catch me
       mydispexception(me);
-    end;
+    end
   case 'close'
     try
     DATA.GUI.PapillarySlider = close(DATA.GUI.PapillarySlider);
@@ -32,5 +43,5 @@ switch arg
       delete(gcbf);
       DATA.GUI.PapillarySlider = [];
     end
-end;
+end
 

@@ -65,7 +65,7 @@ nos.restgated = restgatedno;
 nos.stressgated = stressgatedno;
 fnames = fieldnames(nos);
 
-h = mywaitbarstart(3,'Calculating',1,DATA.GUI.Segment);
+h = mywaitbarstart(5,'Calculating',1,DATA.GUI.Segment);
 
 IM = [];
 LVsegmentation = [];
@@ -189,7 +189,8 @@ for i = 1:4
       VLAslice.(field),LVsegmentation.(field),EndoX.(field), ...
       EndoY.(field),EpiX.(field),EpiY.(field), startslices.(field), ...
       endslices.(field),isLVseg.(field),tnbr,mode,resamplexy.(field));
-  end
+  end 
+  h = mywaitbarupdate(h);
 end
 
 mywaitbarclose(h);
@@ -718,7 +719,7 @@ if ~isempty(no)
   end
   %upsample images spatially
   IM = tools('upsampleslices',fsz,IM,1);
-  IM = tools('upsamplevolume',fs,IM,1);
+  IM = tools('upsamplevolume2',[fs fs 1 1],IM,1);
   %upsample images temporally
   if ft ~= 1
     IM = tools('upsampletemporal',ft,IM);
@@ -1247,7 +1248,12 @@ if gui.showno(1) ~= 0
   
   switch gui.showimagetype{1}    
     case {'stress','stressgated','restgated'}
+      colormap(gui.handles.axesSAapicalleft,'spect');
       colormap(gui.handles.axesSAmidleft,'spect');
+      colormap(gui.handles.axesSAbasalleft,'spect');      
+      colormap(gui.handles.axesHLAleft,'spect');
+      colormap(gui.handles.axesVLAleft,'spect');
+      
       axis(gui.handles.axesSAbasalleft,'image','off');
       set(gui.handles.axesSAbasalleft,'clim',[normmincount normmaxcount]);
       axis(gui.handles.axesSAmidleft,'image','off');
@@ -1345,7 +1351,11 @@ if gui.showno(2) ~= 0
   end  
   switch gui.showimagetype{2}
     case {'rest','restgated'}
+      colormap(gui.handles.axesSAapicalright,'spect');
       colormap(gui.handles.axesSAmidright,'spect');
+      colormap(gui.handles.axesSAbasalright,'spect');      
+      colormap(gui.handles.axesHLAright,'spect');
+      colormap(gui.handles.axesVLAright,'spect');
       axis(gui.handles.axesSAbasalright,'image','off');
       set(gui.handles.axesSAbasalright,'clim',[normmincount normmaxcount]);
       axis(gui.handles.axesSAmidright,'image','off');
@@ -1916,7 +1926,7 @@ switch gating
       SRS = SRS+gui.scoringvalues{3,loop};
     end
     set(gui.handles.textScoring,'String',['SRS: ',num2str(SRS)]);
-    scoringexplanation =  sprintf('%s\n%s\n%s\n%s','Scoring of presence of infarct','0: normal','1: equivocal','2: infarct');
+    scoringexplanation =  sprintf('%s\n%s\n%s\n%s\n%s\n%s','Scoring of presence of infarct','0: normal','1: equivocal','2: moderate','3: severe infact','4: apparent infact');
     set(gui.handles.textScoringExplanation,'String',scoringexplanation);
   case 0
     for loop = 1:size(gui.scoringvalues,2)
@@ -2220,6 +2230,11 @@ if gui.showno(1) ~= 0
       set(gui.handles.textVLAleft,'String',[]);
       set(gui.handles.textleft,'String',[]);
   end
+  colormap(gui.handles.axesSAapicalleft,'spect');
+  colormap(gui.handles.axesSAmidleft,'spect');
+  colormap(gui.handles.axesSAbasalleft,'spect');
+  colormap(gui.handles.axesHLAleft,'spect');
+  colormap(gui.handles.axesVLAleft,'spect');
 else
   %no images to plot 
   set(gui.handles.axesSAbasalimageleft,'cdata',[]);
@@ -3241,8 +3256,8 @@ updateimages;
 if get(gui.handles.radiobuttonshowsegmentation,'value')
   updateLVsegmentation;
   if isequal(gui.mode,'scoring')
-    updateahasections('both');
-    hideSAintersections('both');
+    updateahasections('both');   
+    updateSAintersections('left');
   end
 end
 if isequal(gui.mode,'scoring')
@@ -3524,8 +3539,8 @@ if isequal(gui.mode,'scoring')
       succeed = false;
       return;
     end
-    if isempty(gui.scoringvalues{3,k}) || ~isnumeric(gui.scoringvalues{3,k}) || gui.scoringvalues{3,k}<0 || gui.scoringvalues{3,k}>2
-      myfailed('REST Infarct: Scoring value missing, or outside the allowed range [0 2]');
+    if isempty(gui.scoringvalues{3,k}) || ~isnumeric(gui.scoringvalues{3,k}) || gui.scoringvalues{3,k}<0 || gui.scoringvalues{3,k}>4
+      myfailed('REST Infarct: Scoring value missing, or outside the allowed range [0 4]');
       succeed = false;
       return;
     end
@@ -4534,6 +4549,7 @@ SSS = 0;
 SDS = 0;
 pos = [17 13 16:-1:14 7 12:-1:8 1 6:-1:2];
 
+if isequal(currentobj.Style,'edit')
 if get(gui.handles.radiobuttongated,'value')
   tags = {'editHLAright', ...
     'editapicalantright','editapicallatright', ...
@@ -4577,6 +4593,7 @@ else
   end
   scoringvalues = sprintf('%s\n%s\n%s',['SSS: ',num2str(SSS)],['SRS: ',num2str(SRS)],['SDS: ',num2str(SDS)]);
   set(gui.handles.textScoring,'String',scoringvalues);
+end
 end
 
 %---------------------------------------------------------------------

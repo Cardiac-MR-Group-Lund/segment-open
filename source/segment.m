@@ -1,9 +1,9 @@
+function varargout = segment(varargin)
 %This is a script that passes calls of segment(fcnname,arg1,arg2...) to the 
 %object DATA, if the method fcnname exists. If the method does not exist, 
 %the function fcnname is called from segment_main.m, which is the file 
 %previously known as segment.m.
 
-function varargout = segment(varargin)
 global DATA
 if nargin < 1
   [varargout{1:nargout}] = segment_main;

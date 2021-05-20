@@ -91,5 +91,5 @@ SET(nonew).IntensityScaling = 1;
 SET(nonew).IntensityOffset = 0;
 
 %close the gui
-close(DATA.GUI.cspammreconstruct.fig)
-segment('viewrefreshall_Callback')%mymsgbox('Click refresh!');
+close(DATA.GUI.cspammreconstruct.fig)   
+viewfunctions('setview');

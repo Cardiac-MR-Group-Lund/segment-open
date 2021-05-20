@@ -49,7 +49,7 @@ for i = 1:numnos
     im = calcfunctions('remapuint8', ...
       SET(no).IM(:,:,SET(no).CurrentTimeFrame,SET(no).CurrentSlice),no);
     imagesc(im,'Parent',gui.axh(i));
-    colormap gray
+    colormap(gui.axh(i),'gray');
     hold(gui.axh(i),'on');
     set(gui.axh(i),'Visible','on');
     axis(gui.axh(i),'image','off');
@@ -57,7 +57,7 @@ for i = 1:numnos
     x = xall{i};
     gui.frameh(i) = plot(gui.axh(i),[y(1) y(1) y(end) y(end) y(1)] , ...
       [x(1) x(end) x(end) x(1) x(1)],'y');
-    gui.resizeh(i) = plot(gui.axh(i),y(end),x(end),'yd');
+    gui.resizeh(i) = plot(gui.axh(i),y(end),x(end),'yo');
     gui.translate(i) = plot(gui.axh(i),y(1),x(1),'yo');
     set(gui.resizeh(i),'ButtonDownFcn',@(hObject,eventdata,handles)croplvstacks('resize',i));
     set(gui.translate(i),'ButtonDownFcn',@(hObject,eventdata,handles)croplvstacks('move',i));
@@ -82,12 +82,16 @@ uiresume(gui.fig);
 function cancel_Callback %#ok<DEFNU>
 %--------------
 global DATA
-gui = DATA.GUI.CropLVStacks;
-gui.state = false;
-uiresume(gui.fig);
+
+try
+  gui = DATA.GUI.CropLVStacks;
+  gui.state = false;
+  uiresume(gui.fig);
+catch
+end
 
 %----------------
-function move(ix)
+function move(ix) %#ok<DEFNU>
 %----------------
 global DATA
 gui = DATA.GUI.CropLVStacks;
@@ -95,7 +99,7 @@ set(gui.fig,'WindowButtonMotionFcn',@(hObject,eventdata,handles)croplvstacks('mo
 set(gui.fig,'WindowButtonUpFcn',@(hObject,eventdata,handles)croplvstacks('buttonup',ix));
 
 %------------------
-function resize(ix)
+function resize(ix) %#ok<DEFNU>
 %------------------
 global DATA
 gui = DATA.GUI.CropLVStacks;
@@ -103,36 +107,50 @@ set(gui.fig,'WindowButtonMotionFcn',@(hObject,eventdata,handles)croplvstacks('mo
 set(gui.fig,'WindowButtonUpFcn',@(hObject,eventdata,handles)croplvstacks('buttonup',ix));
 
 %----------------------
-function motion(arg,ix)
+function motion(arg,ix) %#ok<DEFNU>
 %----------------------
 global DATA
 gui = DATA.GUI.CropLVStacks;
 [y,x] = mygetcurrentpoint(gui.axh(ix));
 ax = axis(gui.axh(ix));
 ax = ax + 0.5*[1 -1 1 -1];
-
-xmin = gui.xall{ix}(1);
-ymin = gui.yall{ix}(1);
-xdiff = gui.xall{ix}(end)-xmin;
-ydiff = gui.yall{ix}(end)-ymin;
+% needed for the old proper move
+% xmin = gui.xall{ix}(1);
+% ymin = gui.yall{ix}(1);
+% xdiff = gui.xall{ix}(end)-xmin;
+% ydiff = gui.yall{ix}(end)-ymin;
 switch arg
-  case 'move'
-    y = round(min(max(y,ax(3)),ax(4)-ydiff));
-    x = round(min(max(x,ax(1)),ax(2)-xdiff));
-    set(gui.frameh(ix),'XData',[y y y+ydiff y+ydiff y], ...
-      'YData',[x x+xdiff x+xdiff x x]);
-    set(gui.resizeh(ix),'XData',y+ydiff,'YData',x+xdiff);
+    %NOT moving but resizing from the left upper corner; 
+    %needs renaming/refactoring in the future
+    case 'move' 
+    xmax = gui.xall{ix}(end);
+    ymax = gui.yall{ix}(end);
+    y = round(max(1,min(ymax-2,y)));
+    x = round(max(1,min(xmax-2,x)));
+    set(gui.frameh(ix),'XData',[y y ymax ymax y], ...
+      'YData',[x xmax xmax x x]);
+    set(gui.resizeh(ix),'XData',ymax,'YData',xmax);
     set(gui.translate(ix),'XData',y,'YData',x);
+        % old case with proper move
+%   case 'move' 
+%     y = round(min(max(y,ax(3)),ax(4)-ydiff));
+%     x = round(min(max(x,ax(1)),ax(2)-xdiff));
+%     set(gui.frameh(ix),'XData',[y y y+ydiff y+ydiff y], ...
+%       'YData',[x x+xdiff x+xdiff x x]);
+%     set(gui.resizeh(ix),'XData',y+ydiff,'YData',x+xdiff);
+%     set(gui.translate(ix),'XData',y,'YData',x);
   case 'resize'
-    y = round(min(max(y,ymin+1),ax(4)));
-    x = round(min(max(x,xmin+1),ax(2)));
+    xmin = gui.xall{ix}(1);
+    ymin = gui.yall{ix}(1);   
+    y = round(max(ymin+2,min(ax(2),y)));
+    x = round(max(xmin+2,min(ax(4),x)));
     set(gui.frameh(ix),'XData',[ymin ymin y y ymin], ...
       'YData',[xmin x x xmin xmin]);
     set(gui.resizeh(ix),'XData',y,'YData',x);
     set(gui.translate(ix),'XData',ymin,'YData',xmin);
 end
 %--------------------
-function buttonup(ix)
+function buttonup(ix) %#ok<DEFNU>
 %--------------------
 global DATA
 gui = DATA.GUI.CropLVStacks;

@@ -36,33 +36,33 @@ marno = [];
 
 if nargout>3
   varargout = cell(1,2);
-end;
+end
 
 if ~isfield(SET(1),'ImageType')
   SET(1).ImageType = '';
-end;
+end
 %Check with image types first!
 for loop=1:length(SET)
   if isequal(lower(SET(loop).ImageType),'cine')
     cineno = [cineno loop]; %#ok<AGROW>
-  end;
+  end
   if isequal(lower(SET(loop).ImageType),'late enhancement') || ~isempty(SET(loop).Scar)
     scarno = [scarno loop]; %#ok<AGROW>
-  end;
+  end
   if isequal(lower(SET(loop).ImageType),'strain ffe') || isequal(lower(SET(loop).ImageType),'strain tfe') || ...
       ~isempty(SET(loop).Strain) || ...
       (~isempty(SET(loop).Flow) && isempty(SET(loop).Flow.PhaseNo) && ~isempty(SET(loop).Flow.PhaseX) && ~isempty(SET(loop).Flow.PhaseY) && isequal(SET(loop).Flow.MagnitudeNo,loop))
      strainno = [strainno loop]; %#ok<AGROW>
-  end;
+  end
   if isequal(SET(loop).ImageType,'Flow (magnitude)')
     flowno = [flowno loop]; %#ok<AGROW>    
-  end;
+  end
   if isequal(lower(SET(loop).ImageType),'perfusion rest') && ~isempty(SET(loop).MaR)
     marno = [marno loop]; %#ok<AGROW>
-  end;
+  end
   if isequal(lower(SET(loop).ImageType),'perfusion stress') && ~isempty(SET(loop).MaR)
     marno = [marno loop]; %#ok<AGROW>
-  end;
+  end
   
 %   if nargout>3
 %     if isequal(SET(loop).ImageType,'Stress baseline');
@@ -72,9 +72,9 @@ for loop=1:length(SET)
   if nargout>4
     if isequal(lower(SET(loop).ImageType),'stress')
       varargout{2} = [varargout{2} loop];
-    end;    
-  end;
-end;
+    end   
+  end
+end
   
 %Continue with trying to find with automatic
 for loop=1:length(SET)
@@ -86,7 +86,7 @@ for loop=1:length(SET)
     else
       if not(isempty(SET(loop).MaR)) && isempty(find(marno==loop,1)) 
         marno = [marno loop]; %#ok<AGROW>
-      end; %not mar
+      end %not mar
       
       %If neither scar,flow check if short axes?
       %Note it may be both mar and cine!
@@ -98,15 +98,65 @@ for loop=1:length(SET)
 %             (sum(sum(not(isnan([SET(loop).EndoX(:) SET(loop).EpiX(:) SET(loop).RVEndoX(:) SET(loop).RVEpiX(:)]))))>0)&&...
 %             isempty(find(cineno==loop,1))
           cineno = [cineno loop]; %#ok<AGROW>
-        end;
-      end;
+        end
+      end
       
-    end; %not flow
-  end; %not scar
-end;
+    end %not flow
+  end %not scar
+end
+
+%-------------------------------------
+function [saxno, success] = findsaxno %#ok<DEFNU>
+%-------------------------------------
+% find current stack with short axis image
+global SET NO DATA
+cineno = findfunctions('findno');
+saxno = find(strcmp({SET.ImageViewPlane},'Short-axis'));
+zno = find([SET.ZSize] > 1);
+saxno = intersect(cineno,union(saxno,zno));
+success = 1;
+if isempty(saxno)
+  if ismember(NO,zno) && ~DATA.Silent &&...
+      yesno('Could not find image stack defined as Short-axis Cine. Use current stack?')
+    saxno = NO;
+    SET(saxno).ImageViewPlane = 'Short-axis';
+    SET(saxno).ImageType = 'Cine';
+    for p = find(DATA.ViewPanels==saxno)
+      drawfunctions('drawpanel',p);
+    end
+  elseif ismember(NO,zno) && DATA.Silent
+    saxno = NO;
+    SET(saxno).ImageViewPlane = 'Short-axis';
+    SET(saxno).ImageType = 'Cine';
+  else
+    if ~DATA.Silent
+      myfailed('Could not find short-axis image stack');
+    end
+    success = 0;
+    return
+  end  
+end
+
+if ismember(NO,saxno)
+  saxno = NO;
+else
+  nos = cellfun(@(x)dprintf('Short-axis stack %d',x), ...
+                num2cell(saxno),'UniformOutput',false);
+  if ~DATA.Silent
+    m = mymenu('Do segmentation on short-axis stack?', nos{:});
+  else
+    m = 1;
+  end
+  if m
+    saxno = saxno(m);
+  else
+    success = 0;
+    return;
+  end
+end
 
 %---------------------------------------------
-function cineshortaxisno = findcineshortaxisno(multiple) %#ok<DEFNU>
+function cineshortaxisno = findcineshortaxisno(multiple, minscore) %#ok<DEFNU>
 %---------------------------------------------
 %Find one [LV] or two [LV and RV] cine short axis stack
 global SET
@@ -114,7 +164,9 @@ global SET
 if nargin < 1
   multiple = false; %default, only return one no, true = return all cine sax
 end
-
+if nargin < 2
+  minscore = 0; % default value to return any cine slice
+end
 %cineshortaxisno = [];
 [cineno] = findno;
 
@@ -124,7 +176,7 @@ cineno = cineno(:)'; %ensure row vector
 if isempty(cineno)
   cineshortaxisno = [];
   return;
-end;
+end
 
 %Find maximal number of slices
 maxslices = max(cat(1,SET(:).ZSize));
@@ -135,23 +187,57 @@ iscine = false(size(cineno));
 haslvseg = false(size(cineno));
 hasrvseg = false(size(cineno));
 hasmaxslices = ones(size(cineno));
+numberofsliceswithLV = zeros(size(cineno));
+numberofsliceswithRV = zeros(size(cineno));
 
 for loop=1:length(cineno)
   iscine(loop) = isequal(lower(SET(cineno(loop)).ImageType),'cine') || (SET(cineno(loop)).TSize>=20 && ~strncmp(SET(cineno(loop)).ImageType,'Perfusion',9));
   isshortaxis(loop) = isequal(lower(SET(cineno(loop)).ImageViewPlane),'short-axis');  
   haslvseg(loop) = (~isempty(SET(cineno(loop)).EndoX)|~isempty(SET(cineno(loop)).EpiX));
+  if haslvseg(loop)
+    %check how many slices have lv segmentation
+    if ~isempty(SET(cineno(loop)).EndoX)
+      numberofsegmentedslices = findnumberofsegmentedslices(SET(cineno(loop)).EndoX);
+    else
+      numberofsegmentedslices = 0;
+    end
+    numberofsliceswithLV(loop) = numberofsliceswithLV(loop) + numberofsegmentedslices;
+    if ~isempty(SET(cineno(loop)).EpiX)
+      numberofsegmentedslices = findnumberofsegmentedslices(SET(cineno(loop)).EpiX);
+    else
+      numberofsegmentedslices = 0;
+    end
+    numberofsliceswithLV(loop) = numberofsliceswithLV(loop) + numberofsegmentedslices;
+  end
   hasrvseg(loop) = (~isempty(SET(cineno(loop)).RVEndoX)|~isempty(SET(cineno(loop)).RVEpiX));
+  if hasrvseg(loop)
+    %check how many slices have lv segmentation
+    if ~isempty(SET(cineno(loop)).RVEndoX)
+      numberofsegmentedslices = findnumberofsegmentedslices(SET(cineno(loop)).RVEndoX);
+    else
+      numberofsegmentedslices = 0;
+    end
+    numberofsliceswithRV(loop) = numberofsliceswithRV(loop) + numberofsegmentedslices;
+    if ~isempty(SET(cineno(loop)).RVEpiX)
+      numberofsegmentedslices = findnumberofsegmentedslices(SET(cineno(loop)).RVEpiX);
+    else
+      numberofsegmentedslices = 0;
+    end
+    numberofsliceswithRV(loop) = numberofsliceswithRV(loop) + numberofsegmentedslices;
+  end
+  
   hasmaxslices(loop) = isequal(SET(cineno(loop)).ZSize,maxslices);
-end;
+end
 
 %Find if slices equals max
 %Choose the best candidate in order of priority. Each row in A is one
 %image stack, multiply with priority vector. Take largest sum.
-A = [iscine' isshortaxis' haslvseg' hasrvseg' hasmaxslices'];
- 
+A = [iscine' isshortaxis' haslvseg' numberofsliceswithLV' hasrvseg' numberofsliceswithRV' hasmaxslices'];
+score = A*[16;12;4;1;2;1;1]; %most important in priority cine, shortaxis, lvseg, numberofslicesLV, rvseg, numberofslicesLV, maxslices
+
 if multiple
   %find lv and rv stacks that is cine and short-axis
-  score = A*[16;8;4;2;1]; %most important in priority cine, shortaxis, lvseg, rvseg, maxslices
+  
   templvnos = find(haslvseg);
   temprvnos = find(hasrvseg);
   if ~isempty(templvnos)
@@ -170,10 +256,31 @@ if multiple
   end
   cineshortaxisno = [lvno rvno];
 else 
-  score = A*[16;8;4;2;1]; %most important in priority cine, shortaxis, lvseg, rvseg, maxslices
-  [~,ind] = max(score);
-  cineshortaxisno = cineno(ind);
+%   score = A*[16;8;4;2;1]; %most important in priority cine, shortaxis, lvseg, rvseg, maxslices
+  [scorevalue,ind] = max(score);
+  if scorevalue < minscore
+    cineshortaxisno = [];
+  else
+    cineshortaxisno = cineno(ind);
+  end
 end
+
+%------------------------------------------------
+function numberofsegmentedslices = findnumberofsegmentedslices(arraywithsegmentation)
+%------------------------------------------------
+%Function to find number of slices in an 3D array
+%(for example EndoX/EpiX/RVEndoX/RVEpiX)that contain segmentation
+
+% permuting array so that the slice dimension is the first one  
+arraywithsegmentation   = permute(arraywithsegmentation,[3 1 2]);
+% reshaping the array into 2D array with size [Number of Slices x rest]
+arraywithsegmentation   = reshape(arraywithsegmentation, size(arraywithsegmentation,1),[]);
+% calculating whether each slice contains segmentation points
+numberofpointsperslice  = sum(~isnan(arraywithsegmentation),2);
+% get the number of slices containing segmentations
+numberofsegmentedslices = nnz(numberofpointsperslice);
+
+
 
 %------------------------------------------------
 function shortaxisno = findctshortaxisno(multiple) %#ok<DEFNU>
@@ -191,7 +298,7 @@ ctno = find(strcmp('CTheart',{SET.ImagingTechnique})); %ensure row vector
 if isempty(ctno)
   shortaxisno = [];
   return;
-end;
+end
 
 %Find maximal number of slices
 maxslices = max(cat(1,SET(:).ZSize));
@@ -209,7 +316,7 @@ for loop=1:length(ctno)
   haslvseg(loop) = (~isempty(SET(ctno(loop)).EndoX)|~isempty(SET(ctno(loop)).EpiX));
   hasrvseg(loop) = (~isempty(SET(ctno(loop)).RVEndoX)|~isempty(SET(ctno(loop)).RVEpiX));
   hasmaxslices(loop) = isequal(SET(ctno(loop)).ZSize,maxslices);
-end;
+end
 
 %Find if slices equals max
 %Choose the best candidate in order of priority. Each row in A is one
@@ -242,7 +349,6 @@ else
   shortaxisno = ctno(ind);
 end
 
-
 %----------------------------------------------------
 function shortaxisno = findspectshortaxisno(multiple) %#ok<DEFNU>
 %----------------------------------------------------
@@ -259,7 +365,7 @@ spectno = find(strcmp('NM',{SET.ImagingTechnique})); %ensure row vector
 if isempty(spectno)
   shortaxisno = [];
   return;
-end;
+end
 
 %Find maximal number of slices
 maxslices = max(cat(1,SET(:).ZSize));
@@ -277,7 +383,7 @@ for loop=1:length(spectno)
   haslvseg(loop) = (~isempty(SET(spectno(loop)).EndoX)|~isempty(SET(spectno(loop)).EpiX));
   hasrvseg(loop) = (~isempty(SET(spectno(loop)).RVEndoX)|~isempty(SET(spectno(loop)).RVEpiX));
   hasmaxslices(loop) = isequal(SET(spectno(loop)).ZSize,maxslices);
-end;
+end
 
 %Find if slices equals max
 %Choose the best candidate in order of priority. Each row in A is one
@@ -323,16 +429,16 @@ if length(scarno)>1
   %Find best scar data to take. Take those with endo and scar data
   scar2use = zeros(size(scarno));
   for sloop=1:length(scarno)
-    if existfunctions('existendo',scarno(sloop));
+    if existfunctions('existendo',scarno(sloop))
       scar2use(sloop) = scar2use(sloop)+0.5;
     end
-    if existfunctions('existepi',scarno(sloop));
+    if existfunctions('existepi',scarno(sloop))
       scar2use(sloop) = scar2use(sloop)+0.5;
     end
-    if not(isempty(SET(scarno(sloop)).Scar));
+    if not(isempty(SET(scarno(sloop)).Scar))
       scar2use(sloop) = scar2use(sloop)+4;
     end
-    if isequal(lower(SET(scarno(sloop)).ImageViewPlane),'short-axis');
+    if isequal(lower(SET(scarno(sloop)).ImageViewPlane),'short-axis')
       scar2use(sloop) = scar2use(sloop)+2;
     end
   end
@@ -345,15 +451,15 @@ if length(scarno)>1
   for s = 1:length(scarno)
     if isempty(SET(scarno(s)).Scar)
       take(s) = false;
-    end;
-  end;
+    end
+  end
   scarno = scarno(take);
   if isempty(scarno)
     scarno = oldscarno;
-  end;
+  end
   
   if length(scarno)>1 
-    mywarning('Detected multiple scar data. Taking data with maximal scar volume (arbitrary decision)');
+    %mywarning('Detected multiple scar data. Taking data with maximal scar volume (arbitrary decision)');
     s = scarno(1);
     maxml = 0;
     for sloop = 1:length(scarno)
@@ -362,16 +468,16 @@ if length(scarno)>1
         if ml>maxml
           maxml = ml;
           s = scarno(sloop);
-        end;
+        end
       catch  %#ok<CTCH>
-      end;
-    end;
+      end
+    end
     scarno = s;
   elseif length(scarno)>1
-    mywarning('Detected multiple scar data. Taking first image stack (arbitrary decision)');
+    disp('Detected multiple scar data. Taking first image stack (arbitrary decision)');
     scarno = scarno(1);
   end
-end;
+end
 
 %------------------------------------------
 function marno = findmarshortaxisno %#ok<DEFNU>
@@ -387,11 +493,11 @@ if length(marno)>1
   mar2use = false(size(marno));
   for sloop=1:length(marno)
     mar2use(sloop) = existfunctions('existendo',marno(sloop)) && not(isempty(SET(marno(sloop)).MaR)) && max(SET(marno(sloop)).MaR.Percentage)>0;
-  end;
+  end
   marno = marno(mar2use);
   
   if length(marno)>1
-    mywarning('Detected multiple MaR data. Taking data with maximal MaR volume (arbitrary decision)');
+    disp('Detected multiple MaR data. Taking data with maximal MaR volume (arbitrary decision)');
     s = marno(1);
     maxml = 0;
     for sloop = 1:length(marno)
@@ -400,13 +506,13 @@ if length(marno)>1
         if ml>maxml
           maxml = ml;
           s = marno(sloop);
-        end;
+        end
       catch  %#ok<CTCH>
-      end;
-    end;
+      end
+    end
     marno = s;
-  end;
-end;
+  end
+end
 
 %-----------------------------------------
 function [flowno,flowroi] = findflowaxisno(flowno)
@@ -431,7 +537,7 @@ if length(flowno)>1
   flow2use = false(size(flowno));
   for sloop=1:length(flowno)
     flow2use(sloop) = (SET(flowno(sloop)).RoiN>0);
-  end;
+  end
   [maxval,maxind] = max(flow2use);
   allmax = find(flow2use == maxval);
   flowno = flowno(allmax);
@@ -530,7 +636,7 @@ end
 if isempty(SET(no).Scar)
   ind = false(SET(no).ZSize,1);
   return;
-end;
+end
 ind = squeeze(find(sum(sum(SET(no).Scar.Result(:,:,:)))~=0));
 
 %--------------------------------------
@@ -546,7 +652,7 @@ end
 if isempty(SET(no).MaR)
   ind = false(SET(no).ZSize,1);
   return;
-end;
+end
 
 if SET(no).TSize>1
   ind = squeeze(find(sum(sum(sum(SET(no).MaR.Result(:,:,:,:))))~=0));
@@ -562,12 +668,12 @@ global SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).EndoX)
   ind = false(SET(no).ZSize,1);
   return;
-end;
+end
 
 if SET(no).TSize>1
   temp = not(isnan(squeeze(SET(no).EndoX(1,:,:))));
@@ -575,10 +681,10 @@ if SET(no).TSize>1
     ind = all(temp)';
   else
     ind = sum(temp,1)'==SET(no).TSize;
-  end;
+  end
 else
   ind = squeeze(not(isnan(SET(no).EndoX(1,1,:))));
-end;
+end
 
 %-------------------------------------
 function ind = findslicewithepiall(no) %#ok<DEFNU>
@@ -588,12 +694,12 @@ global SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).EpiX)
   ind = false(SET(no).ZSize,1);
   return;
-end;
+end
 
 if SET(no).TSize>1
   temp = not(isnan(squeeze(SET(no).EpiX(1,:,:))));
@@ -601,10 +707,10 @@ if SET(no).TSize>1
     ind = all(temp)';
   else
     ind = sum(temp,1)'==SET(no).TSize;
-  end;
+  end
 else
   ind = squeeze(not(isnan(SET(no).EpiX(1,1,:))));
-end;
+end
 
 %---------------------------------------
 function ind = findslicewithendo(no,tfs) %#ok<DEFNU>
@@ -622,17 +728,17 @@ end
 if isempty(SET(no).EndoX)
   ind = false(SET(no).ZSize,1);
   return;
-end;
+end
 
 temp = not(isnan(squeeze(SET(no).EndoX(1,tfs,:))));
 if length(tfs)>1
   ind = (sum(temp,1)>0)';
   if SET(no).ZSize==1
     ind = max(ind(:));
-  end;
+  end
 else
   ind = temp;
-end;
+end
 
 %-------------------------------------
 function ind = findslicewithrvendo(no,tfs) %#ok<DEFNU>
@@ -642,7 +748,7 @@ global SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 if nargin < 2
   tfs = 1:SET(no).TSize;
 end
@@ -650,17 +756,17 @@ end
 if isempty(SET(no).RVEndoX)
   ind = false(SET(no).ZSize,1);
   return;
-end;
+end
 
 temp = not(isnan(squeeze(SET(no).RVEndoX(1,tfs,:))));
 if length(tfs)>1
   ind = (sum(temp,1)>0)';
   if SET(no).ZSize==1
     ind = max(ind(:));
-  end;
+  end
 else
   ind = temp;
-end;
+end
 
 %--------------------------------------
 function ind = findslicewithrvendoall(no) %#ok<DEFNU>
@@ -670,12 +776,12 @@ global SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).RVEndoX)
   ind = false(SET(no).ZSize,1);
   return;
-end;
+end
 
 if SET(no).TSize>1
   temp = not(isnan(squeeze(SET(no).RVEndoX(1,:,:))));
@@ -683,15 +789,343 @@ if SET(no).TSize>1
     ind = all(temp);
   else
     ind = sum(temp,1)==SET(no).TSize;
-  end;
+  end
 else
   ind = squeeze(not(isnan(SET(no).RVEndoX(1,1,:))));
-end;
+end
+
+
+%---------------------
+function [measureind, pointind,measurex,measurey,measurez,mindist] = closestmeasure(panel,xclick,yclick) 
+%-----------------------
+%finds the closest visible measure. returns the index of the point within
+%the closest measure aswell as all corrdinates for the closest measure.
+global DATA SET
+
+no = DATA.ViewPanels(panel);
+%No measures avaiable
+if isempty(SET(no).Measure)
+    measureind = [];
+    pointind = [];
+    measurex = [];
+    measurey = [];
+    measurez = [];
+    mindist = inf;
+    return
+end
+
+%retrieve coordinates of measures in panel
+[measure,~] = viewfunctions('getmeasurecoords',panel);
+
+%find which meaures to consider
+slicestodo = viewfunctions('slicesinpanel',panel);
+measurestocheck = find(cellfun(@(x,y) any(ismember(x,slicestodo)) && ...
+    any(y==SET(no).CurrentTimeFrame) ,...
+    {measure.Z},{measure.T}));
+
+measurex = cell(1,length(measurestocheck));
+measurey = measurex;
+measurez = measurex;
+
+for i = 1:length(measurestocheck)
+  measurex{i} = measure(measurestocheck(i)).X;
+  measurey{i} = measure(measurestocheck(i)).Y;
+  measurez{i} = measure(measurestocheck(i)).Z;
+end
+
+if ~isempty(DATA.LastClickType) && strcmp(DATA.LastClickType ,'alt')
+  [mindists,mininds] = cellfun(@(x,y) min(calcfunctions('calcdistpointoline',[xclick yclick 0],x,y)),measurey,measurex);
+else
+  [mindists,mininds] = cellfun(@(x,y) min(sqrt((xclick-x).^2+(yclick-y).^2)),measurey,measurex);
+end
+[mindist,ind] = min(mindists);
+
+if mindist<DATA.Pref.ContourAdjustDistance
+    measureind = measurestocheck(ind);
+    pointind = mininds(ind);
+    measurex = measurex{ind};
+    measurey = measurey{ind};
+    measurez = measurez{ind};
+elseif ~isempty(mindist)
+    measureind = measurestocheck(ind);
+    pointind = [];
+    measurex = [];
+    measurey = [];
+    measurez = [];
+else
+    measureind = [];
+    pointind = [];
+    measurex = [];
+    measurey = [];
+    measurez = [];
+end
+
+if isempty(mindist)
+    mindist = inf;
+end
+
+%------------------------------
+function [mindist, ind] = dist2contour(type,no,x,y,slice,tf) 
+%-----------------------
+global SET
+
+if ~isempty(SET(no).([type,'X']))
+    contourx = SET(no).([type,'X'])(:,tf,slice);
+    contoury = SET(no).([type,'Y'])(:,tf,slice);
+    [mindist,ind] = min(sqrt((contourx-x).^2+(contoury-y).^2));
+else
+    mindist = inf;
+    ind = 0;
+end
+
+%------------------------------
+function [type,objind] = closestobject(panel,x,y,slice,tf) %#ok<DEFNU>
+%-----------------------
+global DATA SET
+
+no = DATA.ViewPanels(panel);
+
+if nargin<4
+  slice = SET(no).CurrentSlice;%clickedslice(panel);
+end
+
+if nargin<5
+  tf = SET(no).CurrentTimeFrame;
+end
+
+minendo = dist2contour('Endo',no,x,y,slice,tf);
+minepi = dist2contour('Epi',no,x,y,slice,tf);
+minrvendo = dist2contour('RVEndo',no,x,y,slice,tf);
+minrvepi = dist2contour('RVEpi',no,x,y,slice,tf);
+if strcmp(DATA.ProgramName, 'Segment')
+  mincenter = min(sqrt((SET(no).CenterX-x).^2+(SET(no).CenterY-y).^2));
+else
+  mincenter = Inf;
+end
+
+%this is the code to find closest measure
+[measureind, ~,~,~,~,minmeasure] = closestmeasure(panel,y,x); 
+
+%Find closest roi in current timeframe and slice
+[minroi,roiind] = closestroi(panel,x,y,slice,tf);
+
+%Find closest point in current timeframe and slice
+[minpoint,pointind] = closestpoint(panel,x,y,slice,tf);
+
+%Find closest interp
+[minendointerp,endointerpind] = closestinterp(panel,'EndoInterp',x,y,slice,tf);
+[minepiinterp,epiinterpind] = closestinterp(panel,'EpiInterp',x,y,slice,tf);
+[minrvendointerp,rvendointerpind] = closestinterp(panel,'RVEndoInterp',x,y,slice,tf);
+[minrvepiinterp,rvepiinterpind] = closestinterp(panel,'RVEpiInterp',x,y,slice,tf);
+
+%summarize which is closest
+dists = [minmeasure,minroi,minendo,minepi,minrvendo,minrvepi,...
+    minendointerp,minepiinterp,minrvendointerp,minrvepiinterp,minpoint,mincenter];
+
+[mindist,typeind] = min(dists);
+
+types = {'Measure','Roi','Endo','Epi','RVEndo','RVEpi','EndoInterp',...
+    'EpiInterp','RVEndoInterp','RVEpiInterp','Point', 'Center'};
+
+type = types{typeind};
+
+%If selected type is contour then check if Interp is within intervall and
+%set Interp version of contour as type
+if typeind>2 && typeind<7 && dists(typeind+4)<=DATA.Pref.ContourAdjustDistance %preference dist to object
+  type = types{typeind+4};
+end
+
+%if smallest distance is more than contour adjust distance then return
+%image type for context menu
+if mindist >DATA.Pref.ContourAdjustDistance
+  type = 'Image';
+end
+  
+%if the closest clicked item is a measure roi or interp point return index to SET struct location 
+switch type
+  case 'Measure'
+    objind = measureind;
+  case 'Roi'
+    objind = roiind;
+  case 'EndoInterp'
+    objind = endointerpind;
+  case'EpiInterp'
+    objind = epiinterpind;
+  case'RVEndoInterp'
+    objind = rvendointerpind;
+  case 'RVEpiInterp'
+    objind = rvepiinterpind;
+  case 'Point'
+    objind = pointind;
+  otherwise %objind is irrelevant
+    objind = 0;
+end
+
+
+%------------------------------
+function [dist,ind] = closestpoint(panel,x,y,slice,tf) 
+%-----------------------
+global DATA SET
+
+no = DATA.ViewPanels(panel);
+
+if nargin < 4
+  slice = SET(no).CurrentSlice;
+end
+
+if nargin < 5
+  tf = SET(no).CurrentTimeFrame;
+end
+
+if ismember(DATA.ViewPanelsType{panel},{'trans3DP','viewport','sag3DP','cor3DP'})
+  %If 3DP then all slices
+  xi = SET(no).Point.X;
+  yi = SET(no).Point.Y;
+  zi = SET(no).Point.Z;
+  [dist,ind] = min(sqrt((x-xi).^2+(y-yi).^2+(slice-zi).^2));
+  
+else  
+  %get coordinates of all relevant points
+  if not(isempty(SET(no).Point.X))
+    pointstodo = find(ismember(SET(no).Point.Z,slice)&...
+      (ismember(SET(no).Point.T,tf)|isnan(SET(no).Point.T))); %nan means constant over time
+    xi = SET(no).Point.X(pointstodo);
+    yi = SET(no).Point.Y(pointstodo);
+  else
+    dist = inf;
+    ind = [];
+    return
+  end
+  
+  %Compute distance
+  [dist,ind] = min(sqrt((x-xi).^2+(y-yi).^2));
+  ind = pointstodo(ind);
+
+end
+
+
+%------------------------------
+function [dist,ind,pointsinslice] = closestpoint3dp(panel,x,y,slice) %#ok<DEFNU>
+%-----------------------
+global DATA SET
+
+no = DATA.ViewPanels(panel);
+
+%get coordinates of all relevant points
+if not(isempty(SET(no).Point))
+  %convert xyslice so that we can compare it to the point coordinates
+  [r,g,b] = segment3dp.tools('xyz2rgb',SET(no).Point.X,SET(no).Point.Y,SET(no).Point.Z);
+  
+  %also get clicked position rgb coordinates
+  [rc,gc,bc] = segment3dp.tools('xyz2rgb',x,y,slice);
+  
+  %Then find slice match and compare distance in slice plane for closest
+  %point
+  switch DATA.ViewPanelsType{panel}
+    case 'trans3DP'
+      pointstodo = find(round(r) == slice);
+      [dist,ind] = min(sqrt((gc-g(pointstodo)).^2+(bc-b(pointstodo)).^2));
+    case 'sag3DP'
+      pointstodo = find(round(g) == slice);
+      [dist,ind] = min(sqrt((rc-r(pointstodo)).^2+(bc-b(pointstodo)).^2));
+    case 'cor3DP'
+      pointstodo = find(round(b) == slice);
+      [dist,ind] = min(sqrt((gc-g(pointstodo)).^2+(rc-r(pointstodo)).^2));
+  end  
+else
+    dist = inf;
+    ind = [];
+    return
+end
+
+ind = pointstodo(ind);
+
+if nargout == 3
+  pointsinslice = pointstodo;
+end
+
+%------------------------------
+function [dist,ind] = closestinterp(panel,type,x,y,slice,tf) 
+%-----------------------
+global DATA SET
+
+no = DATA.ViewPanels(panel);
+
+if nargin<5
+    slice = SET(no).CurrentSlice;%clickedslice(panel);
+end
+
+if nargin<6
+    tf = SET(no).CurrentTimeFrame;
+end
+
+if isempty(SET(no).([type,'X'])) ||...
+        isempty(SET(no).([type,'X']){tf,slice})
+    dist = inf;
+    ind = [];
+    return
+end
+
+xi = SET(no).([type,'X']){tf,slice};
+yi = SET(no).([type,'Y']){tf,slice};
+[dist,ind] = min(sqrt((x-xi).^2+(y-yi).^2));
+
+
+%--------------------------------------------------------------------------
+function [dist,roiind,pointind] = closestroi(panel,xclick,yclick,slice,tf,no) 
+%--------------------------------------------------------------------------
+%The input coordinates are presumed to be in the same coordinate system as
+%the stored rois i.e you need to scale and translate your input. pointind
+%is optional and is the index of the closest point on the closest roi.
+
+global DATA SET
+
+if nargin<6
+  no = DATA.ViewPanels(panel);    
+end
+
+if not(isempty(SET(no).Flow)) && isfield(SET(no).Flow,'MagnitudeNo') && not(isempty(SET(no).Flow.MagnitudeNo))
+  no = SET(no).Flow.MagnitudeNo;
+end
+
+if nargin<4 || isempty(slice)
+  slice = SET(no).CurrentSlice;%clickedslice(panel);
+end
+
+if nargin<5 || isempty(tf)
+  tf = SET(no).CurrentTimeFrame;
+end
+
+roistodo = find(cellfun(@(x,y) ~isempty(x) && ...
+    any(x==slice) && any(y==tf)...
+    ,{SET(no).Roi.Z},{SET(no).Roi.T}));
+
+roix = cell(1,length(roistodo));
+roiy = cell(1,length(roistodo));
+
+for i = 1:length(roistodo)
+    roix{i} = SET(no).Roi(roistodo(i)).X(:,tf);
+    roiy{i} = SET(no).Roi(roistodo(i)).Y(:,tf);
+end
+
+%Find closest roi in current timeframe and slice
+[dist,ind] = cellfun(@(x,y) min(sqrt((xclick-x).^2+(yclick-y).^2)),roix,roiy);
+[~,ind_tmp] = min(dist);
+dist = dist(ind_tmp);
+roiind = roistodo(ind_tmp);
+
+if isempty(dist) || isnan(dist)
+    dist = inf;
+end
+
+if nargout == 3
+    pointind = ind(ind_tmp);
+end
 
 %----------------------------------
 function ind = findslicewithepi(no,tfs) %#ok<DEFNU>
 %----------------------------------
-%Find slices with endocard in any timeframe
+%Find slices with epicard in any timeframe
 global SET NO
 
 if nargin<1
@@ -704,42 +1138,46 @@ end
 if isempty(SET(no).EpiX)
   ind = false(SET(no).ZSize,1);
   return;
-end;
+end
 
 temp = not(isnan(squeeze(SET(no).EpiX(1,tfs,:))));
 if length(tfs)>1
   ind = (sum(temp,1)>0)';
   if SET(no).ZSize==1
     ind = max(ind(:));
-  end;  
+  end
 else
   ind = temp;
-end;
+end
 
 %------------------------------------
-function ind = findslicewithrvepi(no) %#ok<DEFNU>
+function ind = findslicewithrvepi(no,tfs) %#ok<DEFNU>
 %------------------------------------
 %Find slices with RV epicard in any timeframe
 global SET NO
 
 if nargin<1
   no = NO;
-end;
+end
+
+if nargin < 2
+  tfs = 1:SET(no).TSize;
+end
 
 if isempty(SET(no).RVEpiX)
   ind = false(SET(no).ZSize,1);
   return;
-end;
+end
 
-temp = not(isnan(squeeze(SET(no).RVEpiX(1,:,:))));
-if SET(no).TSize>1
+temp = not(isnan(squeeze(SET(no).RVEpiX(1,tfs,:))));
+if length(tfs)>1
   ind = (sum(temp,1)>0)';
   if SET(no).ZSize==1
     ind = max(ind(:));
-  end;  
+  end  
 else
   ind = temp;
-end;
+end
 
 %--------------------------------------
 function ind = findslicewithrvepiall(no) %#ok<DEFNU>
@@ -749,12 +1187,12 @@ global SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).RVEpiX)
   ind = false(SET(no).ZSize,1);
   return;
-end;
+end
 
 if SET(no).TSize>1
   temp = not(isnan(squeeze(SET(no).RVEpiX(1,:,:))));
@@ -762,10 +1200,10 @@ if SET(no).TSize>1
     ind = all(temp);
   else
     ind = sum(temp,1)==SET(no).TSize;
-  end;
+  end
 else
   ind = squeeze(not(isnan(SET(no).RVEpiX(1,1,:))));
-end;
+end
 
 %--------------------------------
 function [x,y] = findlvcenter(no,slices) %#ok<DEFNU>
@@ -792,7 +1230,7 @@ if isempty(mx) || isnan(mx)
 	autocropfailed=true;
 else
 	maxdistfromcenter=140;%mm %estimate to (half) the radius of a large heart, half is enough but full to have a margin
-end;
+end
 
 %Takes some midventricular slices
 len = 50/2; %50 is 50mm
@@ -848,7 +1286,7 @@ if debugplot
   imagesc(cutim(:,:,1,1));
   axis image off;
   colorbar
-end;
+end
 
 %Find percentile
 sorted = sort(cutim(:));
@@ -906,9 +1344,9 @@ for loop = 1:numclass
 					autocropfailed
 				log(loop) = dist; %mark as candidate by setting distance
 			end
-		end;
-	end;
-end;
+    end
+  end
+end
 
 %Find closest candidate, i.e smallest number
 [~,pos] = sort(log); %sort
@@ -933,7 +1371,7 @@ if debugplot
   plot(y,x,'rd');
   hold off;  
   axis image off
-end;
+end
 
 %--------------------------------
 function [x,y] = findrvcenter(no,slices) %#ok<DEFNU>
@@ -949,17 +1387,48 @@ x = SET(no).CenterX;
 y = SET(no).CenterY;
 
 %-------------------------------------------------
-function tfs = findframeswithsegmentation(type,no) %#ok<DEFNU>
+function tfs = findframeswithsegmentation(type,no,slices) %#ok<DEFNU>
 %-------------------------------------------------
 %Find timeframes in no containing segmentation of type
 global SET
 
-switch type
-  case 'endo'
-    tfs = squeeze(~all(isnan(SET(no).EndoX(1,:,:)),3));
-  case 'epi'
-    tfs = squeeze(~all(isnan(SET(no).EpiX(1,:,:)),3));
+if nargin ==2
+    slices = 1:SET(no).ZSize;
 end
+
+contourx = SET(no).([type,'X']);
+
+if ~isempty(contourx)
+    tfs = squeeze(~all(isnan(contourx(1,:,slices)),3));
+else
+    tfs = zeros(1,SET(no).TSize);
+    return
+end
+
+%-------------------------------------------------
+function tfs = findframeswithinterpolationpoints(type,no,slices) %#ok<DEFNU>
+%-------------------------------------------------
+%Find timeframes in no containing segmentation of type
+global SET
+
+if nargin ==2
+    slices = 1:SET(no).ZSize;
+end
+
+if isempty(SET(no).([type,'InterpX']))
+    tfs = zeros(1,SET(no).TSize);
+else
+    tfs = ~cellfun(@isempty,SET(no).([type,'InterpX'])(:,slices));
+end
+
+if ~isrow(tfs)
+    tfs = tfs';
+end
+
+if size(tfs,1)>1
+    tfs = any(tfs);
+end
+
  
 %---------------------------------------
 function [ind] = findoutflowtractslices(no,tfs) %#ok<DEFNU>
@@ -970,7 +1439,7 @@ global SET NO
 
 if (SET(no).ResolutionX+SET(no).ResolutionY)/2<0.5
   warning('The threshold to find outflow tract (2mm) is species dependent, and might be incorrect for this images.');
-end;
+end
 
 sectors=24; %we use a 24 sector model
 tresh=2; %2 mm threshold of wall thickness for slice to be considered outflow tract
@@ -986,7 +1455,7 @@ end
 if isempty(SET(no).EndoX) && isempty(SET(no).EpiX)
   ind = false(SET(no).ZSize,1);
   return;
-end;
+end
 
 wallthickness = calcfunctions('calcwallthickness', sectors,no);
 wallthickness=wallthickness(:,:,tfs);
@@ -1001,9 +1470,9 @@ element = false; %start by putting false
 for zloop=1:pos %loop to the last found one
   if ind(zloop)
     element = true; %As soon as found one, start putting ones
-  end;
+  end
   ind(zloop) = element;
-end;
+end
 
 
 %-------------------------------
@@ -1013,11 +1482,11 @@ function setstack_Callback(type) %#ok<DEFNU>
 global DATA SET
 switch type
   case 'flow'
-    stri = 'Select image stack for flow report';
+    stri = dprintf('Select image stack for flow report');
   case 'lv'
-    stri = 'Select image stack for LV report';
+    stri = dprintf('Select image stack for LV report');
   case 'rv'
-    stri = 'Select image stack for RV report';
+    stri = dprintf('Select image stack for RV report');
 end
 menuitems = cell(1,1);
 nn = 1;
@@ -1031,7 +1500,7 @@ for n = 1:length(SET)
   end
 end
 
-menuitems{nn} = sprintf('Unselect');
+menuitems{nn} = dprintf('Unselect');
 s = mymenu(stri,menuitems);
 
 if ~isempty(s) && s~=0
@@ -1041,24 +1510,38 @@ if ~isempty(s) && s~=0
       case 'flow'
         DATA.FlowNO = [];
         DATA.FlowROI = [];
+        if isfield(DATA.Handles,'flowstackpushbutton')
+          set(DATA.Handles.flowstackpushbutton,'String',dprintf('Set Stack'));
+        end
       case 'lv'
         DATA.LVNO = [];
+        if isfield(DATA.Handles,'lvstackpushbutton')
+          set(DATA.Handles.lvstackpushbutton,'String',dprintf('Set Stack'));     
+        end
       case 'rv'
         DATA.RVNO = [];
+        if isfield(DATA.Handles,'rvstackpushbutton')
+          set(DATA.Handles.rvstackpushbutton,'String',dprintf('Set Stack'));     
+        end
     end
   else
     no = stacks(s);
     switch type
       case 'flow'
-        if SET(no).TSize == 1 || isempty(SET(no).Flow) || isempty(SET(no).Flow.Result)
+        if SET(no).TSize == 1 || isempty(SET(no).Flow) %|| isempty(SET(no).Flow.Result)
           myfailed('Flow image stack need to be time resolved and contain flow analysis.',DATA.GUI.Segment);
           DATA.FlowNO = [];
           DATA.FlowROI = [];
+          if isfield(DATA.Handles,'flowstackpushbutton')
+            set(DATA.Handles.flowstackpushbutton,'String',dprintf('Set Stack'));
+          end
         else
           DATA.FlowNO = no;
           [~,flowroi] = findflowaxisno(no); %identify flow ROI based on ROI names
           DATA.FlowROI = flowroi;
-          set(DATA.Handles.flowstackpushbutton,'String',sprintf('Stack #%d',no));
+          if isfield(DATA.Handles,'flowstackpushbutton')
+            set(DATA.Handles.flowstackpushbutton,'String',dprintf('Stack #%d',no));
+          end
         end
       case 'lv'
         %If longaxis no then we need to find the appropriate set. will use
@@ -1067,33 +1550,44 @@ if ~isempty(s) && s~=0
           LAX_group = findlaxset;
           if all(LAX_group==0)
             DATA.LVNO = no;
-            set(DATA.Handles.lvstackpushbutton,'String',sprintf('Stack #%d',no));            
+            if isfield(DATA.Handles,'lvstackpushbutton')
+              set(DATA.Handles.lvstackpushbutton,'String',dprintf('Stack #%d',no));            
+            end
           else
             LAX_group = LAX_group(LAX_group~=0);
             DATA.LVNO = LAX_group;
-            str = [num2str(LAX_group(1)),',',num2str(LAX_group(2)),',',num2str(LAX_group(3))];
-            set(DATA.Handles.lvstackpushbutton,'String',sprintf('Stack #%s',str));
+            str = [];
+            for i = 1:length(LAX_group)
+                str = [str, num2str(LAX_group(i)),','];
+            end
+            str(end) = [];
+            if isfield(DATA.Handles,'lvstackpushbutton')
+              set(DATA.Handles.lvstackpushbutton,'String',dprintf('Stack #%s',str));
+            end
           end
         else
           DATA.LVNO = no;
-          set(DATA.Handles.lvstackpushbutton,'String',sprintf('Stack #%d',no));
+          if isfield(DATA.Handles,'lvstackpushbutton')
+            set(DATA.Handles.lvstackpushbutton,'String',dprintf('Stack #%d',no));
+          end
         end
       case 'rv'
         DATA.RVNO = no;
-        set(DATA.Handles.rvstackpushbutton,'String',sprintf('Stack #%d',no));
+        if isfield(DATA.Handles,'rvstackpushbutton')
+          set(DATA.Handles.rvstackpushbutton,'String',dprintf('Stack #%d',no));
+        end
     end
   end
 end
 
 switch type
   case 'flow'
-    DATA.flowreportupdate;
-    DATA.updateflowaxes;
+    segment('updateflow');
   case {'lv','rv'}
-    segment('updatevolume',true)
-    DATA.volumereportupdate;
-    DATA.updatevolumeaxes;
+    segment('updatevolume',true);
 end
+
+
 %------------------------------------------------------
 function saxno = findctsaxwithsegmentation(type)
 %-----------------------------------------------------
@@ -1163,7 +1657,7 @@ end
 
 
 %-----------------------------------------------------
-function LAX_group = findlaxset
+function LAX_group = findlaxset(segmentationatedes)
 %-----------------------------------------------------
 % Code for finding single slice LAX set with endo segmentation. Data is returned
 % as [CH2, CH3, CH4], temporary data vector if no chamber can be found
@@ -1172,18 +1666,30 @@ global SET
 
 LAX_group=[0 0 0]; %% [CH2, CH3, CH4], temporary data vector
 
+if nargin == 0
+    segmentationatedes = 0;
+end
+
 for loop = 1:length(SET)
-  if(strcmp(SET(loop).ImageViewPlane,'2CH')&& SET(loop).ZSize==1 && isempty(SET(loop).StrainTagging) &&  not(isempty(SET(loop).EndoX)))
+    if segmentationatedes
+        validchecks = SET(loop).ZSize==1 && isempty(SET(loop).StrainTagging) &&  ...
+            not(isempty(SET(loop).EndoX)) && ~all(isnan(SET(loop).EndoX(:,SET(loop).EDT))) && ~all(isnan(SET(loop).EndoX(:,SET(loop).EST)));
+    else
+        validchecks = SET(loop).ZSize==1 && isempty(SET(loop).StrainTagging) &&  ...
+            not(isempty(SET(loop).EndoX));
+    end
+    
+  if strcmp(SET(loop).ImageViewPlane,'2CH')&& validchecks%SET(loop).ZSize==1 && isempty(SET(loop).StrainTagging) &&  not(isempty(SET(loop).EndoX)))
     if (LAX_group(1)== 0)
       LAX_group(1)=loop;
     end
   end
-  if(strcmp(SET(loop).ImageViewPlane,'3CH')&& SET(loop).ZSize==1 && isempty(SET(loop).StrainTagging) && not(isempty(SET(loop).EndoX)))
+  if strcmp(SET(loop).ImageViewPlane,'3CH')&& validchecks%SET(loop).ZSize==1 && isempty(SET(loop).StrainTagging) && not(isempty(SET(loop).EndoX)))
     if (LAX_group(2)== 0)
       LAX_group(2)=loop;
     end
   end
-  if(strcmp(SET(loop).ImageViewPlane,'4CH')&& SET(loop).ZSize==1 && isempty(SET(loop).StrainTagging) && not(isempty(SET(loop).EndoX)))
+  if strcmp(SET(loop).ImageViewPlane,'4CH')&& validchecks%SET(loop).ZSize==1 && isempty(SET(loop).StrainTagging) && not(isempty(SET(loop).EndoX)))
     if (LAX_group(3)== 0)
       LAX_group(3)=loop;
     end

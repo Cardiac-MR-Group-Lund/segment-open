@@ -3,7 +3,7 @@
 %G = MYGUI(FIGFILENAME,<'BLOCKING'>);
 %
 %The purpose of this class is to facilitate to generate 
-%GUI's than can also work as a temporary containter data 
+%GUI's than can also work as a temporary containter data  
 %for that so that data transfer between subfunctions becomes 
 %simple. If blocking is specified then segment internal blocking 
 %figure mechanism will be used.
@@ -51,7 +51,7 @@
 % 
 %See also SUBSREF, SUBSASGN.
 
-%Jane Sjögren
+%Jane Sj?gren
 
 classdef mygui < handle %Inherits from handles to get persistent objects.
 
@@ -60,25 +60,28 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
     blocking = false;
     handles = [];
     fig = [];
-  end;
+  end
 
   methods
 
     %--------------
     function g = mygui(filename,blocking)
-
+    global DATA
       %Constructor
+      isinvisble = false;
       if nargin>1
-        if isequal(blocking,'blocking');
+        if isequal(blocking,'blocking')
           blocking = true;
+        elseif isequal(blocking,'invisible')
+          isinvisble = true;
         else
           error('Expected ''blocking''');
-        end;
-      end;
+        end
+      end
 
       if nargin<2
         blocking = false;
-      end;
+      end
 
       g.fig = []; %save both as internal class and also as a appdata (later)
       g.filename = filename; %OK to have here since read only
@@ -87,9 +90,15 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
       g.fig = openfig(g.filename,'reuse','invisible'); %set visble off until position is set and handles are stored
       if g.blocking
         blockfig(g.fig);
-      end;
+      end
 
-      set(g.fig,'Color',get(0,'defaultUicontrolBackgroundColor'));
+      if ~isempty(DATA)
+        set(g.fig,'Color',DATA.GUISettings.BackgroundColor); %get(0,'defaultUicontrolBackgroundColor'));
+      else
+      end
+      
+      setupicon(g.fig); %set up Segment icon
+      
       %set(g.fig,'renderer','opengl');
 
       %subsasgn(g,'handles',guihandles(g.fig)); %Store handles as application data
@@ -99,10 +108,17 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
       setguiposition(g);%set saved position must be set after handles have been set
       g.handles = guihandles(g.fig); %Store handles as application data %Moved this line down. JS, EH:
       translation.translatealllabels(g.fig); %Translate labels into preferred language
-      
-      set(g.fig,'visible','on');%set visble off until position is set and handles are stored
+      if not(isempty(DATA)) && ~isempty(DATA.Pref) % if non-existent then the default color is use anyway
+        setinterfacecolor(g.fig); %set background color and text color for all objects in alla interfaces
+      end
+      lgcolor = [0.94 0.94 0.94];
+      try set(DATA.Handles.iconuipanel,'BackgroundColor',lgcolor); catch, end
+            
+      if ~isinvisble
+        set(g.fig,'visible','on');%set visble off until position is set and handles are stored
+      end
       flushlog;
-    end;
+    end
 
     %------------------
     function display(g)
@@ -114,9 +130,9 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
         if ~ismember(c{loop},{'GUIDEOptions','lastValidTag','Listeners','SavedVisible'})
           type = class(getappdata(g.fig,c{loop}));
           disp(sprintf('  %s: %s',c{loop},type));
-        end;
-      end;
-    end;
+        end
+      end
+    end
 
     %---------------------------
     function g = subsasgn(g,s,v)
@@ -140,15 +156,15 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
               g.handles = v;
             else
               setappdata(g.fig,s.subs,v);
-            end;
+            end
           else
             error('Invalid syntax, expected ''gui.field = value''.');
-          end;
+          end
         else
           %Longer than one more complex interaction
           if ~isequal(s(1).type,'.')
             error('Invalid syntax, expected ''gui.field...''');
-          end;
+          end
           if isequal(s(1).subs,'handles')
             g = builtin('subsasgn',g,s,v);
           else
@@ -163,13 +179,13 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
               temp = [];
               temp = subsasgn(temp,s(2:end),v);
               setappdata(g.fig,s(1).subs,temp); %Store it
-            end;
-          end;
-        end;
+            end
+          end
+        end
       else
         %STRING
         setappdata(g.fig,s,v);
-      end;
+      end
     end
     
     %-----------------------------
@@ -182,7 +198,7 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
       %Check if first is . (has to be).
       if ~isequal(s(1).type,'.')
         error('Invalid syntax. Valid syntax is gui.name or gui.handles.handle');
-      end;
+      end
 
       switch s(1).subs
         case 'handles'
@@ -190,7 +206,7 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
             p = subsref(g.handles,s(2:end));
           else
             p = g.handles;
-          end;
+          end
         otherwise
           if isstruct(s)
             %struct
@@ -201,19 +217,19 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
                 p = getappdata(g.fig,s.subs);
               else
                 error('Field ''%s'' does not exist.',s.subs);
-              end;
+              end
             else
               %Complex
               temp = getappdata(g.fig,s(1).subs);
 
               p = subsref(temp,s(2:end));
-            end;
+            end
           else
             %char
             p = getappdata(g.fig,s);
-          end;
-      end;
-    end;
+          end
+      end
+    end
     
     %-----------------------------
     function g = close(g)
@@ -317,7 +333,11 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
 
       set(g.fig,'units','normalized');
 
-      filename=g.filename;
+      if isempty(DATA)
+        return;
+      end
+      
+      filename = g.filename;
 
       %search for saved position
       guipos=[];
@@ -326,8 +346,7 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
         if isequal(DATA.GUIPositions(loop).FileName,filename)
           guipos=DATA.GUIPositions(loop).Position;
         end
-        if isequal(DATA.GUIPositions(loop).FileName,'segment.fig')||...
-          isequal(DATA.GUIPositions(loop).FileName,['+cvq' filesep 'csegment.fig']) ||...
+        if isequal(DATA.GUIPositions(loop).FileName,'segment.fig')||...          
           isequal(DATA.GUIPositions(loop).FileName,['+segmentct' filesep 'segmentct.fig']) ||...
           isequal(DATA.GUIPositions(loop).FileName,['+segmentmr' filesep 'segmentmr.fig'])
           segmentpos=DATA.GUIPositions(loop).Position;
@@ -345,7 +364,6 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
       if guipos(2) > 0.8 || tcypos > 0.8 || guipos(2) < 0.1 || tcypos < 0.1 || ...
           guipos(1) > 0.9 || tcxpos > 0.9 || guipos(1) < 0.1 || tcxpos < 0.1
         if isequal(DATA.GUIPositions(loop).FileName,'segment.fig')||...
-          isequal(DATA.GUIPositions(loop).FileName,['+cvq' filesep 'csegment.fig']) ||...
           isequal(DATA.GUIPositions(loop).FileName,['+segmentct' filesep 'segmentct.fig']) ||...
           isequal(DATA.GUIPositions(loop).FileName,['+segmentmr' filesep 'segmentmr.fig'])
           guipos = [0.1 0.1 0.8 0.7];
@@ -410,6 +428,6 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
     end
     
     
-  end; %End private methods
+  end %End private methods
 
 end

@@ -13,12 +13,12 @@ else
   else
     v = popfrombuffer('SliderValue');
     set(h,'value',v); %Store value
-  end;  
-end;
+  end
+end
 
 if DATA.RecordMacro
   stri = get(h,'tag');
   namestri = inputname(1);
   macro_helper('put',sprintf('pushtobuffer(''SliderValue'',%0.5g); %% %s %s',v,stri,namestri));
   macro_helper('switchorder'); %We need to position the slider data before the callback
-end;
+end

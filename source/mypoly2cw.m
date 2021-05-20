@@ -12,6 +12,7 @@ catch
   y1=nan(size(y2));
   return
 end
+
 %Check if index order is mostly flipped by convhull that means curve has
 %mostly clockwise orientation
 if sum(diff(k(2:end))<0)>length(k)/2

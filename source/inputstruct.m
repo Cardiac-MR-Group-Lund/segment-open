@@ -1,9 +1,10 @@
-function [res,varargout] = inputstruct(s,tit)
+function [res,varargout] = inputstruct(s,tit,text)
 %INPUTSTRUCT creates a popup input dialog box from a struct
 %
 % INPUTSTRUCT(struct_var,title)
 %
-% Input is a struct with exploraty names, and a title for the dialogbox
+% Input is a struct with exploraty names, a title for the dialogbox
+% and a descriptive text
 % Output is the modified struct, and optional an ok variable.
 %
 % Example
@@ -28,30 +29,28 @@ function [res,varargout] = inputstruct(s,tit)
 %   - double(s)
 %   - chars or string arrays
 %   - logicals
-%
-%   See also INPUTDLG, COPYFIELDS.
 
 %Einar Heiberg 2003-12-04
 
 if nargin==0
   error('Expected at least one input argument.');
-end;
+end
 
 if nargin==1
   tit = inputname(1);
-end;
+end
 
-if nargin>2
-  error('Expected no more than two input arguments.');
-end;
+if nargin>3
+  error('Expected no more than three input arguments.');
+end
 
 if length(s)>1
   error('Expected a struct, not an array of structs.');
-end;
+end
 
 if nargout>2
   error('Expected only two output arguments.');
-end;
+end
 
 %Get the fieldsnames
 fields = fieldnames(s);
@@ -59,20 +58,23 @@ numfields = length(fields);
 
 if numfields<1
   error('Input is not a struct.');
-end;
+end
 
 %Set default answer as failed
 if nargout==2
   varargout = cell(1,1);
   varargout{1} = false;
-end;
+end
 
 %Create variables for dialogbox
-prompt = cell(size(fields));
 def = cell(size(fields));
 lineno = zeros(numfields,1);
 for loop=1:numfields
-  prompt{loop} = [fields{loop} ':'];
+  if nargin > 2  && length(text) == length(fields)  %input descriptive text for each variable
+    prompt{loop} = [text{loop} ':'];
+  else
+    prompt{loop} = [fields{loop} ':'];
+  end
   switch class(getfield(s,fields{loop}))
     case 'logical'
       temp = getfield(s,fields{loop});
@@ -80,24 +82,24 @@ for loop=1:numfields
         def{loop} = 'true';
       else
         def{loop} = 'false';
-      end;
+      end
     otherwise
       def{loop} = num2str(getfield(s,fields{loop}));
-  end;
+  end
   lineno(loop) = max(size(def{loop},1),1);
-end;
+end
 
 %Bring up the dialogbox
 keystroke = popfrombuffer('KeyStroke');
 if isempty(keystroke)
-  answ = inputdlg(prompt,tit,lineno,def);
+  answ = myinputdlg(prompt,tit,lineno,def);
 else
   if isequal(keystroke,'ok')
     answ = def;
   else
     error('Expected ''ok'' as keystroke.');
-  end;
-end;
+  end
+end
 
 if isempty(answ)
   %User pressed cancel, return the same.
@@ -121,7 +123,7 @@ else
           myfailed(dprintf('Could not convert %s to number.',fields{loop}));
           res = setfield(res,fields{loop},getfield(s,fields{loop}));
           ok = false;
-        end;
+        end
       case 'logical'
         %Convert to number
         switch lower(answ{loop})
@@ -134,10 +136,10 @@ else
             myfailed(dprintf('Could not convert %s to logical.',fields{loop}));
             ok = false;
             res = setfield(res,fields{loop},getfield(s,fields{loop}));
-        end;        
+        end        
       otherwise
         error(sprintf('Input type %s not supported.',class(getfield(s,fields{loop}))));
-    end;    
-  end;
-end;
+    end   
+  end
+end
 varargout{1} = ok;

@@ -5,7 +5,7 @@ classdef segdicomfile
   %0008,0023 = ContentDate (set to same as studydate)
   %0008,0030 = StudyTime (from AcquisitionTime)
   %0008,0033 = ContentTime (set to same as studytime)
-  %0008,0050 = AccessionNumber (undersökningsnummer) OK.
+  %0008,0050 = AccessionNumber (unders?kningsnummer) OK.
   %0020,0010 = StudyID (Remissnummer)
   
   methods(Static) % Public
@@ -42,8 +42,10 @@ classdef segdicomfile
         'SOPClassUID', 'UI', uint8('1.2.840.10008.5.1.4.1.1.7'));
       segdicomfile.write_tag(mem, 'SOPInstanceUID', 'UI', instance_uid);
       segdicomfile.write_tag(mem, 'StudyDate', 'DA', uint8(data(1).PatientInfo.AcquisitionDate));
+      segdicomfile.write_tag(mem, 'SeriesDate', 'DA', uint8(datestr(now,'yyyymmdd')));% Jelena: added for OPenApps to distinguish
       segdicomfile.write_tag(mem, 'ContentDate', 'DA', uint8(data(1).PatientInfo.AcquisitionDate));
       segdicomfile.write_tag(mem, 'StudyTime', 'TM', uint8(segdicomfile.secondtostring(data(1).AcquisitionTime)));
+      segdicomfile.write_tag(mem, 'SeriesTime', 'TM', uint8(datestr(now,'hhMMss.FFF000')));
       segdicomfile.write_tag(mem, 'ContentTime', 'TM', uint8(segdicomfile.secondtostring(data(1).AcquisitionTime)));
       if switchtags
         segdicomfile.write_tag(mem, 'AccessionNumber', 'SH', uint8(data(1).StudyID)); %StudyID and AccessionNumber are switched in Sectra PACS
@@ -97,6 +99,7 @@ classdef segdicomfile
         segdicomfile.serialize(data));
       segdicomfile.write_tag(mem, ...
         'PixelData', 'OW', image);
+      segdicomfile.write_tag(mem, 'SeriesDescription', 'LO', uint8('SegmCMR_analysis'));
     end
     
     function r = serialize( data )
@@ -209,7 +212,7 @@ classdef segdicomfile
             typecast(uint16(length(data)+mod(length(data), 2)), 'uint8')]);
           mem.add(data);
           if mod(length(data), 2) ~= 0
-            mem.add(uint8(20));
+            mem.add(uint8(32));
           end
         case {'DA', 'UL', 'US'}
           mem.add([segdicomfile.name_to_tag(tag_name) uint8(vr) ...
@@ -234,14 +237,17 @@ classdef segdicomfile
       tags.ImplementationVersionName = uint8([2 0 19 0 ]);
       tags.SOPClassUID = uint8([8 0 22 0]);
       tags.SOPInstanceUID = uint8([8 0 24 0]);
-      tags.StudyDate = uint8([8 0 32 0]);
+      tags.StudyDate = uint8([8 0 32 0]);      
+      tags.SeriesDate = uint8([8 0 33 0]);% Jelena: added series date for OpenApps version
       tags.ContentDate = uint8([8 0 35 0]);
       tags.StudyTime = uint8([8 0 48 0]);
+      tags.SeriesTime = uint8([8 0 49 0]);% Jelena: added series time for OpenApps version
       tags.ContentTime = uint8([8 0 51 0]);
       tags.AccessionNumber = uint8([8 0 80 0]);
       tags.Modality = uint8([8 0 96 0]);
       tags.ConversionType = uint8([8 0 100 0]);
       tags.ReferringPhysicianName = uint8([8 0 144 0]);
+      tags.SeriesDescription = uint8([8 0 62 16]);% Jelena: added series description for OpenApps version
       tags.PatientName = uint8([16 0 16 0]);
       tags.PatientID = uint8([16 0 32 0]);
       tags.PatientBirthDate = uint8([16 0 48 0]);
@@ -272,6 +278,7 @@ classdef segdicomfile
       tags.Manufacturer = uint8([8 0 112 0]);
       tags.ImageOrientation = uint8([32 0 55 0]);
       tags.ImagePosition = uint8([32 0 50 0]);
+     
     end
     
 
@@ -455,7 +462,7 @@ classdef segdicomfile
       min = floor((t-hour*3600)/60);
       sec = t-hour*3600-min*60;
       stri = sprintf('%02d%02d%09.6f',hour,min,sec);
-    end;    
+    end    
         
   end
 end

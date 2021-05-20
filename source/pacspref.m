@@ -28,14 +28,12 @@ function init
 %Initiate Pacs Preferences GUI
 global DATA
 
-fig = openfig('pacspref.fig','reuse');
-translation.translatealllabels(fig);
-set(fig,'Color',get(0,'defaultUicontrolBackgroundColor'));
+fig = mygui('pacspref.fig');
 
 % Generate a structure of handles to pass to callbacks
-handles = guihandles(fig);
+handles = fig.handles;
 DATA.PrefHandlesPacs = handles;
-DATA.PrefHandlesPacs.fig = fig;
+DATA.PrefHandlesPacs.fig = handles.figure1;
 
 patientkids = get(handles.patientlevelpanel,'Children');
 studykids = get(handles.studylevelpanel,'Children');
@@ -128,7 +126,7 @@ li = cell(1,length(f));
 for loop=1:length(f)
   load(f(loop).name,'res','-mat');
   li{loop} = res.DescriptiveName;
-end;
+end
 
 % update v
 v = mygetlistbox(DATA.PrefHandlesPacs.connecttolistbox);
@@ -252,18 +250,42 @@ function addpacscon_Callback %#ok<*DEFNU>
 global DATA
 
 % Ask user for input
-s.Descriptive_Name = 'name'; %DescriptiveName
-s.PACS_AE_Title = 'HOSPITAL_PACS' ; %Called_AE
-s.PACS_IP_Number = '127.0.0.1'; %Peer_IP
-s.PACS_Port_Number = '4006'; %Peer_Port
-s.Segment_Port_Number = '104'; %Port
-s.Retrieve_AE_Title = DATA.Pref.Server.AETitle; %Take from Segment Server AE Title
-s.Query_AE_Title = DATA.Pref.Server.AETitle; %Take from Segment Server AE Title
-s.StoreSCU_AE_Title = DATA.Pref.Server.AETitle; %Take from Segment Server AE Title
-[res,ok] = inputstruct(s,'Input connection details.');
+s = [];
+s(1).Field = 'Descriptive_Name';
+s(1).Label = dprintf('Descriptive Name');
+s(1).Default = 'Name               ';
+n = 2;
+s(n).Field = 'PACS_AE_Title';
+s(n).Label = dprintf('PACS AE Title');
+s(n).Default = 'HOSPITAL_PACS'; %Called_AE
+n = n+1;
+s(n).Field = 'PACS_IP_Number';
+s(n).Label = dprintf('PACS IP Number');
+s(n).Default = '127.0.0.1'; %Peer_IP
+n = n+1;
+s(n).Field = 'PACS_Port_Number';
+s(n).Label = dprintf('PACS Port Number');
+s(n).Default = '4006'; %Peer_Port
+n = n+1;
+s(n).Field = 'Segment_Port_Number';
+s(n).Label = dprintf('Segment Port Number');
+s(n).Default = '104'; %Port
+n = n+1;
+s(n).Field = 'Retrieve_AE_Title';
+s(n).Label = dprintf('Retrieve AE Title');
+s(n).Default = DATA.Pref.Server.AETitle; %Take from Segment Server AE Title
+n = n+1;
+s(n).Field = 'Query_AE_Title';
+s(n).Label = dprintf('Query AE Title');
+s(n).Default = DATA.Pref.Server.AETitle; %Take from Segment Server AE Title
+n = n+1;
+s(n).Field = 'StoreSCU_AE_Title';
+s(n).Label = dprintf('StoreSCU AE Title');
+s(n).Default = DATA.Pref.Server.AETitle; %Take from Segment Server AE Title
+[res,ok] = myinputstruct(s,'',20); %20 = width of editbox
 if not(ok)
   return;
-end;
+end
 
 temp = res; 
 s = [];
@@ -278,10 +300,14 @@ s.StoreSCU_AE_Title = temp.StoreSCU_AE_Title;
 clear temp;
 
 % Store the con file
-[filename,pathname] = myuiputfile('*.con','Save Connection As: (place in Segment folder)');
-if isequal(filename,0)||isequal(pathname,0)
-  return;
-end;
+% [filename,pathname] = myuiputfile('*.con','Save Connection As: (place in Segment folder)');
+% if isequal(filename,0)||isequal(pathname,0)
+%   return;
+% end
+
+%The .con file is saved in main software folder as DescriptiveName.con
+filename=[s.DescriptiveName '.con'];
+pathname=DATA.SegmentFolder;
 res = s;
 res.Calling_AE = 'DEFAULT_CALLING_AE'; % Added for legacy reasons
 save(fullfile(pathname,filename),'res', DATA.Pref.SaveVersion);
@@ -303,40 +329,77 @@ f = dir('*.con');
 try
   load(f(v).name, 'res', '-mat');
 catch e
-  myfailed(dprintf(...
-    'Could not open the selected connection. Error is ''%s''',e.message),DATA.GUI.PacsCon);
+  myfailed(dprintf('Could not open the selected connection. Error is ''%s''',e.message),DATA.GUI.PacsCon);
   updatepacscon;
   return
 end
 
 %Remove non used field from display
-res = rmfield(res, 'Calling_AE'); %#ok<NODEF>
+res = rmfield(res, 'Calling_AE'); 
 
 %Prepare variable with new fieldnames
 s = [];
-s.Descriptive_Name = res.DescriptiveName;
-s.PACS_AE_Title = res.Called_AE;
-s.PACS_IP_Number = res.Peer_IP;
-s.PACS_Port_Number = res.Peer_Port;
-s.Segment_Port_Number = res.Port;
+n = 1;
+s(n).Field = 'Descriptive_Name';
+s(n).Label = dprintf('Descriptive Name');
+s(n).Default = res.DescriptiveName;
+n = n+1;
+s(n).Field = 'PACS_AE_Title';
+s(n).Label = dprintf('PACS AE Title');
+s(n).Default = res.Called_AE;
+n = n+1;
+s(n).Field = 'PACS_IP_Number';
+s(n).Label = dprintf('PACS IP Number');
+s(n).Default = res.Peer_IP;
+n = n+1;
+s(n).Field = 'PACS_Port_Number';
+s(n).Label = dprintf('PACS Port Number');
+s(n).Default = res.Peer_Port;
+n = n+1;
+s(n).Field = 'Segment_Port_Number';
+s(n).Label = dprintf('Segment Port Number');
+s(n).Default = res.Port;
+n = n+1;
 if isfield(res,'Retrieve_AE_Title')
-  s.Retrieve_AE_Title = res.Retrieve_AE_Title;
-else
-  s.Retrieve_AE_Title = DATA.Pref.Server.AETitle; %Take from Segment Server AETitle
-end;
+  s(n).Field = 'Retrieve_AE_Title';
+  s(n).Label = dprintf('Retrieve AE Title');
+  s(n).Default = res.Retrieve_AE_Title;
+  n = n+1;
+else  
+  s(n).Field = 'Retrieve_AE_Title';
+  s(n).Label = dprintf('Retrieve AE Title');  
+  s(n).Default = DATA.Pref.Server.AETitle; %Take from Segment Server AETitle
+  n = n+1;
+end
 if isfield(res,'Query_AE_Title')
-  s.Query_AE_Title = res.Query_AE_Title;
+  s(n).Field = 'Query_AE_Title';
+  s(n).Label = dprintf('Query AE Title');
+  s(n).Default = res.Query_AE_Title;
+  n = n+1;
 else
-  s.Query_AE_Title = DATA.Pref.Server.AETitle; %Take from Segment Server AETitle
-end;
+  s(n).Field = 'Query_AE_Title';
+  s(n).Label = dprintf('Query AE Title');
+  s(n).Default = DATA.Pref.Server.AETitle; %Take from Segment Server AETitle
+  n = n+1;
+end
 if isfield(res,'StoreSCU_AE_Title')
-  s.StoreSCU_AE_Title = res.StoreSCU_AE_Title;  
-else
-  s.StoreSCU_AE_Title = DATA.Pref.Server.AETitle; %Take from Segment Server AETitle
-end;
+  s(n).Field = 'StoreSCU_AE_Title';
+  s(n).Label = dprintf('StoreSCU AE Title');
+  s(n).Default = res.StoreSCU_AE_Title;
+  n = n+1; %#ok<NASGU>
+else  
+  s(n).Field = 'StoreSCU_AE_Title';
+  s(n).Label = dprintf('StoreSCU AE Title');
+  s(n).Default = DATA.Pref.Server.AETitle; %Take from Segment Server AETitle
+  n = n+1; %#ok<NASGU>
+end
 
 % Let user edit the file and save it
-[s,ok] = inputstruct(s);
+[s,ok] = myinputstruct(s,'',20); %20 is width of editboxes
+
+if not(ok)
+  return;
+end
 
 %Convert to internal fieldname representation
 temp = s; 
@@ -352,15 +415,13 @@ res.StoreSCU_AE_Title = temp.StoreSCU_AE_Title;
 clear temp;
 
 res.Calling_AE = 'DEFAULT_CALLING_AE';
-if not(ok)
-  return;
-end;
+
 
 try
   save(f(v).name, 'res', DATA.Pref.SaveVersion);
 catch
   myfailed('Could not save connection file. Disk write protected?');
-end;
+end
 
 %Update the list
 updatepacscon;
@@ -381,7 +442,7 @@ if v>length(f)
   myfailed(errormsg,DATA.GUI.PacsCon);
   updatepacscon;
   return;
-end;
+end
 ok = mydel(f(v).name);
 if not(ok)
   errormsg=sprintf(...
@@ -389,14 +450,14 @@ if not(ok)
     f(v).name, w);
   myfailed(errormsg,DATA.GUI.PacsCon);
   return;
-end;
+end
 
 % Update listbox value and updates pacscon
 if length(f)>1
   set(DATA.PrefHandlesPacs.connecttolistbox, 'value', 1);
 else
   set(DATA.PrefHandlesPacs.connecttolistbox, 'value', 0);
-end;
+end
 updatepacscon;
 
 %------------------------
@@ -413,13 +474,13 @@ global DATA
 DATA.Pref.Pacs.VerboseLog=0;
 DATA.Pref.Pacs.DebugLog=0;
 
-DATA.Pref.Pacs.patientconfig = [1 0 1 1 0 0];
-DATA.Pref.Pacs.studyconfig = [0 0 1 1 1 0 1 1 1 1 0 0 1];
-DATA.Pref.Pacs.seriesconfig = [0 0 1 0 1 1 1 1 1 1 0 0 0];
+DATA.Pref.Pacs.patientconfig = [0 1 1 1 0 0];
+DATA.Pref.Pacs.studyconfig = [0 1 0 1 1 0 1 1 1 1 1 1 0];
+DATA.Pref.Pacs.seriesconfig = [0 1 0 1 1 1 1 1 1 1 1 1 0];
 DATA.Pref.Pacs.QueryOptions = ''; %'--propose-little';
 
-DATA.Pref.Pacs.retrievemodel = [1 0 0];
-DATA.Pref.Pacs.RetrieveMode=2;
+DATA.Pref.Pacs.retrievemodel = [0 1 0];
+DATA.Pref.Pacs.RetrieveMode=4;
 DATA.Pref.Pacs.RetrieveOptions = ''; %'--prefer-little --propose-little --bit-preserving';
 
 %---------------------
