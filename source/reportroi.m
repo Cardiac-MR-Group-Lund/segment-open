@@ -16,21 +16,21 @@ global DATA SET NO
 if SET(NO).RoiN<1
   myfailed('No ROIs available. Use blue pen to draw ROIs.',DATA.GUI.Segment);
   return;
-end;
+end
 
-tempnos=NO;
-imissingle=classcheckim(tempnos);%checks so that SET(tempnos).IM is single and can also convert from int16 to singel if user wants
+tempnos = NO;
+imissingle = classcheckim(tempnos);%checks so that SET(tempnos).IM is single and can also convert from int16 to singel if user wants
 if not(imissingle)
   return;
 end
 
 if isempty(SET(NO).EndAnalysis)
   SET(NO).EndAnalysis = SET(NO).TSize;
-end;
+end
 
 if isempty(SET(NO).StartAnalysis)
   SET(NO).StartAnalysis = 1;
-end;
+end
 
 %if (SET(NO).EndAnalysis-SET(NO).StartAnalysis)<1
 %  myfailed('No timespan, adjust Start/End analysis time (under stress menu or drag red bar).',DATA.GUI.Segment);
@@ -38,17 +38,20 @@ end;
 %
 %end;
 
-%Open gui
-%check if open
+%--- Open gui
+%Check if open
 if isopengui('roi.fig')
   close_Callback;
 end
+%Open
 gui = mygui('roi.fig');
 DATA.GUI.ROI = gui;
 
 if ~isrectilinear(SET(NO).TimeVector)
   gui.rectilinear = false;
-end;
+else
+ gui.rectilinear = true; 
+end
 
 %  mywarning(['Non uniform time steps detected. Smoothing and display of '...
 %    'min/max slope disabled.']);
@@ -56,12 +59,12 @@ end;
 %    gui.handles.showslopescheckbox],'enable','off');
 %end
 
-%Ask for what ROI's to include
+%--- Ask for what ROI's to include
 [gui.rois,~,gui.normalized] = roi('roiselector','',...
   get(gui.handles.thissliceonlycheckbox,'value'),...
   '',get(gui.handles.normalizedcheckbox,'value'));
 
-%Initalize variables
+%--- Initalize variables
 gui.no = NO;
 gui.t = SET(NO).TimeVector;
 gui.t = gui.t*1000; %ms
@@ -71,12 +74,21 @@ gui.roisizepix = gui.roiint;
 gui.roisize = gui.roiint;
 gui.roimin = gui.roiint;
 gui.roimax = gui.roiint;
+%Smooth feature
 gui.sigma = mygetvalue(gui.handles.smoothslider);
-gui.offset = 0;
+set(gui.handles.sigmaedit,'string',sprintf('%0.5g',gui.sigma));
+%Detrend feature
 gui.detrendstartms = 0;
 gui.detrendendvalue = 0;
-set(gui.handles.sigmaedit,'string',sprintf('%0.5g',gui.sigma));
+%Offset feature
+gui.offset = 0;
+gui.offsetrange = 1;
+gui.normalizedold = 1; %GUI launches with non-norm. values
+gui.intoffset = SET(gui.no).IntensityOffset; %used to rescale offset
+gui.intscaling = SET(gui.no).IntensityScaling; %used to rescale offset
+gui.venc = SET(gui.no).VENC; %used to rescale offset
 
+%--- Extract, process and plot data
 recalc; %do plot
 
 % datacursormode(gui.fig)
@@ -95,7 +107,7 @@ s = mygetedit(gui.handles.sigmaedit);
 n = str2double(s);
 if not(isnan(n))
   gui.sigma = n;
-end;
+end
 gui.sigma = min(max(gui.sigma,get(gui.handles.smoothslider,'min')),get(gui.handles.smoothslider,'max'));
 set(gui.handles.sigmaedit,'string',sprintf('%0.5g',gui.sigma));
 set(gui.handles.smoothslider,'value',gui.sigma);
@@ -113,30 +125,47 @@ doplot;
 %------------------
 function offsetedit %#ok<DEFNU>
 %------------------
+%Get offset value from user defined value in editbox
 global DATA
 gui = DATA.GUI.ROI;
 
+%--- Get value
 temp = mygetedit(gui.handles.offsetedit);
-[num,ok] = str2num(temp); %#ok<ST2NM>
-if ok
+num = str2double(temp);
+
+if ~isnan(num)
+  %--- Limit user's input value to offset range and store value
+  if num > gui.offsetrange
+    gui.offset = gui.offsetrange;
+  elseif num < -gui.offsetrange
+    gui.offset = -gui.offsetrange;
+  else
   gui.offset = num;
-  set(gui.handles.offsetslider,'value',num);
+  end
+  %--- Pass offset value to offset slider
+  set(gui.handles.offsetslider,'value',gui.offset);
 else
   myfailed('Could not interpret number.',DATA.GUI.Segment);
   return;
-end;
+end
+
+%--- Update plot
 doplot;
     
 %--------------------
 function offsetslider %#ok<DEFNU>
 %--------------------
-%User adjusted offsetslider
-
+%Get offset value from user defined value in slider
 global DATA
 gui = DATA.GUI.ROI;
 
+%--- Get and store value
 gui.offset = mygetvalue(gui.handles.offsetslider);
+
+%--- Pass offset value to offset editbox
 set(gui.handles.offsetedit,'string',sprintf('%0.5g',gui.offset));
+
+%--- Update plot
 doplot;
 
 %---------------------------
@@ -151,9 +180,9 @@ s.DetrendStart_ms = gui.detrendstartms;
 s.DetrendEndValue = gui.detrendendvalue;
 [s,ok] = inputstruct(s);
 if ~ok
-  myfailed('Aborted.');
+%   myfailed('Aborted.');
   return;
-end;
+end
 
 gui.detrendstartms = s.DetrendStart_ms;
 gui.detrendendvalue = s.DetrendEndValue;
@@ -245,13 +274,13 @@ switch type
     SET(NO).StartAnalysis = x;
   case 'endbar'
     SET(NO).EndAnalysis = x;    
-end;
+end
 
 if SET(NO).StartAnalysis>SET(NO).EndAnalysis
   temp = SET(NO).StartAnalysis;
   SET(NO).StartAnalysis=SET(NO).EndAnalysis;
   SET(NO).EndAnalysis=temp;
-end;
+end
 
 %Do graphical update
 doplot;
@@ -288,9 +317,9 @@ gui.sigma = mygetvalue(gui.handles.smoothslider);
 x = linspace(-60,60,121);
 f = exp(-x.^2/gui.sigma.^2);
 figure(22);
-plot(x,f);
-xlabel('Timeframes');
-title('Smoothing applicability.');
+line('XData',x,'YData',f);
+xlabel(dprintf('Timeframes'));
+title(dprintf('Smoothing applicability.'));
 
 %--------------
 function recalc
@@ -302,6 +331,13 @@ gui = DATA.GUI.ROI;
 [gui.rois,~,gui.normalized] = roi('roiselector','',...
   get(gui.handles.thissliceonlycheckbox,'value'),...
   '',get(gui.handles.normalizedcheckbox,'value'));
+%Check if offset needs to be recalculated
+if gui.normalizedold == gui.normalized
+  recalcoffsetflag = false;
+else
+  recalcoffsetflag = true;
+end
+gui.normalizedold = gui.normalized;
 
 %--- Extract data
 h = mywaitbarstart(length(gui.rois),'Please wait, calculating data',[],DATA.GUI.Segment);
@@ -313,7 +349,7 @@ for rloop=1:length(gui.rois)
         temp = SET(gui.no).IM(:,:,tloop,z);
       else
         temp = calcfunctions('calctruedata',SET(gui.no).IM(:,:,tloop,z),gui.no);
-      end;
+      end
       roimask = segment('createmask',...
         [SET(gui.no).XSize SET(gui.no).YSize],...
         SET(gui.no).Roi(gui.rois(rloop)).Y(:,tloop),...
@@ -324,16 +360,23 @@ for rloop=1:length(gui.rois)
         gui.roimax(tloop,rloop) = max(temp(ind));
         gui.roiint(tloop,rloop) = mean(temp(ind));
         gui.roistd(tloop,rloop) = std(temp(ind));
-      end;
+      end
       gui.roisize(tloop,rloop) = (1/100)*polyarea(...
         SET(gui.no).ResolutionY*SET(gui.no).Roi(gui.rois(rloop)).Y(:,tloop),...
         SET(gui.no).ResolutionX*SET(gui.no).Roi(gui.rois(rloop)).X(:,tloop));
       gui.roisizepix(tloop,rloop) = sum(roimask(:))*SET(gui.no).ResolutionX*SET(gui.no).ResolutionY/100;
-    end;
-  end;
+    end
+  end
   h = mywaitbarupdate(h);
-end;
+end
 mywaitbarclose(h);
+
+%--- Compute new offset
+if recalcoffsetflag
+  recalcoffset;
+end
+
+%--- Process and plot data
 doplot;
 set(gui.fig,'Pointer','Arrow');
 
@@ -347,56 +390,65 @@ gui = DATA.GUI.ROI;
 switch mygetlistbox(gui.handles.parameterlistbox)
   case 1
     gui.outdata = gui.roiint;
-    gui.outname = translation.dictionary('Mean Intensity');
+    gui.outname = dprintf('Mean Intensity');
     if (SET(gui.no).TSize==1) %sbt20160516, mod EH
-        auc = gui.outdata;%sbt20160516
+      auc = gui.outdata;%sbt20160516
     elseif (numel(gui.t)>1)%sbt20160516
       for lloop=1:length(gui.rois)
         auc(lloop) = trapz(gui.t/1000,gui.outdata(:,lloop));
       end
     else%sbt20160516
-        myfailed('Error: unknown number of timeframes found.')%sbt20160516
-        auc = 0;%sbt20160516
+      myfailed('Error: unknown number of timeframes found.')%sbt20160516
+      auc = 0;%sbt20160516
     end%sbt20160516
+    set(gui.handles.offsetslider,'Enable','on');
+    set(gui.handles.offsetedit,'Enable','on');
+    set(gui.handles.offsetedit,'string',sprintf('%0.5g',gui.offset));
     set(gui.handles.auctext,'Visible','on');
-    aucstring = sprintf('Area under curve:\n');
+    aucstring = dprintf('Area under curve:\n');
     for lloop=1:length(gui.rois)
-      aucstring = [aucstring dprintf('%s:  %0.2f\n',SET(gui.no).Roi(gui.rois(lloop)).Name,auc(lloop))];
+      aucstring = [aucstring sprintf('%s:  %0.2f\n',SET(gui.no).Roi(gui.rois(lloop)).Name,auc(lloop))];
     end
     set(gui.handles.auctext,'String',aucstring);
   case 2
     gui.outdata = gui.roistd;
-    gui.outname = translation.dictionary('Standard deviation');
+    gui.outname = dprintf('Standard deviation');
     set(gui.handles.auctext,'Visible','off');
+    disableoffset;
   case 3
     gui.outdata = gui.roisize;
-    gui.outname = translation.dictionary('Area [cm^2]');
+    gui.outname = dprintf('Area [cm^2]');
     set(gui.handles.auctext,'Visible','off');
+    disableoffset;
   case 4
     gui.outdata = gui.roisizepix;
-    gui.outname = translation.dictionary('Area based on pixels [cm^2] ');
+    gui.outname = dprintf('Area based on pixels [cm^2] ');
     set(gui.handles.auctext,'Visible','off');
+    disableoffset;
   case 5
     gui.outdata = gui.roimax;
-    gui.outname = translation.dictionary('Maximum intensity');
+    gui.outname = dprintf('Maximum intensity');
     set(gui.handles.auctext,'Visible','off');
+    disableoffset;
   case 6
     gui.outdata = gui.roimin;
-    gui.outname = translation.dictionary('Minimum intensity');
+    gui.outname = dprintf('Minimum intensity');
     set(gui.handles.auctext,'Visible','off');
+    disableoffset;
   otherwise
     myfailed('Not yet implemented.',DATA.GUI.Segment);
     gui.outdata = [];
     gui.outname = '';
-end;
+end
 
+%--- Process data
 %Add offset
 gui.outdata = gui.outdata+gui.offset;
 
 %Crop data
 if get(gui.handles.cropzerocheckbox,'value')
   gui.outdata(gui.outdata<0) = 0;
-end;
+end
 
 %Detrend data
 if get(gui.handles.detrendcheckbox,'value')
@@ -409,7 +461,7 @@ if get(gui.handles.detrendcheckbox,'value')
   detrend = detrend(:); %reshape
   detrend = repmat(detrend,[1 size(gui.outdata,2)]); %reshape
   gui.outdata = gui.outdata-detrend;
-end;
+end
 
 %--- Do smoothing
 if dosmooth
@@ -432,19 +484,19 @@ if dosmooth
     else
       %Normalized averaging, rectilinear code
       signalfiltered = conv2(signal,f','same')./(eps+conv2(ones(size(signal)),f','same'));      
-    end;
+    end
     
     %Store
     gui.smoothoutdata(:,rloop) = signalfiltered;        
     
-  end;
+  end
   
 else
   gui.smoothoutdata = gui.outdata;
   gui.t = SET(gui.no).TimeVector*1000;
-end;
+end
 
-%--- Plot it
+%--- Plot data
   
 if SET(gui.no).TSize>1
   
@@ -478,7 +530,8 @@ if SET(gui.no).TSize>1
     else
       plot(gui.handles.plotaxes,gui.t,gui.outdata(:,rloop),sprintf('%so',SET(gui.no).Roi(gui.rois(rloop)).LineSpec(1)));
     end
-  end;
+  end
+  
   %--- Calc min/max/slope  
   
   %Loop over rois
@@ -498,7 +551,7 @@ if SET(gui.no).TSize>1
       tempd(SET(gui.no).EndAnalysis+1:end) = NaN;
       [gui.minvd(rloop),gui.minindd(rloop)] = min(tempd);
       [gui.maxvd(rloop),gui.maxindd(rloop)] = max(tempd);
-    end;
+    end
     
     %FWHM
     gui.fwhm(rloop) = 0.5*(gui.maxv(rloop)+gui.minv(rloop));
@@ -512,7 +565,7 @@ if SET(gui.no).TSize>1
     else
       gui.fwhmstart(rloop) = pos(1);
       gui.fwhmend(rloop) = pos(end);
-    end;
+    end
     
     %Centerofgravity
     temp = gui.smoothoutdata(SET(gui.no).StartAnalysis:SET(gui.no).EndAnalysis,rloop);
@@ -523,7 +576,7 @@ if SET(gui.no).TSize>1
       gui.centergravity(rloop) = temp_nom/temp_den;
     else
       gui.centergravity(rloop) = NaN;
-    end;
+    end
     
     %Plot max/min
     if mygetvalue(gui.handles.showminmaxcheckbox)
@@ -531,28 +584,31 @@ if SET(gui.no).TSize>1
       plot(gui.handles.plotaxes,gui.t(gui.maxind(rloop)),gui.maxv(rloop),'k*');
       plot(gui.handles.plotaxes,[gui.t(1) gui.t(end)],[gui.minv(rloop) gui.minv(rloop)],'k:');
       plot(gui.handles.plotaxes,[gui.t(1) gui.t(end)],[gui.maxv(rloop) gui.maxv(rloop)],'k:');
-    end;
+    end
     
     %Plot min/max slopes
     if mygetvalue(gui.handles.showslopescheckbox)
       temp = gui.smoothoutdata(:,rloop);
-      plot(gui.handles.plotaxes,gui.t(gui.maxindd(rloop)),temp(gui.maxindd(rloop)),'ko');
-      plot(gui.handles.plotaxes,gui.t(gui.minindd(rloop)),temp(gui.minindd(rloop)),'ko');
-      
-      ylim = get(gui.handles.plotaxes,'ylim');
-      
-      deltat = gui.t(end)*0.03;
-      left = temp(gui.minindd(rloop))-gui.minvd(rloop)*deltat;
-      right = temp(gui.minindd(rloop))+gui.minvd(rloop)*deltat;
-      plot(gui.handles.plotaxes,gui.t(gui.minindd(rloop))+[-deltat deltat],[left right],'k-');
-      plot(gui.handles.plotaxes,[gui.t(gui.minindd(rloop)) gui.t(gui.minindd(rloop))],ylim,'k:');
-      
-      deltat = gui.t(end)*0.03;
-      left = temp(gui.maxindd(rloop))-gui.maxvd(rloop)*deltat;
-      right = temp(gui.maxindd(rloop))+gui.maxvd(rloop)*deltat;
-      plot(gui.handles.plotaxes,gui.t(gui.maxindd(rloop))+[-deltat deltat],[left right],'k-');
-      plot(gui.handles.plotaxes,[gui.t(gui.maxindd(rloop)) gui.t(gui.maxindd(rloop))],ylim,'k:');
-    end;
+      if any(gui.maxindd == 0)
+        myfailed('Need to smooth data first.',DATA.GUI.ROI);
+        set(gui.handles.showslopescheckbox,'Value',0)
+      else
+        plot(gui.handles.plotaxes,gui.t(gui.maxindd(rloop)),temp(gui.maxindd(rloop)),'ko');
+        plot(gui.handles.plotaxes,gui.t(gui.minindd(rloop)),temp(gui.minindd(rloop)),'ko');
+        ylim = get(gui.handles.plotaxes,'ylim');
+
+        deltat = gui.t(end)*0.03;
+        left = temp(gui.minindd(rloop))-gui.minvd(rloop)*deltat;
+        right = temp(gui.minindd(rloop))+gui.minvd(rloop)*deltat;
+        plot(gui.handles.plotaxes,gui.t(gui.minindd(rloop))+[-deltat deltat],[left right],'k-');
+        plot(gui.handles.plotaxes,[gui.t(gui.minindd(rloop)) gui.t(gui.minindd(rloop))],ylim,'k:');
+        deltat = gui.t(end)*0.03;
+        left = temp(gui.maxindd(rloop))-gui.maxvd(rloop)*deltat;
+        right = temp(gui.maxindd(rloop))+gui.maxvd(rloop)*deltat;
+        plot(gui.handles.plotaxes,gui.t(gui.maxindd(rloop))+[-deltat deltat],[left right],'k-');
+        plot(gui.handles.plotaxes,[gui.t(gui.maxindd(rloop)) gui.t(gui.maxindd(rloop))],ylim,'k:');
+      end      
+    end
     
     %Plot FWHM
     if mygetvalue(gui.handles.showfwhmcheckbox)&&~isnan(gui.fwhmstart(rloop))
@@ -560,41 +616,42 @@ if SET(gui.no).TSize>1
       plot(gui.handles.plotaxes,[gui.t(1) gui.t(end)],[gui.fwhm(rloop) gui.fwhm(rloop)],'k:');
       plot(gui.handles.plotaxes,[gui.t(gui.fwhmstart(rloop)) gui.t(gui.fwhmstart(rloop))],ylim,'k:');
       plot(gui.handles.plotaxes,[gui.t(gui.fwhmend(rloop)) gui.t(gui.fwhmend(rloop))],ylim,'k:');
-    end;
+    end
     
     %Plot CenterGravity
     if mygetvalue(gui.handles.showcentergravitycheckbox)
       ylim = get(gui.handles.plotaxes,'ylim');
       pos = (gui.centergravity(rloop)-1)*SET(gui.no).TIncr*1000;
       plot(gui.handles.plotaxes,[pos pos],ylim,'k:');
-    end;
+    end
     
-  end; %rloop
+  end %rloop
   
   %Plot smoothed curves
   if dosmooth
     for rloop=1:size(gui.outdata,2)
       h = plot(gui.handles.plotaxes,gui.t,gui.smoothoutdata(:,rloop),'k:'); %SET(gui.no).RoiLineSpec{gui.rois(rloop)});
       set(h,'linewidth',2);
-    end;
-  end;
+    end
+  end
   
   %Add red bars
-  ylim = get(gui.handles.plotaxes,'ylim');
+  ylim = get(gui.handles.plotaxes,'ylim');  
   h = plot([gui.t(SET(gui.no).StartAnalysis) gui.t(SET(gui.no).StartAnalysis)],ylim,'r-');
   set(h,'linewidth',2,'ButtonDownFcn','reportroi(''roibar_Buttondown'',''startbar'')');
-  h = plot([gui.t(SET(gui.no).EndAnalysis)   gui.t(SET(gui.no).EndAnalysis)],ylim,'r-');
+  h = plot([gui.t(SET(gui.no).EndAnalysis)   gui.t(SET(gui.no).EndAnalysis)],ylim,'r-');  
   set(h,'linewidth',2,'ButtonDownFcn','reportroi(''roibar_Buttondown'',''endbar'')');
   hold(gui.handles.plotaxes,'off');
   
   %Add legend and labels
+  set(gui.handles.plotaxes,'XColor',DATA.GUISettings.ForegroundColor,'YColor',DATA.GUISettings.ForegroundColor);
   legendstring=cell(1,length(gui.rois));
   for lloop=1:length(gui.rois)
     legendstring{lloop}=SET(gui.no).Roi(gui.rois(lloop)).Name;
   end
   legend(gui.handles.plotaxes,legendstring);
-  xlabel(gui.handles.plotaxes,translation.dictionary('Time [ms]'));
-  ylabel(gui.handles.plotaxes,gui.outname);
+  xlabel(gui.handles.plotaxes,dprintf('Time [ms]'),'Color',DATA.GUISettings.ForegroundColor);
+  ylabel(gui.handles.plotaxes,gui.outname,'Color',DATA.GUISettings.ForegroundColor);
   
 else %not time resolved
   
@@ -605,8 +662,55 @@ else %not time resolved
   bar(gui.handles.plotaxes,gui.outdata(gui.rois)');
   set(gui.handles.plotaxes,'xtick',1:1:length(legendstring));
   set(gui.handles.plotaxes,'xticklabel',legendstring);
+  set(gui.handles.plotaxes,'XColor',DATA.GUISettings.ForegroundColor,'YColor',DATA.GUISettings.ForegroundColor);
+  
+end
 
-end;
+%--------------
+function disableoffset
+%--------------
+%Disable offset slider and offset edit box in ROI analyser GUI.
+%Used when parameter to plot is not Mean Intensity.
+global DATA 
+gui = DATA.GUI.ROI;
+
+set(gui.handles.offsetslider,'Enable','off');
+set(gui.handles.offsetedit,'Enable','off');
+set(gui.handles.offsetedit,'string',0);
+
+%--------------
+function recalcoffset
+%--------------
+%Used in case of recalculation, if the user switches between normalized and
+%non-normalized data. 
+%Set new offset range and compute new offset value according to whether the 
+%data used in the plot are normalized or not. True offset is computed using
+%IntensityScaling and IntensityOffset stored in SET structure.
+global DATA
+gui = DATA.GUI.ROI;
+
+if gui.normalized
+  %Normalized offset range
+  gui.offsetrange = 1;
+  %Normalized offset value
+  gui.offset = (gui.offset - gui.intoffset) / gui.intscaling;
+else
+  %True offset range
+  gui.offsetrange = gui.intscaling + gui.intoffset;
+  %True offset value
+  if ~isempty(gui.intscaling)
+    gui.offset = gui.offset *  gui.offsetrange;
+  elseif ~isempty(gui.venc) && gui.venc ~= 0
+    gui.offset = (gui.offset-0.5) * 2*gui.venc;
+  else
+    gui.offset = gui.offset;
+  end
+end
+
+%Set new offset range and new offset value for offset slider 
+set(gui.handles.offsetslider,'Min',-gui.offsetrange);
+set(gui.handles.offsetslider,'Max',gui.offsetrange);
+set(gui.handles.offsetslider,'value',gui.offset);
 
 %--------------
 function export %#ok<DEFNU>
@@ -620,21 +724,21 @@ c{1,1} = SET(gui.no).PatientInfo.Name;
 if dosmooth
   c{1,2} = 'Smoothing sigma [timeframes]';
   c{1,3} = gui.sigma;
-end;
+end
 c{4,1} = 'Time[ms]';
 for rloop=1:length(gui.rois)
   if dosmooth
     c{4,(rloop-1)*7+2} = sprintf('Smoothed:%s',gui.outname);
   else
     c{4,(rloop-1)*7+2} = sprintf('%s',gui.outname);
-  end;
+  end
   c{4,(rloop-1)*7+3} = 'Intensity';
   c{4,(rloop-1)*7+4} = 'SD';
   c{4,(rloop-1)*7+5} = 'Size[cm2]';
   c{4,(rloop-1)*7+6} = 'Pixsize[cm2]';
   c{4,(rloop-1)*7+7} = 'Max';
   c{4,(rloop-1)*7+8} = 'Min';
-end;
+end
 
 for rloop=1:length(gui.rois)
   roiname{rloop} = SET(gui.no).Roi(gui.rois(rloop)).Name;
@@ -660,8 +764,8 @@ for tloop=1:SET(gui.no).TSize
     c{tloop+4,(rloop-1)*7+6} = gui.roisizepix(tloop,exportindex(rloop));
     c{tloop+4,(rloop-1)*7+7} = gui.roimax(tloop,exportindex(rloop));
     c{tloop+4,(rloop-1)*7+8} = gui.roimin(tloop,exportindex(rloop));
-  end;
-end;
+  end
+end
 
 segment('cell2clipboard',c);
 
@@ -702,12 +806,12 @@ if dosmooth
   c{16,2} = gui.sigma;
 else
   c{16,1} = 'No smoothing';
-end;
+end
 if get(gui.handles.cropzerocheckbox,'value')
   c{17,1} = 'Cropping';
 else
   c{17,1} = 'No cropping';
-end;
+end
 for rloop=1:length(gui.rois)
   c{3,2+(rloop-1)*2} = SET(gui.no).Roi(gui.rois(rloop)).Name;
   c{4,2+(rloop-1)*2} = 'Value';
@@ -734,7 +838,7 @@ for rloop=1:length(gui.rois)
   c{13,3+(rloop-1)*2} = gui.t(gui.fwhmend(rloop));
   
   c{14,3+(rloop-1)*2} = (gui.centergravity(rloop)-1)*1000*SET(gui.no).TIncr;
-end;
+end
 segment('cell2clipboard',c);
   
 %----------------------
@@ -761,7 +865,7 @@ if mygetvalue(gui.handles.smoothcheckbox)
   smoothen = true;
 else
   smoothen = false;
-end;
+end
 
 %---------------------------
 function datacursor_Callback %#ok<DEFNU>

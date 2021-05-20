@@ -1,5 +1,5 @@
 function segloaderprogressbar(action, event)
-  global DATA;
+  
   persistent wb;
   
   switch action
@@ -19,7 +19,7 @@ end
 
 function wb = segloaderprogressbarinit()
   wb = struct();
-  wb.h = waitbar(0,translation.dictionary('Loading files...'));
+  wb.h = waitbar(0,dprintf('Loading files...'));
   wb.filesToRead = [];
   wb.filesRead = 0;
   wb.lastWbValue = 0;

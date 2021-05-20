@@ -1,0 +1,17 @@
+Name: 'Buechel, Males, Age 0-18'
+ImagingType: 'SSFP'
+Sex: 'M'
+LowerAgeBound: 0
+UpperAgeBound: 18
+LVM: [(10^(-2*0.0475))*(53*(SET(1).PatientInfo.BSA^1.304)) (10^(2*0.0475))*(53*(SET(1).PatientInfo.BSA^1.304))]
+EDV: [(10^(-2*0.0426))*(77.5*(SET(1).PatientInfo.BSA^1.38)) (10^(2*0.0426))*(77.5*(SET(1).PatientInfo.BSA^1.38))]
+ESV: [(10^(-2*0.0647))*(29.7*(SET(1).PatientInfo.BSA^1.37)) (10^(2*0.0647))*(29.7*(SET(1).PatientInfo.BSA^1.37))]
+SV: [(10^(-2*0.05))*(47.4*(SET(1).PatientInfo.BSA^1.394)) (10^(2*0.05))*(47.4*(SET(1).PatientInfo.BSA^1.394))]
+EF: [(10^(-2*0.041))*61.3 (10^(2*0.041))*61.3]
+RVM: [(10^(-2*0.0605))*(16.7*(SET(1).PatientInfo.BSA^1.331)) (10^(2*0.0605))*(16.7*(SET(1).PatientInfo.BSA^1.331))]
+RVEDV: [(10^(-2*0.0499))*(83.8*(SET(1).PatientInfo.BSA^1.469)) (10^(2*0.0499))*(83.8*(SET(1).PatientInfo.BSA^1.469))]
+RVESV: [(10^(-2*0.0737))*(35.3*(SET(1).PatientInfo.BSA^1.559)) (10^(2*0.0737))*(35.3*(SET(1).PatientInfo.BSA^1.559))]
+RVSV: [(10^(-2*0.0524))*(48.2*(SET(1).PatientInfo.BSA^1.407)) (10^(2*0.0524))*(48.2*(SET(1).PatientInfo.BSA^1.407))]
+RVEF: [(10^(-2*0.042))*(61.8-(3.6*SET(1).PatientInfo.BSA)) (10^(2*0.042))*(61.8-(3.6*SET(1).PatientInfo.BSA))]
+CO: [(10^(-2*0.0727))*(3.89*(SET(1).PatientInfo.BSA^1.062)) (10^(2*0.0727))*(3.89*(SET(1).PatientInfo.BSA^1.062))]
+RVCO: [(10^(-2*0.0783))*(3.9473*(SET(1).PatientInfo.BSA^1.076)) (10^(2*0.0783))*(3.9473*(SET(1).PatientInfo.BSA^1.076))]

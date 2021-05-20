@@ -12,138 +12,228 @@ else
   feval(varargin{:}); % FEVAL switchyard
 end
 
+%---------------------
+function segmentationintersection_helper(panel,t) 
+%-----------------------
+%This is updates segmentation intersections for selected panel and timeframe.
+global DATA
+
+[DATA.endointersectionx{panel}{t},DATA.endointersectiony{panel}{t}] = ...
+  calcfunctions('calcsegmentationintersections',panel,'epi',t,DATA.ViewPanelsType{panel});
+
+[DATA.epiintersectionx{panel}{t},DATA.epiintersectiony{panel}{t}] = ...
+  calcfunctions('calcsegmentationintersections',panel,'epi',t,DATA.ViewPanelsType{panel});
+
+%----------------------------------------------
+function [x,y] = resamplecurve(x,y,numpoints) %#ok<DEFNU>
+%----------------------------------------------
+%Calculate total length and remove duplicate points
+global DATA
+
+if nargin==2
+  numpoints = DATA.NumPoints;
+end
+
+if length(x)>1
+  len = sqrt(...
+    conv2(x',[1 -1],'valid').^2+...
+    conv2(y',[1 -1],'valid').^2);
+  len = [0;len(:)]; %Add zero first
+  len = cumsum(len);
+  tempind = find(conv2(len,[1;-1],'valid')~=0); %Remove doublets
+  len = [len(1);len(tempind+1)]; %used in interpolation later
+  x = [x(1); x(tempind+1)];
+  y = [y(1); y(tempind+1)];
+  totallength = len(end);%used in interpolation later
+  %Resample
+  x = interp1(len,x,linspace(0,totallength,numpoints),'pchip');
+  y = interp1(len,y,linspace(0,totallength,numpoints),'pchip');
+  
+  %assert correct clockwise order
+  [x,y] = mypoly2cw(x,y);
+  
+  xr = y;
+  yr = x;
+  mx = mean(xr);
+  my = mean(yr);
+  
+  [~,inda] = min(angle(complex(mx-xr,my-yr)));
+  x(1:(numpoints-inda)) = yr(inda+1:end);
+  y(1:(numpoints-inda)) = xr(inda+1:end);
+  x((numpoints+1-inda):end) = yr(1:inda);
+  y((numpoints+1-inda):end) = xr(1:inda);
+  
+end
+
+%---------------------
+function preallocatesegmentationintersections(panels) %#ok<DEFNU>
+%-----------------------
+%This is the preallocation of segmentation intersections Not doing the
+%calculation within image rendering should be a large speed up.
+global DATA SET
+
+%If no panels supplied these are the panels that needs calculation. A panel can be empty thats
+%why this is needed.
+if nargin == 0
+  panels = find(DATA.ViewPanels(DATA.ViewPanels>0));
+end
+
+if length(DATA.endointersectionx)~=length(DATA.ViewPanels)
+  DATA.endointersectionx = cell(1,length(DATA.ViewPanels));
+  DATA.endointersectiony = cell(1,length(DATA.ViewPanels));
+  DATA.epiintersectionx = cell(1,length(DATA.ViewPanels));
+  DATA.epiintersectiony = cell(1,length(DATA.ViewPanels));
+  
+  %if the number of panels has changed we need to update all panel
+  %intersections. This overrides the input panels
+  panels = find(DATA.ViewPanels(DATA.ViewPanels>0));
+end
+
+for i = panels
+  DATA.endointersectionx{i} = cell(1,SET(DATA.ViewPanels(i)).TSize);
+  DATA.endointersectiony{i} = cell(1,SET(DATA.ViewPanels(i)).TSize);
+  DATA.epiintersectionx{i} = cell(1,SET(DATA.ViewPanels(i)).TSize);
+  DATA.epiintersectiony{i} = cell(1,SET(DATA.ViewPanels(i)).TSize);
+end
+
+for i = panels
+  %Contour intersection
+  for t = 1:SET(DATA.ViewPanels(i)).TSize
+    segmentationintersection_helper(i,t)
+  end
+end
+
 %------------------------------------------
-function [edmax, MaxdiameterPoint, Zslice_no]  = maxsaxdiameter(no,tf,type)
+function [edmax, MaxdiameterPoint, Zslice_no]  = maxsaxdiameter(no,tf,type) %#ok<DEFNU>
 %------------------------------------------
 %Get maximum endocardial diameter in short-axis cine stack
-% Input:    no - no of stack, 
-%            tf - time frame, 
+% Input:    no - no of stack,
+%            tf - time frame,
 %            type - 'RV', 'LV'
 % Output:   edmax - max LV/RV diameter
 %           MaxdiameterPoint - points with the largest distance in form [x,y]
 %           Zslice_no - slice number with largest LV/RV diameter
-% 
+%
 global SET
 xres = SET(no).ResolutionX;
 yres = SET(no).ResolutionY;
 
 switch type
-    case 'LV'
-        edxall = squeeze(SET(no).EndoX(:,tf,:));
-        edyall = squeeze(SET(no).EndoY(:,tf,:));
+  case 'LV'
+    edxall = squeeze(SET(no).EndoX(:,tf,:));
+    edyall = squeeze(SET(no).EndoY(:,tf,:));
+    
+    edmax = 0;
+    edmax_temp = 0;
+    MaxdiameterPoint = [];
+    Zslice_no=[];
+    
+    for z = 1:SET(no).ZSize
+      edx = edxall(:,z);
+      if ~isnan(edx(1))
+        edy = edyall(:,z);
+        edxmat = repmat(edx,1,length(edx));
+        edymat = repmat(edy,1,length(edy));
+        eddist = sqrt((xres*(edxmat'-edxmat)).^2+ ...
+          (yres*(edymat'-edymat)).^2);
         
-        edmax = 0;
-        edmax_temp = 0;
-        MaxdiameterPoint = [];
-        Zslice_no=[];
-        
-        for z = 1:SET(no).ZSize
-            edx = edxall(:,z);
-            if ~isnan(edx(1))
-                edy = edyall(:,z);
-                edxmat = repmat(edx,1,length(edx));
-                edymat = repmat(edy,1,length(edy));
-                eddist = sqrt((xres*(edxmat'-edxmat)).^2+ ...
-                    (yres*(edymat'-edymat)).^2);
-                
-                % edmax = max(edmax,max(eddist(:)));
-                edmax_temp=max(eddist(:));
-                if edmax_temp>edmax
-                    edmax=edmax_temp;
-                    [row, col] = find(ismember(eddist, edmax));
-                    MaxdiameterPoint(1,:)=[edx(row(1)),edy(row(1))];
-                    MaxdiameterPoint(2,:)=[edx(col(1)),edy(col(1))];
-                    Zslice_no=z;  % #slice number
-                end
-            end
+        % edmax = max(edmax,max(eddist(:)));
+        edmax_temp=max(eddist(:));
+        if edmax_temp>edmax
+          edmax=edmax_temp;
+          [row, col] = find(ismember(eddist, edmax));
+          MaxdiameterPoint(1,:)=[edx(row(1)),edy(row(1))];
+          MaxdiameterPoint(2,:)=[edx(col(1)),edy(col(1))];
+          Zslice_no=z;  % #slice number
         end
-        %% In case of RV max diameter, first we find center point of LV based on EPI contour
-        % Then we finiding septum, and calculate the middle point of septum
-        % The last part is to find the intersection between line (center LV and center septum) with RV endo contur.
-        % This intersecton defines our maximal RV dimater.
-    case 'RV'
-        edmax = 0;
-        edmax_temp = 0;
-        MaxdiameterPoint=[];
-        Zslice_no=[];
+      end
+    end
+    % In case of RV max diameter, first we find center point of LV based on EPI contour
+    % Then we finiding septum, and calculate the middle point of septum
+    % The last part is to find the intersection between line (center LV and center septum) with RV endo contur.
+    % This intersecton defines our maximal RV dimater.
+  case 'RV'
+    edmax = 0;
+    edmax_temp = 0;
+    MaxdiameterPoint=[];
+    Zslice_no=[];
+    
+    edxall = squeeze(SET(no).RVEndoX(:,tf,:));
+    edyall = squeeze(SET(no).RVEndoY(:,tf,:));
+    epxLVall = squeeze(SET(no).EpiX(:,tf,:));
+    epyLVall = squeeze(SET(no).EpiY(:,tf,:));
+    
+    
+    %Center of Epi LV ROI for each slice
+    xLVcen=mean(epxLVall);
+    yLVcen=mean(epyLVall);
+    
+    % Convhull RV roi
+    for z = 1:SET(no).ZSize
+      edx = edxall(:,z);
+      edxLV=epxLVall(:,z);
+      if isnan(edxLV(1))
+        continue
+      end
+      if ~isnan(edx(1))
+        edy = edyall(:,z);
+        k=convhull(edx,edy);
         
-        edxall = squeeze(SET(no).RVEndoX(:,tf,:));
-        edyall = squeeze(SET(no).RVEndoY(:,tf,:));
-        epxLVall = squeeze(SET(no).EpiX(:,tf,:));
-        epyLVall = squeeze(SET(no).EpiY(:,tf,:));
+        xhull=edx(k);
+        yhull=edy(k);
         
-      
-        %Center of Epi LV ROI for each slice
-        xLVcen=mean(epxLVall);
-        yLVcen=mean(epyLVall);
+        len=diff(xhull).^2+diff(yhull).^2;
         
-        % Convhull RV roi
-        for z = 1:SET(no).ZSize
-            edx = edxall(:,z);
-            edxLV=epxLVall(:,z);
-            if isnan(edxLV(1))
-                continue
-            end
-            if ~isnan(edx(1))
-                edy = edyall(:,z);
-                k=convhull(edx,edy);
-                
-                xhull=edx(k);
-                yhull=edy(k);
-                
-                len=diff(xhull).^2+diff(yhull).^2;
-                
-                %%maximum length line segment is made out of the septum points. An addition
-                %to make this more robust is to pick out the n largest line segments and check the area of the concavity the maximum area concavity should be the LV.
-                [~,ind]=max(len);
-                a=[xhull(ind),yhull(ind)];
-                b=[xhull(ind+1),yhull(ind+1)];
-                
-                %find closest points on RV contour
-                [~,ind_a]=min((edx-a(1)).^2+(edy-a(2)).^2);
-                [~,ind_b]=min((edx-b(1)).^2+(edy-b(2)).^2);
-               
-                %%number of poinst between A and B
-                if (edx(ind_a) < edx(ind_a+1))&&(edx(ind_b) < edx(ind_b+1))
-                    noABx=[edx(1:ind_a-1); edx(ind_b+1:end)];
-                else
-                    noABx=edx(ind_a+1:ind_b-1);
-                end
-               
-                %% point which is in the middle between A and B
-                ind_midAB=ceil(length(noABx)/2);
-                % middle point
-                if ind_a <= ind_midAB
-                    midRVab=[edx(end-(ind_midAB-ind_a)), edy(end-(ind_midAB-ind_a))];
-                else
-                    midRVab=[edx(ind_a-ind_midAB), edy(ind_a-ind_midAB)];
-                    
-                end
-            
-                %%line between center LV and centre of septal RV
-                x=[xLVcen(z), midRVab(1)];
-                y=[yLVcen(z), midRVab(2)];
-                p = polyfit(x,y,1);
+        %maximum length line segment is made out of the septum points. An addition
+        %to make this more robust is to pick out the n largest line segments and check the area of the concavity the maximum area concavity should be the LV.
+        [~,ind]=max(len);
+        a=[xhull(ind),yhull(ind)];
+        b=[xhull(ind+1),yhull(ind+1)];
+        
+        %find closest points on RV contour
+        [~,ind_a]=min((edx-a(1)).^2+(edy-a(2)).^2);
+        [~,ind_b]=min((edx-b(1)).^2+(edy-b(2)).^2);
+        
+        %number of poinst between A and B
+        if (edx(ind_a) < edx(ind_a+1))&&(edx(ind_b) < edx(ind_b+1))
+          noABx=[edx(1:ind_a-1); edx(ind_b+1:end)];
+        else
+          noABx=edx(ind_a+1:ind_b-1);
+        end
+        
+        % point which is in the middle between A and B
+        ind_midAB=ceil(length(noABx)/2);
+        % middle point
+        if ind_a <= ind_midAB
+          midRVab=[edx(end-(ind_midAB-ind_a)), edy(end-(ind_midAB-ind_a))];
+        else
+          midRVab=[edx(ind_a-ind_midAB), edy(ind_a-ind_midAB)];
           
-                %%calculate line
-                x_space=linspace(min(edx), max(edx),100);
-                y_space=p(1)*x_space+p(2);
-               
-                %% Intersection between the line  LV - septal centre and RV segmentation
-                [xi,yi] = polyxpoly(edx,edy,x_space,y_space);
-                
-                %% Max RV diameter
-                edmax_temp=sqrt((xres*diff(xi)).^2+(yres*diff(yi)).^2);
-                if edmax_temp>edmax
-                    edmax=edmax_temp;
-                    MaxdiameterPoint(1,:)=[xi(1),yi(1)];
-                    MaxdiameterPoint(2,:)=[xi(2),yi(2)];
-                    Zslice_no=z;  % #slice number
-                end
-            end
         end
+        
+        % line between center LV and centre of septal RV
+        x=[xLVcen(z), midRVab(1)];
+        y=[yLVcen(z), midRVab(2)];
+        p = polyfit(x,y,1);
+        
+        % calculate line
+        x_space=linspace(min(edx), max(edx),100);
+        y_space=p(1)*x_space+p(2);
+        
+        % Intersection between the line  LV - septal centre and RV segmentation
+        [xi,yi] = polyxpoly(edx,edy,x_space,y_space);
+        
+        % Max RV diameter
+        edmax_temp=sqrt((xres*diff(xi)).^2+(yres*diff(yi)).^2);
+        if edmax_temp>edmax
+          edmax=edmax_temp;
+          MaxdiameterPoint(1,:)=[xi(1),yi(1)];
+          MaxdiameterPoint(2,:)=[xi(2),yi(2)];
+          Zslice_no=z;  % #slice number
+        end
+      end
+    end
 end
-
 
 %----------------------------------------
 function [N,xc,yc,zc] = lsplanefit(x,y,z) %#ok<DEFNU>, used by makecut
@@ -169,39 +259,39 @@ z= z - zc;
 % Syy = y*y';
 % Sxz = x*z';
 % Syz = y*z';
-% 
+%
 % %using that there is no problem with fixating one param in the equation and
 % %that the point cloud is zero centered i.e sum(x)=0 etc we get that it is
 % %sufficient to solve the below system
 % A = [Sxx,Sxy;Sxy,Syy];
 % B = -[Sxz;Syz];
-% 
+%
 % params = A\B;
 % N = [params;1];
 
 %using svd
 A=[x;y;z];
-[U,~,~] = svd(A);
+[U,~,~] = svd(A,'econ');
 N = cross(U(:,1),U(:,2));
 
 % point = [0,0,0];
 % normal = N';
 
-%# a plane is a*x+b*y+c*z+d=0
-%# [a,b,c] is the normal. Thus, we have to calculate
-%# d and we're set
+% a plane is a*x+b*y+c*z+d=0
+% [a,b,c] is the normal. Thus, we have to calculate
+% d and we're set
 % d = -point*normal'; %'# dot product for less typing
 
-% %# create x,y
+% % create x,y
 % [xx,yy]=ndgrid(linspace(-1,1,10),linspace(-1,1,10));
-% 
-% %# calculate corresponding z
+%
+% % calculate corresponding z
 % zz = (-normal(1)*xx - normal(2)*yy - d)/normal(3);
 
-%# plot the surface
+% plot the surface
 % figure
 % surf(xx,yy,zz)
-% hold on 
+% hold on
 % plot3(x',y',z','k*')
 
 %----------------------
@@ -228,15 +318,22 @@ if nargin<2
   docomp=true;
 elseif SET(no).Longaxis > 1%SET(NO).Longaxis > 1
   docomp = true;
-end;
+end
 
 if SET(no).Rotated
   calclvvolumepolar(no);
   return;
-end;
+end
+
+% needtodo = false;
+% if ~isempty(SET(no).EndoX)
+%   needtodo = true;
+% end
+% if ~isempty(SET(no).EpiX)
+%   needtodo = true;
+% end
 
 ind = (findfunctions('findslicewithendo',no))|(findfunctions('findslicewithepi',no)); %Accepts empty endo and epi if exist
-
 if ~any(ind)
   SET(no).LVV = nan(1,SET(no).TSize);
   SET(no).EPV = SET(no).LVV;
@@ -253,74 +350,96 @@ if ~any(ind)
   if nargout>0
     varargout = cell(1,1);
     varargout{1} = [];
-  end;
+  end
   if nargout>1
     varargout{2} = [];
-  end;  
+  end
   return;
-end;
+end
+
 
 %Find what slices to do
 if SET(no).ZSize>1
   pos = find(ind);
 else
   pos = 1;
-end;
-LVVall = zeros(length(pos),SET(no).TSize);
-EPVall = zeros(length(pos),SET(no).TSize);
+end
+% LVVall = zeros(length(pos),SET(no).TSize);
+% EPVall = zeros(length(pos),SET(no).TSize);
 
 % if isempty(SET(no).EndoX)
 %   %This far then create
 %   SET(no).EndoX = nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);
-%   SET(no).EndoY = nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);  
-% end;
-% 
+%   SET(no).EndoY = nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);
+% end
+%
 % if isempty(SET(no).EpiX)
 %   %This far then create
 %   SET(no).EpiX = nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);
-%   SET(no).EpiY = nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);  
-% end;
+%   SET(no).EpiY = nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);
+% end
 
 %Loop over all segmented slices
-for sloop=1:length(pos)
-  for tloop=1:SET(no).TSize
-    if ~isempty(SET(no).EndoX)&&~isnan(SET(no).EndoX(1,tloop,pos(sloop)))
-      A = stablepolyarea(...
-        SET(no).ResolutionY*SET(no).EndoY(1:end-1,tloop,pos(sloop)),...
-        SET(no).ResolutionX*SET(no).EndoX(1:end-1,tloop,pos(sloop)));
-      LVVall(sloop,tloop)=A*(SET(no).SliceThickness+SET(no).SliceGap)/1000; %to cm3
-    end;
-    if ~isempty(SET(no).EpiX)&&~isnan(SET(no).EpiX(1,tloop,pos(sloop)))
-      A = stablepolyarea(...
-        SET(no).ResolutionY*SET(no).EpiY(1:end-1,tloop,pos(sloop)),...
-        SET(no).ResolutionX*SET(no).EpiX(1:end-1,tloop,pos(sloop)));
-      EPVall(sloop,tloop)=A*(SET(no).SliceThickness+SET(no).SliceGap)/1000; %to cm3
-    end;
-  end;
-end;
+if ~isempty(SET(no).EndoX)
+  LVVall = squeeze(polyarea(SET(no).ResolutionY*SET(no).EndoY(1:end-1,:,pos),...
+    SET(no).ResolutionX*SET(no).EndoX(1:end-1,:,pos))*(SET(no).SliceThickness+SET(no).SliceGap)/1000);
+  if length(pos)>1
+    LVVall = nansum(LVVall');
+  end
+else
+  LVVall = zeros(1,SET(no).TSize);
+end
+
+if ~isempty(SET(no).EpiX)
+  EPVall = squeeze(polyarea(SET(no).ResolutionY*SET(no).EpiY(1:end-1,:,pos),...
+    SET(no).ResolutionX*SET(no).EpiX(1:end-1,:,pos))*(SET(no).SliceThickness+SET(no).SliceGap)/1000);
+  if length(pos)>1
+    EPVall = nansum(EPVall');
+  end
+else
+  EPVall = zeros(1,SET(no).TSize);
+end
+
+
+% for sloop=1:length(pos)
+%   for tloop=1:SET(no).TSize
+%     if ~isempty(SET(no).EndoX)&&~isnan(SET(no).EndoX(1,tloop,pos(sloop)))
+%       A = stablepolyarea(...
+%         SET(no).ResolutionY*SET(no).EndoY(1:end-1,tloop,pos(sloop)),...
+%         SET(no).ResolutionX*SET(no).EndoX(1:end-1,tloop,pos(sloop)));
+%       LVVall(sloop,tloop)=A*(SET(no).SliceThickness+SET(no).SliceGap)/1000; %to cm3
+%     end
+%     if ~isempty(SET(no).EpiX)&&~isnan(SET(no).EpiX(1,tloop,pos(sloop)))
+%       A = stablepolyarea(...
+%         SET(no).ResolutionY*SET(no).EpiY(1:end-1,tloop,pos(sloop)),...
+%         SET(no).ResolutionX*SET(no).EpiX(1:end-1,tloop,pos(sloop)));
+%       EPVall(sloop,tloop)=A*(SET(no).SliceThickness+SET(no).SliceGap)/1000; %to cm3
+%     end
+%   end
+% end
 
 %Sum to get total volume
-if length(pos)>1
-  SET(no).LVV = sum(LVVall);
-  SET(no).EPV = sum(EPVall);
-else
-  SET(no).LVV = LVVall;
-  SET(no).EPV = EPVall;
-end;
+% if length(pos)>1
+%   SET(no).LVV = sum(LVVall');
+%   SET(no).EPV = sum(EPVall');
+% else
+SET(no).LVV = LVVall;
+SET(no).EPV = EPVall;
+% end
 SET(no).LVM = SET(no).EPV-SET(no).LVV+SET(no).PV;
-  
+
 if nargout>0
   varargout = cell(1,1);
   varargout{1} = LVVall;
-end;
+end
 
 if nargout>1
   varargout{2} = EPVall;
-end;
+end
 
 if nargout>2
   varargout{3} = 1.05*(EPVall-LVVall); %LVM in g, NOTE not include Papillary volume (PV)
-end;
+end
 
 %Update EDV,ESV
 SET(no).EDV = SET(no).LVV(SET(no).EDT);
@@ -333,9 +452,9 @@ end
 if (SET(no).ZSize>2)&&docomp
   LVVnocomp = SET(no).LVV;
   EPVnocomp = SET(no).EPV;
-
+  
   for rloop=1:1 %Converges very quickly
-
+    
     %Calculate compensation mechanism
     if (SET(no).LVV(SET(no).EDT)-SET(no).LVV(SET(no).EST)~=0)
       pp = SET(no).LVV;
@@ -345,20 +464,20 @@ if (SET(no).ZSize>2)&&docomp
       pp = min(max(pp,0),1);
     else
       pp = ones(size(SET(no).LVV));
-    end;
+    end
     err = zeros(1,20);
-
+    
     %Compensate
     %pp = pp.*pp;
-
+    
     %Check if autodetect
     if SET(no).AutoLongaxis
       for loop=1:20
-
+        
         %Calculate slices
         slices = (loop-1); %Convert to mm
         slices = slices/(SET(no).SliceThickness+SET(no).SliceGap); %Convert to slices
-
+        
         sloop=1;
         SET(no).LVV = LVVnocomp; %Restore
         SET(no).EPV = EPVnocomp;
@@ -368,27 +487,27 @@ if (SET(no).ZSize>2)&&docomp
           SET(no).EPV = SET(no).EPV-min(slices,1)*EPVall(sloop,:).*pp;
           slices = slices-1;
           sloop = sloop+1;
-        end;
-
+        end
+        
         %Calculate error
         err(loop) = max(SET(no).EPV-SET(no).LVV+SET(no).PV)-min(SET(no).EPV-SET(no).LVV+SET(no).PV);
-      end; %loop
+      end %loop
       [~,inde] = min(err);
       SET(no).Longaxis = inde;
-    end; %autodetect
-
+    end %autodetect
+    
     %Convert to slices => 1mm between, first is zero
     slices = (SET(no).Longaxis-1);
     if isempty(slices)
       slices = 0;
     end
     slices = slices/(SET(no).SliceThickness+SET(no).SliceGap);
-
+    
     %Compensate the last time, now store it!
     sloop=1;
     SET(no).LVV = LVVnocomp; %Restore
     SET(no).EPV = EPVnocomp;
-
+    
     %Check if need to fix with outline
     if ~isempty(SET(no).EndoX)
       zloop = find(not(isnan(SET(no).EndoX(1,SET(no).CurrentTimeFrame,:))));
@@ -402,76 +521,22 @@ if (SET(no).ZSize>2)&&docomp
       zloop = SET(no).CurrentSlice;
     else
       zloop = zloop(1);
-    end;
-
-    %Make sure that it is updated
-    %if docomp
-    %  updatemodeldisplay;
-    %end;
+    end
     
     while (slices>0)&&(sloop<=size(LVVall,1))
       %Remove whole slice or fraction of it.
       SET(no).LVV = SET(no).LVV-min(slices,1)*LVVall(sloop,:).*pp;
       SET(no).EPV = SET(no).EPV-min(slices,1)*EPVall(sloop,:).*pp;
-     
-      [xofs,yofs] = calcoffset(zloop,'montage');
-
-      %Need to fix with outline?
-      if 0%get(DATA.Handles.volumeoutlinecheckbox,'value')
-        for tloop=1:SET(no).TSize
-          if ~isempty(SET(no).EndoX)
-            SET(no).EndoXView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
-              (SET(no).EndoX(:,tloop,zloop)-SET(no).CenterX)*(1-pp(tloop)*min(1,slices))+SET(no).CenterX+xofs;
-            SET(no).EndoYView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
-              (SET(no).EndoY(:,tloop,zloop)-SET(no).CenterY)*(1-pp(tloop)*min(1,slices))+SET(no).CenterY+yofs;
-          end
-          if ~isempty(SET(no).EpiX)
-            SET(no).EpiXView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
-              (SET(no).EpiX(:,tloop,zloop)-SET(no).CenterX)*(1-pp(tloop)*min(1,slices))+SET(no).CenterX+xofs;
-            SET(no).EpiYView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
-              (SET(no).EpiY(:,tloop,zloop)-SET(no).CenterY)*(1-pp(tloop)*min(1,slices))+SET(no).CenterY+yofs;
-          end
-        end;
-      else
-        for tloop=1:SET(no).TSize
-          if ~isempty(SET(no).EndoX)
-            SET(no).EndoXView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
-              SET(no).EndoX(:,tloop,zloop)+xofs;
-            SET(no).EndoYView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
-              SET(no).EndoY(:,tloop,zloop)+yofs;
-          end
-          if ~isempty(SET(no).EpiX)
-            SET(no).EpiXView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
-              SET(no).EpiX(:,tloop,zloop)+xofs;
-            SET(no).EpiYView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
-              SET(no).EpiY(:,tloop,zloop)+yofs;
-          end
-        end;
-      end;
       zloop = zloop+1;
       slices = slices-1;
       sloop = sloop+1;
-    end;
-  end; %rloop
+    end
+  end %rloop
   
   if DATA.Silent
     return;
-  end;
-  
-  for loop=1:length(DATA.ViewPanels)
-    if isequal(no,DATA.ViewPanels(loop))
-      if 0%isequal(get(DATA.Handles.volumeoutlinecheckbox,'value'),1) &&...
-          ismember(DATA.ViewPanelsType{DATA.CurrentPanel},{'montage','montagerow','montagefit','sax3'})
-        set(DATA.Handles.endocontour(loop),'LineStyle',':');
-        set(DATA.Handles.epicontour(loop),'LineStyle',':');
-      else
-        set(DATA.Handles.endocontour(loop),'LineStyle','-');
-        set(DATA.Handles.epicontour(loop),'LineStyle','-');
-      end;
-    end;
-  end;
-
-end; %If docompensation
+  end
+end %If docompensation
 
 
 %-----------------------------
@@ -500,7 +565,7 @@ if ~any(ind)
   SET(no).EF = 0;
   SET(no).SV = 0;
   return;
-end;
+end
 
 %Find rotation axis, rotation around x-axis
 my = SET(no).RotationCenter;
@@ -518,14 +583,14 @@ if ~isempty(SET(no).EndoX) && ~all(isnan(SET(no).EndoX(:)))
   else
     dxds = econv3(temp,[-1;1]);
     dxds = dxds(2:end,:,:); %Different convolves have different "outside"
-  end;
+  end
   y = double(SET(no).ResolutionY)*double((SET(no).EndoY(:,:,ind)-my))/10; %cm
   vol = pi*alphapart*y.^2.*sign(y).*dxds;
   vol = nansum(nansum(vol,1),3);
   SET(no).LVV = vol; %Store
 else
   SET(no).LVV = zeros(1,SET(no).TSize);
-end;
+end
 
 %--- Calc epi volume
 if ~isempty(SET(no).EpiX) && ~all(isnan(SET(no).EpiX(:)))
@@ -536,20 +601,20 @@ if ~isempty(SET(no).EpiX) && ~all(isnan(SET(no).EpiX(:)))
   else
     dxds = econv3(temp,[-1;1]);
     dxds = dxds(2:end,:,:); %Different convolves have different "outside"
-  end;
+  end
   y = double(SET(no).ResolutionY)*double(SET(no).EpiY(:,:,ind)-my)/10; %cm
   vol = pi*alphapart*y.^2.*sign(y).*dxds;
   vol = nansum(nansum(vol,1),3);
   SET(no).EPV = vol; %Store
 else
-  SET(no).EPV = zeros(1,SET(no).TSize);  
-end;
+  SET(no).EPV = zeros(1,SET(no).TSize);
+end
 
 %------------------------------------
 function [varargout] = calcrvvolume(no)
 %------------------------------------
 %Calculate RV volume. no is the image stack.
-%The RV volume calculation does not involve any longaxis 
+%The RV volume calculation does not involve any longaxis
 %compensation.
 
 global SET
@@ -557,26 +622,26 @@ global SET
 needtodo = false;
 if ~isempty(SET(no).RVEndoX)
   needtodo = true;
-end;
+end
 if ~isempty(SET(no).RVEpiX)
   needtodo = true;
-end;
+end
 if SET(no).Rotated
   calcrvvolumepolar(no);
   return;
-end;
-  
+end
+
 if ~needtodo
   SET(no).RVV = zeros(1,SET(no).TSize);
   SET(no).RVEPV = zeros(1,SET(no).TSize);
   SET(no).RVEDV = 0;
-  SET(no).RVESV = 0;  
+  SET(no).RVESV = 0;
   SET(no).RVSV = 0;
   SET(no).RVEF = 0;
   SET(no).RVM = 0;
   varargout = cell(1,nargout);
   return;
-end;
+end
 
 ind = (findfunctions('findslicewithrvendo',no))|(findfunctions('findslicewithrvepi',no)); %Accepts empty endo and epi if exist
 
@@ -585,7 +650,7 @@ if SET(no).ZSize>1
   pos = find(ind);
 else
   pos = 1;
-end;
+end
 RVVall = zeros(length(pos),SET(no).TSize);
 EPVall = zeros(length(pos),SET(no).TSize);
 
@@ -599,37 +664,37 @@ if ~isempty(SET(no).RVEndoX)
           SET(no).ResolutionY*SET(no).RVEndoY(1:end-1,tloop,pos(sloop)),...
           SET(no).ResolutionX*SET(no).RVEndoX(1:end-1,tloop,pos(sloop)));
         RVVall(sloop,tloop)=A*(SET(no).SliceThickness+SET(no).SliceGap)/1000;
-      end;
-    end;
-  end;
-end;
-SET(no).RVV=sum(RVVall,1); %Buggfix for RV calculation. Addded ,1 EH:
+      end
+    end
+  end
+end
+SET(no).RVV=nansum(RVVall,1); %Buggfix for RV calculation. Addded ,1 EH:
 SET(no).RVEDV = SET(no).RVV(SET(no).EDT);
 SET(no).RVESV = SET(no).RVV(SET(no).EST);
 
 SET(no).RVEPV = zeros(1,SET(no).TSize);
 if ~isempty(SET(no).RVEpiX)
-   for sloop=1:length(pos)
+  for sloop=1:length(pos)
     for tloop=1:SET(no).TSize
       if ~isnan(SET(no).RVEpiX(1,tloop,pos(sloop)))
         A = stablepolyarea(...
           SET(no).ResolutionY*SET(no).RVEpiY(1:end-1,tloop,pos(sloop)),...
           SET(no).ResolutionX*SET(no).RVEpiX(1:end-1,tloop,pos(sloop)));
         EPVall(sloop,tloop)=A*(SET(no).SliceThickness+SET(no).SliceGap)/1000;
-      end;
-    end;
-  end;
-end;
-SET(no).RVEPV=sum(EPVall,1); %Buggfix for RV calculation. Addded ,1 EH:
+      end
+    end
+  end
+end
+SET(no).RVEPV=nansum(EPVall,1); %Buggfix for RV calculation. Addded ,1 EH:
 
 if nargout>0
   varargout = cell(1,1);
   varargout{1} = RVVall;
-end;
+end
 
 if nargout>1
   varargout{2} = EPVall;
-end;
+end
 
 %-----------------------------
 function calcrvvolumepolar(no)
@@ -649,7 +714,7 @@ if ~any(ind)
   SET(no).RVEF = 0;
   SET(no).RVSV = 0;
   return;
-end;
+end
 
 %Find rotation axis, rotation around x-axis
 my = SET(no).RotationCenter;
@@ -661,20 +726,20 @@ alphapart = 1/(2*SET(no).ZSize);
 if ~isempty(SET(no).RVEndoX)
   %Calc dx/ds
   temp = SET(no).ResolutionX*cat(1,SET(no).RVEndoX(:,:,ind),SET(no).RVEndoX(1,:,ind))/10; %cm
-  if ndims(temp)==2
+  if ismatrix(temp)
     dxds = conv2(temp,[1;-1],'same');
     dxds = dxds(1:(end-1),:,:); %Remove "outside" data
   else
     dxds = econv3(temp,[-1;1]);
     dxds = dxds(2:end,:,:); %Different convolves have different "outside"
-  end;
+  end
   y = SET(no).ResolutionY*(SET(no).RVEndoY(:,:,ind)-my)/10; %cm
   vol = pi*alphapart*y.^2.*sign(y).*dxds;
   vol = nansum(nansum(vol,1),3);
   SET(no).RVV = vol; %Store
 else
   SET(no).RVV = zeros(1,SET(no).TSize);
-end;
+end
 
 %--- Calc epi volume
 if ~isempty(SET(no).RVEpiX)
@@ -685,14 +750,14 @@ if ~isempty(SET(no).RVEpiX)
   else
     dxds = econv3(temp,[-1;1]);
     dxds = dxds(2:end,:,:); %Different convolves have different "outside"
-  end;
+  end
   y = SET(no).ResolutionY*(SET(no).RVEpiY(:,:,ind)-my)/10; %cm
   vol = pi*alphapart*y.^2.*sign(y).*dxds;
   vol = nansum(nansum(vol,1),3);
   SET(no).RVEPV = vol; %Store
 else
-  SET(no).RVEPV = zeros(1,SET(no).TSize);  
-end;
+  SET(no).RVEPV = zeros(1,SET(no).TSize);
+end
 
 %-------------------------
 function volume_helper(no)
@@ -701,7 +766,7 @@ function volume_helper(no)
 %Lots of checks to prevent NaN or Inf to be presented
 %when some of the data are missing.
 
-global SET 
+global SET
 
 %Find zeros in volume
 SET(no).LVV(SET(no).LVV==0) = NaN;
@@ -714,7 +779,7 @@ SET(no).RVM = SET(no).RVEPV-SET(no).RVV;
 %Prevent that when endo is empty that epi may be viewed
 if not(isnan(SET(no).EPV(1)))&&(isnan(SET(no).LVV(1)))
   SET(no).LVV = zeros(size(SET(no).LVV));
-end;
+end
 
 %Find peak ejection rate, peak filling rate
 if SET(no).TSize>2
@@ -736,7 +801,7 @@ else
   SET(no).RVPER = 0;
   SET(no).RVPFRT = 1;
   SET(no).RVPERT = 1;
-end;
+end
 
 %Store LV-EDV,ESV,SV
 SET(no).EDV = SET(no).LVV(SET(no).EDT)-SET(no).PV(SET(no).EDT);
@@ -753,7 +818,7 @@ if SET(no).EDV>0
   SET(no).EF = SET(no).SV/SET(no).EDV; %Ejection fraction
 else
   SET(no).EF = NaN;
-end;
+end
 
 if ~isempty(SET(no).RVEndoX)
   %Store RV-EDV,ESV,SV
@@ -766,21 +831,21 @@ if ~isempty(SET(no).RVEndoX)
     SET(no).RVEF = 0;
   else
     SET(no).RVEF = SET(no).RVSV/SET(no).RVEDV; %Ejection fraction
-  end;
-end;
+  end
+end
 
 if isnan(SET(no).RVEDV)
   SET(no).RVEDV = 0;
-end;
+end
 if isnan(SET(no).RVESV)
   SET(no).RVESV = 0;
-end;
+end
 if isnan(SET(no).RVSV)
   SET(no).RVSV = 0;
-end;
+end
 if isnan(SET(no).RVEF)
   SET(no).RVEF = 0;
-end;
+end
 if isequal(SET(no).EDT,SET(no).EST)
   SET(no).RVESV=NaN;
   SET(no).RVSV=NaN;
@@ -788,10 +853,108 @@ if isequal(SET(no).EDT,SET(no).EST)
 end
 
 %-------------------------------------
+function age = calcageyearfraction(age,ageunit) %#ok<DEFNU>
+%-------------------------------------
+%Calculates age as fraction of the year
+denominator = 372; %corresponds to the 12month*31days for easier calculations
+switch lower(ageunit)
+  case 'm' %months
+    numerator = 31;
+  case 'd' %days
+    numerator = 1;
+  case 'w' %weeks
+    numerator = 7; % to calculate into corresponding number of days
+  case 'y' % years
+    return; % no calculation necessary
+end
+age = age*numerator/denominator;
+
+%-------------------------------------
+function [age,ageunit] = calcagewithunits(age) %#ok<DEFNU>
+%-------------------------------------
+%Calculates age that is given as fraction of the year into "normal"
+denominator = 372; %corresponds to the 12month*31days for easier calculations
+numdaysinmonth = 31;
+if not(isempty(age))
+  if age >= 1 % corresponds to years
+    if age < 2
+      ageunit = dprintf('year');
+    else        
+      ageunit = dprintf('years');
+    end
+  else
+    newage = age*denominator;
+    if newage < numdaysinmonth % corresponds to days
+      age = newage;
+      if age < 2
+        ageunit = dprintf('day');
+      else        
+        ageunit = dprintf('days');
+      end
+    else %corresponds to months
+      age = newage/numdaysinmonth;
+      if age < 2
+        ageunit = dprintf('month');
+      else        
+        ageunit = dprintf('months');
+      end
+    end
+  end  
+else
+  ageunit = '';
+end
+
+%-------------------------------------
+function [agedigits,ageunit] = calcagefrombirthdate(birthdate, acqusitiondate) %#ok<DEFNU>
+%-------------------------------------
+%Calculates age as difference between birthdate and acquisition date
+
+switch length(birthdate)
+  case 4
+    birthinputformat = 'yyyy';
+  case 8
+    birthinputformat = 'yyyyMMdd';
+  otherwise
+    agedigits = [];
+    ageunit = '';
+    return;
+end
+
+try
+  datedifference = between(datetime(birthdate,'InputFormat',birthinputformat),...
+    datetime(acqusitiondate,'InputFormat','yyyyMMdd'),...
+    {'years','months','days'});
+catch me
+  mydispexception(me)
+  agedigits = [];
+  ageunit = '';
+  return
+end
+
+% split into number of years/moths/days
+[numyears,nummonths,numdays] = split(datedifference,{'years','months','days'});
+% set up digits and units
+if numyears > 0 % years digit 
+  agedigits = numyears;
+  ageunit = 'y';
+else
+  if nummonths > 0
+    agedigits = nummonths;
+    ageunit = 'm';
+  else
+    agedigits = numdays;
+    ageunit = 'd';
+  end
+end
+
+%-------------------------------------
 function bsa = calcbsa(weight,height) %#ok<DEFNU>
 %-------------------------------------
 %Calculates BSA. Formula based on Mosteller
 %weight in kilo and height in cm.
+
+%This code is duplicated in segdicomtags to avoid compiler leak of
+%segmentserversorter
 bsa = sqrt(weight*height/3600);
 
 %-----------------------------------
@@ -812,7 +975,7 @@ global SET NO
 
 if nargin<2
   no = NO;
-end;
+end
 if not(isa(z,'int16')) && ~isempty(SET(no).IntensityOffset)
   %z = im*SET(no).IntensityScaling+SET(no).IntensityOffset;
   im = (z-SET(no).IntensityOffset)/SET(no).IntensityScaling;
@@ -821,18 +984,23 @@ else
 end
 
 %-------------------------------
-function z = calctruedata(im,no) 
+function z = calctruedata(im,no)
 %-------------------------------
 %Calculate true image intensities (as before Segment internal
 %normalization). Uses IntensityScaling and IntensityOffset stored
-%in SET structure. im is input image, and no is image stack, 
+%in SET structure. im is input image, and no is image stack,
 %where to take the scaling from.
 
 global SET NO
 
 if nargin<2
   no = NO;
-end;
+end
+
+if isequal(SET(no).IntensityScaling,1) && isequal(SET(no).IntensityOffset,0)
+  z = im;
+  return;
+end
 
 if ~isempty(SET(no).IntensityScaling)
   if not(isa(im,'int16'))
@@ -844,19 +1012,19 @@ elseif ~isempty(SET(no).VENC) && SET(no).VENC ~= 0
   z = (im-0.5)*2*SET(no).VENC;
 else
   z = im;
-end;
+end
 
 %----------------------------------------
 function radvel = calcradialvelocity(no) %#ok<DEFNU>
 %----------------------------------------
-%Calculate radial velocity of the endocardium. 
+%Calculate radial velocity of the endocardium.
 %Forward difference is used.
 
 global SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 %Calc radius
 rad = calcendoradius(no);
@@ -870,71 +1038,70 @@ else
     temp = cat(2,temp,temp(:,end,:));
   else
     temp = zeros(size(rad));
-  end;
-end;
+  end
+end
 temp = temp(:,2:end,:); %Remove first timeframe, wrong derivate
 
 radvel = temp/10; %=> cm/s
 
 %--------------------------
-function [meanarea,area]=calcroiarea(no,roino,thisframeonly) %#ok<DEFNU>
+function [meanarea,area] = calcroiarea(no,roino) %#ok<DEFNU>
 %--------------------------
 %Calculates roi area (helper fcn)
+%no: current image stack
+%roino: selected ROI in current image stack
+global DATA SET
 
-global SET
-
-if nargin < 3
-  thisframeonly = false;
-end
-if thisframeonly
+if DATA.DoThisFrameOnly
   tvec = SET(no).CurrentTimeFrame;
 else
   tvec = SET(no).Roi(roino).T;
 end
 
-area=nan(1,SET(no).TSize);
-for tloop=tvec
-    if not(isnan(SET(no).Roi(roino).Y(1,tloop)))
-      area(tloop)= (1/100)*stablepolyarea(...
-        SET(no).ResolutionY*SET(no).Roi(roino).Y(:,tloop),...
-        SET(no).ResolutionX*SET(no).Roi(roino).X(:,tloop));
-    end
+if ~isfield(SET(no).Roi(roino),'Area') || isempty(SET(no).Roi(roino).Area)
+  area = nan(1,SET(no).TSize);
+else
+  area = SET(no).Roi(roino).Area;
 end
-if thisframeonly
-  area = area(tvec);
+
+for tloop = tvec
+  if not(isnan(SET(no).Roi(roino).Y(1,tloop)))
+    area(tloop) = (1/100)*stablepolyarea(...
+      SET(no).ResolutionY*SET(no).Roi(roino).Y(:,tloop),...
+      SET(no).ResolutionX*SET(no).Roi(roino).X(:,tloop));
+  end
 end
-meanarea=mynanmean(area);
+
+meanarea = mynanmean(area);
 
 %-----------------------------------------------------------------------------
-function [m,sd,rmin,rmax] = calcroiintensity(no,roino,normalize,thisframeonly) %#ok<DEFNU>
+function [m,sd,rmin,rmax] = calcroiintensity(no,roino) %#ok<DEFNU>
 %-----------------------------------------------------------------------------
 %Calculates intensity within a ROI (helper fcn)
-global SET
-if nargin < 3
-  normalize = false;
-end
-if nargin < 4
-  thisframeonly = false;
-end
+%no: current image stack
+%roino: selected ROI in current image stack
+global DATA SET
 
-if thisframeonly
+if DATA.DoThisFrameOnly
   tvec = SET(no).CurrentTimeFrame;
 else
   tvec = SET(no).Roi(roino).T;
 end
 
-m = nan(1,SET(no).TSize);
-sd = m;
-rmin = m;
-rmax = m;
+if ~isfield(SET(no).Roi(roino),'Mean') || isempty(SET(no).Roi(roino).Mean)
+  m = nan(1,SET(no).TSize);
+  sd = m;
+else
+  m = SET(no).Roi(roino).Mean;
+  sd = SET(no).Roi(roino).StD;
+end
+rmin = nan(1,SET(no).TSize);
+rmax = rmin;
+  
 z = SET(no).Roi(roino).Z;
-for tloop=tvec
+for tloop = tvec
   if not(isnan(SET(no).Roi(roino).Y(1,tloop)))
-    if normalize
-      temp = SET(no).IM(:,:,tloop,z);
-    else
-      temp = calctruedata(SET(no).IM(:,:,tloop,z),no);
-    end;
+    temp = calctruedata(SET(no).IM(:,:,tloop,z),no);
     roimask = segment('createmask',...
       [SET(no).XSize SET(no).YSize],...
       SET(no).Roi(roino).Y(:,tloop),...
@@ -945,17 +1112,9 @@ for tloop=tvec
       sd(tloop) = std(temp(ind));
       rmin(tloop) = min(temp(ind));
       rmax(tloop) = max(temp(ind));
-    end;
+    end
   end
 end
-
-if thisframeonly
-  m = m(tvec);
-  sd = sd(tvec);
-  rmin = rmin(tvec);
-  rmax = rmax(tvec);
-end
-
 
 %-----------------------------------------------
 function res = calcmyocardvolume(numsectors,no,tf) %#ok<DEFNU>
@@ -968,22 +1127,22 @@ global DATA SET NO
 
 if nargin<2
   no = NO;
-end;
+end
 if nargin < 3
   tf = SET(no).CurrentTimeFrame;
 end
-  
+
 res = nan([numsectors SET(no).ZSize]);
 
 if isempty(SET(no).EndoX)
   myfailed('No LV endocardium available.',DATA.GUI.Segment);
   return;
-end;
+end
 
 if isempty(SET(no).EpiX)
   myfailed('No LV endocardium available.',DATA.GUI.Segment);
   return;
-end;
+end
 
 numpoints = DATA.Pref.RadialProfiles;
 
@@ -996,9 +1155,9 @@ else
   endoy = SET(no).EndoY(:,tf,:);
   epix = SET(no).EpiX(:,tf,:);
   epiy = SET(no).EpiY(:,tf,:);
-end;
+end
 
-for slice=1:SET(no).ZSize  
+for slice=1:SET(no).ZSize
   if not(isnan(epix(1,slice)))
     if numsectors == 1
       res(1,slice) = 1e-3*(SET(no).SliceThickness+SET(no).SliceGap)*...
@@ -1017,7 +1176,7 @@ for slice=1:SET(no).ZSize
         meanyendo = meanyepi;
       else
         [meanxendo,meanyendo,endosectors] = findmeaninsectorslice('endo',numpoints,tf,slice,numsectors,no);
-      end;
+      end
       
       for loop=1:numsectors
         if episectors(loop)<=episectors(loop+1)
@@ -1030,7 +1189,7 @@ for slice=1:SET(no).ZSize
           tempepiy = [...
             epiy(episectors(loop):numpoints,slice) ; ...
             epiy(1:episectors(loop+1),slice)];
-        end;
+        end
         
         if isnan(endox(1,slice))
           tempendox = repmat(meanxendo,size(tempepix));
@@ -1046,8 +1205,8 @@ for slice=1:SET(no).ZSize
             tempendoy = [...
               endoy(endosectors(loop):numpoints,slice) ; ...
               endoy(1:endosectors(loop+1),slice)];
-          end;
-        end;
+          end
+        end
         
         %Calc volume in [ml]
         res(loop,slice) = 1e-3*(SET(no).SliceThickness+SET(no).SliceGap)*...
@@ -1055,7 +1214,7 @@ for slice=1:SET(no).ZSize
           SET(no).ResolutionY*[tempendoy;flipud(tempepiy);tempendoy(1)],...
           SET(no).ResolutionX*[tempendox;flipud(tempepix);tempendox(1)]);
         
-      end;
+      end
       %correct the volume so the total volume in the current slice is correct
       if ~isnan(endox(1,slice))
         slicevolume = 1e-3*(SET(no).SliceThickness+SET(no).SliceGap)*...
@@ -1068,11 +1227,11 @@ for slice=1:SET(no).ZSize
           SET(no).ResolutionY*[tempendoy;flipud(epiy(:,slice));tempendoy],...
           SET(no).ResolutionX*[tempendox;flipud(epix(:,slice));tempendox]);
       end
-      correction = slicevolume/sum(res(:,slice));
+      correction = slicevolume/nansum(res(:,slice));
       res(:,slice) = res(:,slice)*correction;
     end
-  end;
-end;
+  end
+end
 
 %---------------------------------
 function rad = calcendoradius(no)
@@ -1085,13 +1244,13 @@ global DATA SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).EndoX)
   rad = zeros(DATA.Pref.RadialProfiles,SET(no).TSize,SET(no).ZSize);
   myfailed('No LV endocardium available.',DATA.GUI.Segment);
   return;
-end;
+end
 
 %Upsample model
 if not(DATA.Pref.RadialProfiles==DATA.NumPoints)
@@ -1099,11 +1258,11 @@ if not(DATA.Pref.RadialProfiles==DATA.NumPoints)
 else
   endox = SET(no).EndoX;
   endoy = SET(no).EndoY;
-end;
+end
 
 rad = zeros(DATA.Pref.RadialProfiles,SET(no).TSize,SET(no).ZSize);
 for zloop=1:SET(no).ZSize
-  for tloop=1:SET(no).TSize    
+  for tloop=1:SET(no).TSize
     if SET(no).EndoCenter
       %Calc mean
       meanx = mean(SET(no).EndoX(:,tloop,zloop));
@@ -1111,14 +1270,14 @@ for zloop=1:SET(no).ZSize
     else
       meanx = mean(SET(no).EpiX(:,tloop,zloop));
       meany = mean(SET(no).EpiY(:,tloop,zloop));
-    end;
+    end
     
     %Calc radius
     rad(:,tloop,zloop) = sqrt(...
       ((endox(:,tloop,zloop)-meanx)*SET(no).ResolutionX).^2+...
       ((endoy(:,tloop,zloop)-meany)*SET(no).ResolutionY).^2);
-  end;
-end;
+  end
+end
 
 %--------------------------------
 function rad = calcepiradius(no)
@@ -1131,13 +1290,13 @@ global DATA SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).EpiX)
   rad = zeros(DATA.Pref.RadialProfiles,SET(no).TSize,SET(no).ZSize);
   myfailed('No LV epicardium available.',DATA.GUI.Segment);
   return;
-end;
+end
 
 %Upsample model
 if not(DATA.Pref.RadialProfiles == DATA.NumPoints)
@@ -1145,7 +1304,7 @@ if not(DATA.Pref.RadialProfiles == DATA.NumPoints)
 else
   epix = SET(no).EpiX;
   epiy = SET(no).EpiY;
-end;
+end
 
 rad = zeros(DATA.Pref.RadialProfiles,SET(no).TSize,SET(no).ZSize);
 for zloop=1:SET(no).ZSize
@@ -1154,18 +1313,18 @@ for zloop=1:SET(no).ZSize
     if SET(no).EndoCenter && ~isnan(SET(no).EndoX(1,tloop,zloop))
       %Calc mean
       meanx = mean(SET(no).EndoX(:,tloop,zloop));
-      meany = mean(SET(no).EndoY(:,tloop,zloop));    
+      meany = mean(SET(no).EndoY(:,tloop,zloop));
     else
       meanx = mean(SET(no).EpiX(:,tloop,zloop));
       meany = mean(SET(no).EpiY(:,tloop,zloop));
-    end;
-  
+    end
+    
     %Calc radius
     rad(:,tloop,zloop) = sqrt(...
       (SET(no).ResolutionX*(epix(:,tloop,zloop)-meanx)).^2+...
       (SET(no).ResolutionY*(epiy(:,tloop,zloop)-meany)).^2);
-  end;
-end;
+  end
+end
 
 %------------------------------------------------------
 function [wallthickness,endox,endoy,epix,epiy] = calcwallthickness(sectors,no) %#ok<DEFNU>
@@ -1182,12 +1341,12 @@ end
 if isempty(SET(no).EndoX)
   myfailed('No LV endocardium available.',DATA.GUI.Segment);
   return;
-end;
+end
 
 if isempty(SET(no).EpiX)
   myfailed('No LV epicardium available.',DATA.GUI.Segment);
   return;
-end;
+end
 
 pos = find(findfunctions('findslicewithendo',no)&findfunctions('findslicewithepi',no));
 nslices = length(pos);
@@ -1195,7 +1354,7 @@ nslices = length(pos);
 if length(nslices)<1
   myfailed('Need more than one segmented slice.',DATA.GUI.Segment);
   return;
-end;
+end
 
 %Calc radius
 endorad = calcendoradius(no);
@@ -1247,7 +1406,174 @@ if nargout==5
 end
 
 %---------------------------------------------------------------------
-function [xout,yout] = calcsegmentationintersections(no,type,viewtype) %#ok<DEFNU>
+function [xout,yout] = calcsegmentationintersections(panel,type,t,viewtype) %#ok<DEFNU>
+%---------------------------------------------------------------------
+%Calculates intersections between segmentation in image stacks.
+%Input is panel and type is endo or epi, can also be rvendo etc.
+%the type is a string that dynamically calls a field of the SET struct. t
+%is the current timeframe in the panel. This should be used to calculate
+%the matching phase in the other image stacks.
+
+global DATA SET
+
+no = DATA.ViewPanels(panel);
+
+%Always return something
+xout = nan;
+yout = nan;
+
+%We dont display intersections in montage views
+if strcmp(DATA.ViewPanelsType{panel},{'montage','montagesegmented','montagerow'})
+  return
+end
+
+%this is the strings for the contour we are calculating intersections for
+espot = regexp(type,'[e]');
+xfield = [upper(type(1:espot)) type(espot+1:end) 'X'];
+yfield = [upper(type(1:espot)) type(espot+1:end) 'Y'];
+
+%Find active panels in type
+panels = find(DATA.ViewPanels>0);
+
+%Remove the current panel from panels as we dont want to plot intersections with
+%oneself
+panels = panels(panels ~= panel);
+
+%no panels then return
+if isempty(panels)
+  return
+end
+
+%find nos with segmentation in the current timeframe t if no segmentation
+%return from function
+
+%first we find the nophase
+nophase = SET(no).TimeVector(t)/SET(no).TimeVector(end);
+
+
+%find panels with nos that have segmentation
+% ind = cellfun(@(x,y)~isempty(x) ,{SET(DATA.ViewPanels(panels)).(xfield)});
+ind = (~cellfun('isempty' ,{SET(DATA.ViewPanels(panels)).(xfield)}));
+
+if isempty(ind) || all(ind==0)
+  return
+end
+
+%get the nos from the panels
+noswithseg = DATA.ViewPanels(panels(ind));
+
+if ~isnan(nophase) && t~=1
+  TV_tmp = nan(length(noswithseg),max([SET(noswithseg).TSize]));
+  for i = 1:length(noswithseg)
+    TV_tmp(i,1:SET(noswithseg(i)).TSize) = SET(noswithseg(i)).TimeVector;
+  end
+  denomntr = [SET(noswithseg).TSize]-1;
+  if any(denomntr == 0)
+    % if denominator can be 0, then set time frames to 1
+    tfs = ones(1,length(noswithseg));
+  else
+    %Then we find the matching phases in the other nos
+    [~,tfs] = min((TV_tmp./([SET(noswithseg).TIncr].*(denomntr))'-nophase)'.^2);
+    %min((vertcat(SET(noswithseg).TimeVector)./([SET(noswithseg).TIncr].*([SET(noswithseg).TSize]-1))'-nophase)'.^2);
+  end
+  %check which slices there exists segmentation in the matching timeframes
+  nosz = cell(1,length(tfs));
+  
+  for i = 1:length(noswithseg)
+    nosz{i} = find(~any(isnan(squeeze(SET(noswithseg(i)).(xfield)(:,tfs(i),:)))));
+  end
+else
+  nosz = cell(1,length(t));
+  for i = 1:length(noswithseg)
+    nosz{i} = find(~any(isnan(squeeze(SET(noswithseg(i)).(xfield)(:,t,:)))));
+  end
+end
+
+%If there where no slices with segmentation in that timeframe remove
+%them from noswithseg
+ind = cellfun(@isempty,nosz);
+noswithseg(ind) = [];
+nosz(ind) = [];
+
+if ~isnan(nophase) && t~=1
+  tfs(ind) = [];
+end
+%if no noswithseg return
+if isempty(noswithseg)
+  return
+end
+
+%Find equation for no plane using the position we find if image planes
+%intersect
+if ~ismember(viewtype,{'hla','vla','gla'})
+  [pos,~,~,zdir] = calcfunctions('getimageposandorientation',no,SET(no).CurrentSlice,viewtype);
+else
+  [pos,~,~,zdir] = calcfunctions('getimageposandorientation',no,SET(no).(upper(viewtype)).slice,viewtype);
+  if strcmp(viewtype,'gla')
+    ang = SET(no).GLA.angle;
+    res = SET(no).ResolutionY*cos(ang)+SET(no).ResolutionX*abs(sin(ang));
+  end
+end
+
+d = sum(pos.*zdir);
+
+%For each no with seg calculate intersection with the current plane
+xbuild = [];
+ybuild = [];
+for loop = 1:length(noswithseg)
+  if ~isnan(nophase) && t~=1
+    x = squeeze(SET(noswithseg(loop)).(xfield)(:,tfs(loop),nosz{loop}));
+    y = squeeze(SET(noswithseg(loop)).(yfield)(:,tfs(loop),nosz{loop}));
+  else
+    x = squeeze(SET(noswithseg(loop)).(xfield)(:,1,nosz{loop}));
+    y = squeeze(SET(noswithseg(loop)).(yfield)(:,1,nosz{loop}));
+  end
+  z = repmat(nosz{loop},size(x,1),1);
+  
+  pos = calcfunctions('xyz2rlapfh',...
+    noswithseg(loop),...
+    x(:),...
+    y(:),...
+    z(:));
+  
+  if ~isempty(pos) %pos may be empty from rotated stacks.
+    %Find crossings
+    disttoplane = pos*(zdir')-d;
+    calcdist = (disttoplane(1:(end-1)).*disttoplane(2:end));
+    ind = find(and(calcdist<0,abs(round(calcdist,4))>0.0000));
+    
+    if ~isempty(ind)
+      crosspos = 0.5*(pos(ind,:)+pos(ind+1,:));
+      
+      xyzno = calcfunctions('rlapfh2xyz',no,crosspos(:,1),crosspos(:,2),crosspos(:,3));
+      
+      switch viewtype
+        case 'hla'
+          xbuild = [xbuild xyzno(3,:)]; %#ok<AGROW>
+          ybuild = [ybuild xyzno(2,:)]; %#ok<AGROW>
+        case 'vla'
+          xbuild = [xbuild xyzno(3,:)]; %#ok<AGROW>
+          ybuild = [ybuild xyzno(1,:)]; %#ok<AGROW>
+        case 'gla'
+          xbuild = [xbuild xyzno(3,:)]; %#ok<AGROW>
+          [~,glay] = sax2gla(xyzno(1,:),xyzno(2,:),0,noswithseg(loop));
+          ybuild = [ybuild glay]; %#ok<AGROW>
+        otherwise
+          xbuild = [xbuild xyzno(1,:)]; %#ok<AGROW>
+          ybuild = [ybuild xyzno(2,:)]; %#ok<AGROW>
+      end
+    end
+  end
+  
+end
+
+if ~isempty(xbuild)
+  xout = xbuild;
+  yout = ybuild;
+end
+
+%---------------------------------------------------------------------
+function [xout,yout] = calcsegmentationintersections2(no,type,t,viewtype) %#ok<DEFNU>
 %---------------------------------------------------------------------
 %Calculates intersections between segmentation in image stacks.
 %no is image stack and type is endo or epi, can also be rvendo etc.
@@ -1255,20 +1581,12 @@ function [xout,yout] = calcsegmentationintersections(no,type,viewtype) %#ok<DEFN
 
 global DATA SET
 
-if nargin < 3
-  viewtype = 'one';
-end
-
 %Always return something
 xout = nan;
 yout = nan;
 espot = regexp(type,'[e]');
 xfield = [upper(type(1:espot)) type(espot+1:end) 'X'];
 yfield = [upper(type(1:espot)) type(espot+1:end) 'Y'];
-
-if DATA.Silent
-  return;
-end;
 
 %Find existing segmentation
 panelix = find(DATA.ViewPanels>0);
@@ -1279,22 +1597,22 @@ for loop=panelix
   noloop = DATA.ViewPanels(loop);
   if ~isempty(SET(noloop).(xfield))
     noseg(loop) = noloop;
-    typeseg{loop} = DATA.ViewPanelsType{loop};
+    typeseg{loop} = 'one';%DATA.ViewPanelsType{loop};
     %break %This causes segmentation from only one stack to be displayed
-  end;
-end;
+  end
+end
 typeseg = typeseg(noseg>0);
 noseg = noseg(noseg>0);
 
 if length(noseg)<1
   return;
-end;
-  
+end
+
 %Find equation for no plane
 if ~ismember(viewtype,{'hla','vla','gla'})
-  [pos,~,~,zdir] = getimageposandorientation(no,SET(no).CurrentSlice,viewtype);
+  [pos,~,~,zdir] = calcfunctions('getimageposandorientation',no,SET(no).CurrentSlice,viewtype);
 else
-  [pos,~,~,zdir] = getimageposandorientation(no,SET(no).(upper(viewtype)).slice,viewtype);
+  [pos,~,~,zdir] = calcfunctions('getimageposandorientation',no,SET(no).(upper(viewtype)).slice,viewtype);
   if strcmp(viewtype,'gla')
     ang = SET(no).GLA.angle;
     res = SET(no).ResolutionY*cos(ang)+SET(no).ResolutionX*abs(sin(ang));
@@ -1308,30 +1626,26 @@ for loop=1:length(noseg)
   if ~isequal(noseg(loop),no) || ~isequal(typeseg{loop},viewtype)
     x = SET(noseg(loop)).(xfield);
     y = SET(noseg(loop)).(yfield);
-
+    
     if ~isempty(x)% || any(findfunctions(['findslicewith',type,'all'],noseg(loop)))
       %calculate corresponding timeframe
       if SET(no).TSize == 2
-        if SET(no).CurrentTimeFrame == SET(noseg(loop)).CurrentTimeFrame
-          tfs = SET(no).CurrentTimeFrame;
+        if t == SET(noseg(loop)).CurrentTimeFrame
+          tfs = t;
         else
           tfs = [];
           tfdiff = [];
         end
-       elseif any(findfunctions(['findslicewith',type,'all'],noseg(loop)))
+      elseif any(findfunctions(['findslicewith',type,'all'],noseg(loop)))
         alltf = (1+((1:40)-1)/(SET(noseg(loop)).TSize-1)*(SET(no).TSize-1));
-        [~,closestsegind] = min(abs(SET(no).CurrentTimeFrame-round(alltf)));
+        [~,closestsegind] = min(abs(t-round(alltf)));
         tfs = max(1,min(SET(noseg(loop)).TSize,closestsegind));
-        tfdiff = abs(alltf(tfs)-SET(no).CurrentTimeFrame);  
+        tfdiff = abs(alltf(tfs)-t);
       elseif SET(no).TSize>2
         %find a corresponding (closest) tf in no, for each tf in noseg
         alltf = (1+((1:40)-1)/(SET(noseg(loop)).TSize-1)*(SET(no).TSize-1));
-        tfs = max(1,min(SET(noseg(loop)).TSize,find(SET(no).CurrentTimeFrame==round(alltf))));
-        tfdiff = abs(alltf(tfs)-SET(no).CurrentTimeFrame);
-%         tf = round(1+(SET(no).CurrentTimeFrame-1)/(SET(no).TSize-1)*(SET(noseg(loop)).TSize-1));
-        %[~,tf] = min(abs(SET(noseg(loop)).TimeVector-SET(no).TimeVector(SET(no).CurrentTimeFrame)));
-     
-       % 
+        tfs = max(1,min(SET(noseg(loop)).TSize,find(t==round(alltf))));
+        tfdiff = abs(alltf(tfs)-t);
       else
         tfs = 1;
       end
@@ -1361,16 +1675,16 @@ for loop=1:length(noseg)
               end
             end
           end
-
+          
           if ~isempty(pos) %pos may be empty from rotated stacks.
             %Find crossings
             disttoplane = pos*(zdir')-d;
             ind = find((disttoplane(1:(end-1)).*disttoplane(2:end))<0);
-
+            
             if ~isempty(ind)
               crosspos = 0.5*(pos(ind,:)+pos(ind+1,:));
-
-              xyzno = rlapfh2xyz(no,crosspos(:,1),crosspos(:,2),crosspos(:,3));
+              
+              xyzno = calcfunctions('rlapfh2xyz',no,crosspos(:,1),crosspos(:,2),crosspos(:,3));
               
               switch viewtype
                 case 'hla'
@@ -1387,18 +1701,18 @@ for loop=1:length(noseg)
                   xbuild = [xbuild xyzno(1,:)]; %#ok<AGROW>
                   ybuild = [ybuild xyzno(2,:)]; %#ok<AGROW>
               end
-            end;
-          end;
+            end
+          end
           
-        end; %empty slice
-      end; %zloop
+        end %empty slice
+      end %zloop
       if ~isempty(xbuild)
         xout = xbuild;
         yout = ybuild;
       end
-    end; %empty segmentation
-  end; %equal segmation
-end;
+    end %empty segmentation
+  end %equal segmation
+end
 
 %--------------------------------------------------------------------
 function [x,y] = calcplaneintersections(NO,no,TYPE,type,slice,hslice) %#ok<DEFNU>
@@ -1418,10 +1732,10 @@ y = [];
 
 if isequal(no,0)
   return;
-end;
+end
 if isequal(NO,0)
   return;
-end;
+end
 
 if nargin < 5
   slice = SET(no).CurrentSlice;
@@ -1429,6 +1743,20 @@ end
 if nargin < 4
   TYPE = 'one';
   type = 'one';
+end
+if isempty(type)
+  if not(isempty(TYPE))
+    type = TYPE;
+  else
+    type = 'one';
+  end
+end
+if isempty(TYPE)
+  if not(isempty(type))
+    TYPE = type;
+  else
+    TYPE = 'one';
+  end
 end
 
 xszNO = SET(NO).XSize;
@@ -1460,14 +1788,14 @@ else
     glaangle = SET(NO).GLA.angle;
     res = SET(NO).ResolutionY*cos(glaangle)+SET(NO).ResolutionX*abs(sin(glaangle));
     yszNO = floor(SET(NO).YSize*abs(cos(glaangle))+SET(NO).XSize*abs(sin(glaangle)));
-    yresNO = res;    
+    yresNO = res;
   end
-%   if strcmp(type,'vla')
-%     xszNO = SET(NO).YSize;
-%     xresNO = SET(NO).ResolutionY;
-%     yszNO = SET(NO).ZSize;
-%     yresNO = SET(NO).SliceThickness + SET(NO).SliceGap;
-%   end
+  %   if strcmp(type,'vla')
+  %     xszNO = SET(NO).YSize;
+  %     xresNO = SET(NO).ResolutionY;
+  %     yszNO = SET(NO).ZSize;
+  %     yresNO = SET(NO).SliceThickness + SET(NO).SliceGap;
+  %   end
   [posNO,xdirNO,ydirNO] = getimageposandorientation(NO,hslice,TYPE(1:3));
 end
 
@@ -1483,15 +1811,15 @@ end
 % +--- lc ---+
 
 ladir = ydirNO;
-lapos = posNO; 
+lapos = posNO;
 maxka = (yszNO-1)*yresNO; %in mm
 
 lbdir = xdirNO;
-lbpos = posNO; 
+lbpos = posNO;
 maxkb = (xszNO-1)*xresNO;
 
 lcdir = ydirNO;
-lcpos = posNO+xdirNO*(xszNO-1)*xresNO; 
+lcpos = posNO+xdirNO*(xszNO-1)*xresNO;
 maxkc = (yszNO-1)*yresNO;
 
 lddir = xdirNO;
@@ -1516,13 +1844,13 @@ if abs(qa)>1e-3
   ka = -pa/qa;
 else
   ka = NaN;
-end;
+end
 if ka<0
   ka = NaN;
-end;
+end
 if ka>maxka
   ka = NaN;
-end;
+end
 
 %Line b
 qb = lbdir*(zdirno');
@@ -1531,13 +1859,13 @@ if abs(qb)>1e-3
   kb = -pb/qb;
 else
   kb = NaN;
-end;
+end
 if kb<0
   kb = NaN;
-end;
+end
 if kb>maxkb
   kb = NaN;
-end;
+end
 
 %Line c
 qc = lcdir*(zdirno');
@@ -1546,13 +1874,13 @@ if abs(qc)>1e-3
   kc = -pc/qc;
 else
   kc = NaN;
-end;
+end
 if kc<0
   kc = NaN;
-end;
+end
 if kc>maxkc
   kc = NaN;
-end;
+end
 
 %Line d
 qd = lddir*(zdirno');
@@ -1561,13 +1889,13 @@ if abs(qd)>1e-3
   kd = -pd/qd;
 else
   kd = NaN;
-end;
+end
 if kd<0
   kd = NaN;
-end;
+end
 if kd>maxkd
   kd = NaN;
-end;
+end
 
 % zeropos
 % +- => ka --+    => ImageOrientation(1:3)
@@ -1596,13 +1924,13 @@ function [rows,cols] = calcrowscols(no,z)
 
 global SET
 
-if isequal(no,0);
-  no = 1; 
-end;
+if isequal(no,0)
+  no = 1;
+end
 
 if nargin<2
   z = SET(no).ZSize;
-end;
+end
 
 switch z
   case 1
@@ -1621,12 +1949,12 @@ switch z
   otherwise
     rows = round(sqrt(z));
     cols = ceil(z/rows);
-end;
+end
 
 %-------------------------------------------------
 function [xofs,yofs] = calcoffset(z,type,no,panel)
 %-------------------------------------------------
-%Calculate offset required to plot coordinates in viewing 
+%Calculate offset required to plot coordinates in viewing
 %mode specified by type.
 
 global DATA SET NO
@@ -1639,14 +1967,14 @@ if nargin < 3
 end
 if nargin<2 || isempty(type)
   type = DATA.ViewPanelsType{panel};
-end;  
+end
 
 if panel > numel(DATA.ViewPanelsMatrix) || ...
     isempty(DATA.ViewPanelsMatrix{panel})
   [rows,cols] = calcrowscols(no);
   DATA.ViewPanelsMatrix{panel}(1) = rows;
   DATA.ViewPanelsMatrix{panel}(2) = cols;
-end;
+end
 
 switch type
   case {'montage','montagerow','montagefit'}
@@ -1672,10 +2000,10 @@ switch type
   case 'montagesegmented'
     slicestoinclude = segment_main('getmontagesegmentedslices',no);
     if ismember(z,slicestoinclude)
-    c = 1+mod(z-slicestoinclude(1),DATA.ViewPanelsMatrix{panel}(2));
-    r = ceil((z-slicestoinclude(1)+1)/DATA.ViewPanelsMatrix{panel}(2));
-    yofs = (c-1)*SET(no).YSize;
-    xofs = (r-1)*SET(no).XSize;
+      c = 1+mod(z-slicestoinclude(1),DATA.ViewPanelsMatrix{panel}(2));
+      r = ceil((z-slicestoinclude(1)+1)/DATA.ViewPanelsMatrix{panel}(2));
+      yofs = (c-1)*SET(no).YSize;
+      xofs = (r-1)*SET(no).XSize;
     else
       yofs = nan;
       xofs = nan;
@@ -1683,13 +2011,12 @@ switch type
   otherwise
     xofs = 0;
     yofs = 0;
-end;
+end
 
 %------------------------------------------------------
 function [cellx,celly] = calcoffsetcells(no,panel,type) %#ok<DEFNU>
 %------------------------------------------------------
-%Same as calculateoffset, but returns cells, used in 
-%updatemodeldisplay.
+%Same as calculateoffset, but returns cells, used in
 
 global DATA SET NO
 if nargin < 2
@@ -1697,7 +2024,7 @@ if nargin < 2
 end
 if nargin==0
   no = NO;
-end;
+end
 if nargin < 3
   type = DATA.ViewPanelsType{panel};
 end
@@ -1751,7 +2078,7 @@ switch type
   otherwise
     cellx = num2cell(zeros(SET(no).ZSize,1));
     celly = num2cell(zeros(SET(no).ZSize,1));
-end;
+end
 
 
 %-------------------------------------------------
@@ -1766,7 +2093,7 @@ end
 spacedist = sqrt(...
   ((SET(no).Mmode.Lx*SET(no).Mmode.M1-SET(no).Mmode.Lx*SET(no).Mmode.M2)*SET(no).ResolutionY).^2+...
   ((SET(no).Mmode.Ly*SET(no).Mmode.M1-SET(no).Mmode.Ly*SET(no).Mmode.M2)*SET(no).ResolutionX).^2);
-  
+
 if ~isrectilinear(SET(no).TimeVector)
   timedist = abs(...
     SET(no).TimeVector(round(SET(no).Mmode.T1))-...
@@ -1786,7 +2113,7 @@ function calcdatasetpreview %#ok<DEFNU>
 %DATA.DATASETPREVIEW. Size of the thumbnails is given by
 %DATA.GUISettings.ThumbnailSize. It is stored as a RGB image.
 
-global DATA SET 
+global DATA SET
 
 %Reserve memory
 DATA.DATASETPREVIEW = repmat(uint8(0),...
@@ -1808,19 +2135,19 @@ for noloop=1:length(SET);
   % zero padding, elegantly done, no? :) /JU
   sz=size(tempim);
   tempim=padarray(tempim,round((length(tempim)-sz(1:2))/2));
-
+  
   
   tempim = imresize(tempim,DATA.GUISettings.ThumbnailSize*[1 1],'bilinear');
-
+  
   %Downsample
-%  xind = round(linspace(1,size(tempim,1),64));
-%  yind = round(linspace(1,size(tempim,2),64));
-%  tempim = tempim(xind,:);
-%  tempim = tempim(:,yind);
+  %  xind = round(linspace(1,size(tempim,1),64));
+  %  yind = round(linspace(1,size(tempim,2),64));
+  %  tempim = tempim(xind,:);
+  %  tempim = tempim(:,yind);
   
   %Store, vertically
   DATA.DATASETPREVIEW((noloop-1)*DATA.GUISettings.ThumbnailSize+(1:DATA.GUISettings.ThumbnailSize),:,:) = tempim;
-end;
+end
 
 %----------------------------------------------------------
 function [outim,slicestoinclude] = calcmontageviewim(no,matrix,segmentedonly,cmap,c,b,im,tfs,oneextraslice,slices) %#ok<DEFNU>
@@ -1834,7 +2161,7 @@ if nargin < 2
   matrix = [rows cols];
 end
 
-if nargin < 3
+if nargin < 3 || isempty(segmentedonly)
   segmentedonly = false;
 end
 
@@ -1844,63 +2171,57 @@ end
 if nargin < 8 || isempty(tfs)
   tfs = 1:SET(no).TSize;
 end
+
+%Set number of timeframes
+TSize = length(tfs);
+
 if nargin < 9 || isempty(oneextraslice)
   oneextraslice = true;
 end
 
 %Decide which slices to view
 if nargin < 10 || isempty(slices)
-if segmentedonly %and currentslice
-   slicestoinclude = segment('getmontagesegmentedslices',no);
-%   slicestoincludeendo = find(findfunctions('findslicewithendo',no,tfs))';
-%   slicestoincludeepi = find(findfunctions('findslicewithepi',no,tfs))';
-%   slicestoincludervendo = find(findfunctions('findslicewithrvendo',no,tfs))';
-%   slicestoinclude = unique([slicestoincludeendo slicestoincludeepi slicestoincludervendo]);
-%   if min(slicestoinclude) > 1 && oneextraslice
-%     slicestoinclude = [min(slicestoinclude)-1 slicestoinclude];
-%   end
-%   if max(slicestoinclude) < SET(no).ZSize && oneextraslice
-%     slicestoinclude = [slicestoinclude max(slicestoinclude)+1];
-%   end
-else
-  slicestoinclude = 1:SET(no).ZSize;
-end
+  if segmentedonly %and currentslice
+    slicestoinclude = segment('getmontagesegmentedslices',no);
+  else
+    slicestoinclude = 1:SET(no).ZSize;
+  end
 else
   slicestoinclude = slices;
 end
 %Add papillary visualization
-stateandicon=segment('iconson','hidelv');
+stateandicon=viewfunctions('iconson','hidelv');
 if not(stateandicon{1}) %not(isempty(SET(no).PapillaryIM)) && isequal(get(DATA.Handles.hidepapicon,'state'),'off')
   im(SET(no).PapillaryIM)=DATA.GUISettings.PapilarColor;
 end
 
 %Create space
-if nargin >= 6 && ~isempty(cmap) && ~isempty(c) && ~isempty(b) 
-  outim = repmat(uint8(0),[SET(no).XSize*matrix(1) SET(no).YSize*matrix(2) SET(no).TSize 3]);
+if nargin >= 6 && ~isempty(cmap) && ~isempty(c) && ~isempty(b)
+  outim = repmat(uint8(0),[SET(no).XSize*matrix(1) SET(no).YSize*matrix(2) TSize 3]);
 elseif isempty(SET(no).Colormap)
-  outim = repmat(uint8(0),[SET(no).XSize*matrix(1) SET(no).YSize*matrix(2) SET(no).TSize]);
+  outim = repmat(uint8(0),[SET(no).XSize*matrix(1) SET(no).YSize*matrix(2) TSize]);
 else
-  outim = repmat(uint8(0),[SET(no).XSize*matrix(1) SET(no).YSize*matrix(2) SET(no).TSize 3]);
+  outim = repmat(uint8(0),[SET(no).XSize*matrix(1) SET(no).YSize*matrix(2) TSize 3]);
 end
 
-for tloop=1:SET(no).TSize
+for tloop=1:TSize
   for i=1:numel(slicestoinclude)
     zloop = slicestoinclude(i);
     col = 1+mod(i-1,matrix(2));
     r = ceil(i/matrix(2));
-    if nargin >= 6 && ~isempty(cmap) && ~isempty(c) && ~isempty(b) 
+    if nargin >= 6 && ~isempty(cmap) && ~isempty(c) && ~isempty(b)
       outim(...
         (1+(r-1)*SET(no).XSize):(r*SET(no).XSize),...
-        (1+(col-1)*SET(no).YSize):(col*SET(no).YSize),tloop,:) = remapuint8( ...
-        im(:,:,tloop,zloop),no,cmap,c,b);
+        (1+(col-1)*SET(no).YSize):(col*SET(no).YSize),tloop,:) = repmat(remapuint8( ...
+        im(:,:,tfs(tloop),zloop),no,cmap,c,b),[1,1,1,size(outim,4)]);
     else
       outim(...
         (1+(r-1)*SET(no).XSize):(r*SET(no).XSize),...
         (1+(col-1)*SET(no).YSize):(col*SET(no).YSize),tloop,:) = remapuint8( ...
-        im(:,:,tloop,zloop),no);
+        im(:,:,tfs(tloop),zloop),no);
     end
-  end;
-end;
+  end
+end
 
 %--------------------------------------------------------------------------
 function [linex,liney] = calcmontageviewline(no,matrix,inputx,inputy,tf,segmentedonly,tfs,oneextraslice) %#ok<DEFNU>
@@ -2005,7 +2326,7 @@ function z = remapuint8viewim(im,no,tempmap,c,b)
 %   Remap according to indexed grayscape
 % Unless:
 %   An external colormap has been supplied, then use that.
-%   This is used to force truecolor grayscale, by passing 
+%   This is used to force truecolor grayscale, by passing
 %   true to RETURNMAPPING.
 % c,b are contrast/brightness settings, used by contrast_Callback when
 % doing realtime update during mouse motion.
@@ -2035,7 +2356,7 @@ if (nargin<5)
   b = SET(no).IntensityMapping.Brightness;
   if isempty(c)
     c = SET(SET(no).Parent).IntensityMapping.Contrast;
-    b = SET(SET(no).Parent).IntensityMapping.Brightness;    
+    b = SET(SET(no).Parent).IntensityMapping.Brightness;
   end
 end
 
@@ -2054,7 +2375,7 @@ if isempty(d) && ~isempty(SET(SET(no).Parent))
 end
 
 if isempty(d)
-    d=1;
+  d=1;
 end
 
 if d<0.1
@@ -2070,59 +2391,59 @@ end
 sz = [size(im,1) size(im,2) size(im,3) size(im,4)];
 if isa(im,'single')||isa(im,'double')
   %im = c*im(:)+(b-0.5);
-%   try
-if d~=1
-  try
-    im = c.*nthroot(im(:),d)+b-0.5;
-  catch
+  %   try
+  if d~=1
+    try
+      im = c.*nthroot(im(:),d)+b-0.5;
+    catch
+      im = c.*im(:)+b-0.5;
+    end
+  else
     im = c.*im(:)+b-0.5;
-  end
-else
-  im = c.*im(:)+b-0.5;
-end%c*255.*(im(:)./255+b-0.5).^(1./d);
-%   catch
-%     %first lift im so that it is between 0 and 1
-%     im=abs(min(im(:)))+im;
-%     im = c.*nthroot(im(:),d)+b-0.5;%c*255.*(im(:)./255+b-0.5).^(1./d);
-%   end
+  end%c*255.*(im(:)./255+b-0.5).^(1./d);
+  %   catch
+  %     %first lift im so that it is between 0 and 1
+  %     im=abs(min(im(:)))+im;
+  %     im = c.*nthroot(im(:),d)+b-0.5;%c*255.*(im(:)./255+b-0.5).^(1./d);
+  %   end
   z = max(min(round(cmax*im),cmax),cmin);
   
-elseif isa(im,'int16'),
+elseif isa(im,'int16')
   if ~isfield(SET(no),'minValue')||isempty(SET(no).minValue)||...
       ~isfield(SET(no),'maxValue')||isempty(SET(no).maxValue)
     SET(no).minValue = single(min(SET(no).IM(:)));
     SET(no).maxValue = single(max(SET(no).IM(:)));
   end
-   mi = SET(no).minValue;
-   ma = SET(no).maxValue;
-   
-   im = single(im(:));
-   %im=c*im+(b-0.5);%TODO: should scale
-   
-   z = floor((im-mi)/(ma-mi)*cmax);
-   if d~=1
-     z = uint8(c.*nthroot(z(:),d)+b-0.5)+1;%uint8(c*z+(b-0.5)*256)+1; %
-   else
-     z = uint8(c.*z(:)+b-0.5)+1;
-   end;
-   %z = max(min(round(c*z+(b-0.5)),cmax),cmin);   
+  mi = SET(no).minValue;
+  ma = SET(no).maxValue;
+  
+  im = single(im(:));
+  %im=c*im+(b-0.5);%TODO: should scale
+  
+  z = floor((im-mi)/(ma-mi)*cmax);
+  if d~=1
+    z = uint8(single(c).*nthroot(z(:),d)+single(b)-0.5)+1;%uint8(c*z+(b-0.5)*256)+1; %
+  else
+    z = uint8(single(c).*z(:)+single(b)-0.5)+1;
+  end
+  %z = max(min(round(c*z+(b-0.5)),cmax),cmin);
 else
   myfailed(dprintf('Segment does not (yet) support type:%s',class(im)));
   return;
 end
 
 if (size(cmap,2) == 3)
-    % Extract r,g,b components
-    z3 = repmat(uint8(0),[size(z) 3]);
-    z3(:,1) = cmap(z,1);
-    z3(:,2) = cmap(z,2);
-    z3(:,3) = cmap(z,3);
-    z = reshape(z3,[sz 3]);
+  % Extract r,g,b components
+  z3 = repmat(uint8(0),[size(z) 3]);
+  z3(:,1) = cmap(z,1);
+  z3(:,2) = cmap(z,2);
+  z3(:,3) = cmap(z,3);
+  z = reshape(z3,[sz 3]);
 else
-    %Index color
-    z3 = repmat(uint8(0),size(z));
-    z3(:) = cmap(z(:),1);
-    z = reshape(z3,sz);
+  %Index color
+  z3 = repmat(uint8(0),size(z));
+  z3(:) = cmap(z(:),1);
+  z = reshape(z3,sz);
 end
 
 %-------------------------------------------------------------------
@@ -2130,7 +2451,7 @@ function [xnew,ynew] = resampleclosedcurve(x,y,n,method,distributed)
 %-------------------------------------------------------------------
 %General helper fcn to resample a closed curve.
 if nargin<4
-	method='linear';%used to be linear*
+  method='linear';%used to be linear*
   distributed = 'same';
 end
 if nargin < 5
@@ -2144,7 +2465,7 @@ switch distributed
     ynew = interp1(y,linspace(1,size(y,1),n),method);
     
   case 'evenly'
-    %Remve duplicate points  
+    %Remve duplicate points
     d = [0;cumsum(sqrt(diff(x).^2+diff(y).^2))];
     ind = [1;diff(d)]>1e-3;
     uniquex = x(ind);
@@ -2181,17 +2502,17 @@ function [xnew,ynew] = resamplemodel(x,y,n,method,distributed)
 %to different number of points (n).
 
 if nargin<4
-	method='linear';%used to be linear*
+  method='linear';%used to be linear*
   distributed = 'same';
 end
-if nargin < 5 
+if nargin < 5
   distributed = 'same';
 end
 
 xnew = nan(n,size(x,2),size(x,3));
 ynew = xnew;
 
-for zloop=1:size(x,3)  
+for zloop=1:size(x,3)
   for tloop=1:size(x,2)
     if not(isnan(x(1,tloop,zloop)))
       [tempx,tempy] = resampleclosedcurve(...
@@ -2200,16 +2521,16 @@ for zloop=1:size(x,3)
       xnew(:,tloop,zloop) = tempx;
       ynew(:,tloop,zloop) = tempy;
     end
-  end;
-end;
+  end
+end
 
- 
+
 %--------------------------------------------------------------------------
 function [meanint,defectextent,varargout] = calcintensityanddefect(im,...
   tf,numpoints,numsectors,nprofiles,pos, ...
   no,endox,endoy,epix,epiy,sz,resolution,defect,numwidth,timeresolved) %#ok<DEFNU>
 %--------------------------------------------------------------------------
-%Calculates the mean intensity within sectors as a preperation to 
+%Calculates the mean intensity within sectors as a preperation to
 %generate a bullseye plot.
 %
 %-im                                     image
@@ -2222,7 +2543,7 @@ function [meanint,defectextent,varargout] = calcintensityanddefect(im,...
 %sz:                                        size of image stack
 %resolution:                         resolution of image stack
 %defect:                                (EH: I do not know what it is, works if empty)
-%numwidth:                        specify if it should calculate several sectors across 
+%numwidth:                        specify if it should calculate several sectors across
 %                                           wallthickness. If a scalar it
 %                                           specifices the number of
 %                                           layers in the myocardium. If a
@@ -2251,13 +2572,13 @@ varargout = {};
 numslices = length(pos);
 meanint = zeros(numsectors,numslices);
 
-%Added EH: If numwidth is a vector then it is interpreted as 
+%Added EH: If numwidth is a vector then it is interpreted as
 %[perencentendo percent epi].
 if length(numwidth)>1
   numlayers = length(numwidth)-1;
 else
   numlayers = numwidth;
-end;
+end
 
 %Check if we should return the mask and the sectors
 if nargout>2
@@ -2265,13 +2586,13 @@ if nargout>2
   maskcell = cell(numslices,numsectors,numlayers);
 else
   storemask = false;
-end;
+end
 if nargout>3
   storesector = true;
   sectorcell = cell(numslices,numsectors,numlayers,2);
 else
   storesector = false;
-end;
+end
 
 %Upsample model
 if not(nprofiles == size(endox,1))
@@ -2282,14 +2603,14 @@ end
 mask = zeros(sz(1),sz(2));
 defectextent = zeros(numsectors,numslices);
 for sloop = 1:numslices
-  if not(isnan(epix(1,tf,pos(sloop))))
-
+  if not(isempty(epix)) && not(isnan(epix(1,tf,pos(sloop))))
+    
     %Find sectors
     [~,~,episectors] = findmeaninsectorslice('epi',numpoints,tf,pos(sloop),numsectors,no, ...
       endox(:,tf,pos(sloop)),endoy(:,tf,pos(sloop)),epix(:,tf,pos(sloop)),epiy(:,tf,pos(sloop)));
     if not(isnan(endox(1,tf,pos(sloop))))
-    [~,~,endosectors] = findmeaninsectorslice('endo',numpoints,tf,pos(sloop),numsectors,no, ...
-      endox(:,tf,pos(sloop)),endoy(:,tf,pos(sloop)),epix(:,tf,pos(sloop)),epiy(:,tf,pos(sloop)));
+      [~,~,endosectors] = findmeaninsectorslice('endo',numpoints,tf,pos(sloop),numsectors,no, ...
+        endox(:,tf,pos(sloop)),endoy(:,tf,pos(sloop)),epix(:,tf,pos(sloop)),epiy(:,tf,pos(sloop)));
     else
       endosectors = episectors;
     end
@@ -2298,7 +2619,7 @@ for sloop = 1:numslices
     xdiffslice = abs(endox(:,tf,pos(sloop))-epix(:,tf,pos(sloop)));
     ydiffslice = abs(endoy(:,tf,pos(sloop))-epiy(:,tf,pos(sloop)));
     wallthicknessinslice = mean(sqrt((xdiffslice*resolution(1)).^2+(ydiffslice*resolution(2)).^2));
-
+    
     N = nprofiles;
     for loop=1:numsectors
       if episectors(loop)<episectors(loop+1)
@@ -2331,7 +2652,7 @@ for sloop = 1:numslices
         tempepiy = [...
           epiy(episectors(loop):N,tf,pos(sloop)) ; ...
           epiy(1:episectors(loop+1),tf,pos(sloop))];
-      end;
+      end
       
       if not(isnan(endox(1,tf,pos(sloop))))
         if endosectors(loop)<endosectors(loop+1)
@@ -2364,7 +2685,7 @@ for sloop = 1:numslices
           tempendoy = [...
             endoy(endosectors(loop):N,tf,pos(sloop)) ; ...
             endoy(1:endosectors(loop+1),tf,pos(sloop))];
-        end;
+        end
       else
         tempendox = repmat(mean(epix(:,tf,pos(sloop))),[2 1]);
         tempendoy = repmat(mean(epiy(:,tf,pos(sloop))),[2 1]);
@@ -2388,8 +2709,8 @@ for sloop = 1:numslices
         %Store the mask
         if storemask
           maskcell{sloop,loop} = mask;
-        end;
-                
+        end
+        
         %calculate the wallthickness for the current mask
         xdiff = abs(tempendox-tempepix); %min(abs(repmat(tempendox,[1 length(tempepix)])-repmat(tempepix',[length(tempendox) 1])),[],2);
         ydiff = abs(tempendoy-tempepiy); %min(abs(repmat(tempendoy,[1 length(tempepiy)])-repmat(tempepiy',[length(tempendoy) 1])),[],2);
@@ -2423,10 +2744,10 @@ for sloop = 1:numslices
         
         if length(numwidth)==1
           %Is a scalar
-          PercentFromEndo = (0:numwidth)/numwidth; 
-        else          
+          PercentFromEndo = (0:numwidth)/numwidth;
+        else
           PercentFromEndo = numwidth;
-        end;
+        end
         
         %the same number of points along the lines
         if length(tempepix) ~= length(tempendox)
@@ -2484,7 +2805,7 @@ for sloop = 1:numslices
             defectextent = [];
           end
         end
-      end 
+      end
     end
   end
 end
@@ -2492,26 +2813,26 @@ end
 %If wanted return the extra output
 if storemask
   varargout{1} = maskcell;
-end;
+end
 if storesector
   varargout{2} = sectorcell;
-end;
+end
 
 %----------------------------------------------------------------------
 function [res,varargout] = findmeaninsector(type,inp,pos,numsectors,no,tf)
 %----------------------------------------------------------------------
 %Find indicies of points along the contour that corresponds to which
-%sector. Then also calculated mean values of the input inp. 
+%sector. Then also calculated mean values of the input inp.
 
 global DATA SET NO
 
 if nargin<4
   numsectors=6;
-end;
+end
 
 if nargin<5
   no = NO;
-end;
+end
 
 if nargin<6
   tf = 1:SET(no).TSize;
@@ -2520,7 +2841,7 @@ end
 if strcmp(SET(no).ImageViewPlane,'Short-axis')
   distributed = 'evenly';
 else
-  distributed = 'same';  
+  distributed = 'same';
 end
 
 %Parse input
@@ -2532,18 +2853,18 @@ nslices = length(pos);
 %Upsample model
 if not(numpoints==DATA.NumPoints)
   if ~isempty(SET(no).EndoX)
-  [endox,endoy] = resamplemodel(SET(no).EndoX(:,tf,:),SET(no).EndoY(:,tf,:),numpoints,'linear',distributed);
+    [endox,endoy] = resamplemodel(SET(no).EndoX(:,tf,:),SET(no).EndoY(:,tf,:),numpoints,'linear',distributed);
   else
     endox = nan(numpoints,numtf,SET(no).ZSize);
     endoy = endox;
-  end;
+  end
   
   if ~isempty(SET(no).EpiX)
     [epix,epiy] = resamplemodel(SET(no).EpiX(:,tf,:),SET(no).EpiY(:,tf,:),numpoints,'linear',distributed);
   else
     epix = nan(numpoints,numtf,SET(no).ZSize);
-    epiy = epix;    
-  end;
+    epiy = epix;
+  end
   
 else
   if ~isempty(SET(no).EndoX)
@@ -2551,16 +2872,16 @@ else
     endoy = SET(no).EndoY(:,tf,:);
   else
     endox = nan(numpoints,numtf,SET(no).ZSize);
-    endoy = endox;    
-  end;
+    endoy = endox;
+  end
   if ~isempty(SET(no).EpiX)
     epix = SET(no).EpiX(:,tf,:);
     epiy = SET(no).EpiY(:,tf,:);
   else
     epix = nan(numpoints,numtf,SET(no).ZSize);
-    epiy = epix;        
-  end;
-end;
+    epiy = epix;
+  end
+end
 
 meanx = nan(numtf,nslices);
 meany = nan(numtf,nslices);
@@ -2570,7 +2891,7 @@ if isendo
   %Endocardium
   for sloop=1:nslices
     for tloop=1:numtf
-
+      
       %Find center
       x = endox(1:(end-1),tloop,pos(sloop));
       y = endoy(1:(end-1),tloop,pos(sloop));
@@ -2580,14 +2901,14 @@ if isendo
       else
         meanx(tloop,pos(sloop)) = mean(epix(:,tloop,pos(sloop)));
         meany(tloop,pos(sloop)) = mean(epiy(:,tloop,pos(sloop)));
-      end;
-
+      end
+      
       %Find sectors
       ang(:,tloop,sloop) = angle(complex(...
         endoy(1:(end-1),tloop,pos(sloop))-meany(tloop,pos(sloop)),...
         endox(1:(end-1),tloop,pos(sloop))-meanx(tloop,pos(sloop))));
-    end;
-  end;
+    end
+  end
 else
   %Epicardium
   for sloop=1:nslices
@@ -2595,21 +2916,21 @@ else
       %Find center
       if SET(no).EndoCenter
         x = endox(1:(end-1),tloop,pos(sloop));
-        y = endoy(1:(end-1),tloop,pos(sloop));        
+        y = endoy(1:(end-1),tloop,pos(sloop));
       else
         x = epix(1:(end-1),tloop,pos(sloop));
         y = epiy(1:(end-1),tloop,pos(sloop));
-      end;
+      end
       meanx(tloop,pos(sloop)) = mean(x(:));
       meany(tloop,pos(sloop)) = mean(y(:));
-
+      
       %Find sectors
       ang(:,tloop,sloop) = angle(complex(...
         epiy(1:(end-1),tloop,pos(sloop))-meany(tloop,pos(sloop)),...
         epix(1:(end-1),tloop,pos(sloop))-meanx(tloop,pos(sloop))));
-    end;
-  end;
-end;
+    end
+  end
+end
 
 ang = ang*180/pi;
 wantangles = linspace(-180,180,numsectors+1);
@@ -2627,16 +2948,16 @@ for tloop=1:numtf
     for loop=1:numsectors
       [~,inda] = min(abs(ang(:,tloop,sloop)-wantangles(loop)));
       sectors(loop,sloop,tloop) = inda;
-    end;
-  end;
-end;
+    end
+  end
+end
 sectors(numsectors+1,:,:) = sectors(1,:,:);
 
 %Calculate mean over each sector
 res = zeros(numsectors,nslices,numtf);
 maxres = res;
 warnstat = warning;
-warning off; %#ok<WNOFF>
+warning off; 
 for tloop=1:numtf
   for zloop=1:nslices
     for loop=1:numsectors
@@ -2646,27 +2967,27 @@ for tloop=1:numtf
         idx = [...
           sectors(loop,zloop,tloop):(numpoints-1) ...
           1:sectors(loop+1,zloop,tloop)];
-      end;
+      end
       res(loop,zloop,tloop) = mean(inp(idx,tloop,pos(zloop)));
       maxres(loop,zloop,tloop) = max(inp(idx,tloop,pos(zloop)));
-    end;
-  end;
-end;
+    end
+  end
+end
 warning(warnstat);
 
 varargout = cell(1,nargout-1);
 if nargout>=2
   varargout{1} = meanx;
-end;
+end
 if nargout>=3
   varargout{2} = meany;
-end;
+end
 if nargout>=4
   varargout{3} = sectors;
-end;
+end
 if nargout>=5
   varargout{4} = maxres;
-end;
+end
 
 %--------------------------------------------------------------------------
 function [varargout] = findmeaninsectorslice(type,numpoints,tf,slice,...
@@ -2679,11 +3000,11 @@ global DATA SET NO
 
 if nargin<5
   numsectors = 6;
-end;
+end
 
 if nargin<6
   no = NO;
-end;
+end
 
 if nargin < 7 || (nargin==11 && isempty(endox))
   if ~isempty(SET(no).EndoX)
@@ -2710,7 +3031,7 @@ if isequal(type,'endo')
   isendo=1;
 else
   isendo=0;
-end;
+end
 
 %Upsample model
 if not(numpoints==DATA.NumPoints)
@@ -2719,13 +3040,13 @@ if not(numpoints==DATA.NumPoints)
   else
     endox = nan(numpoints,length(tf),length(slice));
     endoy = endox;
-  end;
+  end
   if ~isempty(epix)
     [epix,epiy] = resamplemodel(epix,epiy,numpoints);
   else
     epix = nan(numpoints,length(tf),length(slice));
-    epiy = epix;    
-  end;
+    epiy = epix;
+  end
 end
 
 %Find center
@@ -2735,7 +3056,7 @@ if SET(no).EndoCenter && ~isempty(endox) && ~isnan(endox(1))
 else
   x = mean(epix);
   y = mean(epiy);
-end;
+end
 
 meanx = mean(x(:));
 meany = mean(y(:));
@@ -2749,7 +3070,7 @@ else
   ang = angle(complex(...
     epiy(1:(end-1))-meany,...
     epix(1:(end-1))-meanx));
-end;
+end
 ang = ang*180/pi;
 wantangles = linspace(-180,180,numsectors+1);
 wantangles = wantangles+rotation;
@@ -2761,24 +3082,24 @@ for loop=1:(numsectors+1)
   if trash2<trash1
     inda = temp;
     trash1 = trash2;
-  end;
+  end
   [trash2,temp] = min(abs(ang(:)-wantangles(loop)+360));
   if trash2<trash1
     inda = temp;
-  end;
+  end
   sectors(loop) = inda;
-end;
+end
 
 varargout = cell(1,nargout-1);
 if nargout>=1
   varargout{1} = meanx;
-end;
+end
 if nargout>=2
   varargout{2} = meany;
-end;
+end
 if nargout>=3
   varargout{3} = sectors;
-end;
+end
 
 %-----------------------------------------------------------------------
 function [pos,xdir,ydir,zdir] = getimageposandorientation(no,slice,type)
@@ -2790,9 +3111,9 @@ global SET
 if nargin < 3
   type = 'one';
 end
-if nargin<2
+if nargin < 2 || isempty(slice)
   slice = SET(no).CurrentSlice;
-end;
+end
 
 if SET(no).Rotated
   %Rotated
@@ -2800,18 +3121,18 @@ if SET(no).Rotated
   rotdir = SET(no).ImageOrientation(4:6);
   r1dir = SET(no).ImageOrientation(1:3);
   r2dir = cross(rotdir,r1dir);
-
+  
   %Calculate radius to center
   radius = SET(no).RotationCenter*SET(no).ResolutionY;
-    
+  
   %Calculate center of rotation
   center = pos+radius*r1dir;
-    
+  
   alpha = (pi/(SET(no).ZSize))*(slice-1);
   pos = center+(...
     radius*cos(alpha)*r1dir-...
     radius*sin(alpha)*r2dir);
-
+  
   %Find orientation
   xdir = rotdir;
   ydir = -(pos-center); %new position - center of rotation
@@ -2820,9 +3141,8 @@ if SET(no).Rotated
 else
   %Normal cartesian coordinates
   xdir = SET(no).ImageOrientation(4:6);
-  ydir = SET(no).ImageOrientation(1:3);  
+  ydir = SET(no).ImageOrientation(1:3);
   zdir = cross(ydir,xdir);
-
   
   if strcmp(type,'hla')
     temp = xdir;
@@ -2853,12 +3173,12 @@ else
     pos = SET(no).ImagePosition-...
       zdir*(SET(no).SliceThickness+SET(no).SliceGap)*(slice-1);
     
-%     %for multiple slices (future improvement)
-%     pos = repmat(SET(no).ImagePosition,length(slice),1)-...
-%       (diag(zdir*(SET(no).SliceThickness+SET(no).SliceGap))*repmat(slice-1,3,1))';
+    %     %for multiple slices (future improvement)
+    %     pos = repmat(SET(no).ImagePosition,length(slice),1)-...
+    %       (diag(zdir*(SET(no).SliceThickness+SET(no).SliceGap))*repmat(slice-1,3,1))';
     
   end
-end;
+end
 
 %------------------------
 function z = econvn(im,f)
@@ -2868,24 +3188,24 @@ switch ndims(im)
   case 4
     z = im;
     if size(im,3)~=1
-      for loop=1:size(im,4);
+      for loop=1:size(im,4)
         z(:,:,:,loop) = econv3(im(:,:,:,loop),f);
-      end;
+      end
     else
-      for loop=1:size(im,4);
+      for loop=1:size(im,4)
         z(:,:,1,loop) = conv2(im(:,:,:,loop),f,'same');
-      end;
-    end;
+      end
+    end
   case 3
     z = econv3(im,f);
   case 2
     z = conv2(im,f,'same');
   otherwise
     error('Number of dimensions not supported.');
-end;
+end
 
 %---------------------------------------
-function [pos] = rlapfh2xyz(no,rl,ap,fh)
+function [pos] = rlapfh2xyz(no,rl,ap,fh) %#ok<DEFNU>
 %---------------------------------------
 %Convert from RL,AP,FH coordinates to Segment internal coordinate system.
 global DATA SET
@@ -2894,10 +3214,10 @@ if SET(no).Rotated
   myfailed('Not yet implemented for rotated image stacks.',DATA.GUI.Segment);
 else
   xdir = SET(no).ImageOrientation(4:6)';
-  ydir = SET(no).ImageOrientation(1:3)';  
+  ydir = SET(no).ImageOrientation(1:3)';
   zdir = cross(...
     SET(no).ImageOrientation(1:3),...
-    SET(no).ImageOrientation(4:6))';    
+    SET(no).ImageOrientation(4:6))';
   
   rl = rl(:)'-SET(no).ImagePosition(1); %Translate corner of box to 0,0,0
   ap = ap(:)'-SET(no).ImagePosition(2);
@@ -2906,31 +3226,32 @@ else
   pos = [xdir ydir -zdir]\[rl;ap;fh];
   pos(1,:) = pos(1,:)/SET(no).ResolutionX+1;
   pos(2,:) = pos(2,:)/SET(no).ResolutionY+1;
-  pos(3,:) = pos(3,:)/(SET(no).SliceGap+SET(no).SliceThickness)+1;  
+  pos(3,:) = pos(3,:)/(SET(no).SliceGap+SET(no).SliceThickness)+1;
   
-end;
+end
 
 %------------------------------------
 function [pos] = xyz2rlapfh(no,x,y,z)
 %------------------------------------
 %Converts from segment coordinate system to RL,AP,FH coordinate system.
-global DATA SET
+global SET
 
 if SET(no).Rotated
   pos = [];
-  myfailed('Not yet implemented for rotated image stacks.',DATA.GUI.Segment);
+  myfailed('Not yet implemented for rotated image stacks.')%,DATA.GUI.Segment);
 else
   zdir = cross(...
     SET(no).ImageOrientation(1:3),...
-    SET(no).ImageOrientation(4:6));  
+    SET(no).ImageOrientation(4:6));
+  
   x = (x(:)-1)*SET(no).ResolutionX;
   y = (y(:)-1)*SET(no).ResolutionY;
   z = (z(:)-1)*(SET(no).SliceThickness+SET(no).SliceGap);
-  pos = repmat(SET(no).ImagePosition,length(x),1)+...
-    repmat(SET(no).ImageOrientation(4:6),length(x),1).*repmat(x,1,3)+...
-    repmat(SET(no).ImageOrientation(1:3),length(x),1).*repmat(y,1,3)-... %was minus
-    repmat(zdir,length(x),1).*repmat(z,1,3);    
-end;
+  pos = SET(no).ImagePosition +...
+    SET(no).ImageOrientation(4:6).*x+...
+    SET(no).ImageOrientation(1:3).*y-... %was minus
+    zdir.*z;
+end
 
 %-------------------------------------
 function [impos,ormat] = calcormat(no) %#ok<DEFNU>
@@ -2948,7 +3269,7 @@ ormat = [SET(no).ResolutionX*SET(no).ImageOrientation(4:6)' ...
   cross(SET(no).ImageOrientation(4:6),SET(no).ImageOrientation(1:3))'];
 
 %------------------------------------------------------------------
-function [x,y,z] = cyl2cart(xin,yin,slice,numslices,rotationcenter)
+function [x,y,z] = cyl2cart(xin,yin,slice,numslices,rotationcenter) %#ok<DEFNU>
 %------------------------------------------------------------------
 %Convert from cylindrical to cartesian coordinates
 
@@ -2959,7 +3280,7 @@ x = rad.*sin(angle)+rotationcenter;
 y = rad.*cos(angle)+rotationcenter;
 
 %--------------------------------------------------------
-function [window,level] = con2win(contrast,brightness,no)
+function [window,level] = con2win(contrast,brightness,no) %#ok<DEFNU>
 %--------------------------------------------------------
 %Convert from contrast to window & level
 
@@ -2984,7 +3305,7 @@ else
 end
 
 %--------------------------------------------------------
-function [contrast,brightness] = win2con(window,level,no)
+function [contrast,brightness] = win2con(window,level,no) %#ok<DEFNU>
 %--------------------------------------------------------
 %Inverse of con2win
 
@@ -3016,7 +3337,7 @@ y = 1/res*abs((yi-SET(no).GLA.y0)*cos(ang)*SET(no).ResolutionY + ...
   (xi-SET(no).GLA.x0)*sin(ang)*SET(no).ResolutionX);
 
 %-----------------------------------
-function [x,y,z] = gla2sax(xi,yi,no)
+function [x,y,z] = gla2sax(xi,yi,no) %#ok<DEFNU>
 %-----------------------------------
 %Convert image coordinates from GLA to short-axis view
 global SET
@@ -3026,11 +3347,10 @@ z = xi;
 x = SET(no).GLA.x0 + sin(SET(no).GLA.angle)*yi*res/SET(no).ResolutionX;
 y = SET(no).GLA.y0 + cos(SET(no).GLA.angle)*yi*res/SET(no).ResolutionY;
 
-
 %-------------------------------------------
-function [mantelarea, sliceMantelArea] = calcmantelarea(no)
+function [mantelarea, sliceMantelArea] = calcmantelarea(no) %#ok<DEFNU>
 %-------------------------------------------
-%Calculate the mantel area in cm^2 of the LV endocardium in each timeframe. 
+%Calculate the mantel area in cm^2 of the LV endocardium in each timeframe.
 global SET
 
 if sum(findfunctions('findslicewithendo',no))==0
@@ -3054,6 +3374,90 @@ end
 sliceMantelArea=mantelarea';
 mantelarea=sum(mantelarea,2)';
 
+%--------------------
+function calcflowinroi(no) %#ok<DEFNU>
+%--------------------
+%calculates flow from current ROI
+global SET
+
+nom = SET(no).Flow.MagnitudeNo;
+nop = SET(nom).Flow.PhaseNo;
+
+warnedempty = false;
+outsize = [SET(nom).XSize SET(nom).YSize];
+roinbr = SET(nom).RoiCurrent;
+
+if length(SET(nom).Roi(roinbr).T)==1  %For non-time resolved Phase Contrast images
+  SET(nom).TIncr=1;
+end
+mask = false([SET(nom).XSize SET(nom).YSize SET(nom).Roi(roinbr).T]);
+%create mask for all time frames
+for tloop = SET(nom).Roi(roinbr).T
+  %Create mask
+  tempmask = logical(segment('createmask',...
+    outsize,...
+    SET(nom).Roi(roinbr).Y(:,tloop),...
+    SET(nom).Roi(roinbr).X(:,tloop)));
+  mask(:,:,tloop) = tempmask;
+end
+%Extract phase image
+phasedata = SET(nop).IM(:,:,:,SET(nom).Roi(roinbr).Z);
+
+%If empty phasecorr, the do not add phase correction.
+if isempty(SET(nop).Flow.PhaseCorr)
+  veldata = SET(nom).Roi(roinbr).Sign*...
+    (phasedata-0.5)*2*SET(nop).VENC;
+else
+  %Phase correction
+  if SET(nop).Flow.PhaseCorrTimeResolved
+    %Time resolved phase correction
+    veldata = SET(nom).Roi(roinbr).Sign*...
+      (phasedata-0.5-SET(nop).Flow.PhaseCorr(:,:,:,SET(nom).Roi(roinbr).Z))*2*SET(nop).VENC;
+  else
+    %Stationary phase correction
+    phasecorr = squeeze(SET(nop).Flow.PhaseCorr(:,:,1,SET(nom).Roi(roinbr).Z));
+    correctiondata = repmat(phasecorr,[1 1 SET(nom).Roi(roinbr).T 1]);
+    veldata = SET(nom).Roi(roinbr).Sign*...
+      (phasedata-0.5-correctiondata)*2*SET(nop).VENC;
+  end
+end
+
+veldata = veldata(mask);
+if isempty(veldata)
+  veldata = nan;
+  posveldata = nan;
+  negveldata = nan;
+else
+  posveldata = veldata(veldata>0);
+  negveldata = veldata(veldata<0);
+end
+
+SET(nom).Flow.Result(roinbr).velmean(:) = squeeze(mean(veldata,[1 2]));
+SET(nom).Flow.Result(roinbr).velstd(:) = squeeze(std(veldata,0,[1 2]));
+SET(nom).Flow.Result(roinbr).velmax(:) = squeeze(max(veldata,[],[1 2]));
+SET(nom).Flow.Result(roinbr).velmin(:) = squeeze(min(veldata,[],[1 2]));
+SET(nom).Flow.Result(roinbr).kenergy(:) = squeeze(sum((veldata/100).^3/2*(SET(nom).ResolutionX*SET(nom).ResolutionY/1e6)*1060, [1 2])); %kg/m^3
+SET(nom).Flow.Result(roinbr).area(:) = SET(nom).ResolutionX*SET(nom).ResolutionY*squeeze(sum(mask, [1 2]))/100; %cm^2
+% % SET(nom).Flow.Result(roinbr).netflow(tloop) = (10/1000)*SET(nom).ResolutionX*SET(nom).ResolutionY*sum(veldata); %cm^3
+% % SET(nom).Flow.Result(roinbr).posflow(tloop) = (10/1000)*SET(nom).ResolutionX*SET(nom).ResolutionY*sum(posveldata); %cm^3
+% % SET(nom).Flow.Result(roinbr).negflow(tloop) = (10/1000)*SET(nom).ResolutionX*SET(nom).ResolutionY*sum(negveldata); %cm^3
+
+%Add flow results to regular Roi areas
+% % SET(nom).Roi(roinbr).Area = SET(nom).Flow.Result(roinbr).area;
+% % 
+% % SET(nom).Flow.Result(roinbr).diameter = NaN;
+% % hr = (60/(SET(nom).TSize*SET(nom).TIncr));
+% % 
+% % netflow = SET(nom).Flow.Result(roinbr).netflow;
+% % timeframes = SET(nom).Roi(roinbr).T;%1:SET(nom).TSize;
+% % TIncr = SET(nom).TIncr;
+% % 
+% % %Sum
+% % SET(nom).Flow.Result(roinbr).nettotvol = nansum(netflow(timeframes))*TIncr;
+% % SET(nom).Flow.Result(roinbr).netforwardvol = nansum(netflow(timeframes).*(netflow(timeframes)>0))*TIncr;
+% % SET(nom).Flow.Result(roinbr).netbackwardvol = nansum(netflow(timeframes).*(netflow(timeframes)<0))*TIncr;
+% % SET(nom).Flow.Result(roinbr).regfrac = abs(100*SET(nom).Flow.Result(roinbr).netbackwardvol/SET(nom).Flow.Result(roinbr).netforwardvol);
+% % SET(nom).Flow.Result(roinbr).sv = SET(nom).Flow.Result(roinbr).nettotvol/hr*60;
 
 %--------------------
 function calcflow(no) %#ok<DEFNU>
@@ -3068,12 +3472,39 @@ nop = SET(nom).Flow.PhaseNo;
 warnedempty = false;
 outsize = [SET(nom).XSize SET(nom).YSize];
 roinbr = SET(nom).RoiCurrent;
-
-if length(SET(nom).Roi(roinbr).T)==1  %For non-time resolved Phase Contrast images
-  SET(nom).TIncr=1;
+if isempty(roinbr)
+  myfailed('No ROIs available.',DATA.GUI.Segment);
+  return
 end
 
-for tloop = SET(nom).Roi(roinbr).T
+if DATA.DoThisFrameOnly
+  tvec = SET(nom).CurrentTimeFrame;
+else
+  tvec = SET(nom).Roi(roinbr).T;
+end
+
+numtimeframes = length(SET(nom).Roi(roinbr).T);
+if (numtimeframes - sum(isnan(SET(nom).Roi(roinbr).Mean))) == 1 %ROI is drawn in only one time frame
+  if numtimeframes == 1 %For non-time resolved Phase Contrast images
+    SET(nom).TIncr=1; %Continue to flow calculation based on only one time frame 
+  else
+    %Skip flow calculation since the ROI is drawn in only one time frame
+    return
+  end
+end
+%initialize with NaN
+% initvalues = nan(1,SET(nom).TSize);
+% SET(nom).Flow.Result(roinbr).velmean = initvalues;
+% SET(nom).Flow.Result(roinbr).velstd = initvalues;
+% SET(nom).Flow.Result(roinbr).velmax = initvalues;
+% SET(nom).Flow.Result(roinbr).velmin = initvalues;
+% SET(nom).Flow.Result(roinbr).kenergy = initvalues;
+% SET(nom).Flow.Result(roinbr).area = initvalues;
+% SET(nom).Flow.Result(roinbr).netflow = initvalues;
+% SET(nom).Flow.Result(roinbr).posflow = initvalues;
+% SET(nom).Flow.Result(roinbr).negflow = initvalues;
+
+for tloop = tvec
   %Create mask
   mask = logical(segment('createmask',...
     outsize,...
@@ -3097,35 +3528,50 @@ for tloop = SET(nom).Roi(roinbr).T
       %Stationary phase correction
       veldata = SET(nom).Roi(roinbr).Sign*...
         (temp-0.5-SET(nop).Flow.PhaseCorr(:,:,1,SET(nom).Roi(roinbr).Z))*2*SET(nop).VENC;
-    end;
-  end;
+    end
+  end
   
   veldata = veldata(mask);
   if isempty(veldata)
-    if not(warnedempty)
-      mywarning('Empty ROI detected. Should not occur.',DATA.GUI.Segment);
-    end;
-    warnedempty = true;
+    veldata = nan;
+    posveldata = nan;
+    negveldata = nan;
   else
     posveldata = veldata(veldata>0);
     negveldata = veldata(veldata<0);
-    SET(nom).Flow.Result(roinbr).velmean(tloop) = mean(veldata);
-    SET(nom).Flow.Result(roinbr).velstd(tloop) = std(veldata);
-    SET(nom).Flow.Result(roinbr).velmax(tloop) = max(veldata);
-    SET(nom).Flow.Result(roinbr).velmin(tloop) = min(veldata);
-    SET(nom).Flow.Result(roinbr).kenergy(tloop) = sum((veldata/100).^3/2*(SET(nom).ResolutionX*SET(nom).ResolutionY/1e6)*1060); %kg/m^3
-    SET(nom).Flow.Result(roinbr).area(tloop) = SET(nom).ResolutionX*SET(nom).ResolutionY*sum(mask(:))/100; %cm^2
-    SET(nom).Flow.Result(roinbr).netflow(tloop) = (10/1000)*SET(nom).ResolutionX*SET(nom).ResolutionY*sum(veldata); %cm^3
-    SET(nom).Flow.Result(roinbr).posflow(tloop) = (10/1000)*SET(nom).ResolutionX*SET(nom).ResolutionY*sum(posveldata); %cm^3
-    SET(nom).Flow.Result(roinbr).negflow(tloop) = (10/1000)*SET(nom).ResolutionX*SET(nom).ResolutionY*sum(negveldata); %cm^3
-  end;
-end;
+  end
+  %   if isempty(veldata)
+  %     if not(warnedempty)
+  %       mywarning('Empty ROI detected. Should not occur.',DATA.GUI.Segment);
+  %     end
+  %     warnedempty = true;
+  %   else
+  %posveldata = veldata(veldata>0);
+  %negveldata = veldata(veldata<0);
+  SET(nom).Flow.Result(roinbr).velmean(tloop) = mean(veldata);
+  SET(nom).Flow.Result(roinbr).velstd(tloop) = std(veldata);
+  SET(nom).Flow.Result(roinbr).velmax(tloop) = max(veldata);
+  SET(nom).Flow.Result(roinbr).velmin(tloop) = min(veldata);
+  SET(nom).Flow.Result(roinbr).kenergy(tloop) = sum((veldata/100).^3/2*(SET(nom).ResolutionX*SET(nom).ResolutionY/1e6)*1060); %kg/m^3
+  SET(nom).Flow.Result(roinbr).area(tloop) = SET(nom).ResolutionX*SET(nom).ResolutionY*sum(mask(:))/100; %cm^2
+  SET(nom).Flow.Result(roinbr).netflow(tloop) = (10/1000)*SET(nom).ResolutionX*SET(nom).ResolutionY*sum(veldata); %cm^3
+  SET(nom).Flow.Result(roinbr).posflow(tloop) = (10/1000)*SET(nom).ResolutionX*SET(nom).ResolutionY*sum(posveldata); %cm^3
+  SET(nom).Flow.Result(roinbr).negflow(tloop) = (10/1000)*SET(nom).ResolutionX*SET(nom).ResolutionY*sum(negveldata); %cm^3
+  %   end
+  %Add flow results to regular Roi areas
+  SET(nom).Roi(roinbr).Area(tloop) = SET(nom).Flow.Result(roinbr).area(tloop); 
+end
+
+% %Add flow results to regular Roi areas
+% SET(nom).Roi(roinbr).Area = SET(nom).Flow.Result(roinbr).area;
+
 SET(nom).Flow.Result(roinbr).diameter = NaN;
 hr = (60/(SET(nom).TSize*SET(nom).TIncr));
 
 netflow = SET(nom).Flow.Result(roinbr).netflow;
 timeframes = SET(nom).Roi(roinbr).T;%1:SET(nom).TSize;
 TIncr = SET(nom).TIncr;
+
 %Sum
 SET(nom).Flow.Result(roinbr).nettotvol = nansum(netflow(timeframes))*TIncr;
 SET(nom).Flow.Result(roinbr).netforwardvol = nansum(netflow(timeframes).*(netflow(timeframes)>0))*TIncr;
@@ -3151,7 +3597,9 @@ if ~isempty(SET(no).Flow)
     if length(SET(no).Flow.Result) == 1
       clearallflow(no);
     else
-      SET(no).Flow.Result(roinbr) = [];
+      if ~(length(SET(no).Flow.Result)< roinbr)
+        SET(no).Flow.Result(roinbr) = [];
+      end
     end
   end
 end
@@ -3159,7 +3607,7 @@ end
 
 
 %------------------------
-function clearallflow(no) 
+function clearallflow(no)
 %------------------------
 %clear all ROI flow from no
 global SET
@@ -3170,4 +3618,503 @@ end
 
 if ~isempty(SET(no).Flow)
   SET(no).Flow.Result = [];
+end
+
+%-------------------------------------------
+function varargout = calclvvolumeAVPD(no,docomp)
+%-------------------------------------------
+% this function is the old version of calclvvolume that is used on github
+% and is needed for AVPD calculation
+%Calculate LV volume. Docomp if to use longaxis motion, see below.
+%Uses area*(thickness+slicedist)
+%NOTE: the exported LVM do NOT include Papillary volume (PV)
+
+global DATA SET
+
+if nargin<2
+  docomp=true;
+elseif SET(no).Longaxis > 1%SET(NO).Longaxis > 1
+  docomp = true;
+end
+
+if SET(no).Rotated
+  calclvvolumepolar(no);
+  return;
+end
+
+ind = (findfunctions('findslicewithendo',no))|(findfunctions('findslicewithepi',no)); %Accepts empty endo and epi if exist
+
+if ~any(ind)
+  SET(no).LVV = nan(1,SET(no).TSize);
+  SET(no).EPV = SET(no).LVV;
+  SET(no).LVM = SET(no).LVV;
+  SET(no).PV = zeros(size(SET(no).LVV));
+  SET(no).PFR = 0;
+  SET(no).PER = 0;
+  SET(no).PFRT = 1;
+  SET(no).PERT = 1;
+  SET(no).ESV = 0;
+  SET(no).EDV = 0;
+  SET(no).EF = 0;
+  SET(no).SV = 0;
+  if nargout>0
+    varargout = cell(1,1);
+    varargout{1} = [];
+  end
+  if nargout>1
+    varargout{2} = [];
+  end 
+  return;
+end
+
+%Find what slices to do
+if SET(no).ZSize>1
+  pos = find(ind);
+else
+  pos = 1;
+end
+LVVall = zeros(length(pos),SET(no).TSize);
+EPVall = zeros(length(pos),SET(no).TSize);
+
+% if isempty(SET(no).EndoX)
+%   %This far then create
+%   SET(no).EndoX = nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);
+%   SET(no).EndoY = nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);  
+% end;
+% 
+% if isempty(SET(no).EpiX)
+%   %This far then create
+%   SET(no).EpiX = nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);
+%   SET(no).EpiY = nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);  
+% end;
+
+%Loop over all segmented slices
+for sloop=1:length(pos)
+  for tloop=1:SET(no).TSize
+    if ~isempty(SET(no).EndoX)&&~isnan(SET(no).EndoX(1,tloop,pos(sloop)))
+      A = stablepolyarea(...
+        SET(no).ResolutionY*SET(no).EndoY(1:end-1,tloop,pos(sloop)),...
+        SET(no).ResolutionX*SET(no).EndoX(1:end-1,tloop,pos(sloop)));
+      LVVall(sloop,tloop)=A*(SET(no).SliceThickness+SET(no).SliceGap)/1000; %to cm3
+    end
+    if ~isempty(SET(no).EpiX)&&~isnan(SET(no).EpiX(1,tloop,pos(sloop)))
+      A = stablepolyarea(...
+        SET(no).ResolutionY*SET(no).EpiY(1:end-1,tloop,pos(sloop)),...
+        SET(no).ResolutionX*SET(no).EpiX(1:end-1,tloop,pos(sloop)));
+      EPVall(sloop,tloop)=A*(SET(no).SliceThickness+SET(no).SliceGap)/1000; %to cm3
+    end
+  end
+end
+
+%Sum to get total volume
+if length(pos)>1
+  SET(no).LVV = sum(LVVall);
+  SET(no).EPV = sum(EPVall);
+else
+  SET(no).LVV = LVVall;
+  SET(no).EPV = EPVall;
+end
+SET(no).LVM = SET(no).EPV-SET(no).LVV+SET(no).PV;
+  
+if nargout>0
+  varargout = cell(1,1);
+  varargout{1} = LVVall;
+end
+
+if nargout>1
+  varargout{2} = EPVall;
+end
+
+if nargout>2
+  varargout{3} = 1.05*(EPVall-LVVall); %LVM in g, NOTE not include Papillary volume (PV)
+end
+
+%Update EDV,ESV
+SET(no).EDV = SET(no).LVV(SET(no).EDT);
+if ~isequal(SET(no).EDT,SET(no).EST)
+  SET(no).ESV = SET(no).LVV(SET(no).EST);
+else
+  SET(no).ESV = NaN;
+end
+
+if (SET(no).ZSize>2)&&docomp
+  LVVnocomp = SET(no).LVV;
+  EPVnocomp = SET(no).EPV;
+
+  for rloop=1:1 %Converges very quickly
+
+    %Calculate compensation mechanism
+    if (SET(no).LVV(SET(no).EDT)-SET(no).LVV(SET(no).EST)~=0)
+      pp = SET(no).LVV;
+      pp = pp-SET(no).LVV(SET(no).EST);
+      pp = pp./(SET(no).LVV(SET(no).EDT)-SET(no).LVV(SET(no).EST));
+      pp = 1-pp;
+      pp = min(max(pp,0),1);
+    else
+      pp = ones(size(SET(no).LVV));
+    end
+    err = zeros(1,20);
+
+    %Compensate
+    %pp = pp.*pp;
+
+    %Check if autodetect
+    if SET(no).AutoLongaxis
+      for loop=1:20
+
+        %Calculate slices
+        slices = (loop-1); %Convert to mm
+        slices = slices/(SET(no).SliceThickness+SET(no).SliceGap); %Convert to slices
+
+        sloop=1;
+        SET(no).LVV = LVVnocomp; %Restore
+        SET(no).EPV = EPVnocomp;
+        while (slices>0)&&(sloop<size(LVVall,1))
+          %Remove whole slice or fraction of it.
+          SET(no).LVV = SET(no).LVV-min(slices,1)*LVVall(sloop,:).*pp;
+          SET(no).EPV = SET(no).EPV-min(slices,1)*EPVall(sloop,:).*pp;
+          slices = slices-1;
+          sloop = sloop+1;
+        end
+
+        %Calculate error
+        err(loop) = max(SET(no).EPV-SET(no).LVV+SET(no).PV)-min(SET(no).EPV-SET(no).LVV+SET(no).PV);
+      end %loop
+      [~,inde] = min(err);
+      SET(no).Longaxis = inde;
+    end %autodetect
+
+    %Convert to slices => 1mm between, first is zero
+    slices = (SET(no).Longaxis-1);
+    if isempty(slices)
+      slices = 0;
+    end
+    slices = slices/(SET(no).SliceThickness+SET(no).SliceGap);
+
+    %Compensate the last time, now store it!
+    sloop=1;
+    SET(no).LVV = LVVnocomp; %Restore
+    SET(no).EPV = EPVnocomp;
+
+    %Check if need to fix with outline
+    if ~isempty(SET(no).EndoX)
+      zloop = find(not(isnan(SET(no).EndoX(1,SET(no).CurrentTimeFrame,:))));
+    elseif ~isempty(SET(no).EpiX)
+      zloop = find(not(isnan(SET(no).EpiX(1,SET(no).CurrentTimeFrame,:))));
+    else
+      zloop = [];
+    end
+    if isempty(zloop)
+      slices = 0;
+      zloop = SET(no).CurrentSlice;
+    else
+      zloop = zloop(1);
+    end
+
+    %Make sure that it is updated
+    %if docomp
+    %  updatemodeldisplay;
+    %end;
+    
+    while (slices>0)&&(sloop<=size(LVVall,1))
+      %Remove whole slice or fraction of it.
+      SET(no).LVV = SET(no).LVV-min(slices,1)*LVVall(sloop,:).*pp;
+      SET(no).EPV = SET(no).EPV-min(slices,1)*EPVall(sloop,:).*pp;
+     
+      [xofs,yofs] = calcoffset(zloop,'montage');
+
+      %Need to fix with outline?
+      if 0%get(DATA.Handles.volumeoutlinecheckbox,'value')
+        for tloop=1:SET(no).TSize
+          if ~isempty(SET(no).EndoX)
+            SET(no).EndoXView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
+              (SET(no).EndoX(:,tloop,zloop)-SET(no).CenterX)*(1-pp(tloop)*min(1,slices))+SET(no).CenterX+xofs;
+            SET(no).EndoYView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
+              (SET(no).EndoY(:,tloop,zloop)-SET(no).CenterY)*(1-pp(tloop)*min(1,slices))+SET(no).CenterY+yofs;
+          end
+          if ~isempty(SET(no).EpiX)
+            SET(no).EpiXView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
+              (SET(no).EpiX(:,tloop,zloop)-SET(no).CenterX)*(1-pp(tloop)*min(1,slices))+SET(no).CenterX+xofs;
+            SET(no).EpiYView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
+              (SET(no).EpiY(:,tloop,zloop)-SET(no).CenterY)*(1-pp(tloop)*min(1,slices))+SET(no).CenterY+yofs;
+          end
+        end
+      else
+        for tloop=1:SET(no).TSize
+          if ~isempty(SET(no).EndoX)
+            SET(no).EndoXView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
+              SET(no).EndoX(:,tloop,zloop)+xofs;
+            SET(no).EndoYView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
+              SET(no).EndoY(:,tloop,zloop)+yofs;
+          end
+          if ~isempty(SET(no).EpiX)
+            SET(no).EpiXView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
+              SET(no).EpiX(:,tloop,zloop)+xofs;
+            SET(no).EpiYView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
+              SET(no).EpiY(:,tloop,zloop)+yofs;
+          end
+        end
+      end
+      zloop = zloop+1;
+      slices = slices-1;
+      sloop = sloop+1;
+    end
+  end %rloop
+  
+  if DATA.Silent
+    return;
+  end
+  
+  for loop=1:length(DATA.ViewPanels)
+    if isequal(no,DATA.ViewPanels(loop))
+      if 0%isequal(get(DATA.Handles.volumeoutlinecheckbox,'value'),1) &&...
+          ismember(DATA.ViewPanelsType{DATA.CurrentPanel},{'montage','montagerow','montagefit','sax3'})
+        set(DATA.Handles.endocontour(loop),'LineStyle',':');
+        set(DATA.Handles.epicontour(loop),'LineStyle',':');
+      else
+        set(DATA.Handles.endocontour(loop),'LineStyle','-');
+        set(DATA.Handles.epicontour(loop),'LineStyle','-');
+      end
+    end
+  end
+
+end %If docompensation
+
+%-------------------------------------------
+function [xofs,yofs] = calcoffsetmodified(z,cols,sz)
+%-------------------------------------------
+%Calculate offset required to plot coordinates in viewing mode specified by
+%type.
+%This is a copy of spect.spectperfusionsegmentation('calcoffset') in order
+%to avoid using spect package 
+
+c = 1+mod(z-1,cols);
+r = ceil(z/cols);
+yofs = (c-1)*sz(2);
+xofs = (r-1)*sz(1);
+
+%-------------------------------
+function z = remapuint8modified(im,cmap) %#ok<DEFNU>
+%-------------------------------
+%Remap from image data to true color using color lookup.
+%Function modified from calcufunctions.m to not be dependent on NO
+%This is a copy of spect.spectperfusionsegmentation('remapuint8') in order
+%to avoid using spect package 
+
+warning off all;
+cmap = uint8(255*cmap);
+cmax = length(cmap);
+cmin = 1;
+
+sz = size(im);
+if isa(im,'single')||isa(im,'double')
+  z = max(min(round(cmax*im(:)),cmax),cmin);
+elseif isa(im,'int16')
+  mi = min(im(:));
+  ma = max(im(:));
+  im = single(im(:));
+  z = uint8(floor((im-mi)/(ma-mi)*256));
+  z = uint8(z)+1;
+else
+  myfailed(dprintf('Segment does not (yet) support type:%s',class(im)));
+end
+
+if (size(cmap,2)==3)
+  % Extract r,g,b components
+  z3 = repmat(uint8(0),[size(z) 3]);
+  z3(:,1) = cmap(z,1);
+  z3(:,2) = cmap(z,2);
+  z3(:,3) = cmap(z,3);
+  z = reshape(z3,[sz 3]);
+else
+  %Index color
+  z3 = repmat(uint8(0),size(z));
+  z3(:) = cmap(z(:),1);
+  z = reshape(z3,sz);
+end
+
+%----------------
+function colorname = rgb2colorshortname(rgbtripple) %#ok<DEFNU>
+%----------------
+% function to get Matlab color short name from RGB tripplet
+num = bin2dec(num2str(rgbtripple));
+switch num
+  case 5
+    colorname = 'm'; % magenta
+  case 3
+    colorname = 'c'; % cyan
+  case 2
+    colorname = 'g'; % green
+  case 4
+    colorname = 'r'; % red
+  case 0
+    colorname = 'k'; % black
+  case 7
+    colorname = 'w'; % white
+  case 1
+    colorname = 'b'; % blue
+  otherwise
+    colorname = 'y';  
+end
+
+%----------------
+function [interpX, interpY] = resetinterpolationpoints(type) %#ok<DEFNU>
+%----------------
+% this function recalculates new coordinates for existing interpolation
+% points based on their distance to the new contour
+global SET NO
+no = NO;
+interpX = SET(no).([type,'InterpX']){SET(no).CurrentTimeFrame,SET(no).CurrentSlice};
+interpY = SET(no).([type,'InterpY']){SET(no).CurrentTimeFrame,SET(no).CurrentSlice};
+
+contourX = SET(no).([type,'X']){SET(no).CurrentTimeFrame,SET(no).CurrentSlice};
+contourY = SET(no).([type,'Y']){SET(no).CurrentTimeFrame,SET(no).CurrentSlice};
+
+for point = 1:length(interpX)
+  % calc distance
+  distx = min(contourX-interpX(point));
+  disty = min(contourY-interpY(point));
+  interpX(point) = interpX(point)-distx;
+end
+
+%----------------
+function updatemarandscar(no) %#ok<DEFNU>
+%----------------
+% this function recalculates MaR and Scar if those exist
+global SET
+if not(isempty(SET(no).Scar))
+  %update scar calculation
+  viability('viabilitycalc');
+end
+if not(isempty(SET(no).MaR)) % redo MaR segmentation since LV was changed
+  if not(isempty(SET(no).MaR.MR.Artery))      
+    t2wmarsegmentation('domarsegmentation_Callback');
+  else
+    mymsgbox('Set culprit artery and redo the automatic MaR')
+    mar('auto_Callback');
+  end
+end
+
+%----------------
+function d = calcdistpointoline(pt,xpoints,ypoints) %#ok<DEFNU>
+%----------------
+% this function calculates distance from clicked point to a line give by
+% two points v1 and v2
+v1 = [xpoints(1) ypoints(1) 0];
+v2 = [xpoints(2) ypoints(2) 0];
+a = v1 - v2;
+b = pt - v2;
+d = norm(cross(a,b)) / norm(a);
+
+
+%----------------
+function [xpoints,ypoints] = calcpointsoutsideLV(xpoints,ypoints,no) %#ok<DEFNU>
+%----------------
+% this function replaces RV endo points that lie inside LV with points that
+% are outside LV
+global SET
+% get current LV Epi data
+curtf = SET(no).CurrentTimeFrame;
+curslice = SET(no).CurrentSlice;
+if ~isempty(SET(no).EpiX) && ~isempty(SET(no).EpiY) 
+  epix = SET(no).EpiX(:,curtf,curslice);
+  epiy = SET(no).EpiY(:,curtf,curslice);
+  if not(any(isnan(epix)) || any(isnan(epiy)))
+    % Here we slightly expand LV Epi contour used for calculation of 
+    % the new point location so that RV Endo points are not exactly on
+    % the Epi contour but slightly outside (code borrowed from
+    % expand/contract function)
+    %f = 1.03;
+    f=1; %RV should lie on EPI-LV in septal part
+    sz = size(SET(no).EpiX,1);
+    mx = repmat(mean(epix),sz,1);
+    my = repmat(mean(epiy),sz,1);
+    epix = mx+f*(epix-mx);
+    epiy = my+f*(epiy-my);
+    % get cursor points inside and on LV epi
+    [inlvepi, onlvepi] = inpolygon(xpoints,ypoints,epix,epiy);
+    inlvepi = inlvepi + onlvepi;
+    if any(inlvepi)
+      % if there points inside, the replace them with LV Epi points with the
+      % shortest distance
+      for curpoint = 1:length(inlvepi) % go over all points
+        if inlvepi(curpoint)
+          % get index of the point that is closest to RV Endo in expanded
+          % Epi and replace the coordinates with this point
+          [~, ind] = findfunctions('dist2contour','Epi',no,xpoints(curpoint),ypoints(curpoint),curslice,curtf);
+          xpoints(curpoint) = epix(ind);
+          ypoints(curpoint) = epiy(ind);
+        end
+      end
+    end
+  end
+end
+
+%----------------
+function imP = imtopolar(imR, rMin, rMax, M, N) %#ok<DEFNU>
+%----------------
+%IMTOPOLAR converts rectangular image to polar form. The output image is
+% an MxN image with M points along the r axis and N points along the theta
+% axis. The origin of the image is assumed to be at the center of the given
+% image. The image is assumed to be grayscale.
+% Bilinear interpolation is used to interpolate between points not exactly
+% in the image.
+%
+% rMin and rMax should be between 0 and 1 and rMin < rMax. r = 0 is the
+% center of the image and r = 1 is half the width or height of the image.
+%
+% V0.1 7 Dec 2007 (Created), Prakash Manandhar pmanandhar@umassd.edu
+
+[Mr, Nr] = size(imR); % size of rectangular image
+Om = (Mr+1)/2; % co-ordinates of the center of the image
+On = (Nr+1)/2;
+sx = (Mr-1)/2; % scale factors
+sy = (Nr-1)/2;
+
+imP  = zeros(M,N);
+
+delR = (rMax - rMin)/(M-1);
+delT = 2*pi/N;
+
+for ri = 1:M
+  for ti = 1:N
+    r = rMin + (ri - 1)*delR;
+    t = (ti - 1)*delT;
+    x = r*cos(t);
+    y = r*sin(t);
+    xR = x*sx + Om;
+    yR = y*sy + On;
+    imP(ri, ti) = interpolate(imR, xR, yR);
+  end
+end
+
+%----------------
+function v = interpolate(imR, xR, yR)
+%----------------
+%INTERPOLATE used in IMTOPOLAR
+%
+% V0.1 7 Dec 2007 (Created), Prakash Manandhar pmanandhar@umassd.edu
+
+xf = floor(xR);
+xc = ceil(xR);
+yf = floor(yR);
+yc = ceil(yR);
+if xf == xc && yc == yf
+  v = imR(xc,yc);
+elseif xf == xc
+  v = imR(xf,yf) + (yR - yf)*(imR(xf,yc) - imR(xf,yf));
+elseif yf == yc
+  v = imR(xf,yf) + (xR - xf)*(imR(xc,yf) - imR(xf,yf));
+else
+  A = [ xf yf xf*yf 1
+    xf yc xf*yc 1
+    xc yf xc*yf 1
+    xc yc xc*yc 1 ];
+  r = [ imR(xf, yf)
+    imR(xf,yc)
+    imR(xc,yf)
+    imR(xc,yc) ];
+  a = A\double(r);
+  w = [xR yR xR*yR 1];
+  v = w*a;
 end

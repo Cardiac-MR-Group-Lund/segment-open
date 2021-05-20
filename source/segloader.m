@@ -55,7 +55,7 @@ classdef segloader < handle
       if self.previewmode
         s = load(filename, '-mat', 'preview', 'info');
       end
-      if not(self.previewmode) || not(isfield(s,'preview')) || not(isfield(s,'info'))
+      if not(self.previewmode) || not(isfield(s,'preview')) || not(isfield(s,'info')) || isempty(s.preview)
         s = load(filename, '-mat', 'setstruct');
       end
     catch e
@@ -92,33 +92,37 @@ classdef segloader < handle
         'Can''t continue loading after multidatafile');
     end
     
-    % Read the dicoms
+    % Read the dicoms    
     dicomdata = segdicomtags.readfiles(filenames);
-
+    
     if numel(dicomdata) == 0
       error('SEGMENT:ERROR', 'No data to load');
     end
 
     % Check if we loaded a segdicom file
-    allHasSegmentData = 1;
-    noneHasSegmentData = 1;
+%     allHasSegmentData = 1;
+%     noneHasSegmentData = 1;
+  
+    hassegmentdata = true(numel(dicomdata),1);
     for i=1:numel(dicomdata)
-      if dicomdata(1).hassegmentdata()
-        noneHasSegmentData = 0;
-      else
-        allHasSegmentData = 0;
-      end
+      hassegmentdata(i) = dicomdata(i).hassegmentdata(); 
+%       if dicomdata(1).hassegmentdata()
+%         noneHasSegmentData = 0;
+%       else
+%         allHasSegmentData = 0;
+%       end
     end
-    
+    allHasSegmentData = all(hassegmentdata);
+    noneHasSegmentData = all(not(hassegmentdata));
     if not(allHasSegmentData) && not(noneHasSegmentData)
-      error('SEGMENT:ERROR', 'Either all files or none should be segdicom files');
+      error('SEGMENT:ERROR', 'Either all files or none should be segdicom files');      
     end
     
     if allHasSegmentData && strcmp(self.type, 'empty')
       self.type = 'set';
       self.set = [];
       for i=1:numel(dicomdata)
-        self.set = [self.set; dicomdata(i).getsegmentdata()];
+        self.set = [self.set ; dicomdata(i).getsegmentdata()];
       end
       return
     end
@@ -149,19 +153,20 @@ classdef segloader < handle
     end
     segloaderprogressbar('update', struct('name', 'adddicomsdone'));
     end
-    
+        
     %-----------------------
-    function [type, r] = render(self, datapath, cropbox)
+    function [type, r, ignoreddata] = render(self, datapath, cropbox)
     %-----------------------
     % Renders the images in the loader object to a
     % Preview or a set struct suitable for passing on
     % to segment.m.
+    ignoreddata=[];
     switch self.type
       case 'empty'
         error('SEGMENT:ERROR', 'Can''t render empty loader')
-      case 'stacks';
+      case 'stacks'
         type = 'stacks';
-        r = renderstacks(self, datapath, cropbox);
+        [r,ignoreddata] = renderstacks(self, datapath, cropbox);
       case 'set'
         type = 'set';
         r = self.set;
@@ -182,7 +187,7 @@ classdef segloader < handle
           im = self.set(1).IM(:, :, 1, 1);
           tfrac = self.set(1).AcquisitionTime/(3600*24);
           acquisitiontime = sprintf('%02.0f:%02.0f:%02.0f',segloader.hour(tfrac),segloader.minute(tfrac),segloader.second(tfrac));
-          
+          [agedigit,ageunit] = calcfunctions('calcagewithunits',segloader.getpreviewdata(self.set(1).PatientInfo, 'Age'));
           desc = sprintf([...
             'Type:%s\n' ...
             'Seq:%s\n' ...
@@ -193,7 +198,7 @@ classdef segloader < handle
             'ID :\t\t%s\n' ...
             'BirthDate :\t%s\n' ...
             'Sex :\t\t%s\n' ...
-            'Age :\t\t%s\n' ...
+            'Age :\t\t%s %s\n' ...
             'HeartRate :\t%0.5g\n'], ...
             segloader.getpreviewdata(self.set(1), 'ImageType'), ...
             segloader.getpreviewdata(self.set(1), 'SequenceName'), ...
@@ -206,11 +211,13 @@ classdef segloader < handle
             segloader.getpreviewdata(...
             self.set(1).PatientInfo, 'BirthDate'), ...
             segloader.getpreviewdata(self.set(1).PatientInfo, 'Sex'), ...
-            segloader.getpreviewdata(self.set(1).PatientInfo, 'Age'), ...
+            agedigit,ageunit,...
+            ...segloader.getpreviewdata(self.set(1).PatientInfo, 'Age'), ...
             segloader.getpreviewdata(...
             self.set(1).PatientInfo, 'HeartRate') );
         else
           im = self.setpreview;
+          [agedigit,ageunit] = calcfunctions('calcagewithunits',self.setinfo.Age);
           desc = sprintf([...
             'Type:%s\n' ...
             'AcquisitionDate:\t%s\n',...
@@ -218,14 +225,14 @@ classdef segloader < handle
             'ID :\t\t%s\n' ...
             'BirthDate :\t%s\n' ...
             'Sex :\t\t%s\n' ...
-            'Age :\t\t%s\n'], ...
+            'Age :\t\t%s %s\n'], ...
             self.setinfo.ImageType, ...
             self.setinfo.AcquisitionDate, ...
             self.setinfo.Name, ...
             self.setinfo.ID, ...
             self.setinfo.BirthDate, ...
             self.setinfo.Sex, ...
-            self.setinfo.Age);
+            agedigit, ageunit);
         end
         
         filetype = self.type;
@@ -240,12 +247,13 @@ classdef segloader < handle
         acquisitiontime = self.dicoms(1).getacquisitiontime();
         if not(ischar(acquisitiontime))
           acquisitiontime = num2str(acquisitiontime);
-        end;
+        end
         secnbr = str2double(acquisitiontime);
         hours = floor(secnbr/3600);
         minutes = floor(mod(secnbr,3600)/60);
         seconds = floor(mod(secnbr,60));
         acquisitiontime = sprintf('%02.0f:%02.0f:%02.0f',hours,minutes,seconds);
+        [agedigit,ageunit] = calcfunctions('calcagewithunits',patinfo.Age);
         desc = sprintf([...
           'Type:%s\n' ...
           'Seq:%s\n' ...
@@ -257,7 +265,7 @@ classdef segloader < handle
           'ID :\t\t%s\n' ...
           'BirthDate :\t%s\n' ...
           'Sex :\t\t%s\n' ...
-          'Age :\t\t%d\n' ...
+          'Age :\t\t%d %s\n' ...
           'HeartRate :\t%0.5g\n'], ...
           self.dicoms(1).getimagetype(), ...
           self.dicoms(1).getsequencename(), ...
@@ -269,7 +277,8 @@ classdef segloader < handle
           patinfo.ID, ...
           patinfo.BirthDate, ...
           patinfo.Sex, ...
-          patinfo.Age, ...
+          agedigit,ageunit,...
+          ...patinfo.Age, ...
           self.dicoms(1).getheartrate() );
         
         filetype = self.type;
@@ -290,12 +299,13 @@ end
   
 methods (Access = private)
     %-----------------------
-    function r = renderstacks(self, datapath, cropbox)
+    function [r, ignoreddata] = renderstacks(self, datapath, cropbox)
     %-----------------------
     % This rendering method is used when the files loaded are
     % dicom files. It's called from the render method.
     
     % Init rawstacks
+    ignoreddata=[];
     lines = self.uniquelines();
     [itis, imaxis] = self.isrotated;
     if itis
@@ -319,7 +329,12 @@ methods (Access = private)
       segloaderprogressbar('update', struct('name', 'sort'));
       curdicoms = segloader.removeduplicates(curdicoms);
       curstack.setdicoms(curdicoms);
-      r = [r curstack.render( datapath, cropbox )];
+      [stack, excludecurrent]=curstack.render( datapath, cropbox);
+      if ~isempty(stack)
+        r = [r stack]; %#ok<AGROW>
+      else
+        ignoreddata=[ignoreddata; string(excludecurrent)]; %#ok<AGROW>
+      end
       clear curstack;
       segloaderprogressbar('update', struct('name', 'renderstack'));
     end
@@ -403,7 +418,7 @@ methods (Access = private)
     r = [];
     for i=1:numel(self.dicoms)
       r(end+1, :) = self.dicoms(i).getnormal();
-    end;
+    end
     
     % Sort it
     r = sortrows(r);
@@ -429,7 +444,7 @@ methods (Access = private)
     % imageposition onto the subspaces that the orientation vectors
     % span. We need this projection to separate projection to
     % separate stacks with the same orientation but diffrent positions.
-    r = struct('orientation', {}, 'linepos', {});
+    r = struct('orientation',{}, 'linepos',{}, 'seq',{},'type',{});
     
     segloaderprogressbar('update', struct('name', 'uniquelinesstart', ...
       'numdicoms', numel(self.dicoms)));
@@ -514,6 +529,24 @@ methods (Access = private)
     if norm(line1.linepos - line2.linepos) > 2 %changed from 10 NL
       return
     end
+    if ~strcmp(line1.seq, line2.seq) %not equal sequence name
+        if ~isapproxequal(norm(line1.linepos - line2.linepos),0)
+            %different sequence name and there is position difference
+            return
+        end
+        if strcmp(line1.type, line2.type) 
+          return
+        end
+    end
+
+    if ~strcmp(line1.type, line2.type) %not equal image type
+        %exlusion for Phase Contrast stacks
+         if ~cellfun(@(x,y) (contains(x,{'\M\','PCA/M','M\FFE','T1\NONE'})) && (contains(y,{'\P\','PCA/P','VELOCITY\NONE'})) || (contains(y,{'\M\','PCA/M','M\FFE','T1\NONE'})) && (contains(x,{'\P\','PCA/P','VELOCITY\NONE'})),{line1.type},{line2.type})
+          return
+%         elseif cellfun(@(x,y)(contains(x,{'\M\IR','\CR\IR','\M\FFE',}) && contains(y,{'\M\IR','\CR\IR','\M\FFE'})),{line1.type},{line2.type}) %PSIR PHILIPS
+%           return
+        end
+    end
     
     eq = true;
     end
@@ -531,7 +564,7 @@ methods (Access = private)
     % Convert from tfrac to minutes
     tfrac = tfrac-segloader.hour(tfrac)/24;
     m = floor(tfrac*24*60);
-    end;
+    end
     
     %-----------------------
     function s = second(tfrac)

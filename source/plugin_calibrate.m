@@ -126,7 +126,7 @@ SET(NO).ResolutionY = sqrt(correct_size/area);
 close(DATA.GUI.PluginCalibrate);
 
 %Update graphically in Segment to get grid around image panels correct.
-drawfunctions('drawimageno');
+viewfunctions('setview');  %drawfunctions('drawimageno');
 
 %------------
 function draw

@@ -13,12 +13,12 @@ function n = mycountunique(v,tol)
 
 if nargin<2
   tol = 1e-6;
-end;
+end
 
 if isempty(v)
   n = 0;
   return;
-end;
+end
 
 switch class(v)
   case {'double','single'}
@@ -42,9 +42,9 @@ switch class(v)
     %check if the elements are numeric
     if nargin>1
       warning('Tolerance not used for alphanumeric string.');
-    end;
+    end
     n = length(unique(v));
   otherwise
     error('Not implemented for other than numeric cells, double, and single.');
-end;
+end
 

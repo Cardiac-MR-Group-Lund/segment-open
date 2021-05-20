@@ -34,7 +34,11 @@ gui.cmap=[1 1 0;...
     .5 .5 0];
 
 if strcmp(type,'LAX')
- set(gui.handles.typepopupmenu,'String',{'Longitudinal Peak Time';'Longitudinal Strain';'Radial Peak Time';'Radial Strain'})
+ set(gui.handles.typepopupmenu,'String',{...
+   dprintf('Longitudinal Peak Time');...
+   dprintf('Longitudinal Strain');...
+   dprintf('Radial Peak Time');...
+   dprintf('Radial Strain')})
   include2ch=0;
   include3ch=0;
   include4ch=0;
@@ -91,7 +95,11 @@ for t=1:T
 end
 
 else
-  set(gui.handles.typepopupmenu,'String',{'Circumferential Peak Time';'Circumferential Strain';'Radial Peak Time';'Radial Strain'})
+  set(gui.handles.typepopupmenu,'String',{...
+    dprintf('Circumferential Peak Time');...
+    dprintf('Circumferential Strain');...
+    dprintf('Radial Peak Time');...
+    dprintf('Radial Strain')})
   no=taggroup;
   T=SET(no).TSize;
   
@@ -585,10 +593,11 @@ set(gui.handles.dyssyncedit,'String',sprintf('%0.2f/%0.2f',std(gui.tfcirc(gui.se
 strlist=get(gui.handles.typepopupmenu,'String');
 ind=get(gui.handles.typepopupmenu,'Value');
 str=strlist{ind};
+engstr = translation.dictionary(str,'English',DATA.Pref.Language); %ensure that it is English
 
 hold(h,'on')
 grid(h,'on');
-switch str
+switch engstr
   case {'Circumferential Peak Time','Longitudinal Peak Time'}
     set(h,'Ydir','reverse')
     for i=gui.sections2show%1:17
@@ -598,7 +607,7 @@ switch str
     set(h,'ytick',1:17)
     set(h,'yticklabel',ahastri(pos))
     ylim(h,[0,18])
-    legend(h,gui.handles.cumplabel,'Cumulative strain peak')
+    legend(h,gui.handles.cumplabel,dprintf('Cumulative strain peak'))
     ylabel(h,'')
     
   case 'Radial Peak Time'
@@ -610,7 +619,7 @@ switch str
     set(h,'ytick',1:17)
     set(h,'yticklabel',ahastri(pos))
     ylim(h,[0,18])  
-    legend(h,gui.handles.cumplabel,'Cumulative strain peak')
+    legend(h,gui.handles.cumplabel,dprintf('Cumulative strain peak'))
     ylabel(h,'')
     
   case {'Circumferential Strain','Longitudinal Strain'}
@@ -638,7 +647,7 @@ switch str
     xlim(h,[0,gui.tvec(end)])
     ylabel(h,'%')
 end
-xlabel(h,'Heart Cycle [s/T]')
+xlabel(h,dprintf('Heart Cycle [s/T]'))
 hold(h,'off')
 
 

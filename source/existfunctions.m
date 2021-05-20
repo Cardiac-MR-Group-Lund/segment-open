@@ -20,14 +20,14 @@ global SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).EndoX) || all(isnan(SET(no).EndoX(:)))
   y = false;
 else
   %Tested enough, make true
   y = true;
-end;
+end
 
 %------------------------
 function y = existepi(no) 
@@ -37,14 +37,14 @@ global SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).EpiX) || all(isnan(SET(no).EpiX(:)))
   y = false;
 else
   %Tested enough, make true
   y = true;
-end;
+end
 
 
 %--------------------------------------
@@ -56,12 +56,12 @@ global DATA SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).EndoX) || all(isnan(SET(no).EndoX(:)))
   y = false;
   return;
-end;
+end
 
 if nargin == 3
   y = not(anyall(isnan(SET(no).EndoX(...
@@ -85,7 +85,7 @@ if DATA.ThisFrameOnly
 else
   y = not(anyall(isnan(SET(no).EndoX(...
     1,:,SET(no).StartSlice:SET(no).EndSlice))));
-end;
+end
 
 %------------------------------------
 function y = existepiinselected(no,t,s) %#ok<DEFNU>
@@ -96,12 +96,12 @@ global DATA SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).EpiX)
   y = false;
   return;
-end;
+end
 
 if nargin == 2
   y = not(anyall(isnan(SET(no).EpiX(...
@@ -125,7 +125,7 @@ if DATA.ThisFrameOnly
 else
   y = not(anyall(isnan(SET(no).EpiX(...
     1,:,SET(no).StartSlice:SET(no).EndSlice))));
-end;
+end
 
 %-----------------------------------
 function y = existendoinslices(no,t) %#ok<DEFNU>
@@ -137,12 +137,12 @@ global SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).EndoX) || all(isnan(SET(no).EndoX(:)))
   y = false(SET(no).ZSize,1);
   return;
-end;
+end
 
 if nargin == 2
   y = squeeze(~isnan(SET(no).EndoX(1,t,:)));
@@ -162,12 +162,12 @@ global SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).EpiX) || all(isnan(SET(no).EpiX(:)))
   y = false(SET(no).ZSize,1);
   return;
-end;
+end
 
 if nargin == 2
   y = squeeze(~isnan(SET(no).EpiX(1,t,:)));
@@ -185,12 +185,12 @@ global DATA SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).RVEndoX)
   y = false;
   return;
-end;
+end
 
 % if strcmp(DATA.ProgramName,'Segment CMR')
 %   DATA.ThisFrameOnly = false;
@@ -202,7 +202,7 @@ if DATA.ThisFrameOnly
 else
   y = not(anyall(isnan(SET(no).RVEndoX(...
     1,:,SET(no).StartSlice:SET(no).EndSlice))));
-end;
+end
 
 %-------------------------------
 function y = existendoonlyinedes(no) %#ok<DEFNU>
@@ -212,7 +212,7 @@ global SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).EndoX) || all(isnan(SET(no).EndoX(:)))
   y = false;
@@ -239,7 +239,7 @@ global SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).EpiX) || all(isnan(SET(no).EpiX(:)))
   y = false;
@@ -266,7 +266,7 @@ global SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).RVEndoX) || all(isnan(SET(no).RVEndoX(:)))
   y = false;
@@ -293,7 +293,7 @@ global SET NO
 
 if nargin<1
   no = NO;
-end;
+end
 
 if isempty(SET(no).RVEpiX) || all(isnan(SET(no).RVEpiX(:)))
   y = false;

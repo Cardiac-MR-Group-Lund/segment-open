@@ -34,26 +34,26 @@ else
   if nargin<8
     myfailed('Too few input arguments.');
     return;
-  end;
+  end
   fidsupplied = false;
-end;
+end
 
 if isempty(fignr)
   doplot = false;
 else
   doplot = true;
   c = rand(1,1);  
-end;
+end
 
 if size(x,1)<2
   disp('Only one slice, ignored'); 
-end;
+end
 
 %If should plot
 if doplot
   figure(fignr);
   hold on;
-end;
+end
 
 %Open the file
 if ~fidsupplied
@@ -61,13 +61,13 @@ if ~fidsupplied
   if isequal(fid,-1)
     myfailed(dprintf('Could not open the file %s for writing.',[pathname filename]));
     return;
-  end;
-end;
+  end
+end
 
 %Start the file
 if ~fidsupplied
   fprintf(fid,'solid segment stl \n');
-end;
+end
 
 n = 1:size(x,2); %Vector 1-n elements along the contour
 
@@ -108,16 +108,16 @@ for row = 1:(size(x,1)-1)
     switched = true;
   else
     switched = false;
-  end;
+  end
   
   %Resample row1 according to length 
   newn = round(drow1/resolution);
   if newn<1
     newn = 1;
-  end;
+  end
   if newn>size(x,2)
     newn = size(x,2);
-  end;
+  end
   ni = linspace(1,size(x,2)-(size(x,2)-1)/newn,newn); %As the mesh is cyclic it should not interpolate to the end of the line.
   xrow1 = interp1(n,xrow1,ni);
   yrow1 = interp1(n,yrow1,ni);
@@ -127,10 +127,10 @@ for row = 1:(size(x,1)-1)
   newn = round(drow2/resolution);
   if newn<1
     newn = 1;
-  end;
+  end
   if newn>size(x,2)
     newn = size(x,2);
-  end;
+  end
   ni = linspace(1,size(x,2)-(size(x,2)-1)/newn,newn);
   xrow2 = interp1(n,xrow2,ni);
   yrow2 = interp1(n,yrow2,ni);
@@ -161,7 +161,7 @@ for row = 1:(size(x,1)-1)
     normal = -cross([x2-x1,y2-y1,z2-z1],[x3-x1,y3-y1,z3-z1]);
     if switched
       normal = -normal;
-    end;
+    end
     fprintf(fid, 'facet normal %f %f %f \n', normal );
     fprintf(fid, 'outer loop \n');
     fprintf(fid, 'vertex %f %f %f \n', x1,y1,z1);
@@ -173,7 +173,7 @@ for row = 1:(size(x,1)-1)
     if doplot
       %Graphical update
       patch([x1;x2;x3],[y1;y2;y3],[z1;z2;z3],c*ones(3,1));
-    end;
+    end
       
     %Check if not redundant triangle
     if ~isequal(closestpoint(nextind(loop)),closestpoint(nextind(loop+1)))
@@ -187,7 +187,7 @@ for row = 1:(size(x,1)-1)
       normal = -cross([x2-x4,y2-y4,z2-z4],[x4-x4,y4-y3,z4-z3]);
       if switched
         normal = -normal;
-      end;
+      end
       fprintf(fid, 'facet normal %f %f %f \n', normal );
       fprintf(fid, 'outer loop \n');
       fprintf(fid, 'vertex %f %f %f \n', x2,y2,z2);
@@ -199,11 +199,11 @@ for row = 1:(size(x,1)-1)
       if doplot
         %Graphical update
         patch([x2;x4;x3],[y2;y4;y3],[z2;z4;z3],c*ones(3,1));
-      end;
+      end
       
-    end; %If not this triangle is the same as the previous one
+    end %If not this triangle is the same as the previous one
     
-  end; %loop over number of points in the largest layer
+  end %loop over number of points in the largest layer
 
   %Close apex
   if isequal(row,size(x,1)-1) && closeapex
@@ -226,10 +226,10 @@ for row = 1:(size(x,1)-1)
       newn = round(drow2/resolution);
       if newn<1
         newn = 1;
-      end;
+      end
       if newn>size(x,2)
         newn = size(x,2);
-      end;
+      end
       ni = linspace(1,size(x,2)-(size(x,2)-1)/newn,newn);
       xrow2 = interp1(n,xrow2,ni);
       yrow2 = interp1(n,yrow2,ni);
@@ -267,19 +267,19 @@ for row = 1:(size(x,1)-1)
         if doplot
           %Graphical update
           patch([x1;x2;x3],[y1;y2;y3],[z1;z2;z3],c*ones(3,1));
-        end;
+        end
       
-      end; %Loop over points when closing
-    end; %If indeed to be closed
-  end; %Close apex and last row 
-end; %Loop over rows
+      end %Loop over points when closing
+    end %If indeed to be closed
+  end %Close apex and last row 
+end %Loop over rows
 
 %End the file
 if ~fidsupplied  
   fprintf(fid,'endsolid stl\n');
   fclose(fid);
-end;
+end
 
 if doplot
   hold off;
-end;
+end

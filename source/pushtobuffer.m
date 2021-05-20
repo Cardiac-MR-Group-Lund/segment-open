@@ -9,7 +9,7 @@ global DATA
 
 if nargin<2
   error('Expected two input arguments.');
-end;
+end
 
 buffer = DATA.Buffer.(f);
 isacell = iscell(buffer);
@@ -17,7 +17,7 @@ if isacell
   buffer = [{o} buffer];
 else
   buffer = [o buffer];
-end;
+end
 
 %Store it.
 DATA.Buffer.(f) = buffer;

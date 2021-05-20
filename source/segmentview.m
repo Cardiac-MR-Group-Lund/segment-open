@@ -12,7 +12,7 @@ function [varargout] = segmentview(varargin)
 
 if nargin==0
   varargin = {'init'};
-end;
+end
 
 macro_helper(varargin{:});
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
@@ -23,15 +23,11 @@ function init
 %Initialize GUI
 global DATA
 
-%This turns off the icon in Segment
-%Change this line when icon in Segment...
-%set(DATA.Handles.reportlongaxisicon,'state','off');
-
 %Check if no data loaded
 if ~DATA.DataLoaded
   myfailed('You need to have data loaded to run this GUI.');
   return;
-end;
+end
 
 %Real initialization
 DATA.GUI.SegmentView = mygui('segmentview.fig'); %Create object and store in global the variable DATA
@@ -80,7 +76,7 @@ else
   set([gui.handles.renamepushbutton ...
     gui.handles.deletepushbutton ...
     gui.handles.viewpushbutton],'enable','on');
-end;
+end
 
 %Update handles
 set(gui.handles.viewlistbox,'String',views);
@@ -121,7 +117,7 @@ else
   set([gui.handles.renamecontrastpushbutton ...
     gui.handles.deletecontrastpushbutton ...
     gui.handles.applypushbutton],'enable','on');
-end;
+end
 
 %Update handles
 set(gui.handles.windowlistbox,'String',windows);
@@ -159,7 +155,7 @@ loadcontrastfrompreset(gui.windowsarray(v));
 %----------------------------------
 function loadcontrastfrompreset(cv)
 %----------------------------------
-global SET NO
+global SET NO DATA
 if isfield(cv.conbri,'Contrast')
   SET(NO).IntensityMapping.Contrast = cv.conbri.Contrast;
   SET(NO).IntensityMapping.Brightness = cv.conbri.Brightness;
@@ -169,7 +165,8 @@ else
   SET(NO).IntensityMapping.Contrast = contrast;
   SET(NO).IntensityMapping.Brightness = brightness;
 end
-drawfunctions('drawcontrastimage',NO);
+DATA.ViewIM{DATA.CurrentPanel} = [];
+drawfunctions('drawimages',DATA.CurrentPanel);
 
 %-----------------------
 function delete_Callback %#ok<DEFNU>
@@ -191,7 +188,7 @@ deleteviewfrompreset(v);
 v = get(gui.handles.viewlistbox,'value');
 if ~isequal(v,1)  
   set(gui.handles.viewlistbox,'value',v-1);
-end;
+end
 
 %Call update to reflect changes
 update;
@@ -216,7 +213,7 @@ deletewindowfrompreset(v);
 v = get(gui.handles.windowlistbox,'value');
 if ~isequal(v,1)  
   set(gui.handles.windowlistbox,'value',v-1);
-end;
+end
 
 %Call update to reflect changes
 updatecontrast;
@@ -391,13 +388,13 @@ hotkey = '';
 %Please note these need to be in correct order
 if isshift
   hotkey = [hotkey 'Shift-'];
-end;
+end
 if isctrl
   hotkey = [hotkey 'Ctrl-'];
-end;
+end
 if isalt
   hotkey = [hotkey 'Alt-'];
-end;
+end
 hotkey = [hotkey hotkeystring];
 
 set(gui.handles.hotkeytext,'string',hotkey);
@@ -423,13 +420,13 @@ hotkey = '';
 %Please note these need to be in correct order
 if isshift
   hotkey = [hotkey 'Shift-'];
-end;
+end
 if isctrl
   hotkey = [hotkey 'Ctrl-'];
-end;
+end
 if isalt
   hotkey = [hotkey 'Alt-'];
-end;
+end
 hotkey = [hotkey hotkeystring];
 
 set(gui.handles.contrasthotkeytext,'string',hotkey);
@@ -690,7 +687,7 @@ if yesno(dprintf('Delete view ''%s''?',thisname))
   viewsarray = gui.viewsarray; %#ok<NASGU>
   save(gui.viewsfile,'viewsarray'); %Store to file
 else
-  myfailed('Operation cancelled.');
+%   myfailed('Operation cancelled.');
 end
 
 %---------------------------------
@@ -709,7 +706,7 @@ if yesno(dprintf('Delete contrast/brightness window ''%s''?',thisname))
   windowsarray = gui.windowsarray; %#ok<NASGU>
   save(gui.windowsfile,'windowsarray'); %Store to file
 else
-  myfailed('Operation cancelled.');
+%   myfailed('Operation cancelled.');
 end
 
 %------------------------------
@@ -718,7 +715,7 @@ function loadviewfrompreset(pv)
 %Code to bring it up!
 nos = pv.match;
 shape = pv.matrix;
-drawfunctions('drawimageview',nos,shape,pv.panelstype);
+viewfunctions('setview',shape(1),shape(2),nos,pv.panelstype);
 % DATA.ViewPanelsType = pv.panelstype;
 % DATA.ViewPanels = nos;
 % DATA.ViewIM = cell(1,numel(nos));
@@ -750,7 +747,7 @@ if exist('viewsarray','var')
     loadviewfrompreset(viewsarray(keymatch));
     return
   end
-end;
+end
 
 if exist('windowsarray','var')
   windowkeys = {windowsarray.hotkey};
@@ -759,4 +756,4 @@ if exist('windowsarray','var')
     loadcontrastfrompreset(windowsarray(keymatch));
     return
   end
-end;
+end

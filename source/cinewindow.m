@@ -8,7 +8,7 @@ if nargin==0
 else
   macro_helper(varargin{:});
   feval(varargin{:});
-end;
+end
 
 %------------
 function init
@@ -33,7 +33,7 @@ else
   %Start the timer
   start(DATA.CineTimer);
 
-end;
+end
 
 %------------------------
 function update(varargin)
@@ -47,20 +47,19 @@ if length(varargin)==1
   %length is 2. When called on setup the length is zero.
  
   try
-    set(DATA.Handles.cinetoolicon,'state','off');
     stop(DATA.CineTimer);
   catch %#ok<CTCH>
-  end;
+  end
   DATA.CineTimer = [];
   
   try
     delete(DATA.Handles.cineaxes);
   catch %#ok<CTCH>
-  end;
+  end
 
   s = [];
   return;
-end;
+end
 
 if isempty(s) || isempty(varargin)
   %First call => init
@@ -74,8 +73,8 @@ if isempty(s) || isempty(varargin)
     try
       delete(DATA.Handles.cineaxes);
     catch
-    end;
-  end;
+    end
+  end
   
   DATA.Handles.cineaxes = axes('position',...
     [0.04 0.56 0.3 0.3],... %[0.05 0.68 0.3 0.3],...
@@ -108,7 +107,7 @@ if isempty(s) || isempty(varargin)
   %Buttondown
   set(s.imagehandle,'ButtondownFcn','cinewindow(''update'',''kill'')');  
   return;
-end;
+end
 
 %next update
 s.count = s.count+1;
@@ -122,12 +121,12 @@ else
   %Get next slice
   f = 0.25;
   s.slice = 1+round((SET(s.no).ZSize-1)*rem(now*3600*24*f,1));  
-end;
+end
 
-if s.count>40000;
+if s.count>40000
   update('kill');
   return;
-end;
+end
 
 %Check if is handle
 if ishandle(s.imagehandle)
@@ -135,4 +134,4 @@ if ishandle(s.imagehandle)
 else
   update('kill');
   return;
-end;
+end

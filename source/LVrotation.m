@@ -11,7 +11,7 @@ end
 
 
 %------------
-function init
+function init %#ok<DEFNU>
 %------------
 %open the gui to define LV rotation
 global DATA NO SET
@@ -23,7 +23,7 @@ gui.slice = round(0.5*(SET(gui.no).StartSlice+SET(gui.no).EndSlice));
 
 %set rotation and slice
 set(gui.handles.rotationslider,'value',SET(gui.no).SectorRotation);
-set(gui.handles.slicetext,'String',sprintf('Slice %d',gui.slice));
+set(gui.handles.slicetext,'String',dprintf('Slice %d',gui.slice));
 if SET(NO).ZSize > 1
   set(gui.handles.sliceslider,'Min',1,'Max',...
     SET(NO).ZSize,'Value',SET(NO).ZSize-gui.slice+1,'SliderStep',...
@@ -32,7 +32,7 @@ else
   set(gui.handles.sliceslider,'Visible','off');
   set(gui.handles.slicetext,'Visible','off');
 end
-
+segment('recursekeypressfcn',gui.fig,@(hObject,eventdata)LVrotation('keypressed',eventdata))
 %plot image
 plotimage;
 
@@ -43,6 +43,67 @@ else
   ok_Callback;
 end
 
+%--------------------------
+function requestfocus 
+%--------------------------
+global DATA
+gui = DATA.GUI.LVrotation;
+warning off
+jFig = get(gui.fig,'JavaFrame'); 
+jFig.requestFocus; 
+warning on;
+
+%-------------------------
+function keypressed(evt) %#ok<DEFNU>
+%-------------------------
+%%Keypress function
+global DATA
+gui = DATA.GUI.LVrotation;
+% take away focus from sliders
+requestfocus;
+switch evt.Key
+  case {'downarrow','uparrow'}
+    %move slice
+    oldvalue = mygetslider(gui.handles.sliceslider);
+    h = gui.handles.sliceslider;
+    stepvalue = (h.Max - h.Min)*h.SliderStep(1);
+    if contains(evt.Key,'up')
+      newvalue = oldvalue + stepvalue;
+    else
+      newvalue = oldvalue - stepvalue;
+    end
+    if newvalue > h.Min && newvalue < h.Max
+      gui.handles.sliceslider.Value = newvalue;
+    elseif newvalue > h.Max
+      gui.handles.sliceslider.Value = h.Max;
+    elseif newvalue < h.Min
+      gui.handles.sliceslider.Value = h.Min;
+    end
+    sliceslider_Callback
+  
+    
+  case {'rightarrow','leftarrow'}
+    oldvalue = mygetslider(gui.handles.rotationslider);
+    h = gui.handles.rotationslider;
+    stepvalue = (h.Max - h.Min)*h.SliderStep(1);
+    if contains(evt.Key,'right')
+      newvalue = oldvalue + stepvalue;
+    else
+      newvalue = oldvalue - stepvalue;
+    end
+    if newvalue > h.Min && newvalue < h.Max
+      gui.handles.rotationslider.Value = newvalue;
+    elseif newvalue > h.Max
+      gui.handles.rotationslider.Value = h.Max;
+    elseif newvalue < h.Min
+      gui.handles.rotationslider.Value = h.Min;
+    end
+    rotationslider_Callback
+  
+  otherwise
+    return
+
+end
 
 %-----------------
 function plotimage
@@ -70,19 +131,19 @@ if not(DATA.Pref.RadialProfiles == DATA.NumPoints)
   [endox,endoy] = calcfunctions('resamplemodel',SET(gui.no).EndoX(:,tf,gui.slice),SET(gui.no).EndoY(:,tf,gui.slice),DATA.Pref.RadialProfiles);
   if ~isempty(SET(gui.no).EpiX)
     [epix,epiy] = calcfunctions('resamplemodel',SET(gui.no).EpiX(:,tf,gui.slice), SET(gui.no).EpiY(:,tf,gui.slice),DATA.Pref.RadialProfiles);
-  end;
+  end
 else
   endox = SET(gui.no).EndoX(:,tf,gui.slice);
   endoy = SET(gui.no).EndoY(:,tf,gui.slice);
   if ~isempty(SET(gui.no).EpiX)
     epix = SET(gui.no).EpiX(:,tf,gui.slice);
     epiy = SET(gui.no).EpiY(:,tf,gui.slice);
-  end;
-end;
+  end
+end
 if isempty(SET(gui.no).EpiX)
   epix = NaN;
   epiy = NaN;
-end;
+end
 
 %Plot contours
 hold(gui.handles.imageaxes,'on');
@@ -135,15 +196,16 @@ plotimage;
 
 
 %----------------------------
-function sliceslider_Callback %#ok<DEFNU>
+function sliceslider_Callback 
 %----------------------------
 %Callback for slider to toggle slice
 global DATA SET
 gui = DATA.GUI.LVrotation;
+requestfocus;
 
 gui.slice = SET(gui.no).ZSize-round(mygetvalue(gui.handles.sliceslider))+1;
 set(gui.handles.sliceslider,'Value',round(mygetvalue(gui.handles.sliceslider)));
-set(gui.handles.slicetext,'String',sprintf('Slice %d',gui.slice));
+set(gui.handles.slicetext,'String',dprintf('Slice %d',gui.slice));
 plotimage;
 
 
@@ -154,6 +216,7 @@ function rotationfromannotation_Callback %#ok<DEFNU>
 
 global DATA SET
 gui = DATA.GUI.LVrotation;
+requestfocus;
 
 v = get(gui.handles.rotationfromannotationcheckbox,'value');
 if v
@@ -180,13 +243,13 @@ slices = false(1,SET(no).ZSize);
 for loop = 1:length(SET(no).Point.Z)
   if isequal(SET(no).Point.Label{loop},'RV insertion') || isequal(SET(no).Point.Label{loop},'P1')|| isequal(SET(no).Point.Label{loop},'P2')
     slices(SET(no).Point.Z(loop)) = true;
-  end;
-end;
+  end
+end
 
 %Find slices
 pos = find(slices);
 if isempty(pos)
-  mywarning(sprintf('No RV points found. Current sector rotation is %0.5g',SET(no).SectorRotation)); 
+  mywarning(dprintf('No RV points found. Define two RV annotation points.')); 
   return
 end
 pos = reportbullseye('sectorrotationhelper',no);
@@ -210,7 +273,7 @@ close_Callback;
 reportbullseye('startbullseye');
 
 %------------------------
-function cancel_Callback
+function cancel_Callback %#ok<DEFNU>
 %-----------------------
 %cancel the analysis and close the LV rotation interface
 close_Callback;

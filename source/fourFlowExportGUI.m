@@ -352,12 +352,12 @@ global DATA NO
 
 gui = DATA.GUI.FourFlowExport; %get from the global variable
 %Ask for filename
-temp = pwd;
+temp = DATA.SegmentFolder;
 if exist(DATA.Pref.exportpath,'dir')
   cd(DATA.Pref.exportpath);
 else
   mywarning('Export path does not exist, please check preferences.');
-end;
+end
 
 pathname = myuigetdir('DATA.Pref.datapath', 'Choose empty directory for export');
 choice = 2;

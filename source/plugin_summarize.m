@@ -9,7 +9,7 @@ function varargout = plugin_summarize(fcn,varargin)
 if nargin==0 
   myfailed('Requires more than one input argument.');
   return;
-end;
+end
 
 switch fcn
 	case 'getname'
@@ -49,7 +49,7 @@ switch fcn
   otherwise
     macro_helper(fcn,varargin{:});
 		[varargout{1:nargout}] = feval(fcn,varargin{:}); % FEVAL switchyard
-end;
+end
 
 %------------------------------
 function [outdata,ind] = header
@@ -115,9 +115,9 @@ global DATA SET NO
 pathname = DATA.Pref.datapath;
 pathname = myuigetdir(pathname,'Select a folder with .mat files');
 if isequal(pathname,0)
-  myfailed('Aborted.');
+%   myfailed('Aborted.');
   return;
-end;
+end
 
 %Find files to process
 files2load = dir([pathname filesep '*.mat']);
@@ -126,7 +126,7 @@ numfiles = length(files2load);
 if numfiles==0
   myfailed('Found no files to summarize.');
   return;
-end;
+end
 
 includenormalized = yesno('Do you want to include BSA normalized values?');
 
@@ -137,7 +137,7 @@ outdata = cell(numfiles+1,37); %+1 since header, 37 since header size
 %--- Write header
 for loop=1:length(temp)
   outdata{1,loop} = temp{loop};
-end;
+end
 
 %Loop over all files
 h = mywaitbarstart(numfiles,'Please wait, loading and summarizing files.',1);
@@ -169,9 +169,9 @@ for fileloop=1:numfiles
     
     %Call one to get info in one line.
     temp = one(false); %no header;
-    for loop=2:size(temp,2);
+    for loop=2:size(temp,2)
       outdata{fileloop+1,loop} = temp{1,loop};
-    end;
+    end
   
     %Do special with flow and multiple
     
@@ -195,10 +195,10 @@ for fileloop=1:numfiles
             outdata{fileloop+1,roipos} = SET(NO).Roi(rloop).Name;
             outdata{fileloop+1,roipos+1} = tots(rloop);
             roipos = roipos+2;
-          end;
-        end;
-      end;
-    end;
+          end
+        end
+      end
+    end
     
     measurementpos = roipos;
     for sloop=1:length(SET)
@@ -208,22 +208,22 @@ for fileloop=1:numfiles
         outdata{fileloop+1,measurementpos} = SET(sloop).Measure(mloop).Name;
         outdata{fileloop+1,measurementpos+1} = SET(sloop).Measure(mloop).Length;
         measurementpos = measurementpos+2;
-      end;
-    end;
+      end
+    end
     
    catch %#ok<CTCH>
      %--- Some thing went wrong
      outdata{fileloop+1,2} = 'FAILED.';
    end
     h = mywaitbarupdate(h);
-end; %loop over files
+end %loop over files
 mywaitbarclose(h);
 
 %If not wanted remove non normalized values.
 ind = true(1,size(outdata,2));
 if ~includenormalized
   ind(indforbsa) = false;
-end;
+end
 outdata = outdata(:,ind);
 
 %--- Output to a string
@@ -247,13 +247,13 @@ global SET NO
 
 if isnan(no)
   no = NO;
-end;
+end
 
 outdata = cell(1,20);
 
 if nargin==0
   doheader = true;
-end;
+end
 
 if doheader
   %Write Header
@@ -261,11 +261,11 @@ if doheader
   row = 2;
 else
   row = 1;
-end;
+end
 
 if nargout>0
   varargout = cell(1,nargout);
-end;
+end
 
 %Write data
 outdata{row, 1} = SET(no).FileName;
@@ -285,13 +285,13 @@ try
   rvm = 0.5*(SET(no).RVM(SET(no).EDT)+SET(no).RVM(SET(no).EST));
 catch %#ok<CTCH>
   rvm = NaN;
-end;
+end
 
 if SET(no).PatientInfo.BSA==0
   bsa_1 = NaN;
 else
   bsa_1 = 1/SET(no).BSA;
-end;
+end
 
 outdata{row,12} = lvm;
 outdata{row,13} = lvm*1.05;
@@ -328,13 +328,13 @@ if length(scarno)>1
   scar2use = false(size(scarno));
   for sloop=1:length(scarno)
     scar2use(sloop) = existfunctions('existendo',scarno(sloop)) && not(isempty(SET(scarno(sloop)).Scar));
-  end;
+  end
   scarno = scarno(scar2use);
   if length(scarno)>1
     mywarning('Detected multiple scar data. Taking first (arbitrary decision)');
     scarno = scarno(1); %Take first just arbitrary.
-  end;
-end;
+  end
+end
 
 if ~isempty(scarno)
   lvmde = SET(scarno).LVM(SET(scarno).EDT);
@@ -382,10 +382,10 @@ if ~isempty(scarno)
     %For backwards compability.
     if isnan(SET(scarno).Scar.MOPercentage)
       viability('viabilitycalcvolume',scarno);
-    end;
+    end
     
     outdata{row,46} = SET(scarno).Scar.MOPercentage;
-  end;
+  end
 else
   outdata{row,36} = NaN;
   outdata{row,37} = NaN;
@@ -398,7 +398,7 @@ else
   outdata{row,44} = NaN;
   outdata{row,45} = NaN;
   outdata{row,46} = NaN;
-end;
+end
 
 
 %Flow
@@ -416,14 +416,14 @@ if ~isempty(flowno)
       for rloop=1:length(tots)
         if doheader
           outdata{1,roipos} = sprintf('%s[tot ml]',SET(NO).Roi(rloop).Name);
-        end;
+        end
         outdata{row,roipos} = tots(rloop);
         roipos = roipos+1;
-      end;
-    end;
+      end
+    end
     
-  end;
-end;
+  end
+end
 
 %Measurements
 measurementpos = roipos;
@@ -431,15 +431,15 @@ for sloop=1:length(SET)
   for mloop=1:length(SET(sloop).Measure)
     if doheader
       outdata{1,measurementpos} = [SET(sloop).Measure(mloop).Name '[mm]'];
-    end;
+    end
     outdata{row,measurementpos} = SET(sloop).Measure(mloop).Length;
     measurementpos = measurementpos+1;
-  end;
-end;
+  end
+end
   
 %If called with no output arguments then copy to clipboard.
 if nargout==0
   segment('cell2clipboard',outdata);
 else
   varargout{1} = outdata;
-end;
+end

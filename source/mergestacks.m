@@ -8,12 +8,13 @@ function [varargout] = mergestacks(varargin)
 %Minor bugfixing by Einar Heiberg
 
 
-global SET
+global SET DATA
 
 if nargin < 1
   %Launch GUI
-  fig = openfig('mergestacks.fig');
-  handles = guihandles(fig);
+  gui = mygui('mergestacks.fig');
+  DATA.GUI.MergeStacks = gui;
+  handles = gui.handles;
   stackc = cell(1,numel(SET));
   for no = 1:numel(SET)
     stackc{no} = sprintf('%d. %s, %s',no,SET(no).ImageType,SET(no).ImageViewPlane);
@@ -83,7 +84,7 @@ else
     else
       domerge(nos);
     end
-    segment('switchtoimagestack',numel(SET),true);
+    viewfunctions('setview',1,1,numel(SET),{'one'})%segment('switchtoimagestack',numel(SET),true);
     flushlog;
     close(handles.figure1);
   end
@@ -127,10 +128,10 @@ while numel(nostomerge) > 1
     area1 = SET(no1).ResolutionX*SET(no1).ResolutionY;
     area2 = SET(no2).ResolutionX*SET(no2).ResolutionY;
     if ~yesno(dprintf('Not the same ResolutionX or Resolution Y, difference in percentage of area in pixels is: %0.5g %%. This will introduce and error in the quantification, proceed?',...
-        100*min([area1 area2])/max([area1 area2])));
+        100*min([area1 area2])/max([area1 area2])))
       return;
-    end;
-  end;
+    end
+  end
   
   thesenos = [no1 no2];
   if all([SET(thesenos).ZSize] > 1)
@@ -272,7 +273,7 @@ while numel(nostomerge) > 1
   else
     %If not single then just add, assume CT or true count values.
     setstruct.IM(xext,yext,:,zext) = set2.IM;
-  end;
+  end
   setstruct.ZSize = newzsz;
   setstruct.XSize = max(SET(no1).XSize,set2.XSize);
   setstruct.YSize = max(SET(no1).YSize,set2.YSize);
@@ -284,12 +285,12 @@ while numel(nostomerge) > 1
     %no1 is empty but no2 is not
     viability('viabilityreset_Callback','weighted',no1);
     setstruct.Scar = SET(no1).Scar;
-  end;
+  end
   if ~isempty(setstruct.Scar) && isempty(set2.Scar)
     %no1 have scar but no2 not
     viability('viabilityreset_Callback','weighted',no2);
     setstruct.Scar = SET(no2).Scar;
-  end;
+  end
   
   if not(isempty(set2.Scar))
     %Assign if exist in set2
@@ -300,26 +301,26 @@ while numel(nostomerge) > 1
     %SET(no).Scar.Undo = SET(no).Scar.Undo(:,:,ind);
     setstruct.Scar.MyocardMask(xext,yext,zext) = set2.Scar.MyocardMask;
     setstruct.Scar.NoReflow(xext,yext,zext) = set2.Scar.NoReflow;
-  end;
+  end
   
   %MaR
   if isempty(setstruct.MaR) && ~isempty(set2.MaR)
     %no1 is empty but no2 is not
     mar('initdefault',no1);
     setstruct.MaR = SET(no1).MaR;
-  end;
+  end
   if ~isempty(setstruct.MaR) && isempty(set2.MaR)
     %no1 have mar but no2 not
     mar('initdefault',no2);
     setstruct.MaR = SET(no2).MaR;
-  end;
+  end
   
   if not(isempty(setstruct.MaR))
     setstruct.MaR.Auto(xext,yext,:,zext) = set2.MaR.Auto;
     setstruct.MaR.Result(xext,yext,:,zext) = set2.MaR.Result;
     setstruct.MaR.Manual(xext,yext,:,zext) = set2.MaR.Manual;
     setstruct.MaR.MyocardMask(xext,yext,:,zext) = set2.MaR.MyocardMask;
-  end;
+  end
   
   %Merge contours
   contfields = {'Endo','Epi','RVEndo','RVEpi',...
@@ -373,18 +374,18 @@ while numel(nostomerge) > 1
   for loop=1:set2.RoiN
     set2.Roi(loop).Z = zext(set2.Roi(loop).Z);
     setstruct.Roi = [setstruct.Roi set2.Roi(loop)];
-  end;
+  end
   setstruct.RoiN = setstruct.RoiN + set2.RoiN;
   if setstruct.RoiN>0
     setstruct.RoiCurrent = 1;
   else
     setstruct.RoiCurrent = [];
-  end;
+  end
   
   % Measure
   for loop=1:numel(set2.Measure)
     set2.Measure(loop).Z = zext(set2.Measure(loop).Z);
-  end;
+  end
   setstruct.Measure = [setstruct.Measure set2.Measure];
   
   %Set no of generated image stack and remove links
@@ -418,6 +419,8 @@ end
 
 drawfunctions('drawthumbnails');
 
+close_Callback; 
+
 
 %--------------------------------------------------------------------
 function initwhichstack_Callback(nostomerge)
@@ -425,10 +428,11 @@ function initwhichstack_Callback(nostomerge)
 
 global DATA SET
 %Launch GUI
-DATA.GUI.whichstack = openfig('whichstack.fig');
-handles = guihandles(DATA.GUI.whichstack);
+gui = mygui('whichstack.fig');
+DATA.GUI.WhichStack = gui;
+handles = gui.handles;
 %DATA.GUI.whichstack.handles=handles;
-DATA.GUI.whichstack.nostomerge=nostomerge;
+handles.nostomerge=nostomerge;
 stackc = cell(1,numel(nostomerge));
 counter=1;
 for no = nostomerge
@@ -456,12 +460,16 @@ for no=gui.nostomerge
 end
 NO=oldNO;
 close(gcbf)
-%DATA.GUI.whichstack.proceed=1;
 
-%DATA.GUI.whichstack=[];
-% %--------------------------------------------
-% function close_Callback
-% %--------------------------------------------
-% global DATA
-% close(gcbf)
-%DATA.GUI.whichstack.proceed=0;
+%----------------------
+function close_Callback 
+%----------------------
+global DATA
+
+try
+  DATA.GUI.MergeStacks = close(DATA.GUI.MergeStacks);
+catch me
+  mydispexception(me)%#ok<CTCH>
+  DATA.GUI.MergeStacks =[];
+  delete(gcbf);
+end

@@ -13,11 +13,11 @@ else
   else
     stri = popfrombuffer('EditString');
     set(h,'String',stri); %Store value
-  end;  
-end;
+  end  
+end
 
 if DATA.RecordMacro
   tagstri = get(h,'tag');
   macro_helper('put',sprintf('pushtobuffer(''EditString'',''%s''); %% %s',stri,tagstri));
   macro_helper('switchorder'); %We need to position the slider data before the callback
-end;
+end

@@ -5,7 +5,7 @@ function h = mywaitbarupdate(varargin)
 %counter one step. Graphic is updated depends on
 %setting when intializing the structure.
 %
-%See also MYWAITBARSTART, MYWAITBARCLOSE.
+%See also MYWAITBARSTART, MYWAITBARSET, MYWAITBARCLOSE.
 
 global DATA
 
@@ -14,4 +14,4 @@ if ~isempty(DATA)
 else
   %Well seems not to be overloaded => 
   h = maingui.mywaitbarupdate(varargin{:});
-end;
+end

@@ -34,9 +34,13 @@ for segloop = 1:length(fields)
   ch4no = find(strcmp({SET.ImageViewPlane},'4CH'),1);
   if ~isempty(ch4no) && ~isempty(SET(ch4no).(xfield))
     seg4tfs = find(~isnan(SET(ch4no).(xfield)(1,:)));
-    if numel(seg4tfs) < 3
+    if ~isempty(seg4tfs)
       seg4tfs(seg4tfs == SET(ch4no).EST) = 0;
       seg4tfs(seg4tfs == SET(ch4no).EDT) = -1;
+      seg4tfs(seg4tfs>0) = [];
+      if numel(seg4tfs)<2
+          seg4tfs = [];
+      end
     end
   else
     seg4tfs = [];
@@ -46,9 +50,13 @@ for segloop = 1:length(fields)
   ch3no = find(strcmp({SET.ImageViewPlane},'3CH'),1);
   if ~isempty(ch3no) && ~isempty(SET(ch3no).(xfield))
     seg3tfs = find(~isnan(SET(ch3no).(xfield)(1,:)));
-    if numel(seg3tfs) < 3
+    if ~isempty(seg3tfs)
       seg3tfs(seg3tfs == SET(ch3no).EST) = 0;
       seg3tfs(seg3tfs == SET(ch3no).EDT) = -1;
+      seg3tfs(seg3tfs>0) = [];
+      if numel(seg3tfs)<2
+          seg3tfs = [];
+      end
     end
   else
     seg3tfs = [];
@@ -56,11 +64,15 @@ for segloop = 1:length(fields)
   end
   
   ch2no = find(strcmp({SET.ImageViewPlane},'2CH'),1);
-  if ~isempty(ch2no) && ~isempty(SET(ch2no).(xfield));
+  if ~isempty(ch2no) && ~isempty(SET(ch2no).(xfield))
     seg2tfs = find(~isnan(SET(ch2no).(xfield)(1,:)));
-    if numel(seg2tfs) < 3
+    if ~isempty(seg2tfs)
       seg2tfs(seg2tfs == SET(ch2no).EST) = 0;
       seg2tfs(seg2tfs == SET(ch2no).EDT) = -1;
+      seg2tfs(seg2tfs>0) = [];
+      if numel(seg2tfs)<2
+          seg2tfs = [];
+      end
     end
   else
     seg2tfs = [];
@@ -90,6 +102,7 @@ for segloop = 1:length(fields)
     end
   return  
   end
+    
   for tf = setdiff(intersect(seg2tfs,seg3tfs),seg4tfs)
     [~,didcalc] = calcbiplanevolume_helper([ch2no ch3no],tf,segfield);
   end
@@ -99,6 +112,7 @@ for segloop = 1:length(fields)
   for tf = setdiff(intersect(seg4tfs,seg2tfs),seg3tfs)
     [~,didcalc] = calcbiplanevolume_helper([ch4no ch2no],tf,segfield);
   end
+  
 end
 
 %------------------------------------------------------------------------
@@ -152,6 +166,22 @@ if length(nos) == 2
     end
     X = [SET(no).ResolutionX*(SET(no).(xfield)(:,timeframe)-ix(1)) ...
       SET(no).ResolutionY*(SET(no).(yfield)(:,timeframe)-iy(1))]';
+  
+    %do extra check that a horse shoe is drawn
+    %extract convhull
+    inds = convhull(X');
+    a1 = calcfunctions('stablepolyarea',X(1,:),X(2,:));
+    a2 = calcfunctions('stablepolyarea',X(1,inds),X(2,inds));
+    if a2>a1*(1.5)
+      % jelena: skip calculation for now
+      volume = nan; 
+      stus = false;
+      return
+      %this is likely a horseshoe segmentation
+      [endoindexes, epiindexes] = splithorseshowsegmentation(X, inds); 
+       X = X(:,endoindexes);
+    end
+  
     ivec = [ix(2)-ix(1);iy(2)-iy(1)];
     ivec = ivec/norm(ivec);
     S = [ivec ([0 1;-1 0]*ivec)];
@@ -189,7 +219,52 @@ if ~isempty(volfield)
 end
 
 %--------------------------------------
-function showpointinallviews(clickedim)
+function [endoindexes, epiindexes] = splithorseshowsegmentation(originalcontour, epiindexes)
+% find jumps in indices larger than 10% of the contour length
+
+minjump = floor(length(originalcontour)/10);
+maxjump = length(originalcontour) - 10;
+jumps = find (abs(diff(epiindexes)) >= minjump & abs(diff(epiindexes)) <= maxjump);
+% loop over all jumps
+contourlength = zeros(length(jumps),1);
+for loop = 1: length(jumps)
+  % calculate contour length between points
+  startindex = epiindexes(jumps(loop));
+  endindex   = epiindexes(jumps(loop) + 1);
+  if startindex > endindex
+    tmp = startindex;
+    startindex = endindex;
+    endindex = tmp;
+  end
+  x = originalcontour(1,startindex : endindex); 
+  y = originalcontour(2,startindex : endindex);
+  contourlength(loop) = sum(sqrt(diff(x).^2 + diff(y).^2)); 
+end
+[epilength,index] = max(contourlength);
+startindex = epiindexes(jumps(index));
+endindex   = epiindexes(jumps(index) + 1);
+if startindex > endindex
+  tmp = startindex;
+  startindex = endindex;
+  endindex = tmp;
+end
+epiindexes = startindex:endindex; 
+endoindexes = setdiff(1:length(originalcontour),epiindexes);
+x = originalcontour(1,endoindexes); 
+y = originalcontour(2,endoindexes);
+endolength = sum(sqrt(diff(x).^2 + diff(y).^2));
+
+if endolength > epilength
+  %switch
+  tmp = epiindexes;
+  epiindexes = endoindexes;
+  endoindexes = tmp;
+end
+
+
+
+%--------------------------------------
+function showpointinallviews(clickedim) %#ok<DEFNU>
 %--------------------------------------
 global DATA SET NO
 segment_main('normal_Buttondown',clickedim);
@@ -226,7 +301,7 @@ for i = 1:numel(h)
     case 'gla'
       [xo,yo] = calcfunctions('sax2gla',x,y,z,NO);
       plot(hloop,yo,xo,'yo');
-    case {'one','ortho'}
+    case {'one','orth'}
       plot(hloop,y,x,'yo');
     otherwise
       [xofs,yofs] = calcfunctions('calcoffset',z,[],NO);
@@ -254,27 +329,6 @@ end
 % end
 
 
-%------------------------------------
-function fourviewspushbutton_Callback
-%------------------------------------
-%Setup view matrix of four main cine views
-global DATA SET
-
-saxno = find(strcmp({SET.ImageViewPlane},'Short-axis'),1);
-ch4no = find(strcmp({SET.ImageViewPlane},'4CH'),1);
-ch3no = find(strcmp({SET.ImageViewPlane},'3CH'),1);
-ch2no = find(strcmp({SET.ImageViewPlane},'2CH'),1);
-
-if saxno && ch4no && ch3no && ch2no
-  DATA.ViewMatrix = [2 2];
-  DATA.ViewIM = {[] [] [] []};
-  DATA.ViewPanels = [saxno ch4no ch3no ch2no];
-  DATA.ViewPanelsType = {'one','one','one','one'};
-else
-  myfailed('Could not find all view planes');
-end
-
-drawfunctions('drawall');
 
 %-----------------------------------
 function cros = dointersect(no1,no2)

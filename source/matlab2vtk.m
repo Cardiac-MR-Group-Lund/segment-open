@@ -34,7 +34,7 @@ function matlab2vtk(pathname, filename, datastruct)
         disp(rotation);
         disp(delta);
         disp('------');
-    end;
+    end
     function [L, P, H, delta1, delta2, delta3, vx, vy, vz] = get_lph(partno)
         dirdim = double(datastruct(partno).DirDim);
         dd1 = dirdim(:,1);
@@ -68,13 +68,13 @@ function matlab2vtk(pathname, filename, datastruct)
         
         if voxspace(1) < 0.0
             vx = vx*-1;
-        end;
+        end
         if voxspace(2) < 0.0
             vy = vy*-1;
-        end;
+        end
         if voxspace(3) < 0.0
             vz = vz*-1;
-        end;
+        end
         clear i j k
         L = L(:);
         P = P(:);
@@ -82,7 +82,7 @@ function matlab2vtk(pathname, filename, datastruct)
         delta1 = datastruct(partno).Delta(1);
         delta2 = datastruct(partno).Delta(2);
         delta3 = datastruct(partno).Delta(3);
-    end;
+    end
 
     function [x1, x2, y1, y2, z1, z2, delta1, delta2, delta3, L, P, H, vx, vy, vz] = get_whole_extents_of_part(partno)
         [L, P, H, delta1, delta2, delta3, vx, vy, vz] = get_lph(partno);
@@ -92,7 +92,7 @@ function matlab2vtk(pathname, filename, datastruct)
         y2 = datastruct(partno).Size(2)-1;
         z1 = 0;
         z2 = datastruct(partno).Size(3)-1;
-    end;
+    end
     
     function export_vector_array(partno, geofilefid, current_time)
         fprintf(geofilefid, '\t\t\t\t<DataArray type="Float32" Name="VectorArray" format="ascii">');
@@ -100,13 +100,13 @@ function matlab2vtk(pathname, filename, datastruct)
         fprintf(geofilefid, '% f ', datastruct(partno).Data(:, :, :, current_time, 2));
         fprintf(geofilefid, '% f ', datastruct(partno).Data(:, :, :, current_time, 3));
         fprintf(geofilefid, '</DataArray>\n');
-    end;
+    end
     
     function export_2d_magnitude_array(partno, geofilefid, current_time)
         fprintf(geofilefid, '\t\t\t\t<DataArray type="Float32" Name="MagnitudeArray" format="ascii">');
         fprintf(geofilefid, '% f ', datastruct(partno).Data(:, :, :, current_time, 1));
         fprintf(geofilefid, '</DataArray>\n');
-    end;
+    end
 
     function export_points(L, P, H)
         fprintf(geofilefid, '\t\t\t<Points>\n');
@@ -117,28 +117,28 @@ function matlab2vtk(pathname, filename, datastruct)
             fprintf(geofilefid, '% f ', H);
             fprintf(geofilefid, '</DataArray>\n');
         fprintf(geofilefid, '\t\t\t</Points>\n');
-    end;
+    end
 
     function export_magnitude_array(partno, geofilefid, current_time, originalDelta)
         fprintf(geofilefid, '\t\t\t\t<DataArray type="Float32" Name="MagnitudeArray" format="ascii">');
         x = datastruct(partno).Data(:, :, :, current_time, 2);
         if originalDelta(2) < 0
             x = flip(z, 2);
-        end;
+        end
         y = datastruct(partno).Data(:, :, :, current_time, 1);
         if originalDelta(1) < 0
             y = flip(y, 1);
-        end;
+        end
         z = datastruct(partno).Data(:, :, :, current_time, 3);
         if originalDelta(3) < 0
             z = flip(z, 3);
-        end;
+        end
         
         length = sqrt(x.*x+y.*y+z.*z);
         length = permute(length,[2 1 3]);
         fprintf(geofilefid, '% f ', length);
         fprintf(geofilefid, '</DataArray>\n');
-    end;
+    end
 
     function export_maximum_magnitude_array(partno, geofilefid, current_time)
         fprintf(geofilefid, '\t\t\t\t<DataArray type="Float32" Name="MaximumMagnitudeArray" format="ascii">');
@@ -155,9 +155,9 @@ function matlab2vtk(pathname, filename, datastruct)
                     outValues(outValuesIndex) = maximumvalue;
                     outValuesIndex = outValuesIndex+1;
                     fprintf(geofilefid, '%f ', maximumvalue);
-                end;
-            end;
-        end;
+                end
+            end
+        end
         x = datastruct(partno).Data(:, :, :, current_time, 1);
         y = datastruct(partno).Data(:, :, :, current_time, 2);
         z = datastruct(partno).Data(:, :, :, current_time, 3);
@@ -165,7 +165,7 @@ function matlab2vtk(pathname, filename, datastruct)
         fprintf(geofilefid, '% f ', outValues);
         clear outValues;
         fprintf(geofilefid, '</DataArray>\n');                
-    end;
+    end
     
     function export_parts(partno, geofilefid, current_time, originalDelta)
         fprintf(geofilefid, '\t\t\t<PointData>\n');
@@ -177,10 +177,10 @@ function matlab2vtk(pathname, filename, datastruct)
                 %export_vector_array(partno, geofilefid, current_time);
                 %export_magnitude_array(partno, geofilefid, current_time, originalDelta);
                 export_maximum_magnitude_array(partno, geofilefid, current_time);
-            end;
+            end
         fprintf(geofilefid, '\t\t\t</PointData>\n');
         %export_points(L, P, H);
-    end;
+    end
 
     numparts = length(datastruct);
     %Create and open the file
@@ -189,7 +189,7 @@ function matlab2vtk(pathname, filename, datastruct)
     if isequal(casefilefid,-1)
       error(sprintf('Could not open %s for output.',[pathname filesep filename ...
         '.case']));
-    end;
+    end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
@@ -218,7 +218,7 @@ function matlab2vtk(pathname, filename, datastruct)
         geofilefid = fopen(newname,'w'); %  geofilefid = fopen(newname,'wb');
         if isequal(geofilefid,-1)
           error(sprintf('Could not open %s for output.',newname));
-        end;
+        end
 
         fprintf(geofilefid,'<?xml version="1.0"?>\n');
         fprintf(geofilefid,'<VTKFile type="ImageData" version="0.1" byte_order="LittleEndian">\n');
@@ -228,7 +228,7 @@ function matlab2vtk(pathname, filename, datastruct)
             fprintf(geofilefid, '\t\t<Piece Extent="%d %d %d %d %d %d">\n', x1, x2, y1, y2, z1, z2);
             export_parts(partno, geofilefid, current_time, originalDelta);
             fprintf(geofilefid, '\t\t</Piece>\n');
-        end;
+        end
         fprintf(geofilefid, '\t</ImageData>\n');
         fprintf(geofilefid,'</VTKFile>\n');
         fclose(geofilefid);

@@ -16,9 +16,8 @@ global DATA SET NO
 pathname = DATA.Pref.datapath;
 pathname = myuigetdir(pathname,'Select a folder with .mat files');
 if isequal(pathname,0)
-  myfailed('Aborted.');
   return;
-end;
+end
 
 files2load = dir([pathname filesep '*.mat']);
 numfiles = length(files2load);
@@ -26,7 +25,7 @@ numfiles = length(files2load);
 if numfiles==0
   myfailed('No files to do area on found.');
   return;
-end;
+end
 
 outdata = cell(numfiles+1,120);
 
@@ -68,12 +67,12 @@ for loop=1:numfiles
   if isempty(cineno)
     [cineno] = findfunctions('findscarshortaxisno');
     disp('Could not find short axis cine stack. Taking scar instead.');
-  end;
+  end
   
   if isempty(cineno)
     disp('Could not find either cine or scar stack. Taking first stack.');
     cineno = 1;
-  end;
+  end
   
   NO = cineno;
   if SET(cineno).EDT==1 && SET(cineno).EST==1
@@ -101,7 +100,7 @@ for loop=1:numfiles
     disp('No endo- or epicardium exist');
     temp = [];
   else
-    [outdata{loop+2,7} minindex] = min([endostartslice epistartslice]);
+    [outdata{loop+2,7}, minindex] = min([endostartslice epistartslice]);
     if minindex == 1
       temp = find(~isnan(SET(cineno).EndoX(1,SET(cineno).EDT,:)));
     else
@@ -111,7 +110,7 @@ for loop=1:numfiles
 
   if ~isempty(temp)
     outdata{loop+2,8} = temp(end);
-  end;
+  end
   
   if maxnumslices<=size(L,1)
     doslicenumheader = 1;
@@ -155,10 +154,10 @@ for loop=1:numfiles
       outdata{loop+2,8+100+sloop} = E(sloop,SET(cineno).EST);
       outdata{loop+2,8+200+sloop} = L(sloop,SET(cineno).EDT);
       outdata{loop+2,8+300+sloop} = L(sloop,SET(cineno).EST);
-    end;
-  end;
+    end
+  end
   h = mywaitbarupdate(h);
-end;
+end
 mywaitbarclose(h);
 
 tmp={};
@@ -185,7 +184,7 @@ global SET NO DATA
 if SET(NO).Rotated
   myfailed('Rotated image stacks currently not supported for this operation.',DATA.GUI.Segment);
   return;
-end;
+end
 
 endo = true;
 epi = true;
@@ -194,22 +193,22 @@ rvepi = true;
 
 if isempty(SET(NO).EndoX)
   endo = false;
-end;
+end
 if isempty(SET(NO).EpiX)
   epi = false;
-end;
+end
 if isempty(SET(NO).RVEndoX)
   rvendo = false;
-end;
+end
 if isempty(SET(NO).RVEpiX)
   rvepi = false;
-end;
+end
 
 numcontours = endo+epi+rvendo+rvepi;
 
 if (SET(NO).TSize>1)&&(SET(NO).Longaxis>1)
   mywarning('Automated long axis compensation not included in the export.',DATA.GUI.Segment);
-end;
+end
   
 %Reserve memory
 outdata = cell(SET(NO).ZSize+8,1+SET(NO).TSize*numcontours);
@@ -231,17 +230,17 @@ for tloop=1:SET(NO).TSize
   outdata{2,1+tloop} = sprintf('%d',tloop);
   if endo
     outdata{3,1+tloop} = SET(NO).LVV(tloop);
-  end;
+  end
   if epi
     outdata{4,1+tloop} = SET(NO).EPV(tloop);
-  end;
+  end
   if rvendo
     outdata{5,1+tloop} = SET(NO).RVV(tloop);    
-  end;
+  end
   if rvepi
     outdata{6,1+tloop} = SET(NO).RVEPV(tloop);    
-  end;  
-end;
+  end  
+end
 
 %Find number of ROI's
 temproinames=cell(1,SET(NO).RoiN);
@@ -254,29 +253,29 @@ rowoffset = 8+length(roinames);
 
 for zloop=1:SET(NO).ZSize
   outdata{rowoffset+zloop,1} = sprintf('Slice:%d',zloop);
-end;
+end
 
 coloffset = 1;
 if endo
   outdata = exportslicehelper(outdata,rowoffset,coloffset,'Endo',...
     SET(NO).EndoX,SET(NO).EndoY);
   coloffset = coloffset+SET(NO).TSize;
-end;
+end
 if epi
   outdata = exportslicehelper(outdata,rowoffset,coloffset,'Epi',...
     SET(NO).EpiX,SET(NO).EpiY);
   coloffset = coloffset+SET(NO).TSize;  
-end;
+end
 if rvendo
   outdata = exportslicehelper(outdata,rowoffset,coloffset,'RVEndo',...
     SET(NO).RVEndoX,SET(NO).RVEndoY);
   coloffset = coloffset+SET(NO).TSize;
-end;
+end
 if rvepi
   outdata = exportslicehelper(outdata,rowoffset,coloffset,'RVEpi',...
     SET(NO).RVEpiX,SET(NO).RVEpiY);
   coloffset = coloffset+SET(NO).TSize;  
-end;
+end
 
 %Find ROI's
 for loop=1:length(roinames)
@@ -298,15 +297,15 @@ for loop=1:length(roinames)
               if ~isnan(temp)
                 if isnan(roivolume(zloop,tloop))
                   roivolume(zloop,tloop) = 0;
-                end;
+                end
                 roivolume(zloop,tloop) = roivolume(zloop,tloop)+temp;
-              end;
+              end
             end
-          end;
-        end;
-      end;
-    end;
-  end;
+          end
+        end
+      end
+    end
+  end
   
   %Export ROI volume
   temp = roivolume;
@@ -316,16 +315,16 @@ for loop=1:length(roinames)
   for tloop=1:SET(NO).TSize
     outdata{rowoffset,tloop+coloffset} = sprintf('%s:TF%d',roinames{loop},tloop);
     outdata{6+loop,1+tloop} = temp(tloop);    
-  end;
+  end
   for zloop=1:SET(NO).ZSize
     for tloop=1:SET(NO).TSize
       outdata{rowoffset+zloop,tloop+coloffset} = roivolume(zloop,tloop);
-    end;
-  end;
+    end
+  end
   
   %Increae column offset
   coloffset = coloffset+SET(NO).TSize;    
-end;
+end
 
 segment('cell2clipboard',outdata);
 
@@ -337,15 +336,15 @@ global SET NO
 
 for tloop=1:SET(NO).TSize
   outdata{rowoffset,tloop+coloffset} = sprintf('%s:TF%d',type,tloop);
-end;
+end
 
 for zloop=1:SET(NO).ZSize
   for tloop=1:SET(NO).TSize
     outdata{rowoffset+zloop,tloop+coloffset} = (SET(NO).SliceThickness+SET(NO).SliceGap)*stablepolyarea(...
       SET(NO).ResolutionY*y(1:end-1,tloop,zloop),...
       SET(NO).ResolutionX*x(1:end-1,tloop,zloop))/1000;
-  end;
-end;
+  end
+end
 
 %------------------------------
 function exportcontour_Callback %#ok<DEFNU>
@@ -358,7 +357,7 @@ global SET NO DATA
 if isempty(x)
   myfailed('User aborted or no contour available.',DATA.GUI.Segment);
   return;
-end;
+end
 
 %Find slices with contour
 totinslice = size(x,1)*size(x,2);
@@ -385,19 +384,19 @@ outdata{4,1} = 'Slice';
 for tloop=1:size(x,2)
   outdata{4,2+2*(tloop-1)} = sprintf('X_tf%02d',tloop);
   outdata{4,3+2*(tloop-1)} = sprintf('Y_tf%02d',tloop);  
-end;
+end
 for zloop=1:length(slices)
   %write slice number
   for nloop=1:size(x,1)
     outdata{4+(zloop-1)*size(x,1)+nloop,1} = slices(zloop);
-  end;
+  end
   for tloop=1:size(x,2)
     for nloop=1:size(x,1)
       outdata{4+(zloop-1)*size(x,1)+nloop,2+2*(tloop-1)} = SET(NO).ResolutionX*x(nloop,tloop,slices(zloop));
       outdata{4+(zloop-1)*size(x,1)+nloop,3+2*(tloop-1)} = SET(NO).ResolutionY*y(nloop,tloop,slices(zloop));      
-    end;
-  end;
-end;
+    end
+  end
+end
 
 segment('cell2clipboard',outdata);
 
@@ -416,42 +415,42 @@ if nargin==0
     if yesno('Several images selected. Export all?')
       multipleslices = true;
       templatename = 'image_slice000';
-    end;
-  end;
-end;
+    end
+  end
+end
 
 try
-  temppwd = pwd;
+  temppwd = DATA.SegmentFolder;
   if exist(DATA.Pref.exportpath,'dir')
     cd(DATA.Pref.exportpath);
   else
     mydisp('Warning: Export path does not exist, please check preferences.');
-  end;
+  end
   
   [filename, pathname,filterindex] = myuiputfile(...
     { '*.png','PNG image (*.png)';...
     '*.jpg','JPEG image (*.jpg)';...
     '*.bmp','BMP image (*.bmp)';...
     '*.tif','TIFF image (*.tif)'},...
-    'Save file as',templatename);
+    dprintf('Save file as'),templatename);
   cd(temppwd);
   
   if isequal(filename,0)
-    myfailed('Operation cancelled.',DATA.GUI.Segment);
+%     myfailed('Operation cancelled.',DATA.GUI.Segment);
     return;
-  end;
+  end
   
   if multipleslices
     filename = removenumerics(filename);    
     slices = SET(no).StartSlice:SET(no).EndSlice;
   else
     slices = SET(no).CurrentSlice;
-  end;  
+  end  
   
   if multipleslices
     h = waitbar(0,'Please wait.');
-  end;
-  for loop = 1:length(slices);
+  end
+  for loop = 1:length(slices)
   
     %Get the image
     if nargin < 1
@@ -463,12 +462,12 @@ try
           imxsz = SET(no).XSize*scale;
           imysz = SET(no).YSize*scale;
           image2store = imresize(image2store,[imxsz imysz],'bilinear');      
-        end;
+        end
         
         image2store = calcfunctions('remapuint8viewim',image2store,no);
       else
         image2store = squeeze(DATA.ViewIM{DATA.CurrentPanel}(:,:,SET(no).CurrentTimeFrame,:));
-      end;
+      end
     end
   
     %Add extension if necessary
@@ -478,7 +477,7 @@ try
       f = fullfile(pathname,sprintf('%s%03d',filename,slices(loop)));
     else
       f = fullfile(pathname,filename);
-    end;
+    end
   
     switch filterindex
       case 1
@@ -489,7 +488,7 @@ try
         f = [f '.bmp']; %#ok<AGROW>
       case 4
         f = [f '.tif']; %#ok<AGROW>
-    end;    
+    end   
     
     switch filterindex
       case 1
@@ -501,17 +500,17 @@ try
         imwrite(image2store,f,'bmp');
       case 4
         imwrite(image2store,f,'tif');
-    end;
+    end
     
     if multipleslices
       waitbar(loop/length(slices),h);
-    end;
+    end
   
-  end; %Loop over slices (either only one or many)
+  end %Loop over slices (either only one or many)
   
   if multipleslices
     close(h);
-  end;
+  end
     
 catch me
   mydispexception(me);
@@ -529,158 +528,28 @@ function stri = removenumerics(stri)
 %Remove numbers from a filename
 stri = stri( (stri<47) | (stri>57) );
 
+
 %---------------------------
 function screenshot_Callback %#ok<DEFNU>
 %---------------------------
 %Create an image file of a screenshot of the main axis
-global DATA SET
+global DATA 
 
-temp = pwd;
-if exist(DATA.Pref.exportpath,'dir')
-  cd(DATA.Pref.exportpath);
+temp = DATA.SegmentFolder;
+if ~DATA.isSiemensVersion
+  if exist(DATA.Pref.exportpath,'dir')
+    cd(DATA.Pref.exportpath);
+  else
+    mydisp('Warning: Export path does not exist, please check preferences.');
+  end
 else
-  mydisp('Warning: Export path does not exist, please check preferences.');
-end;
-
-m = mymenu('Save to file or to PACS?','Save to file','Save to PACS',...
-  'Save for inclusion in report');
-
-switch m
-  case 1
-    [filename, pathname,filterindex] = myuiputfile(...
-      { '*.png','PNG image (*.png)';...
-      '*.jpg','JPEG image (*.jpg)';...
-      '*.bmp','BMP image (*.bmp)';...
-      '*.tif','TIFF image (*.tif)'},...
-      'Save file as','screenshot');
-  case 2 
-    filename = 'screenshot.dcm';
-    pathname = getpreferencespath;
-    filterindex = 5;
-  case 3
-    name = removeforbiddenchars(SET(1).PatientInfo.Name);
-    if isempty(name)
-      name = 'Hidden';
-    end;
-    pathname = fullfile(DATA.Pref.Pacs.ReportsheetPath, ...
-      name,'Screenshots');
-    if ~exist(pathname,'dir')
-      sucess = mkdir(pathname);
-      if ~sucess
-        myfailed('Could not create screenshot directory. Aborted');
-        return
-      end
-    end
-    reportdir = dir(fullfile(pathname,'screenshot*.png'));
-    nbrs = zeros(1,numel(reportdir));
-    for i = 1:numel(reportdir)
-      nbrs(i) = sscanf(reportdir(i).name(12:15),'%f');
-    end
-    newnbr = min(setdiff(1:9999,nbrs));
-    filename = sprintf('screenshot_%04.0f.png',newnbr);
-    filterindex = 1;
-    DATA.Pref.Pacs.ScreenshotPath=pathname;
-  case 0
-    filename = 0;
+  % allowed path in open apps
+  cd('\\tsclient\c');
 end
+cropscreenshot
+cd(temp)
 
-cd(temp);
-set(DATA.Handles.screenshoticon,'state','off');
-if isequal(filename,0)
-  myfailed('Operation cancelled.',DATA.GUI.Segment);
-  return;
-end;
 
-h = DATA.Handles.imageaxes(DATA.CurrentPanel);
-frame = mygetframe(h);
-im = frame2im(frame);
-f = fullfile(pathname,filename);
-
-%Add extension if necessary
-[~,~,ext] = fileparts(f);
-if isempty(ext)
-  switch filterindex
-    case 1
-      f = [f '.png'];
-    case 2
-      f = [f '.jpg'];
-    case 3
-      f = [f '.bmp'];
-    case 4
-      f = [f '.tif'];
-    case 5
-      f = [f '.dcm'];
-  end;
-end;
-
-switch filterindex
-  case 1
-    try
-      imwrite(im,f,'png','bitdepth',8,'software','Segment',...
-        'creationtime',datestr(now));
-      mydisp('Export successful');
-    catch
-      mydisp('Export failed');
-    end
-  case 2
-    try
-      imwrite(im,f,'jpg','quality',100);
-      mydisp('Export successful');
-    catch
-      mydisp('Export failed');
-    end
-  case 3
-    try
-      imwrite(im,f,'bmp');
-      mydisp('Export successful');
-    catch
-      mydisp('Export failed');
-    end
-  case 4
-    try
-      imwrite(im,f,'tif');
-      mydisp('Export successful');
-    catch
-      mydisp('Export failed');
-    end
-    
-  case 5
-    makeimagedicom(im,f,DATA.ViewPanels(DATA.CurrentPanel));
-    try
-      successful=pacs('savetopacs_helper',{f},getpreferencespath);
-    catch me
-      successful=0;
-      mydispexception(me);
-      myfailed(me.message);
-    end
-    try
-      status=1;
-      delete(f)
-    catch
-      status=0;
-    end
-    
-    stri='';
-    if successful
-      stri='Save to PACS success';
-    else
-      stri='Save to PACS failed';
-    end
-    
-    if status==1
-      stri=[stri,' and succesfully removed report from computer.'];
-    else
-      stri=[stri,' and failed to remove report from computer.'];
-    end
-    
-    mydisp(translation.dictionary(stri))
-end;
-%catch
-%  myfailed('Export of image failed.');
-%  return;
-%end
-
-%mymsgbox('Export successful.','Done!');
 
 %--------------------------------------------------------
 function ok = exportsavemovie(mov,left,right,up,down,fps)
@@ -698,28 +567,28 @@ if exist(DATA.Pref.exportpath,'dir')
   epath = DATA.Pref.exportpath;
 else
   mydisp('Warning: Export path does not exist, please check preferences.');
-  epath = pwd;
-end;
+  epath = DATA.SegmentFolder;
+end
 
 if nargin<2
   left = 1;
-end;
+end
 
 if nargin<3
   right = size(mov(1).cdata,2);
-end;
+end
 
 if nargin<4
   up = 1;
-end;
+end
 
 if nargin<5
   down = size(mov(1).cdata,2);
-end;
+end
 
 if nargin<6
   fps = 15;
-end;
+end
 
 ok = false; %Pessimistic
 
@@ -737,17 +606,17 @@ switch m
     if isequal(m,0)
       myfailed('User pressed cancel',DATA.GUI.Segment);
       return;
-    end;
+    end
 
     [filename, pathname] = myuiputfile(...
       '*.avi',...
-      'Save avi-file as',...
+      dprintf('Save file as'),...
       fullfile(epath,'movie.avi'));
 
     if isequal(filename,0)
-      myfailed('Operation cancelled.',DATA.GUI.Segment);
+%       myfailed('Operation cancelled.',DATA.GUI.Segment);
       return;
-    end;
+    end
     
     %Set the compressor
     switch m
@@ -761,7 +630,7 @@ switch m
         profile = 'Archival';
       otherwise
         profile = 'None';
-    end;
+    end
     
     %Open the file
     fid = VideoWriter(fullfile(pathname,filename), profile);
@@ -771,15 +640,14 @@ switch m
     %Add frames
     myworkon;
     h = mywaitbarstart(length(mov),'Please wait, storing movie.');
-    myadjust(h.h,DATA.GUI.Segment);
     for loop=1:length(mov)
       temp = mov(loop).cdata;
       if nargin>1
         temp = temp(up:down,left:right,:); %EH: 2009-08-31
-      end;
+      end
       fid.writeVideo(temp);
       h = mywaitbarupdate(h);
-    end;
+    end
     mywaitbarclose(h);
     myworkoff;
     
@@ -790,7 +658,7 @@ switch m
     %png-files
     [filename, pathname] = myuiputfile(...
       '*.*',...
-       'Save files as',...
+       dprintf('Save files as'),...
       [epath filesep 'im']);
     handles.filename = fullfile(pathname,filename);    
     [pathname,filename] = fileparts(handles.filename);
@@ -798,15 +666,14 @@ switch m
     
     myworkon;
     h = mywaitbarstart(length(mov),'Please wait, storing movie.');
-    myadjust(h.h,DATA.GUI.Segment.fig)
     for loop=1:length(mov)
       [temp] = frame2im(mov(loop));
       if nargin>1
         temp = temp(up:down,left:right,:);
-      end;
+      end
       imwrite(temp,[handles.filename sprintf('%05d.png',loop)],'png');
       h = mywaitbarupdate(h);
-    end;
+    end
     mywaitbarclose(h);
     myworkoff;
   case 3
@@ -815,20 +682,20 @@ switch m
     %Select filename
     [filename, pathname] = myuiputfile(...
       '*.gif',...
-      'Save animated gif-file as',...
+      dprintf('Save file as'),...
       fullfile(epath,'movie.gif'));
 
     if isequal(filename,0)
-      myfailed('Operation cancelled.',DATA.GUI.Segment);
+%       myfailed('Operation cancelled.',DATA.GUI.Segment);
       return;
-    end;
+    end
     
     dither = yesno('Do you want to use dithering for better colormap?');
     if dither
       ditherstring = 'dither';
     else
       ditherstring = 'nodither';
-    end;
+    end
     
     myworkon;
     h = mywaitbarstart(length(mov),'Please wait, storing movie.');
@@ -842,12 +709,12 @@ switch m
         im(1,1,1,length(mov)) = 0; %Reserve memory
       else
         im(:,:,1,loop) = rgb2ind(imrgb,map,ditherstring);
-      end;
+      end
       
       h = mywaitbarupdate(h);
-    end;
+    end
 
-    imwrite(im,map,[pathname filesep filename],'DelayTime',0,'LoopCount',inf) %g443800
+    imwrite(im,map,[pathname filesep filename],'DelayTime',1/fps,'LoopCount',inf) %g443800
 
     mywaitbarclose(h);
     myworkoff;
@@ -855,7 +722,7 @@ switch m
   otherwise
     myfailed('Saving aborted.',DATA.GUI.Segment);
     return;
-end;
+end
 
 ok = true;
 
@@ -873,18 +740,13 @@ if nargin==0
   if SET(NO).TSize==1
     myfailed('Need more than one timeframe to record movie.',DATA.GUI.Segment);
     return;
-  end;
+  end
   
-  set(DATA.Handles.movierecordericon,'state','off');
-  
-  fig = openfig('movierecorder.fig','reuse');
-  myadjust(fig,DATA.GUI.Segment);
-  blockfig(fig);
-  set(fig,'Color',get(0,'defaultUicontrolBackgroundColor'));
+  fig = mygui('movierecorder.fig');
 
   % Generate a structure of handles to pass to callbacks, and store it.
-  handles = guihandles(fig);
-  handles.fig = fig;
+  handles = fig.handles;
+  handles.fig = handles.figure1;
   handles.recording = false;
   handles.frames = SET(NO).TSize;
   handles.fps = 15;
@@ -892,6 +754,7 @@ if nargin==0
   handles.crop = false;
   handles.size = [];
   DATA.Record = true;
+  myadjust(handles.fig,DATA.GUI.Segment);
   axis(handles.previewaxes,'off');
   set(handles.framesedit,'string',sprintf('%d',handles.frames));
   mymsgbox([...
@@ -908,7 +771,7 @@ else
         set(handles.fpsedit,'String',sprintf('%d',handles.fps));
         myfailed('Could not interpret number.',handles.fig);
         return;
-      end;
+      end
       handles.fps = temp;
       set(handles.fpsedit,'String',sprintf('%d',handles.fps));      
     case 'frames'
@@ -918,7 +781,7 @@ else
         set(handles.framesedit,'String',sprintf('%d',handles.frames));
         myfailed('Could not interpret number.',handles.fig);
         return;
-      end;
+      end
       handles.frames = temp;
       set(handles.framesedit,'String',sprintf('%d',handles.frames));
     case 'newframe'
@@ -937,19 +800,19 @@ else
           else
             handles.storedframes = handles.storedframes+1;
             handles.movie(handles.storedframes) = DATA.MovieFrame;
-          end;
-          mydisp(dprintf('Frame %d stored.',handles.storedframes));
-        end;
+          end
+          mydisp(sprintf('Frame %d stored.',handles.storedframes));
+        end
         if handles.storedframes==handles.frames
           exportmovierecorder_Callback('store');
           return;
-        end;
-      end;
+        end
+      end
     case 'crop'
       if isempty(handles.size)
         myfailed('No preview available.',handles.fig);
         return;
-      end;
+      end
       mymsgbox('Click in the upper-left corner and the bottom-right corner to set crop limits.','');
       [x,y] = ginput(2);
       hold(handles.previewaxes,'on');
@@ -979,7 +842,7 @@ else
       DATA.Record = false;
       if handles.storedframes>1
         exportmovierecorder_Callback('store');
-      end;
+      end
     case 'store'
       mydisp('Storing movie to disc.');
       if not(handles.crop)
@@ -993,15 +856,25 @@ else
         handles.up = max(handles.up,1);
         handles.down = min(handles.down,handles.size(1));
         handles.crop = true;
-      end;
+      end
       ok = exportsavemovie(handles.movie,handles.left,handles.right,handles.up,handles.down,handles.fps);
       if ~ok
         myfailed('Export of movie failed.',handles.fig);
         return;
-      end;
+      end
       handles.movie = [];
       handles.storedframes = 0;
       DATA.Record = false;
+      
+      if ~isempty(DATA.GUI.StrainTagging) %to turn off Play button in Strain Window
+          gui = DATA.GUI.StrainTagging;
+          set(gui.handles.playtogglebutton,'Value',0);
+          gui.run = 0;
+      elseif ~isempty(DATA.GUI.Segment)
+          DATA.Run = 0;
+          undent(DATA.Handles.permanenticonholder,'play',0)
+      end
+      
     case 'close'
       DATA.Record = false;
       close(handles.fig);
@@ -1009,8 +882,8 @@ else
     otherwise
       myfailed(dprintf('Unknown option %s for exportmovierecorder',arg),handles.fig);
       return;
-  end;
-end;
+  end
+end
 
 %---------------------------
 function exportmovie_Callback %#ok<DEFNU>
@@ -1031,13 +904,13 @@ for tloop=1:SET(no).TSize
     mov(tloop) = im2frame(temp); %#ok<AGROW>
   else
     mov(tloop) = im2frame(temp,SET(NO).Colormap); %#ok<AGROW>    
-  end;
+  end
   h = mywaitbarupdate(h);
-end;
+end
 mywaitbarclose(h);
 
 if ~DATA.Testing
-  s = inputdlg({'Number of frames per second'},'fps',1,{sprintf('%d',15)});
+  s = myinputdlg({'Number of frames per second'},'fps',1,{sprintf('%d',15)});
 else
   s{1} = popfrombuffer('String');
 end
@@ -1049,8 +922,8 @@ else
   if not(ok)
     myfailed('Invalid fps.',DATA.GUI.Segment);
     return;
-  end;
-end;
+  end
+end
 
 %Call to save to disk
 ok = exportsavemovie(mov,1,size(temp,2),1,size(temp,1),fps);
@@ -1058,7 +931,7 @@ myworkoff;
 
 if ok
   mymsgbox('Export successful.','Done!');
-end;
+end
 
 %----------------------------------
 function exportvolumecurve_Callback %#ok<DEFNU>
@@ -1081,7 +954,7 @@ for loop=1:SET(NO).TSize
     SET(NO).RVV(loop),...
     SET(NO).RVEPV(loop))...
     ]; %#ok<AGROW>
-end;
+end
 
 clipboard('copy',stri);
 mymsgbox('Results copied to clipboard','Done!');
@@ -1103,7 +976,7 @@ for no=1:numel(SET)
     sprintf('%s\t%f\t%f\n',...
     SET(no).ImageViewPlane, spacedist, timedist) ...
     ]; %#ok<AGROW>
-end;
+end
 
 clipboard('copy',stri);
 mymsgbox('Results copied to clipboard','Done!');
@@ -1118,7 +991,7 @@ global DATA SET NO
 if isempty(SET(NO).EndoX)
   myfailed('No LV endocardium available.',DATA.GUI.Segment);
   return;
-end;
+end
 
 % Ask user for directory and filename
 [outfile, outdir] = myuiputfile;
@@ -1130,28 +1003,28 @@ if not(isempty(SET(NO).EndoX))
 	y = SET(NO).EndoY;
 	z = (0:size(x,3)-1);
 	matlab2ensightgolddeformingmesh(outdir, outfile, 'Endo', x, y, z, timesteps);
-end;
+end
 
 if not(isempty(SET(NO).EpiX))
 	x = SET(NO).EpiX;
 	y = SET(NO).EpiY;
 	z = (0:size(x,3)-1);
 	matlab2ensightgolddeformingmesh(outdir, outfile, 'Epi', x, y, z, timesteps);
-end;
+end
 
 if not(isempty(SET(NO).RVEndoX))
 	x = SET(NO).RVEndoX;
 	y = SET(NO).RVEndoY;
 	z = (0:size(x,3)-1);
 	matlab2ensightgolddeformingmesh(outdir, outfile, 'RVEndo', x, y, z, timesteps);
-end;
+end
 
 if not(isempty(SET(NO).RVEpiX))
 	x = SET(NO).RVEpiX;
 	y = SET(NO).RVEpiY;
 	z = (0:size(x,3)-1);
 	matlab2ensightgolddeformingmesh(outdir, outfile, 'RVEpi', x, y, z, timesteps);
-end;
+end
 
 %---------------------------------
 function exportlv2ensight_Callback %#ok<DEFNU>
@@ -1163,7 +1036,7 @@ global DATA SET NO
 if isempty(SET(NO).EndoX)
   myfailed('No LV endocardium available.',DATA.GUI.Segment);
   return;
-end;
+end
 
 % Started by Einar Heiberg (?)
 % Seriously by Johannes Toger Jan 20, 2009
@@ -1264,7 +1137,7 @@ global NO
 
 if nargin<1
   doheader = false;
-end;
+end
 
 exporttoclipboard_Callback(doheader,NO);
 
@@ -1274,7 +1147,7 @@ function exporttoclipboard_Callback(doheader,no)
 %Export data to clipboard. Calls another function to do the export.
 if nargin==0
   doheader = true;
-end;
+end
 
 includenormalized = yesno('Do you want to include BSA normalized values?');
 
@@ -1282,7 +1155,7 @@ if nargin<2
   exportdata(doheader,includenormalized);
 else
   exportdata(doheader,includenormalized,no);
-end;  
+end 
 
 %---------------------------------------
 function [outdata,ind] = header(onlyone)
@@ -1292,7 +1165,7 @@ if ~onlyone
   outdata{1, 1} = 'FileName';
 else
   outdata{1, 1} = 'ImageStack';
-end;
+end
 outdata{1, 2} = 'PatientName';
 outdata{1, 3} = 'PatientID';
 outdata{1, 4} = 'AcquisitionDate';
@@ -1357,7 +1230,9 @@ outdata{1,61} = 'RVPFR[ml/s]';
 outdata{1,62} = 'RVPER[ml/s]';
 outdata{1,63} = 'LVM measured at ED';
 outdata{1,64} = 'LVM measured at ES';
-
+outdata{1,65} = 'qCS-stress [ml/min / LVM]';
+outdata{1,66} = 'qCS-rest [ml/min / LVM]';
+outdata{1,67} = 'CS-MPR';
 
 ind = [9 14 16 18 20 23 28 30 32 34];
 
@@ -1384,9 +1259,9 @@ end
 pathname = DATA.Pref.datapath;
 pathname = myuigetdir(pathname,sprintf('Select a folder with .%s files',suffix));
 if isequal(pathname,0)
-  myfailed('Aborted.',DATA.GUI.Segment);
+%   myfailed('Aborted.',DATA.GUI.Segment);
   return;
-end;
+end
 
 %Find files to process
 files2load = dir([pathname filesep sprintf('*.%s',suffix)]);
@@ -1395,7 +1270,7 @@ numfiles = length(files2load);
 if numfiles==0
   myfailed('Found no files to summarize.',DATA.GUI.Segment);
   return;
-end;
+end
 
 includenormalized = yesno('Do you want to include BSA normalized values?');
 
@@ -1406,7 +1281,7 @@ outdata = cell(numfiles+1,60); %+1 since header, 58 since header size %SBT201606
 %--- Write header
 for loop=1:length(temp)
   outdata{1,loop} = temp{loop};
-end;
+end
 
 %Loop over all files
 numrows=1;
@@ -1416,7 +1291,7 @@ for fileloop=1:numfiles
   %--- Load file
   DATA.Silent = true; %Turn on "silent" mode to avoid to much update on screen when loading etc.
   
-  disp(dprintf('Loading %s.',files2load(fileloop).name)); %#ok<DSPS>
+  disp(dprintf('Loading %s.',files2load(fileloop).name)); 
   
   %Set filename
   outdata{numrows+1,1} = files2load(fileloop).name;
@@ -1452,10 +1327,10 @@ for fileloop=1:numfiles
     temp = exportdata(false,true); %false means no header; true normalized will be removed later
   
     %Copy the data
-		for col=2:size(temp,2);
-			for row=1:size(temp,1);
+		for col=2:size(temp,2)
+      for row=1:size(temp,1)
 				outdata{numrows+row,col} = temp{row,col};
-			end;
+      end
 		end
 		
 		numrows=numrows+size(temp,1);
@@ -1466,14 +1341,14 @@ for fileloop=1:numfiles
     outdata{fileloop+1,2} = 'FAILED.';
   end
   h = mywaitbarupdate(h);
-end; %loop over files
+end %loop over files
 mywaitbarclose(h);
 
 %If not wanted remove non normalized values.
 ind = true(1,size(outdata,2));
 if ~includenormalized
   ind(indforbsa) = false;
-end;
+end
 outdata = outdata(:,ind);
 
 %--- Output to a string
@@ -1508,9 +1383,9 @@ end
 pathname = DATA.Pref.datapath;
 pathname = myuigetdir(pathname,sprintf('Select a folder with .%s files',suffix));
 if isequal(pathname,0)
-  myfailed('Aborted.',DATA.GUI.Segment);
+%   myfailed('Aborted.',DATA.GUI.Segment);
   return;
-end;
+end
 
 %Find files to process
 files2load = dir([pathname filesep sprintf('*.%s',suffix)]);
@@ -1519,7 +1394,7 @@ numfiles = length(files2load);
 if numfiles==0
   myfailed('Found no files to summarize.',DATA.GUI.Segment);
   return;
-end;
+end
 
 %Store current work SET
 oldSET=SET;
@@ -1552,14 +1427,15 @@ oldSET=SET;
 % outdata{1,10} = 'HeartRate[bpm]';
 outdata{1, 1}= 'FileName';
 outdata{1, 2}= 'Stack number';
-outdata{1, 3}= 'ImageViewPlane';
-outdata{1, 4}= 'RoiName';
-outdata{1, 5}= 'Mean Area';
-outdata{1, 6}= 'Min Area';
-outdata{1, 7}= 'Max Area';
-outdata{1, 8}= 'Mean';
-outdata{1, 9}= 'StD';
-outdata{1, 10}= 'Flow';
+outdata{1, 3}= 'Image Type';
+outdata{1, 4}= 'Image View Plane';
+outdata{1, 5}= 'RoiName';
+outdata{1, 6}= 'Mean Area';
+outdata{1, 7}= 'Min Area';
+outdata{1, 8}= 'Max Area';
+outdata{1, 9}= 'Mean';
+outdata{1, 10}= 'StD';
+outdata{1, 11}= 'Flow';
 
 
 %Loop over all files
@@ -1570,10 +1446,7 @@ for fileloop=1:numfiles
   %--- Load file
   DATA.Silent = true; %Turn on "silent" mode to avoid to much update on screen when loading etc.
   
-  disp(dprintf('Loading %s.',files2load(fileloop).name)); %#ok<DSPS>
-  
-  %Set filename
-  outdata{numrows+1,1} = files2load(fileloop).name;
+  disp(dprintf('Loading %s.',files2load(fileloop).name));
   
   SET = []; % %Make sure a fresh start
   
@@ -1607,17 +1480,19 @@ for fileloop=1:numfiles
       names={};
       Rois=Rois(sortind);
       if ~(length(Rois)==1 && isempty(Rois(1).X)) 
-        outdata{numrows+1,2}=no;
-        outdata{numrows+1,3}=SET(no).ImageViewPlane;
-        for roi=Rois
-          outdata{numrows+1,4}=roi.Name;
-          outdata{numrows+1,5}=nanmean(roi.Area);
-          outdata{numrows+1,6}=min(roi.Area);
-          outdata{numrows+1,7}=max(roi.Area);
-          outdata{numrows+1,8}=nanmean(roi.Mean);
-          outdata{numrows+1,9}=nanmean(roi.StD);
+        for roi=Rois 
+          outdata{numrows+1,1} = files2load(fileloop).name;
+          outdata{numrows+1,2}=no;
+          outdata{numrows+1,3}=SET(no).ImageType;
+          outdata{numrows+1,4}=SET(no).ImageViewPlane;
+          outdata{numrows+1,5}=roi.Name;
+          outdata{numrows+1,6}=nanmean(roi.Area);
+          outdata{numrows+1,7}=min(roi.Area);
+          outdata{numrows+1,8}=max(roi.Area);
+          outdata{numrows+1,9}=nanmean(roi.Mean);
+          outdata{numrows+1,10}=nanmean(roi.StD);
           if isfield(roi, 'Flow') && ~isempty(roi.Flow)
-            outdata{numrows+1,10}=nanmean(roi.Flow.meanflow);
+            outdata{numrows+1,11}=nanmean(roi.Flow.meanflow);
           end
           numrows=numrows+1;
         end
@@ -1640,7 +1515,7 @@ for fileloop=1:numfiles
     outdata{numrows+1,2} = 'FAILED.';
   end
   h = mywaitbarupdate(h);
-end; %loop over files
+end %loop over files
 mywaitbarclose(h);
 
 %If not wanted remove non normalized values.
@@ -1674,9 +1549,9 @@ global DATA SET
 pathname = DATA.Pref.datapath;
 pathname = myuigetdir(pathname,'Select a folder with .mat files');
 if isequal(pathname,0)
-  myfailed('Aborted.',DATA.GUI.Segment);
+%   myfailed('Aborted.',DATA.GUI.Segment);
   return;
-end;
+end
 
 %Find files to process
 files2load = dir([pathname filesep '*.mat']);
@@ -1685,7 +1560,7 @@ numfiles = length(files2load);
 if numfiles==0
   myfailed('Found no files to export information about.',DATA.GUI.Segment);
   return;
-end;
+end
 
 %Create output matrix
 nbrdataperstack = 19;
@@ -1699,7 +1574,7 @@ for fileloop=1:numfiles
   %--- Load file
   DATA.Silent = true; %Turn on "silent" mode to avoid to much update on screen when loading etc.
   
-  disp(dprintf('Loading %s.',files2load(fileloop).name)); %#ok<DSPS>
+  disp(dprintf('Loading %s.',files2load(fileloop).name)); 
   
   %Set filename
   outdata{fileloop+1,1} = files2load(fileloop).name;
@@ -1727,17 +1602,17 @@ for fileloop=1:numfiles
         isscar = 'NO';
       else
         isscar = 'YES';
-      end;
+      end
       if isempty(SET(sloop).Flow)
         isflow = 'NO';
       else
         isflow = 'YES';
-      end;
+      end
       if isempty(SET(sloop).EndoX)&&isempty(SET(sloop).EpiX)
         isseg = 'NO';
       else
         isseg = 'YES';
-      end;      
+      end     
       coloffset = 1+(sloop-1)*nbrdataperstack;
       row = fileloop+1;
       outdata{row, 1+coloffset} = SET(sloop).ImageType;
@@ -1759,14 +1634,14 @@ for fileloop=1:numfiles
       outdata{row,17+coloffset} = SET(sloop).RepetitionTime;
       outdata{row,18+coloffset} = num2str(SET(sloop).InversionTime);
       outdata{row,19+coloffset} = SET(sloop).HeartRate;
-    end;
+    end
     
   %catch
   %  %--- Some thing went wrong
   %  outdata{fileloop+1,2} = 'FAILED.';
   %end
   h = mywaitbarupdate(h);
-end; %loop over files
+end %loop over files
 mywaitbarclose(h);
 
 %--- Write header
@@ -1792,7 +1667,7 @@ for sloop=1:maxno
   outdata{row,17+coloffset} = 'RepetitionTime';
   outdata{row,18+coloffset} = 'InversionTime';
   outdata{row,19+coloffset} = 'HeartRate';
-end;
+end
 
 %--- Output to a string
 segment('cell2clipboard',outdata);
@@ -1830,9 +1705,9 @@ end
 pathname = DATA.Pref.datapath;
 pathname = myuigetdir(pathname,sprintf('Select a folder with .%s files',suffix));
 if isequal(pathname,0)
-  myfailed('Aborted.',DATA.GUI.Segment);
+%   myfailed('Aborted.',DATA.GUI.Segment);
   return;
-end;
+end
 
 %Find files to process
 files2load = dir([pathname filesep sprintf('*.%s',suffix)]);
@@ -1841,7 +1716,7 @@ numfiles = length(files2load);
 if numfiles==0
   myfailed('Found no files to summarize.',DATA.GUI.Segment);
   return;
-end;
+end
 
 % do strain?
 output=questdlg('Do you wish to redo strain analysis?');
@@ -1905,7 +1780,7 @@ for fileloop=1:numfiles
               disp('Unknown image view plane');
           end
           
-          switch SET(no).ImageType;
+          switch SET(no).ImageType
             case {'Cine', 'Feature tracking'}
               imagetype='cine';
             case 'Strain from tagging'
@@ -1946,7 +1821,7 @@ for fileloop=1:numfiles
       %Skip no
     else
       
-      switch SET(no).ImageType;
+      switch SET(no).ImageType
         case {'Cine', 'Feature tracking'}
           imagetype='cine';
         case 'Strain from tagging'
@@ -2020,7 +1895,7 @@ checked= [];
       outdata{line+2,1} = 'Heart Rate';
       outdata{line+3,1} = 'Image Type';
       
-      switch SET(no).ImageType;
+      switch SET(no).ImageType
         case {'Cine', 'Feature tracking'}
           imagetype='cine';
         case 'Strain from tagging'
@@ -2033,8 +1908,8 @@ checked= [];
       %aha sections
       for loop=1:17
         [stri,pos] = reportbullseye('aha17nameandpos',loop); %Get name and position of export
-        outdata{line+8+loop,radcol} = stri;
-        outdata{line+8+loop,circcol} = stri;
+        outdata{line+8+pos,radcol} = stri;
+        outdata{line+8+pos,circcol} = stri;
       end
        outdata{line+7,1} = 'Radial strain';
      if strcmp(SET(no).ImageViewPlane,'Short-axis')
@@ -2052,7 +1927,7 @@ checked= [];
         else
           %currently used slices
           cus=[];
-          for tagno=SET(no).StrainTagging.taggroup;
+          for tagno=SET(no).StrainTagging.taggroup
             cus=[cus, ' ', SET(tagno).ImageViewPlane];
           end
           outdata{line+3,2} = sprintf('%s %s',SET(no).ImageType,cus);
@@ -2176,7 +2051,7 @@ checked= [];
         %line = line+1;
 %       end
     end
-  end; %loop over image stack
+  end %loop over image stack
   if doStrain
     %store file
     
@@ -2231,6 +2106,8 @@ function exportmultiplestrain_Callback(type) %#ok<DEFNU>
 
 global DATA SET NO
 
+doTaggroup = true;  % Correct issue with taggroup if any long-axis image have been deleted from the file
+
 suffix = 'mat';
 
 %Ask if wnat to save before closing current image stack
@@ -2247,9 +2124,9 @@ end
 pathname = DATA.Pref.datapath;
 pathname = myuigetdir(pathname,sprintf('Select a folder with .%s files',suffix));
 if isequal(pathname,0)
-  myfailed('Aborted.',DATA.GUI.Segment);
+%   myfailed('Aborted.',DATA.GUI.Segment);
   return;
-end;
+end
 
 %Find files to process
 files2load = dir([pathname filesep sprintf('*.%s',suffix)]);
@@ -2258,7 +2135,7 @@ numfiles = length(files2load);
 if numfiles==0
   myfailed('Found no files to summarize.',DATA.GUI.Segment);
   return;
-end;
+end
 
 % do strain?
 output=questdlg('Do you wish to redo strain analysis?');
@@ -2317,6 +2194,41 @@ for fileloop=1:numfiles
   bullseyeradial = cell(1,1);
   bullseyecirc = cell(1,1);
   for no=1:length(SET)
+    
+    if doTaggroup && isfield(SET(no),'StrainTagging') && not(isempty(SET(no).StrainTagging)) 
+             
+      switch SET(no).ImageViewPlane
+        case 'Short-axis'
+          imageviewplane = 'shortaxis';
+        case {'2CH','3CH','4CH'}
+          imageviewplane = 'longaxis';
+        otherwise
+          disp('Unknown image view plane');
+          imageviewplane = [];
+      end
+      
+      switch SET(no).ImageType
+        case {'Cine', 'Feature tracking'}
+          imagetype='cine';
+        case 'Strain from tagging'
+          imagetype='tagging';
+      end
+      
+      if isequal(type,imagetype) && isequal(imageviewplane,'longaxis')
+        temptaggroup=straintagging.straintagging('findtaggroup',type,1);
+        taggroup = [];
+        for i = temptaggroup
+          if isfield(SET(i).StrainTagging,'peaktf')  
+            taggroup = [taggroup i];
+          else
+          end
+        end
+        for i = temptaggroup
+          SET(i).StrainTagging.taggroup = taggroup;
+        end
+      end
+      
+    end
     if doStrain
       if ~isfield(SET(no),'StrainTagging') || isempty(SET(no).StrainTagging)||~isfield(SET(no).StrainTagging,'taggroup') ||~isfield(SET(no).StrainTagging,'transformparameters') || ismember(no,checked) ||  isempty(SET(no).EndoX) || all(isnan(SET(no).EndoX(:))) 
         %Skip this no
@@ -2337,12 +2249,13 @@ for fileloop=1:numfiles
             case 'Short-axis'
               imageviewplane = 'shortaxis';
             case {'2CH','3CH','4CH'}
-              imageviewplane = 'longaxis';              
+              imageviewplane = 'longaxis';
             otherwise
               disp('Unknown image view plane');
+              imageviewplane = [];
           end
           
-          switch SET(no).ImageType;
+          switch SET(no).ImageType
             case {'Cine', 'Feature tracking'}
               imagetype='cine';
             case 'Strain from tagging'
@@ -2351,11 +2264,11 @@ for fileloop=1:numfiles
           
           if isequal(type,imagetype)
             taggroup=straintagging.straintagging('findtaggroup',type,1);
-              for i = taggroup;
-                if ~isfield(SET(i).StrainTagging,'taggroup')
-                  SET(i).StrainTagging.taggroup = taggroup;
-                end
+            for i = taggroup
+              if ~isfield(SET(i).StrainTagging,'taggroup')
+                SET(i).StrainTagging.taggroup = taggroup;
               end
+            end
             
             NO=no;
             SET(no).StrainTagging.LVupdated=1;
@@ -2406,7 +2319,7 @@ for fileloop=1:numfiles
       %Skip no
     else
       
-      switch SET(no).ImageType;
+      switch SET(no).ImageType
         case {'Cine', 'Feature tracking'}
           imagetype='cine';
         case 'Strain from tagging'
@@ -2449,7 +2362,7 @@ for fileloop=1:numfiles
           %--- output ---
       %patient info
       outdata{line,1} = 'Patient name';
-      outdata{line,2} = 'Patient ID';
+      outdata{line,2} = 'Patient ID'; % 'Filename'; 
       outdata{line,3} = 'Heart Rate';
       outdata{line,4} = 'Image Type';
       %global strain values
@@ -2482,7 +2395,7 @@ for fileloop=1:numfiles
       end
       line = line+1;
 
-      switch SET(no).ImageType;
+      switch SET(no).ImageType
         case {'Cine', 'Feature tracking'}
           imagetype='cine';
         case 'Strain from tagging'
@@ -2491,7 +2404,7 @@ for fileloop=1:numfiles
       
       %if isequal(type,imagetype)
         outdata{line,1} = SET(no).PatientInfo.Name;
-        outdata{line,2} = SET(no).PatientInfo.ID;
+        outdata{line,2} = SET(no).PatientInfo.ID; %files2load(fileloop).name; 
         outdata{line,3} = SET(no).HeartRate;
         outdata{line,4} = sprintf('%s %s',SET(no).ImageType,SET(no).ImageViewPlane);
         
@@ -2727,73 +2640,76 @@ for fileloop=1:numfiles
             
             
             %slice based export of strain and strain rate
-            col = 44;
-           % nbrslices = length(SET(no).StrainTagging.saslices);
+            %col = 44;
+            % nbrslices = length(SET(no).StrainTagging.saslices);
             outdata{line-2,col} = 'Peak radial strain [%]';
             %for sliceloop = 1:nbrslices
-              %outdata{line-1,col} = sprintf('Slice %d',sliceloop);
-              outdata{line,col} = SET(no).StrainTagging.globalrad(SET(no).StrainTagging.peaktf,1);
-              col = col+1;
-           % end
+            %outdata{line-1,col} = sprintf('Slice %d',sliceloop);
+            outdata{line,col} = SET(no).StrainTagging.globalrad(SET(no).StrainTagging.peaktf,1);
+            col = col+1;
+            % end
             outdata{line-2,col} = 'Peak longit. strain [%]';
             %for sliceloop = 1:nbrslices
-              %outdata{line-1,col} = sprintf('Slice %d',sliceloop);
-              outdata{line,col} = SET(no).StrainTagging.globalcirc(SET(no).StrainTagging.peaktf,1);
-              col = col+1;
+            %outdata{line-1,col} = sprintf('Slice %d',sliceloop);
+            outdata{line,col} = SET(no).StrainTagging.globalcirc(SET(no).StrainTagging.peaktf,1);
+            col = col+1;
             %end
             
-               if isfield(SET(no).StrainTagging,'SR') && any(SET(no).StrainTagging.SR.include)
-            outdata{line-2,col} = 'Radial strain rate [%/s]';
-            %ind=find(SET(no).StrainTagging.taggroup==no);
-            switch SET(no).ImageViewPlane
-              case '2CH'
-                if SET(no).StrainTagging.SR.include(1)
-                ind=1;
-                end
-              case '3CH'
-                if SET(no).StrainTagging.SR.include(2)
-                if any(strcmp({SET(SET(no).StrainTagging.taggroup).ImageViewPlane},'4CH'))
-                  ind=length(SET(no).StrainTagging.taggroup)-1;
-                else
-                  ind=length(SET(no).StrainTagging.taggroup);
-                end
-                end
-              case '4CH'
-                if SET(no).StrainTagging.SR.include(3)
-                  ind=length(SET(no).StrainTagging.taggroup);
-                end
-              otherwise
-                ind=[];
+            if isfield(SET(no).StrainTagging,'SR') && any(SET(no).StrainTagging.SR.include)
+              outdata{line-2,col} = 'Radial strain rate [%/s]';
+              %ind=find(SET(no).StrainTagging.taggroup==no);
+              if not(isfield(SET(no).StrainTagging,'taggroup'))
+                SET(no).StrainTagging.taggroup=straintagging.straintagging('findtaggroup',imagetype);
+              end
+              switch SET(no).ImageViewPlane
+                case '2CH'
+                  if SET(no).StrainTagging.SR.include(1)
+                    ind=1;
+                  end
+                case '3CH'
+                  if SET(no).StrainTagging.SR.include(2)
+                    if any(strcmp({SET(SET(no).StrainTagging.taggroup).ImageViewPlane},'4CH'))
+                      ind=length(SET(no).StrainTagging.taggroup)-1;
+                    else
+                      ind=length(SET(no).StrainTagging.taggroup);
+                    end
+                  end
+                case '4CH'
+                  if SET(no).StrainTagging.SR.include(3)
+                    ind=length(SET(no).StrainTagging.taggroup);
+                  end
+                otherwise
+                  ind=[];
+              end
+              
+              if ~isempty(ind)
+                outdata{line-1,col} = 'Upslope';
+                outdata{line,col} = SET(no).StrainTagging.SR.radup(ind);%SET(no).StrainTagging.upsloperad(1,1);
+                outdata{line-1,col+1} = 'Upslope time';
+                outdata{line,col+1} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.radupind(ind));%StrainTagging.upsloperad(1,2);
+                outdata{line-1,col+2} = 'Downslope';
+                outdata{line,col+2} = SET(no).StrainTagging.SR.raddown(ind);%SET(no).StrainTagging.downsloperad(1,1);
+                outdata{line-1,col+3} = 'Downslope time';
+                outdata{line,col+3} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.raddownind(ind));%SET(no).StrainTagging.downsloperad(1,2);
+                col = col+4;
+                outdata{line-2,col} = 'Longit. strain rate [%/s]';
+                outdata{line-1,col} = 'Upslope';
+                outdata{line,col} = SET(no).StrainTagging.SR.circup(ind);%SET(no).StrainTagging.upslopecircum(1,1);
+                outdata{line-1,col+1} = 'Upslope time';
+                outdata{line,col+1} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.circupind(ind));%SET(no).StrainTagging.upslopecircum(1,2);
+                outdata{line-1,col+2} = 'Downslope';
+                outdata{line,col+2} = SET(no).StrainTagging.SR.circdown(ind);%SET(no).StrainTagging.downslopecircum(1,1);
+                outdata{line-1,col+3} = 'Downslope time';
+                outdata{line,col+3} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.circdownind(ind));%SET(no).StrainTagging.downslopecircum(1,2);
+                col = col+4;
+              end
             end
-            
-            if ~isempty(ind)
-              outdata{line-1,col} = 'Upslope';
-              outdata{line,col} = SET(no).StrainTagging.SR.radup(ind);%SET(no).StrainTagging.upsloperad(1,1);
-              outdata{line-1,col+1} = 'Upslope time';
-              outdata{line,col+1} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.radupind(ind));%StrainTagging.upsloperad(1,2);
-              outdata{line-1,col+2} = 'Downslope';
-              outdata{line,col+2} = SET(no).StrainTagging.SR.raddown(ind);%SET(no).StrainTagging.downsloperad(1,1);
-              outdata{line-1,col+3} = 'Downslope time';
-              outdata{line,col+3} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.raddownind(ind));%SET(no).StrainTagging.downsloperad(1,2);
-              col = col+4;
-              outdata{line-2,col} = 'Longit. strain rate [%/s]';
-              outdata{line-1,col} = 'Upslope';
-              outdata{line,col} = SET(no).StrainTagging.SR.circup(ind);%SET(no).StrainTagging.upslopecircum(1,1);
-              outdata{line-1,col+1} = 'Upslope time';  
-              outdata{line,col+1} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.circupind(ind));%SET(no).StrainTagging.upslopecircum(1,2);            
-              outdata{line-1,col+2} = 'Downslope';
-              outdata{line,col+2} = SET(no).StrainTagging.SR.circdown(ind);%SET(no).StrainTagging.downslopecircum(1,1);
-              outdata{line-1,col+3} = 'Downslope time';
-              outdata{line,col+3} = SET(no).TimeVector(1+SET(no).StrainTagging.SR.circdownind(ind));%SET(no).StrainTagging.downslopecircum(1,2);
-              col = col+4; 
-              line=line+3;
-            end
-            end
+            line=line+3;
         end
         %line = line+1;
       %end
     end
-  end; %loop over image stack
+  end %loop over image stack
   if doStrain
     %store file
     
@@ -2862,9 +2778,9 @@ end
 pathname = DATA.Pref.datapath;
 pathname = myuigetdir(pathname,sprintf('Select a folder with .%s files',suffix));
 if isequal(pathname,0)
-  myfailed('Aborted.',DATA.GUI.Segment);
+%   myfailed('Aborted.',DATA.GUI.Segment);
   return;
-end;
+end
 
 %Find files to process
 files2load = dir([pathname filesep sprintf('*.%s',suffix)]);
@@ -2873,7 +2789,7 @@ numfiles = length(files2load);
 if numfiles==0
   myfailed('Found no files to summarize.',DATA.GUI.Segment);
   return;
-end;
+end
 
 currentsilent = DATA.Silent;
 % %Create output matrix
@@ -3003,9 +2919,9 @@ end
 pathname = DATA.Pref.datapath;
 pathname = myuigetdir(pathname,sprintf('Select a folder with .%s files',suffix));
 if isequal(pathname,0)
-  myfailed('Aborted.',DATA.GUI.Segment);
+%   myfailed('Aborted.',DATA.GUI.Segment);
   return;
-end;
+end
 
 %Find files to process
 files2load = dir([pathname filesep sprintf('*.%s',suffix)]);
@@ -3014,7 +2930,7 @@ numfiles = length(files2load);
 if numfiles==0
   myfailed('Found no files to summarize.',DATA.GUI.Segment);
   return;
-end;
+end
 
 currentsilent = DATA.Silent;
 % %Create output matrix
@@ -3146,9 +3062,9 @@ end
 pathname = DATA.Pref.datapath;
 pathname = myuigetdir(pathname,sprintf('Select a folder with .%s files',suffix));
 if isequal(pathname,0)
-  myfailed('Aborted.',DATA.GUI.Segment);
+%   myfailed('Aborted.',DATA.GUI.Segment);
   return;
-end;
+end
 
 %Find files to process
 files2load = dir([pathname filesep sprintf('*.%s',suffix)]);
@@ -3157,7 +3073,7 @@ numfiles = length(files2load);
 if numfiles==0
   myfailed('Found no files to summarize.',DATA.GUI.Segment);
   return;
-end;
+end
 
 % do strain?
 output=questdlg('Do you wish to redo strain analysis?');
@@ -3243,7 +3159,7 @@ for fileloop=1:numfiles
               disp('Unknown image view plane');
           end
           
-          switch SET(no).ImageType;
+          switch SET(no).ImageType
             case {'Cine', 'Feature tracking'}
               imagetype='cine';
             case 'Strain from tagging'
@@ -3271,7 +3187,7 @@ for fileloop=1:numfiles
     if ~isfield(SET(no),'StrainTagging')|| isempty(SET(no).StrainTagging) || ~isfield(SET(no).StrainTagging,'globalrad') %|| ismember(no,checked)
       %Skip no
     else
-      switch SET(no).ImageType;
+      switch SET(no).ImageType
         case {'Cine', 'Feature tracking'}
           imagetype='cine';
         case 'Strain from tagging'
@@ -3285,7 +3201,7 @@ for fileloop=1:numfiles
       %--- output ---
       %patient info
       outdata{line,1} = 'Patient name';
-      outdata{line,2} = 'Patient ID';
+      outdata{line,2} = 'Patient ID'; %'Filename'; 
       outdata{line,3} = 'Heart Rate';
       outdata{line,4} = 'Image Type';
       outdata{line,5} = 'Global Peak Time Frame [s]';
@@ -3293,7 +3209,7 @@ for fileloop=1:numfiles
       outdata{line,6}='Peak mean circ./longit. strain [%] (entire RV)';
       line = line+1;
       
-      switch SET(no).ImageType;
+      switch SET(no).ImageType
         case {'Cine', 'Feature tracking'}
           imagetype='cine';
         case 'Strain from tagging'
@@ -3302,10 +3218,12 @@ for fileloop=1:numfiles
       
       %if isequal(type,imagetype)
       outdata{line,1} = SET(no).PatientInfo.Name;
-      outdata{line,2} = SET(no).PatientInfo.ID;
+      outdata{line,2} = SET(no).PatientInfo.ID; %files2load(fileloop).name; 
       outdata{line,3} = SET(no).HeartRate;
       outdata{line,4} = sprintf('%s %s',SET(no).ImageType,SET(no).ImageViewPlane);
       outdata{line,5} = SET(no).TimeVector(SET(no).StrainTagging.peaktf);
+      
+      numseg=size(SET(no).StrainTagging.segmentalRVstrain,2);
       switch SET(no).ImageViewPlane
         case 'Short-axis'
           outdata{line,6} = mynanmean(SET(no).StrainTagging.globalRVstrain(1,SET(no).StrainTagging.peaktf,:));
@@ -3324,9 +3242,13 @@ for fileloop=1:numfiles
           col=7;
           nbrslices=1;
           segstr={'Basal Lateral','Mid Lateral','Apical Lateral','Apical Septum','Mid Septum','Basal Septum'};
+        otherwise          
+          outdata{line,6} = mynanmean(SET(no).StrainTagging.globalRVstrain(1,SET(no).StrainTagging.peaktf,:));
+          col=7;
+          nbrslices=1;
+          segstr={'Seg1: Basal Lateral','Seg2: Mid Lateral','Seg3: Apical Lateral','Seg4: Apical Septum','Seg5: Mid Septum','Seg6: Basal Septum'};
       end
       
-      numseg=size(SET(no).StrainTagging.segmentalRVstrain,2);
       
       outdata{line-2,col}='RV Segmental Peak Strain Values For Each Segment ';
       for i=1:numseg
@@ -3366,10 +3288,16 @@ for fileloop=1:numfiles
       %       end
       
       %Strain rate
-      if ~strcmp(SET(no).ImageViewPlane, 'Short-axis')
-        straincurve = SET(no).StrainTagging.globalRVstrain;
+      if strcmp(SET(no).ImageViewPlane, '2CH') || strcmp(SET(no).ImageViewPlane, '3CH') || strcmp(SET(no).ImageViewPlane, '4CH')
+        straincurve = squeeze(SET(no).StrainTagging.globalRVstrain);
+      elseif strcmp(SET(no).ImageViewPlane, 'Short-axis')
+        straincurve = squeeze(mynanmean(SET(no).StrainTagging.globalRVstrain(1,:,:),3));
       else
-        straincurve = mynanmean(SET(no).StrainTagging.globalRVstrain(1,:,:),3);
+        if length(size(SET(no).StrainTagging.globalRVstrain)) == 2
+          straincurve = squeeze(SET(no).StrainTagging.globalRVstrain);
+        else
+          straincurve = squeeze(mynanmean(SET(no).StrainTagging.globalRVstrain(1,:,:),3));
+        end
       end
       
       strainratecurve=conv2([1 0 -1],1,straincurve','valid')/(2*SET(no).TIncr);
@@ -3447,7 +3375,7 @@ for fileloop=1:numfiles
       
       line=line+3;
     end
-  end; %loop over image stack
+  end %loop over image stack
   
   
   
@@ -3518,9 +3446,9 @@ end
 pathname = DATA.Pref.datapath;
 pathname = myuigetdir(pathname,sprintf('Select a folder with .%s files',suffix));
 if isequal(pathname,0)
-  myfailed('Aborted.',DATA.GUI.Segment);
+%   myfailed('Aborted.',DATA.GUI.Segment);
   return;
-end;
+end
 
 %Find files to process
 files2load = dir([pathname filesep sprintf('*.%s',suffix)]);
@@ -3529,7 +3457,7 @@ numfiles = length(files2load);
 if numfiles==0
   myfailed('Found no files to summarize.',DATA.GUI.Segment);
   return;
-end;
+end
 
 % do strain?
 output=questdlg('Do you wish to redo strain analysis?');
@@ -3594,7 +3522,7 @@ for fileloop=1:numfiles
               disp('Unknown image view plane');
           end
           
-          switch SET(no).ImageType;
+          switch SET(no).ImageType
             case {'Cine', 'Feature tracking'}
               imagetype='cine';
             case 'Strain from tagging'
@@ -3622,7 +3550,7 @@ for fileloop=1:numfiles
     if ~isfield(SET(no),'StrainTagging')|| isempty(SET(no).StrainTagging) || ~isfield(SET(no).StrainTagging,'globalrad') %|| ismember(no,checked)
       %Skip no
     else
-      switch SET(no).ImageType;
+      switch SET(no).ImageType
         case {'Cine', 'Feature tracking'}
           imagetype='cine';
         case 'Strain from tagging'
@@ -3641,7 +3569,7 @@ for fileloop=1:numfiles
       outdata{line,4} = 'Image Type';
       line = line+1;
       
-      switch SET(no).ImageType;
+      switch SET(no).ImageType
         case {'Cine', 'Feature tracking'}
           imagetype='cine';
         case 'Strain from tagging'
@@ -3683,7 +3611,7 @@ for fileloop=1:numfiles
       end
       line=line+3;
     end
-  end; %loop over image stack
+  end %loop over image stack
   
   
   if doStrain
@@ -3759,36 +3687,36 @@ else
     scarno = [];
   else
     scarno = no;
-  end;
+  end
   if isempty(SET(no).Flow)
     flowno = [];
   else
     flowno = no;
-  end;
+  end
   if isempty(SET(no).MaR)
     marno = [];
   else
     marno = no;
-  end;
-end;
+  end
+end
 
 if isnan(no)
   no = NO;
-end;
+end
 
 if isempty(no)
   no = NO;
-end;
+end
 
 if nargin<2
   includenormalized = yesno('Do you want to include BSA normalized values?');
-end;
+end
 
-outdata = cell(1,20);
+outdata = cell(1,67);
 
 if nargin==0
   doheader = true;
-end;
+end
 
 if doheader
   %Write Header
@@ -3796,18 +3724,18 @@ if doheader
   row = 2;
 else
   row = 1;
-end;
+end
 
 if nargout>0
   varargout = cell(1,nargout);
-end;
+end
 
 %Write data
 if ~onlyone
   outdata{row, 1} = SET(no).FileName;
 else
   outdata{row, 1} = sprintf('%d-%s %s',no,SET(no).ImageType,SET(no).ImageViewPlane);
-end;
+end
 
 outdata{row, 2} = SET(no).PatientInfo.Name;
 outdata{row, 3} = SET(no).PatientInfo.ID;
@@ -3827,13 +3755,13 @@ try
   rvm = 0.5*(SET(no).RVM(SET(no).EDT)+SET(no).RVM(SET(no).EST));
 catch %#ok<CTCH>
   rvm = NaN;
-end;
+end
 
 if numel(SET(no).PatientInfo.BSA) ~= 1 || SET(no).PatientInfo.BSA==0
   bsa_1 = NaN;
 else
   bsa_1 = 1/SET(no).PatientInfo.BSA;
-end;
+end
 
 outdata{row,12} = lvm;
 outdata{row,13} = lvm*1.05;
@@ -3848,13 +3776,13 @@ if isequal(SET(no).SV,0)
 else
   outdata{row,19} = SET(no).SV;
   outdata{row,20} = bsa_1*SET(no).SV;
-end;
+end
 
 if isequal(SET(no).EF,0) && (SET(no).EDV>0)
   outdata{row,21} = 100*(SET(no).EDV-SET(no).ESV)/SET(no).EDV;
 else
   outdata{row,21} = 100*SET(no).EF;
-end;
+end
 outdata{row,22}= SET(no).HeartRate*SET(no).SV/1000;
 outdata{row,23}= bsa_1*SET(no).HeartRate*SET(no).SV/1000;
 
@@ -3920,10 +3848,10 @@ if ~isempty(scarno)
     %For backwards compability.
     if isnan(SET(scarno).Scar.MOPercentage)
       viability('viabilitycalcvolume',scarno);
-    end;
+    end
     
     outdata{row,46} = SET(scarno).Scar.MOPercentage;
-  end;
+  end
 else
   outdata{row,36} = NaN;
   outdata{row,37} = NaN;
@@ -3936,7 +3864,7 @@ else
   outdata{row,44} = NaN;
   outdata{row,45} = NaN;
   outdata{row,46} = NaN;
-end;
+end
 
 if ~isempty(marno) && ~isempty(SET(marno).MaR)
   lvmmaredt = SET(marno).LVM(SET(marno).EDT);
@@ -3964,17 +3892,18 @@ if ~isempty(marno) && ~isempty(SET(marno).MaR)
       outdata{row,53} = NaN;
       outdata{row,54} = NaN;
     end
-  end;
+  end
 else
   outdata{row,47} = NaN;
   outdata{row,48} = NaN;
   outdata{row,49} = NaN;
   outdata{row,50} = NaN;
-end;
+end
 
 %Flow
 if ~isempty(flowno)
   rowoffset = 0;
+  %Loop over each flow stack
   for loop=1:length(flowno)
     NO = flowno(loop);
 
@@ -3987,27 +3916,33 @@ if ~isempty(flowno)
         hr = flowgui.hr;
         co = flowgui.nettotvol.*flowgui.hr;%SBT20160620
         
-        
         for rloop=1:length(tots)
-          outdata{row+rowoffset,55} = SET(NO).Roi(rloop).Name;
+          roiname = SET(NO).Roi(rloop).Name;
+          outdata{row+rowoffset,55} = roiname;
           outdata{row+rowoffset,56} = tots(rloop);
           outdata{row+rowoffset,57} = co(rloop); %SBT20160620
           outdata{row+rowoffset,58} = hr;%SBT20160620
+         
+          if isequal(roiname,'Coronary sinus stress')
+            outdata{row,65} = co(rloop)/outdata{row,13}; %flow/lvm
+          elseif isequal(roiname,'Coronary sinus rest')
+            outdata{row,66} = co(rloop)/outdata{row,13}; %flow/lvm
+          end
+          
           rowoffset = rowoffset+1;
-        end;
+        end
         reportflow('close_Callback');%SBT20160620
       end
-    end;
-
-  end;
-end;
+    end
+  end
+end
 
 %Measurements
 if ~onlyone
   loopover = 1:length(SET);
 else
   loopover = no;
-end;
+end
 
 msdone = 0;
 for sloop=loopover
@@ -4015,20 +3950,26 @@ for sloop=loopover
 		outdata{row+msdone,59} = SET(sloop).Measure(mloop).Name;
     outdata{row+msdone,60} = SET(sloop).Measure(mloop).Length;
     msdone = msdone + 1;
-  end;
-end;
+  end
+end
 
 outdata{row,61} = SET(no).RVPFR;
 outdata{row,62} = SET(no).RVPER;
 outdata{row,63} = lvmed;
 outdata{row,64} = lvmes;
 
+if ~isempty(outdata{row,65}) && ~isempty(outdata{row,66})
+  outdata{row,67} = abs(outdata{row,65})/abs(outdata{row,66}); %qCS-stress/qCS-rest
+else
+  outdata{row,67} = NaN;
+end
+
 %If not wanted remove non normalized values.
 ind = true(1,size(outdata,2));
 if ~includenormalized
   [~,indforbsa] = header(onlyone);
   ind(indforbsa) = false;
-end;
+end
 outdata = outdata(:,ind);
 
 %If called with no output arguments then copy to clipboard.
@@ -4036,8 +3977,8 @@ if nargout==0
   segment('cell2clipboard',outdata);
 else
   varargout{1} = outdata;
-end;
-
+end
+  
 %------------------------------
 function [x,y] = meshfixer(x,y)
 %------------------------------
@@ -4065,12 +4006,12 @@ for loop = 2:size(x,1)
       mindist = dist;
       xmin = xtest;
       ymin = ytest;
-    end;
+    end
     
     %rotate for next iteration
     xtest = [xtest(2:end) xtest(1)];
     ytest = [ytest(2:end) ytest(1)];
-  end;
+  end
   
   %Store the best match
   x(loop,:) = xmin;
@@ -4079,7 +4020,7 @@ for loop = 2:size(x,1)
   %Take the new row
   xrow = x(loop,:);
   yrow = y(loop,:);
-end;
+end
   
 %---------------------------------------------------------------------------------
 function export2stl_helper(no,x,y,resolution,tf,closeapex,fignr,pathname,filename)
@@ -4105,7 +4046,7 @@ last = find(logind,1,'last');
 if ~isequal(sum(logind),last-first+1)
   myfailed('None consecutive segmentation detected (slices)');
   return;
-end;
+end
 x = x(first:last,:);
 y = y(first:last,:);
 z = z(first:last,:);
@@ -4135,7 +4076,7 @@ if nargin==8
   mesh2stl(rl,ap,fh,resolution,closeapex,fignr,fid); %Called with fid rather than pathname and filename  
 else
   mesh2stl(rl,ap,fh,resolution,closeapex,fignr,pathname,filename);
-end;
+end
 
 %---------------------------
 function export2stl_Callback %#ok<DEFNU>
@@ -4167,14 +4108,14 @@ switch c
     x = SET(no).RVEpiX;
     y = SET(no).RVEpiY;
   otherwise
-    myfailed('Aborted.');
+%     myfailed('Aborted.');
     return;
-end;
+end
 
 if isempty(x) || isempty(y)
   myfailed(dprintf('No data in %s',l{c}));
   return;
-end;
+end
 
 %--- Calculate suggested resolution
 resolution = (SET(no).ResolutionX+SET(no).ResolutionY+SET(no).SliceThickness+SET(no).SliceGap)/3;
@@ -4183,15 +4124,15 @@ s.CloseApex = false;
 [s,ok] = inputstruct(s,'Set resolution of STL file [mm]');
 if ~ok
   mywarning('Invalid input, using default.');
-end;
+end
 resolution = s.Resolution_mm;
 closeapex = s.CloseApex;
 
-[filename,pathname,~,ok] = myuiputfile('*.stl','Select filename for STL file export');
+[filename,pathname,~,ok] = myuiputfile('*.stl',dprintf('Select filename for STL file export'));
 if ~ok
   myfailed('Aborted or illegal file selected.');
   return;
-end;
+end
 
 figure(99);
 clf;
@@ -4214,7 +4155,7 @@ function exportclosesurfaces(no1,x1,y1,no2,x2,y2,closebase,closeapex,resolution,
 
 if nargin<11
   error('Expected 11 input arguments.');
-end;
+end
 
 if isempty(fignr)
   doplot = false;
@@ -4222,7 +4163,7 @@ else
   doplot = true;
   figure(fignr);
   hold on;
-end;
+end
 
 %Extract basal rows from surface 1
 basex1 = x1;
@@ -4271,7 +4212,7 @@ for typeloop = 1:1 %base and apex
       y2 = apexy2;            
       slice2 = apexslice2;
       closeit = closeapex;
-  end;
+  end
   
   if closeit
     %Convert to 3D coordinates for surface 1
@@ -4313,7 +4254,7 @@ for typeloop = 1:1 %base and apex
       fh2 = ofh1;
       d2 = od1;
       
-    end;
+    end
     
     %Resample
     newn1 = round(d1/resolution);
@@ -4322,16 +4263,16 @@ for typeloop = 1:1 %base and apex
     n2 = 1:length(rl2);
     if newn1<1
       newn1 = 1;
-    end;
+    end
     if newn2<1
       newn2 = 1;
-    end;
+    end
     if newn1>length(rl1)
       newn1 = length(rl1);
-    end;
+    end
     if newn2>length(rl2)
       newn2 = length(rl2);
-    end;
+    end
     ni1 = linspace(1,length(rl1)-(length(rl1)-1)/newn1,newn1);
     ni2 = linspace(1,length(rl2)-(length(rl2)-1)/newn2,newn2);
     rl1 = interp1(n1,rl1,ni1);
@@ -4365,14 +4306,14 @@ for typeloop = 1:1 %base and apex
         ap2best = aptest;
         fh2best = fhtest;
         mindist = dist;
-      end;
+      end
       
       %Shift it
       rltest = [rltest(2:end) rltest(1)];
       aptest = [aptest(2:end) aptest(1)];
       fhtest = [fhtest(2:end) fhtest(1)];
       
-    end;
+    end
     
     %Loop over r1 to create triangles (r1 got more or equal points as r2)
     nextind = [1:length(rl1) 1];
@@ -4407,16 +4348,16 @@ for typeloop = 1:1 %base and apex
       if doplot
         %Graphical update
         patch([x1;x2;x3],[y1;y2;y3],[z1;z2;z3],zeros(3,1));
-      end;
+      end
         
-    end;
+    end
     
-  end; %Closeit
-end; %Loop over base,apex (1:2)
+  end %Closeit
+end %Loop over base,apex (1:2)
 
 if doplot
   hold off;
-end;
+end
 
 %-----------------------------------------------
 function exportlv2stl(no,tf,fignr,filename,resolution)
@@ -4432,7 +4373,7 @@ fid = fopen(filename,'w');
 if isequal(fid,-1)
   myfailed(dprintf('Could not open the file %s for writing.',[pathname filename]));
   return;
-end;
+end
   
 %Extract endocardium
 endox = SET(no).EndoX;
@@ -4488,7 +4429,7 @@ no = NO;
 if isempty(SET(no).EndoX) || isempty(SET(no).EpiX)
   myfailed('Either endocardium or epicardium is missing.');
   return;
-end;
+end
 
 %Fix resolution
 resolution = 5; %Later ask
@@ -4497,9 +4438,9 @@ resolution = 5; %Later ask
 pathname = DATA.Pref.exportpath; %Later asks  
 pathname = myuigetdir(pathname,'Select a folder with .mat files');
 if isequal(pathname,0)
-  myfailed('Aborted.');
+%   myfailed('Aborted.');
   return;
-end;
+end
 filename = 'lv_export.stl';
 
 %Call the function to do it.
@@ -4552,11 +4493,11 @@ for zloop = 1:size(x,3)
       %hold off;
       %pause
       
-    end;
+    end
     
-  end;
+  end
   
-end;
+end
 
 %-----------------------------------------------------
 function exportrv2stl(no,tf,fignr,filename,resolution)
@@ -4573,7 +4514,7 @@ fid = fopen(filename,'w');
 if isequal(fid,-1)
   myfailed(dprintf('Could not open the file %s for writing.',[pathname filename]));
   return;
-end;
+end
   
 %Extract endocardium
 endox = SET(no).RVEndoX;
@@ -4634,7 +4575,7 @@ no = NO;
 if isempty(SET(no).RVEndoX) 
   myfailed('RV endocardium is missing.');
   return;
-end;
+end
 
 %Fix resolution
 resolution = 5; %Later ask
@@ -4643,9 +4584,9 @@ resolution = 5; %Later ask
 pathname = DATA.Pref.exportpath; 
 pathname = myuigetdir(pathname,'Select a folder with .mat files');
 if isequal(pathname,0)
-  myfailed('Aborted.');
+%   myfailed('Aborted.');
   return;
-end;
+end
 filename = 'rv_export.stl';
 
 %Call the function to do it.
@@ -4669,19 +4610,19 @@ global SET DATA
 disp('Exporting LV');
 if (~isempty(SET(no).EndoX)) && (~isempty(SET(no).EpiX))
   exportlv2stl(no,tf,fignr,[pathname filesep filetemplate '-lv.stl'],resolution)
-end;
+end
 
 %Export RV
 disp('Exporting RV');
 if (~isempty(SET(no).RVEndoX))
   exportrv2stl(no,tf,fignr,[pathname filesep filetemplate '-rv.stl'],resolution)
-end;
+end
 
 %Export LV atria
 disp('Exporting left atria (RV Epi)');
 if (~isempty(SET(no).RVEpiX))
   exportleftatria2stl(no,tf,fignr,[pathname filesep filetemplate '-leftatria.stl'],resolution); 
-end;
+end
 
 %**** Export ROI's ****
  
@@ -4689,7 +4630,7 @@ end;
 names = cell(1,SET(no).RoiN);
 for loop = 1:length(names)
   names{loop} = SET(no).Roi(loop).Name;
-end;
+end
 names = union(names,{});
   
 %--- Loop over roi uniquenames and export
@@ -4701,15 +4642,15 @@ for namesloop = 1:length(names)
     
   %Loop over ROI's
   for loop = 1:SET(no).RoiN
-    if isequal(SET(no).Roi(loop).Name,templatename);
+    if isequal(SET(no).Roi(loop).Name,templatename)
       if isnan(x(1,1,SET(no).Roi(loop).Z))
         x(:,:,SET(no).Roi(loop).Z) = SET(no).Roi(loop).X;
         y(:,:,SET(no).Roi(loop).Z) = SET(no).Roi(loop).Y;
       else
         mywarning('Two ROIs in the same slice. Ambigous result.',DATA.GUI.Segment);
-      end;
-    end;
-  end;
+      end
+    end
+  end
     
   %Loop over ED and ES
   for tloop = 1:2
@@ -4719,7 +4660,7 @@ for namesloop = 1:length(names)
       roifilename = sprintf('%s_%s_%s.stl',filetemplate,'ED',templatename);
     else
       roifilename = sprintf('%s_%s_%s.stl',filetemplate,'ES',templatename);      
-    end;
+    end
     
 
     %Open file
@@ -4727,7 +4668,7 @@ for namesloop = 1:length(names)
     if isequal(fid,-1)
       myfailed(dprintf('Could not open the file %s for writing.',[pathname filesep roifilename]));
       return;
-    end;
+    end
 
     %Start the file
     fprintf(fid,'solid segment stl \n');
@@ -4737,12 +4678,12 @@ for namesloop = 1:length(names)
       tf = SET(no).EDT;
     else
       tf = SET(no).EST;      
-    end;
+    end
     
     endox = x(:,tf,:);
     endoy = y(:,tf,:);
 
-  disp(dprintf('Exporting ROI %s',templatename)); %#ok<DSPS>
+  disp(sprintf('Exporting ROI %s',templatename));
   
     closeapex = false;
     %flip it to get other direction (normal inwards)
@@ -4773,8 +4714,8 @@ for namesloop = 1:length(names)
     %Close the file
     fprintf(fid,'endsolid stl\n');
     fclose(fid);
-  end; %tloop, i.e ED and ES
-end; %names (roi's)
+  end %tloop, i.e ED and ES
+end %names (roi's)
 
 %------------------------------
 function exportall2stl_Callback %#ok<DEFNU>
@@ -4800,7 +4741,7 @@ s.File_Name = SET(1).PatientInfo.Name;
 [s,ok] = inputstruct(s,'Set resolution and name of STL file');
 if ~ok
   mywarning('Invalid input, using default.');
-end;
+end
 resolution = s.Resolution_mm;
 filetemplate = s.File_Name;
 
@@ -4808,9 +4749,9 @@ filetemplate = s.File_Name;
 pathname = DATA.Pref.exportpath; 
 pathname = myuigetdir(pathname,'Select a folder where to the output files.');
 if isequal(pathname,0)
-  myfailed('Aborted.');
+%   myfailed('Aborted.');
   return;
-end;
+end
 
 tf = SET(no).CurrentTimeFrame;
 
@@ -4842,7 +4783,7 @@ fid = fopen(filename,'w');
 if isequal(fid,-1)
   myfailed(dprintf('Could not open the file %s for writing.',[pathname filename]));
   return;
-end;
+end
   
 %Extract endocardium
 endox = SET(no).RVEpiX;
@@ -4899,9 +4840,9 @@ global DATA SET NO
 pathname = DATA.Pref.datapath;
 pathname = myuigetdir(pathname,'Select a folder with .mat files');
 if isequal(pathname,0)
-  myfailed('Aborted.');
+%   myfailed('Aborted.');
   return;
-end;
+end
 
 files2load = dir([pathname filesep '*.mat']);
 numfiles = length(files2load);
@@ -4909,14 +4850,14 @@ numfiles = length(files2load);
 if numfiles == 0
   myfailed('No files for STL export.');
   return;
-end;
+end
 
 %Ask for resolution
 s.Resolution_mm = 3;
 [s,ok] = inputstruct(s,'Set resolution and name of STL file');
 if ~ok
   mywarning('Invalid input, using default.');
-end;
+end
 resolution = s.Resolution_mm;
 
 fignr = []; %no plotting.
@@ -4927,7 +4868,7 @@ for fileloop=1:numfiles
 
   %--- Load file
   DATA.Silent = true;
-  disp(dprintf('Loading %s.',files2load(fileloop).name)); %#ok<DSPS>
+  disp(dprintf('Loading %s.',files2load(fileloop).name));
   SET = []; %#ok<NASGU>
   load([pathname filesep files2load(fileloop).name],'-mat');
   SET = setstruct;
@@ -4954,7 +4895,7 @@ for fileloop=1:numfiles
   
   h = mywaitbarupdate(h);
   
-end;
+end
 mywaitbarclose(h);
 
 DATA.Silent = false;

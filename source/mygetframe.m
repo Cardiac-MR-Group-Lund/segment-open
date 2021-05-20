@@ -5,6 +5,8 @@ function z = mygetframe(varargin)
 
 if nargin > 0
   h = varargin{1};
+  oldunits = get(h,'Units');
+  oldposition = get(h,'Position');
   set(h,'Units','normalized');
   pos = get(h,'Position');
   if any(pos(1:2) < 0) || any(pos(1:2)+pos(3:4) > 1)
@@ -13,6 +15,10 @@ if nargin > 0
 end
 try
   z = getframe(varargin{:});
+  if nargin > 0
+    set(h,'Units',oldunits);
+    set(h,'Position',oldposition);
+  end
 catch %#ok<CTCH>
   myfailed('Could not perform screen capture. Could be depending on two monitors. Please move main window to primary monitor and retry.');
-end;
+end

@@ -14,4 +14,4 @@ if ~isempty(DATA)
 else
   %Well seems not to be overloaded => 
   maingui.mywaitbarmainclose(varargin{:});
-end;
+end

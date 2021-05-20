@@ -3,7 +3,7 @@ function [varargout] = cutgui(varargin)
 
 if nargin==0
   varargin = {'init'};
-end;
+end
 
 macro_helper(varargin{:});
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard

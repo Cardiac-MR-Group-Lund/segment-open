@@ -34,14 +34,14 @@ else
         gui.t = segment('getframenumber');
         pause(0.5*SET(gui.no).BeatTime/SET(gui.no).TSize);
         report3dmodel('update');
-      end;
+      end
     case 'radialvel'
       if get(gui.handles.radialvelradiobutton,'value')
         gui.handles.radvel = calcfunctions('calcradialvelocity',gui.no);
       else
         set(DATA.Handles.endosurf,...
           'Cdata',repmat(97,size(EndoX,1),size(EndoX,3)));
-      end;
+      end
       report3dmodel('update');
     case 'prev'
       i=find(gui.t==gui.indTn);
@@ -74,12 +74,12 @@ else
         delete(4);
       catch %#ok<CTCH>
         %Do nothing if failed
-      end;
+      end
       try
         delete(gui.fig);
       catch %#ok<CTCH>
         %Do nothing if failed
-      end;
+      end
       DATA.GUI.Report3DModel = [];
     case 'update'
       %--- Refresh the display
@@ -103,14 +103,14 @@ else
           %97 = 64+1+32
           set(DATA.Handles.endosurf,...
             'Cdata',97+(32/DATA.MaxRadialVel)*squeeze(gui.handles.radvel(:,t,ind)));
-        end;
+        end
       else
         try
           set(DATA.Handles.endosurf,'visible','off');
         catch %#ok<CTCH>
-        end;
+        end
         
-      end;
+      end
 
       %Update episurf
       if get(gui.handles.epicheckbox,'value')
@@ -124,8 +124,8 @@ else
         try
           set(DATA.Handles.episurf,'visible','off');
         catch %#ok<CTCH>
-        end;
-      end;
+        end
+      end
 
       %Update RVendo surf
       if get(gui.handles.rvendocheckbox,'value')
@@ -139,8 +139,8 @@ else
         try
           set(DATA.Handles.rvendosurf,'visible','off');
         catch %#ok<CTCH>
-        end;
-      end;
+        end
+      end
       
       %Update RVepi surf
       if get(gui.handles.rvepicheckbox,'value')
@@ -154,8 +154,8 @@ else
         try
           set(DATA.Handles.rvepisurf,'visible','off');
         catch %#ok<CTCH>
-        end;
-      end;
+        end
+      end
       
       %Update annotation points
       if mygetvalue(gui.handles.annotationpointscheckbox)
@@ -168,7 +168,7 @@ else
         try
           set(DATA.Handles.annotationpoints3d,'visible','off');
         catch %#ok<CTCH>
-        end;
+        end
       end
       
       
@@ -185,7 +185,7 @@ else
         try
           set(DATA.Handles.measurements3d,'visible','off');
         catch %#ok<CTCH>
-        end;
+        end
       end
       
       %Update scar
@@ -199,7 +199,7 @@ else
         try
           set(DATA.Handles.scar3d,'visible','off');
         catch %#ok<CTCH>
-        end;
+        end
       end
 
       %Update short axis slice
@@ -214,7 +214,7 @@ else
           'CDATA',1+(63*double(squeeze(SET(gui.no).IM(:,:,gui.t,slice)))));
       else
         set(DATA.Handles.lvcutshort,'visible','off');
-      end;
+      end
 
       %Update long-axis slice
       if get(gui.handles.longslicescheckbox,'value')
@@ -225,63 +225,64 @@ else
           'Cdata',1+(63*double(squeeze(SET(gui.no).IM(:,round(z),gui.t,:)))));
       else
         set(DATA.Handles.lvcutlong,'visible','off');
-      end;
+      end
 
       if DATA.Record
         drawnow;
         DATA.MovieFrame = mygetframe(4);
         export('exportmovierecorder_Callback','newframe');
-      end;
+      end
 
       %catch
       %Did not manage to update correctly, give it up!
       %  report3dmodel('close');
-      %end;
-  end;
-end;
+      %end
+  end
+end
 
 
 %----------------------------
 function report3dmodelrotated
 %----------------------------
 %Display 3D model of rotated image stacks.
-global DATA SET NO
+global SET NO
 
-figure(88);
+fig = figure(88);
 clf;
 hold on;
-
-if isequal(get(DATA.Handles.hidelvicon,'state'),'off')  
-  if ~isempty(SET(NO).EndoX);
+stateandicon = viewfunctions('iconson',{'hidelv','hiderv'});
+state = [stateandicon{:,1}];
+if state(1)
+  if ~isempty(SET(NO).EndoX)
     rotatedplothelper(...
       SET(NO).EndoX,...
       SET(NO).EndoY,...
       'r-');
-  end;
+  end
   
-  if ~isempty(SET(NO).EpiX);
+  if ~isempty(SET(NO).EpiX)
     rotatedplothelper(...
       SET(NO).EpiX,...
       SET(NO).EpiY,...
       'g-');
-  end;
-end;
+  end
+end
 
-if isequal(get(DATA.Handles.hidervicon,'state'),'off')  
-  if ~isempty(SET(NO).RVEndoX);
+if state(2)  
+  if ~isempty(SET(NO).RVEndoX)
     rotatedplothelper(...
       SET(NO).RVEndoX,...
       SET(NO).RVEndoY,...
       'm-');
-  end;
+  end
 
-  if ~isempty(SET(NO).RVEpiX);
+  if ~isempty(SET(NO).RVEpiX)
     rotatedplothelper(...
       SET(NO).RVEpiX,...
       SET(NO).RVEpiY,...
       'c-');
-  end;
-end;
+  end
+end
 
 ind = find(SET(NO).Point.T==SET(NO).CurrentTimeFrame);
 for loop=1:length(ind)
@@ -292,13 +293,13 @@ for loop=1:length(ind)
     SET(NO).ZSize,...
     SET(NO).RotationCenter);
   plot3(x,y,z,'r*');
-end;
+end
 
 axis image off;
 hold off;
 
-set(88,'Numbertitle','off','Name','3D visualization of rotated stacks.');
-cameratoolbar(88,'show');
+set(fig,'Numbertitle','off','Name','3D visualization of rotated stacks.');
+cameratoolbar(fig,'show');
 
 %------------------------------------------
 function rotatedplothelper(xc,yc,linecolor)
@@ -313,7 +314,7 @@ xmax = -1e10;
 for zloop=1:SET(NO).ZSize
   xmin = min(min(xc(:,tf,zloop)),xmin);
   xmax = max(max(xc(:,tf,zloop)),xmax);
-end;
+end
 
 xrange = linspace(xmin,xmax,20);
 
@@ -326,7 +327,7 @@ for zloop=1:SET(NO).ZSize
     SET(NO).ZSize,... %Number of slices
     SET(NO).RotationCenter); %Rotation center
   plot3(x,y,z,linecolor);   
-end;
+end
 
 %---Draw_lines
 
@@ -352,8 +353,8 @@ for loop=1:length(xrange)
         r = [r SET(NO).RotationCenter-yt(ind(iloop))]; %#ok<AGROW>
         slice = [slice zloop+SET(NO).ZSize]; %#ok<AGROW>
       end
-    end;
-  end;
+    end
+  end
   
   %--- "Sort it"
   while ~isempty(slice)
@@ -377,7 +378,7 @@ for loop=1:length(xrange)
 
       %Continue along the slices
       nextslice = nextslice+1;
-    end;
+    end
 
     %--- Plot the line section
     if length(drawr)>1
@@ -392,8 +393,8 @@ for loop=1:length(xrange)
             isequal(drawslice(end),SET(NO).ZSize*2)
           drawslice = [drawslice linspace(0,1,10)]; %#ok<AGROW>
           drawr = [drawr interp1([drawr(end) drawr(1)],linspace(1,2,10))]; %#ok<AGROW>
-        end;
-      end;
+        end
+      end
       
       angle = (drawslice-1)*pi/SET(NO).ZSize;
       x = drawr.*sin(angle)+SET(NO).RotationCenter;
@@ -401,9 +402,9 @@ for loop=1:length(xrange)
       z = repmat(xrange(loop),size(x));
       
       plot3(x,y,z,linecolor);
-    end;
-  end;
-end; %Loop over rows
+    end
+  end
+end %Loop over rows
 
 %------------
 function init
@@ -411,27 +412,20 @@ function init
 %initiating the 3D model interface
 global DATA SET NO
 
-try
-  set(DATA.Handles.model3icon,'state','off');
-catch %#ok<CTCH>
-  close(gcf);
-  return; %Segment have most likely been closed.
-end;
-
 if SET(NO).Rotated
   report3dmodelrotated;
   return;
-end;
+end
 
 if SET(NO).ZSize<2
   myfailed('Need to have more than one slice for viewing 3D-model.',DATA.GUI.Segment);
   return;
-end;
+end
 
 if isempty(SET(NO).EndoX) || all(isnan(SET(NO).EndoX(:)))
   myfailed('No LV endocardium available.',DATA.GUI.Segment);
   return;
-end;
+end
 
 tempnos=NO;
 imissingle=classcheckim(tempnos);%checks so that SET(tempnos).IM is single and can also convert from int16 to singel if user wants
@@ -443,10 +437,10 @@ end
   if SET(NO).TSize>1
     if isequal(SET(NO).EDT,SET(NO).EST)
       mywarning('Warning, end-diastole occurs at the same time as end-systole. Use autodetect under edit menu.',DATA.GUI.Segment);
-    end;
-  end;
+    end
+  end
 
-  segment('checkconsistency',1:SET(NO).TSize,1:SET(NO).ZSize);
+%   segment('checkconsistency',1:SET(NO).TSize,1:SET(NO).ZSize);
 
   doepi = ~isempty(SET(NO).EpiX) && ~all(isnan(SET(NO).EpiX(:)));
   dorvendo = ~isempty(SET(NO).RVEndoX) && ~all(isnan(SET(NO).RVEndoX(:)));
@@ -499,6 +493,7 @@ end
     
   %Create plot figure
   plotfig = figure(4);
+  setupicon(plotfig);
   set(plotfig,'units','pixels','position',[193 200 500 500]);
   set(plotfig,'renderer','opengl',...
     'Name','3D model',...
@@ -512,7 +507,7 @@ end
   DATA.GUI.Report3DModel = gui;
     
   % Use system color scheme for figure:
-  set(gui.fig,'Color',get(0,'defaultUicontrolBackgroundColor'));
+  set(gui.fig,'Color',DATA.GUISettings.BackgroundColor); %get(0,'defaultUicontrolBackgroundColor'));
 
   gui.closing=false;
     
@@ -524,7 +519,7 @@ end
 %   else
 %     gui.basalslice = 1;
 %     gui.numslice = 0;
-%   end;
+%   end
   gui.numslices=nslices;
   gui.basalslice=1;
   gui.t = t;
@@ -580,17 +575,17 @@ end
     set(gui.handles.epicheckbox,'enable','off');
   else
     set(gui.handles.epicheckbox,'value',1);
-  end;
+  end
   if ~dorvendo
     set(gui.handles.rvendocheckbox,'enable','off');
   else
     set(gui.handles.rvendocheckbox,'value',1);
-  end;
+  end
   if ~dorvepi
     set(gui.handles.rvepicheckbox,'enable','off');
   else
     set(gui.handles.rvepicheckbox,'value',1);
-  end;
+  end
   if ~dopoints
     set(gui.handles.annotationpointscheckbox,'enable','off');
   else
@@ -618,14 +613,14 @@ end
       gui.handles.epicheckbox...
       gui.handles.rvendocheckbox...
       gui.handles.rvepicheckbox],'enable','off');
-  end;
+  end
 
   if nslices>2
     gui.EndoX = SET(NO).ResolutionX*SET(NO).EndoX;
     gui.EndoY = SET(NO).ResolutionY*SET(NO).EndoY;
     gui.EndoZ = repmat((1-(1:SET(NO).ZSize))*(SET(NO).SliceThickness+SET(NO).SliceGap),...
       [DATA.NumPoints 1]);
-
+    
     if doepi
       gui.EpiX = SET(NO).ResolutionX*SET(NO).EpiX;
       gui.EpiY = SET(NO).ResolutionY*SET(NO).EpiY;
@@ -646,11 +641,11 @@ end
 %     if doepi
 %       tempxepi  = SET(NO).ResolutionX*SET(NO).EpiX(:,:,ind);
 %       tempyepi  = SET(NO).ResolutionY*SET(NO).EpiY(:,:,ind);
-%     end;    
+%     end    
 %     if dorv
 %       tempxrvendo  = SET(NO).ResolutionX*SET(NO).RVEndoX(:,:,ind);
 %       tempyrvendo  = SET(NO).ResolutionY*SET(NO).RVEndoY(:,:,ind);
-%     end;
+%     end
 % 
 %     newzsize = max(16,nslices); %Number of planes to resample it to.
 %     EndoX = zeros(...
@@ -666,7 +661,7 @@ end
 %         newzsize);
 %      EpiY = EpiX;
 %      EpiZ = EndoZ;
-%     end;
+%     end
 %     if dorv
 %       RVEndoX = zeros(...
 %         size(SET(NO).RVEndoX,1),...
@@ -691,7 +686,7 @@ end
 %         %temp2=>0 at EDT, temp2=>1 at EST
 %         temp = temp*temp2;
 %         newind = linspace(temp,1,newzsize);
-%       end;
+%       end
 %       %Resample endocardium
 %       EndoX(:,tloop,:) = interp1(...
 %         linspace(0,1,nslices)',...
@@ -711,7 +706,7 @@ end
 %           linspace(0,1,nslices)',...
 %           squeeze(tempyepi(:,tloop,:))',...
 %           newind')';
-%       end;
+%       end
 %       if dorv
 %         %Resample RV endocardium
 %         RVEndoX(:,tloop,:) = interp1(...
@@ -729,7 +724,7 @@ end
 %         sum(ind)*(SET(NO).SliceThickness+SET(NO).SliceGap);
 %       RVEndoZ(tloop,:) = newind*...
 %         sum(ind)*(SET(NO).SliceThickness+SET(NO).SliceGap);
-%     end;
+%     end
 %     clear tempxendo tempyendo tempxepi tempyepi;
 
   %--------------
@@ -739,7 +734,10 @@ end
     %RVEndoX RVEndoY RVEndoZ
     
     %--- Create RV EndoZ, EpiZ
-    gui.RVEndoZ = repmat(-(1:SET(NO).ZSize)*(SET(NO).SliceThickness+SET(NO).SliceGap),...
+    %gui.RVEndoZ = repmat(-(1:SET(NO).ZSize)*(SET(NO).SliceThickness+SET(NO).SliceGap),...
+    %  [DATA.NumPoints 1]); %Changed 2020-07-26 after bug-report
+
+    gui.RVEndoZ = repmat((1-(1:SET(NO).ZSize))*(SET(NO).SliceThickness+SET(NO).SliceGap),...
       [DATA.NumPoints 1]);
 
     %--- Create RV EndoX, EndoY, EpiX, EpiY
@@ -782,17 +780,20 @@ end
         gui.RVEndoY(1:(DATA.NumPoints-inda+1),tloop,zloop) = yr(inda:end);
         gui.RVEndoX((DATA.NumPoints+1-inda):end,tloop,zloop) = xr(1:inda);
         gui.RVEndoY((DATA.NumPoints+1-inda):end,tloop,zloop) = yr(1:inda);
-      end;
-    end;
-    end; 
+      end
+    end
+    end 
   end
   
   if dorvepi
     %RVEndoX RVEndoY RVEndoZ
     
     %--- Create RVEndoZ
-    gui.RVEpiZ = repmat(-(1:SET(NO).ZSize)*(SET(NO).SliceThickness+SET(NO).SliceGap),...
+    %gui.RVEpiZ = repmat(-(1:SET(NO).ZSize)*(SET(NO).SliceThickness+SET(NO).SliceGap),...
+    %  [DATA.NumPoints 1]); %Fixed 2020-07-26 after bug report.
+    gui.RVEpiZ = repmat((1-(1:SET(NO).ZSize))*(SET(NO).SliceThickness+SET(NO).SliceGap),...
       [DATA.NumPoints 1]);
+
 
     %--- Create EndoX, EndoY
     gui.RVEpiX = SET(NO).ResolutionX*SET(NO).RVEpiX;
@@ -834,9 +835,9 @@ end
         gui.RVEpiY(1:(DATA.NumPoints-inda+1),tloop,zloop) = yr(inda:end);
         gui.RVEpiX((DATA.NumPoints+1-inda):end,tloop,zloop) = xr(1:inda);
         gui.RVEpiY((DATA.NumPoints+1-inda):end,tloop,zloop) = yr(1:inda);
-      end;
-    end;
-    end; 
+      end
+    end
+    end 
   end
   
   %Prepare annotation points
@@ -887,19 +888,19 @@ end
         gui.EpiX(:,:,end+1) = mean(mean(gui.EpiX(:,:,1)));
         gui.EpiY(:,:,end+1) = mean(mean(gui.EpiY(:,:,1)));
         gui.EpiZ(:,end+1) = gui.EpiZ(:,end)+(SET(NO).SliceThickness+SET(NO).SliceGap);
-      end;
+      end
       if dorvendo
         gui.RVEndoX(:,:,end+1) = mean(mean(gui.RVEndoX(:,:,1)));
         gui.RVEndoY(:,:,end+1) = mean(mean(gui.RVEndoY(:,:,1)));
         gui.RVEndoZ(:,end+1) = gui.RVEndoZ(:,end)+(SET(NO).SliceThickness+SET(NO).SliceGap);
-      end;
+      end
       if dorvepi
         gui.RVEpiX(:,:,end+1) = mean(mean(gui.RVEpiX(:,:,1)));
         gui.RVEpiY(:,:,end+1) = mean(mean(gui.RVEpiY(:,:,1)));
         gui.RVEpiZ(:,end+1) = gui.RVEpiZ(:,end)+(SET(NO).SliceThickness+SET(NO).SliceGap);
-      end;
-    end;
-  end;
+      end
+    end
+  end
 
 %------- Draw
   %Create endocardium
@@ -925,7 +926,7 @@ end
       'AlphaDataMapping','none',...
       'AlphaData',repmat(0.5,[size(gui.EpiX,1) size(gui.EpiX,3)]),...
       'FaceColor','green');
-  end;  
+  end  
   if dorvendo
     DATA.Handles.rvendosurf = surf(...
       squeeze(gui.RVEndoX(:,t,:)),... %EH:

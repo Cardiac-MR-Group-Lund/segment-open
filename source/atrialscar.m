@@ -25,7 +25,7 @@ function clearall_Callback %#ok<DEFNU>
 global SET NO DATA
 
 SET(NO).AtrialScar = [];
-drawfunctions('drawimagepanel',DATA.CurrentPanel);
+drawfunctions('drawpanel',DATA.CurrentPanel);
 segment_main('updatevolume');
 
 %--------------------
@@ -71,111 +71,26 @@ for slice = 1:SET(no).ZSize
     dist = sqrt((xr-circshift(xr,[1 0])).^2+(yr-circshift(yr,[1 0])).^2)/10; %10 to convert to cm
     totarea = totarea+sum(dist(:))*slicethickness;
     totscararea = totscararea+sum(dist(:))*slicethickness*(sum(rr))/length(rr);
-  end;
-end;
+  end
+end
 
 SET(no).AtrialScar.TotArea = totarea;
 SET(no).AtrialScar.Percentage = (totscararea/totarea)*100;
 
-drawfunctions('drawimagepanel',DATA.CurrentPanel);
+%drawfunctions('drawimagepanel',DATA.CurrentPanel);
+drawfunctions('drawpanel',DATA.CurrentPanel);
 segment_main('updatevolume');
-
-%---------------------------
-function drawimageone(no,panel) %#ok<DEFNU>
-%---------------------------
-global DATA SET
-
-if isequal(get(DATA.Handles.hidescaricon,'state'),'on')
-  hide = true;
-else
-  hide = false;
-end;
-
-if ~hide
-  x = SET(no).RVEndoX(:,SET(no).CurrentTimeFrame,SET(no).CurrentSlice);
-  y = SET(no).RVEndoY(:,SET(no).CurrentTimeFrame,SET(no).CurrentSlice);
-
-  logind = SET(no).AtrialScar.Result(:,SET(no).CurrentTimeFrame,SET(no).CurrentSlice);
-  x1 = x(logind);
-  y1 = y(logind);
-else
-  x1 = NaN;
-  y1 = NaN;
-end;
-
-if isempty(x1)
-  x1 = NaN;
-  y1 = NaN;
-end;
-
-DATA.Handles.atrialscarcontour(panel) = plot(DATA.Handles.imageaxes(panel),y1,x1,'y.');
-
-%----------------------------------
-function drawimagemontage(no,panel) %#ok<DEFNU>
-%----------------------------------
-global DATA SET
-
-if isequal(get(DATA.Handles.hidescaricon,'state'),'on')
-  hide = true;
-else
-  hide = false;
-end;
-
-if ~hide
-    x = SET(no).RVEndoXView(:,SET(no).CurrentTimeFrame);
-    y = SET(no).RVEndoYView(:,SET(no).CurrentTimeFrame);
-        
-    logind = vertcat( ...
-      SET(no).AtrialScar.Result,true(1,SET(no).TSize,SET(no).ZSize));
-    x1 = x(logind(:));
-    y1 = y(logind(:));
-else
-  x1 = NaN;
-  y1 = NaN;
-end;
-
-if isempty(x1)
-  x1 = NaN;
-  y1 = NaN;
-end;
-
-DATA.Handles.atrialscarcontour(panel) = plot(DATA.Handles.imageaxes(panel),y1,x1,'y.');
-
-%-----------------------------
-function drawsliceone(no,panel) %#ok<DEFNU>
-%-----------------------------
-global DATA SET
-
-if isequal(get(DATA.Handles.hidescaricon,'state'),'on')
-  hide = true;
-else
-  hide = false;
-end;
-
-if ~hide
-  x = SET(no).RVEndoX(:,SET(no).CurrentTimeFrame,SET(no).CurrentSlice);
-  y = SET(no).RVEndoY(:,SET(no).CurrentTimeFrame,SET(no).CurrentSlice);
-
-  logind = SET(no).AtrialScar.Result(:,SET(no).CurrentTimeFrame,SET(no).CurrentSlice);
-  x1 = x(logind);
-  y1 = y(logind);
-else
-  x1 = NaN;
-  y1 = NaN;
-end;
-
-set(DATA.Handles.atrialscarcontour(panel),'ydata',x1,'xdata',y1,'color',[1 1 0]);
 
 %-----------------------------------------
 function manualdraw_Buttonup(no,type,xr,yr) %#ok<DEFNU>
 %-----------------------------------------
-%Callback called from manualdraw_Buttonup in segment_main
+%Callback called from buttonupfunctions.m
 
 global SET
 
 if isempty(SET(no).AtrialScar)
   initscar(no); %Initalize data structure
-end;
+end
 
 %Create a mask
 mask = segment('createmask',[SET(no).XSize SET(no).YSize],xr,yr);
@@ -188,12 +103,12 @@ z = interp2(double(mask),y,x);
 ind = find(z>0.5); %logical index
 
 %Assign
-switch type
+switch lower(type)
   case 'scar'
     SET(no).AtrialScar.Manual(ind,SET(no).CurrentTimeFrame,SET(no).CurrentSlice) = int8(1);    
   case 'rubberpen'
     SET(no).AtrialScar.Manual(ind,SET(no).CurrentTimeFrame,SET(no).CurrentSlice) = int8(-1);
-end;
+end
 
 update(no);
 
@@ -227,12 +142,12 @@ contcheck = sum(diff(slices)~=1);
 if contcheck>0
   myfailed('Slices are not contigous. Missing segmentation in some slice.');
   return;
-end;
+end
 
 if length(slices)<2 
   myfailed('Expected at least two slices for atrial scar visualization.');
   return;
-end;
+end
 
 %Extract tf,slices
 x = squeeze(x(:,tf,slices));
@@ -244,7 +159,7 @@ mask = zeros(SET(NO).XSize,SET(NO).YSize,length(slices));
 for loop = 1:length(slices)
   tempmask = segment('createmask',[SET(NO).XSize SET(NO).YSize],x(:,loop),y(:,loop));
   mask(:,:,loop) = tempmask;
-end;
+end
 
 %--- Create smoothing filter
 n = 7;
@@ -286,7 +201,7 @@ for loop = 1:length(slices)
     ind = sub2ind([SET(NO).XSize SET(NO).YSize length(slices)],round(xr2),round(yr2),repmat(loop,size(xr2)));
     mask(ind) = 1;
   end
-end;
+end
 
 %--- Smooth scar mask
 % originalmask = mask;
@@ -303,7 +218,7 @@ maxv = max(cdata(:));
 % cdata(cdata<(maxv/2)) = 0;
 if maxv==0
   maxv = 1;
-end;
+end
 cdata = 0.2+0.8*cdata/maxv;
 
 %--- Scale vertices before visualization
@@ -312,7 +227,7 @@ fv.vertices(:,2) = fv.vertices(:,2)*SET(NO).ResolutionY;
 fv.vertices(:,3) = fv.vertices(:,3)*(SET(NO).SliceThickness+SET(NO).SliceGap);
 
 %--- Display it
-figure(12);
+fig = figure(12);
 clf;
 h = patch(fv);
 set(h,'cdata',cdata,'facecolor','interp','facealpha',0.7,'edgealpha',0);
@@ -321,6 +236,6 @@ set(h,'cdata',cdata,'facecolor','interp','facealpha',0.7,'edgealpha',0);
 %set(h,'edgealpha',0);
 axis off image;
 colormap(hot);
-cameratoolbar(12);
+cameratoolbar(fig);
 set(gca,'clim',[0 1]);
 

@@ -16,7 +16,7 @@ end
 varargout = cell(1,nargout);
 if nargout>0
   varargout{1} = status;
-end;
+end
 if nargout>1
   varargout{2} = message;
-end;
+end

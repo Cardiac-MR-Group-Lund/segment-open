@@ -31,7 +31,7 @@ if nargin>0
     
     mydisp('--- Starting macro recording ---');
     return;
-  end;
+  end
   
   %stop clause
   if isequal(varargin{1},'_stop')
@@ -41,10 +41,10 @@ if nargin>0
     if isequal(outfid,-1)
       myfailed('Could not open macro file for writing.');
       return;
-    end;
+    end
     for loop=1:(DATA.MacroN-1)
       fprintf(outfid,'%s\n',DATA.Macro{loop});
-    end;
+    end
     fprintf(outfid,'%% Ending\n');
     fclose(outfid);
     
@@ -53,30 +53,30 @@ if nargin>0
     DATA.Macro = [];
     DATA.MacroN = 0;
     return;
-  end;  
+  end 
   
   if isequal(varargin{1},'put')
     if DATA.RecordMacro
       DATA.Macro{DATA.MacroN} = varargin{2};
       DATA.MacroN = DATA.MacroN+1;
       return;
-    end;
-  end;
+    end
+  end
   
   if isequal(varargin{1},'switchorder')
     if DATA.RecordMacro
       switchorder;
-    end;
-  end;
-end;
+    end
+  end
+end
 
 try
   if isempty(DATA) || ~DATA.RecordMacro
     return; %done
-  end;
+  end
 catch
   return
-end;
+end
 
 st = dbstack;
 
@@ -93,17 +93,21 @@ if length(st)==2
           tempstri = ['[' sprintf('%d ',size(varargin{loop})) ']'];
         else
           tempstri = sprintf('%0.5g',varargin{loop});
-        end;
-    end;
+        end
+    end
 
     if loop>2
       stri = [stri ',' tempstri]; %#ok<AGROW>
     else
       stri = tempstri;
-    end;
+    end
 
-  end;
+  end
 
+  if isempty(DATA.MacroN) 
+    DATA.MacroN = 1;
+  end
+  
   switch nargin
     case 0
       DATA.Macro{DATA.MacroN} = removeext(st(2).file);
@@ -114,7 +118,7 @@ if length(st)==2
     otherwise
       DATA.Macro{DATA.MacroN} = sprintf('%s(''%s'',''%s'');',removeext(st(2).file),fname,stri);
       DATA.MacroN = DATA.MacroN+1;
-  end;
+  end
 
   %For handles
   h = gco;
@@ -133,12 +137,12 @@ if length(st)==2
             DATA.Macro{DATA.MacroN} = sprintf('%%%s set to value %d\n',tag,v);
             switchorder;
             DATA.MacroN = DATA.MacroN+1;
-        end;
+        end
       otherwise
-    end;
-  end;
+    end
+  end
     
-end;
+end
 
 %------------------------------
 function stri = removeext(stri)
@@ -154,7 +158,7 @@ global DATA
 
 if DATA.MacroN<3
   myfailed('Cannot switch place on top element.');
-end;
+end
 
 temp = DATA.Macro{DATA.MacroN-2};
 DATA.Macro{DATA.MacroN-2} = DATA.Macro{DATA.MacroN-1};

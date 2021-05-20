@@ -3,13 +3,13 @@ function mydisp(stri)
 global DATA
 
 stri = translation.dictionary(stri);
-
+stri = tools('maskpatientstrings',stri);
 stri = char(textwrap({stri},60));
 
 try
   if ~DATA.Silent
     disp(stri);
-  end;
+  end
 catch %#ok<CTCH>
  disp(stri);
-end;
+end

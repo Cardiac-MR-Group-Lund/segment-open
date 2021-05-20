@@ -6,4 +6,4 @@ function myset(handlevec,varargin)
 handlevec = handlevec(ishandle(handlevec));
 if ~isempty(handlevec)
   set(handlevec,varargin{:});
-end;
+end

@@ -16,7 +16,7 @@ try
       y = p(2);
     else
       y = p(3);
-    end;
+    end
   else
     if length(DATA.Buffer.CurrentPoint)<2
       p = get(h,'CurrentPoint');
@@ -25,12 +25,12 @@ try
         y = p(2);
       else
         y = p(3);
-      end;
+      end
     else
       x = popfrombuffer('CurrentPoint');
       y = popfrombuffer('CurrentPoint');
-    end;
-  end;
+    end
+  end
 catch
   return;
 end
@@ -40,4 +40,4 @@ if DATA.RecordMacro
   namestri = inputname(1);
   macro_helper('put',sprintf('pushtobuffer(''CurrentPoint'',[%0.5g %0.5g]); %% %s %s',x,y,stri,namestri));
   macro_helper('switchorder'); %We need to store data in buffer before the callback
-end;
+end

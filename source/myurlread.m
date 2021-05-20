@@ -120,7 +120,8 @@ errorid = '';
 errormsg = '';
 
 % Determine the protocol (before the ":").
-protocol = urlChar(1:min(find(urlChar==':'))-1);
+% protocol = urlChar(1:min(find(urlChar==':'))-1);
+protocol = urlChar(1:find(urlChar==':', 1)-1);
 
 % Try to use the native handler, not the ice.* classes.
 switch protocol
