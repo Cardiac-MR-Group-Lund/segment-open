@@ -24,9 +24,11 @@ if nargin == 0 || fileinput  % LAUNCH and initalize GUI
   %Check if os is supported
   arch = mexext();  
   switch arch
-    case {'mexglx','mexmaci','mexmaci64'}
+    case {'mexglx','mexmaci'}
       myfailed('Your platform is not supported. Supported platforms are Windows and Linux 64 bit.');
       return;
+    case {'mexmaci64', 'mexa64'}
+      mywarning('This platform is not officially supported. Bugs and errors may occur.')
   end
   
   if not(isdeployed())
