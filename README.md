@@ -22,10 +22,7 @@ Some parts of the code is protected (Matlab p-files).
 
 ## How do I use Segment?
 
- * Have a look in the folder [source/Docs](source/Docs)
- * The [user manual](source/Docs/manual.pdf) shows how to use the program.
- * We also have some [tutorial videos on Medviso's Segment page](http://medviso.com/tutorial-videos/).
- * If you want to develop your own plugins (or if you're just curious), the [tech manual](source/Docs/techmanual.pdf) shows how Segment works internally.
+ * Please see the Medviso homepage: [manuals](https://medviso.com/user-manuals/) and [tutorial videos](https://medviso.com/tutorial-videos/).
 
 **It is strongly recommended to use Matlab R2019a.**
  * Using older versions may produce bugs due to non-existent functionality.
