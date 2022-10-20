@@ -33,18 +33,28 @@ Some parts of the code is protected (Matlab p-files).
 
 ## Matlab toolboxes
 
-To use all features, you need the following Matlab toolboxes
+Required toolboxes for minimal features (load images and manual segmentation) and for perfusion analysis in Segment:
+ * Computer Vision Toolbox
+ * Image Processing Toolbox
+ * Parallel Computing Toolbox
+ * Mapping Toolbox
+ * Statistics and Machine Learning Toolbox
 
-  * Computer Vision Toolbox
-  * Control System Toolbox
-  * Deep Learning Toolbox
-  * Image Processing Toolbox
-  * MATLAB Report Generator
-  * Mapping Toolbox
-  * Optimization Toolbox
-  * Parallel Computing Toolbox
-  * Signal Processing Toolbox
-  * Statistics and Machine Learning Toolbox
+Required toolbox for automatic LV and RV segmentation tools:
+ * Deep Learning Toolbox
+
+Required toolbox for Relaxometry analysis:
+ * Optimization Toolbox
+
+Required toolbox for AVPD analysis:
+ * Curve Fitting Toolbox
+
+Required toolbox for LA segmentation:
+ * Curve Fitting Toolbox
+
+Required toolboxes for SPECT analysis:
+ * Optimization Toolbox
+ * Signal Processing Toolbox
 
 ## Contributions
 
