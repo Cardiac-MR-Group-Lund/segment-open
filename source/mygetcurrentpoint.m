@@ -3,13 +3,14 @@ function [x,y] = mygetcurrentpoint(h)
 %current point from buffer.
 
 %Einar Heiberg
-global DATA
+global DATA %#ok<GVMIS> 
 
 x = 0;
 y = 0;
 
 try
   if ~DATA.Testing
+    %This is standard where we end up
     p = get(h,'CurrentPoint');
     x = p(1);
     if numel(p)<3

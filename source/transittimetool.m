@@ -2,7 +2,6 @@ function [varargout] = transittimetool(varargin)
 %GUI for transit time analysis.
 %Nils Lundahl
 
-macro_helper(varargin{:});
 if nargin == 0 || isempty(varargin{1})
   varargin{1} = 'init';
 end
@@ -88,7 +87,7 @@ x = linspace(-60,60,121);
 f = exp(-x.^2/gui.sigma.^2);
 figure(22);
 plot(x,f);
-xlabel(dprintf('Timeframes'));
+xlabel(dprintf('Time frames'));
 title(dprintf('Smoothing applicability.'));
 
 %--------------
@@ -417,10 +416,10 @@ if SET(gui.no).TSize>1
   end
   legend(gui.handles.inflowaxes,legendstring{1});
   legend(gui.handles.outflowaxes,legendstring{2});
-  
-  xlabel(gui.handles.inflowaxes,dprintf('Time [s]'));
+  timestr = makeunitstring(dprintf('Time'),'s');
+  xlabel(gui.handles.inflowaxes,timestr);
   ylabel(gui.handles.inflowaxes,dprintf('Signal Intensity [a.u.]'));
-  xlabel(gui.handles.outflowaxes,dprintf('Time [s]'));
+  xlabel(gui.handles.outflowaxes,timestr);
   ylabel(gui.handles.outflowaxes,dprintf('Signal Intensity [a.u.]'));
   
   yticks = get(gui.handles.inflowaxes,'YTick');

@@ -17,7 +17,7 @@ if isdeployed()
   %--- Ok. Not correct look in program files
   programfilesdir = getenv('programfiles');
   
-  programnamenospace = DATA.ProgramName;
+  programnamenospace = DATA.getsoftwarename;
   programnamenospace = programnamenospace(programnamenospace~=' ');
   
   softwarepath = [programfilesdir filesep 'Medviso' filesep programnamenospace filesep 'application'];
@@ -58,7 +58,7 @@ global DATA
 correct = false;
 
 %--- Check if correct folder by finding ProgramName.exe
-namenospace = DATA.ProgramName;
+namenospace = DATA.getsoftwarename;
 namenospace = namenospace(namenospace~=' ');
 wantfile = [namenospace '.exe'];
 f = dir(pathname);

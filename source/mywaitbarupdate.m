@@ -5,9 +5,12 @@ function h = mywaitbarupdate(varargin)
 %counter one step. Graphic is updated depends on
 %setting when intializing the structure.
 %
+%NOTE: MYWAITBARSTART is obsoleted and recommended is to replace with
+%MYWAITBAR instead.
+%
 %See also MYWAITBARSTART, MYWAITBARSET, MYWAITBARCLOSE.
 
-global DATA
+global DATA %#ok<*GVMIS> 
 
 if ~isempty(DATA)
   h = DATA.mywaitbarupdate(varargin{:}); %Call the potentially overloaded method.

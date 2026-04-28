@@ -64,6 +64,7 @@ DATA.Preview.PatientInfo.Age = '';
 DATA.Preview.HeartRate = 60;
 DATA.Preview.PatientInfo.AcquisitionDate = datestr(now);
 DATA.Preview.PatientInfo.BSA = 0;
+DATA.Preview.PatientInfo.BMI = 0;
 DATA.Preview.PatientInfo.Weight = 0;
 DATA.Preview.PatientInfo.Length = 0;
 DATA.Preview.AcquisitionTime = '00.00';

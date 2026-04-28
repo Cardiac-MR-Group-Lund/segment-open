@@ -3,7 +3,7 @@ function v = mygetvalue(h)
 %to use macros in Segment.
 
 %Einar Heiberg
-global DATA
+global DATA %#ok<*GVMIS> 
 
 if ~DATA.Testing
   v = get(h,'value');

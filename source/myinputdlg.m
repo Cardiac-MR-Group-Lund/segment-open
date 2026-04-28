@@ -23,6 +23,15 @@ if nargin > 3
     DefAns = cellstr(DefAns);
   end
 end
+try
+  if ~isempty(DATA.Buffer.EditString)    
+    stri = popfrombuffer('EditString');
+    if isstring(stri) || ischar(stri)
+      DefAns = cellstr(stri);
+    end
+  end
+catch
+end
 
 if nargin > 4
   Resize = convertStringsToChars(Resize);
@@ -50,7 +59,7 @@ if nargin<3
   NumLines=1;
 end
 
-if nargin<4
+if nargin<4 && ~exist('DefAns', 'var')
   DefAns=cell(NumQuest,1);
   for lp=1:NumQuest
     DefAns{lp}='';
@@ -103,10 +112,10 @@ end
 FigWidth=175;
 FigHeight=100;
 FigPos(3:4)=[FigWidth FigHeight];  %#ok
-try FigColor=DATA.GUISettings.BackgroundColor;
-catch, FigColor=get(0,'DefaultUicontrolBackgroundColor'); end
-try TextColor=DATA.GUISettings.ForegroundColor;
-catch, TextColor=get(0,'FactoryUicontrolForegroundColor'); end
+try FigColor = DATA.GUISettings.BackgroundColor;
+catch, FigColor = get(0,'DefaultUicontrolBackgroundColor'); end
+try TextColor = DATA.GUISettings.ForegroundColor;
+catch, TextColor = get(0,'FactoryUicontrolForegroundColor'); end
 
 InputFig=dialog(                     ...
   'Visible'          ,'off'      , ...
@@ -256,7 +265,7 @@ for lp=1:NumQuest
     
     jPasswordField = javax.swing.JPasswordField(DefAns{lp});  % default password arg is optional
     jPasswordField = javaObjectEDT(jPasswordField);
-    handles=get(EditHandle(lp));
+    handles = get(EditHandle(lp));
     jhPasswordField = javacomponent(jPasswordField,handles.Position,InputFig);
   end
 
@@ -304,7 +313,7 @@ OKHandle=uicontrol(InputFig     ,              ...
   BtnInfo      , ...
   'Position'   ,[ FigWidth-2*BtnWidth-2*DefOffset DefOffset BtnWidth BtnHeight ] , ...
   'KeyPressFcn',@doControlKeyPress , ...
-  'String'     ,getString(message('MATLAB:uistring:popupdialogs:OK'))        , ...
+  'String'     ,dprintf('OK'), ...
   'Callback'   ,@doCallback , ...
   'Tag'        ,'OK'        , ...
   'UserData'   ,'OK'          ...
@@ -316,7 +325,7 @@ CancelHandle=uicontrol(InputFig     ,              ...
   BtnInfo      , ...
   'Position'   ,[ FigWidth-BtnWidth-DefOffset DefOffset BtnWidth BtnHeight ]           , ...
   'KeyPressFcn',@doControlKeyPress            , ...
-  'String'     ,getString(message('MATLAB:uistring:popupdialogs:Cancel'))    , ...
+  'String'     ,dprintf('Cancel'), ...
   'Callback'   ,@doCallback , ...
   'Tag'        ,'Cancel'    , ...
   'UserData'   ,'Cancel'       ...
@@ -344,15 +353,47 @@ set(InputFig,'Visible','on');
 drawnow;
 
 if ~isempty(EditHandle)
-  uicontrol(EditHandle(1));
-end
+  edtfield = uicontrol(EditHandle(1)); % set cursor into EditHandle
+  if isHided
+    % set focus on edit field to start writing directly    
+    import java.awt.Robot;
+    import java.awt.event.*;
+    
+    mouse = Robot;
+    poschild = edtfield.Position;
+    posparent = getpixelposition(edtfield.Parent);
+    marg = 5;
+    posx = ceil(posparent(1)+poschild(1)) + marg;
+    posy = ceil(posparent(2)+poschild(2)) + marg;
+    hroot = groot;
+    set(hroot,'PointerLocation',[posx,posy]);%set pointer location
 
-if ishghandle(InputFig)
-  % Go into uiwait if the figure handle is still valid.
-  % This is mostly the case during regular use.
-  c = matlab.ui.internal.dialog.DialogUtils.disableAllWindowsSafely();
-  uiwait(InputFig);
-  delete(c);
+    mouse.mousePress(InputEvent.BUTTON1_MASK); % actual left click press
+    pause(0.1);
+    mouse.mouseRelease(InputEvent.BUTTON1_MASK); % actual left click release
+
+   set(hroot,'PointerLocation',[posx-10,posy]);%move aside
+  end
+end
+keystroke = popfrombuffer('KeyStroke');
+if isempty(keystroke)
+  if ishghandle(InputFig)
+    % Go into uiwait if the figure handle is still valid.
+    % This is mostly the case during regular use.
+    if verLessThan('matlab','9.12') %before MATLAB 2022a
+      c = matlab.ui.internal.dialog.DialogUtils.disableAllWindowsSafely();
+    else
+      c = matlab.ui.internal.dialog.DialogUtils.disableAllWindowsSafely(true);
+    end
+    uiwait(InputFig);
+    delete(c);
+  end
+else
+  if isequal(lower(keystroke),'ok')
+    set(InputFig,'UserData','OK');
+  else
+    error(sprintf('Expected ''ok'' as keystroke, got %s',keystroke)); %#ok<SPERR>
+  end
 end
 
 % Check handle validity again since we may be out of uiwait because the
@@ -589,29 +630,34 @@ function figure_size = mygetnicedialoglocation(figure_size, figure_units)
 % own version of getnicedialoglocation
 % adjust the specified figure position to fig nicely over GCBF
 % or into the upper 3rd of the screen
+%  Copyright 1999-2020 The MathWorks, Inc.
 
-parentHandle = gcbf;
-convertData.destinationUnits = figure_units;
-if ~isempty(parentHandle)
+if verLessThan('matlab','9.12') %before MATLAB 2022a
+  parentHandle = gcbf;
+  convertData.destinationUnits = figure_units;
+  if ~isempty(parentHandle)
     % If there is a parent figure
     convertData.hFig = parentHandle;
     convertData.size = get(parentHandle,'Position');
-    convertData.sourceUnits = get(parentHandle,'Units');  
-    c = []; 
-else
+    convertData.sourceUnits = get(parentHandle,'Units');
+    c = [];
+  else
     % If there is no parent figure, use the root's data
     % and create a invisible figure as parent
     convertData.hFig = figure('visible','off');
     convertData.size = get(0,'ScreenSize');
     convertData.sourceUnits = get(0,'Units');
     c = onCleanup(@() close(convertData.hFig));
-end
-
-% Get the size of the dialog parent in the dialog units
-container_size = hgconvertunits(convertData.hFig, convertData.size ,...
+  end
+  
+  % Get the size of the dialog parent in the dialog units
+  container_size = hgconvertunits(convertData.hFig, convertData.size ,...
     convertData.sourceUnits, convertData.destinationUnits, get(convertData.hFig,'Parent'));
-
-delete(c);
-
-figure_size(1) = container_size(1)  + 1/2*(container_size(3) - figure_size(3));
-figure_size(2) = container_size(2)  + 2/3*(container_size(4) - figure_size(4));
+  
+  delete(c);
+  
+  figure_size(1) = container_size(1)  + 1/2*(container_size(3) - figure_size(3));
+  figure_size(2) = container_size(2)  + 2/3*(container_size(4) - figure_size(4));
+else
+  figure_size = matlab.ui.internal.dialog.DialogUtils.centerWindowToFigure(figure_size, figure_units);
+end

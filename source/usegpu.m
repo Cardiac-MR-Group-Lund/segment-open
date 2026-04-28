@@ -5,7 +5,7 @@ function use = usegpu()
 
 %Einar Heiberg
 
-global DATA
+global DATA %#ok<GVMIS> 
 
 use = DATA.Pref.GPU.Use;
 
@@ -17,7 +17,7 @@ if isempty(DATA.GPU) || (~DATA.GPU.Hot)
   
   %Fire it up
   DATA.GPU.Hot = true;
-  h = waitbar(0,'Initalizing GPU engine.');  
+  h = waitbar(0,'');  
   temp = gpuArray(single(0)); %#ok<NASGU>
   clear temp;
   close(h);

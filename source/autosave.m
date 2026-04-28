@@ -1,8 +1,6 @@
 function [varargout] = autosave(varargin)
 %Tools for autosaving
-
-%Einar Heiberg
-
+%
 %Autosave was included many years ago in Segment but is now re-introduced
 %in 2020-10-17. Previous implementation was problematic due to overwriting,
 %and also wrote to working folder that could have been a slow network disc.
@@ -19,90 +17,141 @@ function [varargout] = autosave(varargin)
 %3) There is no guarantee that the files are save in a bad state du to
 %ongoing computations, some precautions are performed.
 
-%macro_helper(varargin{:}); %No need for macro recorder
+%Einar Heiberg
+
+%#ok<*GVMIS> 
+
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 
-%------------
-function init %#ok<DEFNU>
-%------------
-%Init function check if should start timer
+%--------------
+function init 
+%--------------
+%called from openfile.m
 
-global DATA
+global DATA 
 
-if DATA.Pref.AutoSave
-  startit;
-else  
-  DATA.AutoSaveTimer = [];
+timerobj = timerfind('Name','AutoSaveTimer');
+if isempty(timerobj) 
+  if DATA.Pref.AutoSave %check preferences 
+    startit; 
+  end
+else
+  % timer exist
+  if DATA.Pref.AutoSave
+    % restart timer if AutoSave is on
+    startit(timerobj)
+  else
+    % stop timer gracefully because it shouldn't be on based on preferences
+    removeit(timerobj);
+  end    
 end
 
 %---------------
-function startit
+function startit(timerobj)
 %---------------
 %Starts the timer
-
-global DATA
-
-if ~isfield(DATA,'AutoSaveTimer')
-  DATA.AutoSaveTimer = [];
+if nargin == 0 || ~isa(timerobj,'Timer')
+  % no timer object was provide or the provided object is not a timer
+  timerobj = timerfind('Name','AutoSaveTimer');
 end
 
 %This code is inspired from sectra.m
-if ~isempty(DATA.AutoSaveTimer) && isa(DATA.AutoSaveTimer,'timer')
+istimeron = false;
+if ~isempty(timerobj)
   %it is a timer, ensure it is stopped properly
-  stop(DATA.AutoSaveTimer);
-  delete(DATA.AutoSaveTimer);
+  stop(timerobj);
+  delete(timerobj);
+  istimeron = true;
+end
+clear timerobj
+t = 15*60; %15 minutes in seconds
+timerobj = timer('StartDelay',t,...
+                 'Period',t,...
+                 'ExecutionMode','fixedSpacing',...
+                 'TimerFcn','autosave(''doautosave'')',...
+                 'Name','AutoSaveTimer');
+start(timerobj);
+if istimeron
+  logdisp(sprintf('Autosave timer restarted with %0.5g minutes interval.',t/60));
+else
+  logdisp(sprintf('Autosave timer started with %0.5g minutes interval.',t/60));
 end
 
-t = 15*60; %15 minutes in seconds
-DATA.AutoSaveTimer = timer('StartDelay',t,'Period',t,'ExecutionMode','fixedSpacing');
-DATA.AutoSaveTimer.TimerFcn = 'autosave(''doautosave'')';
-start(DATA.AutoSaveTimer);
-disp('Autosave timer started.');
+%--------------
+function stopit 
+%--------------
+%Stop autosave timer, called from maingui.m
 
-%--------------
-function stopit
-%--------------
+timerobj = timerfind('Name','AutoSaveTimer');
+%Try to cleanup
+try
+  cleanup;
+catch me
+  logdisp('Could not perform cleanup before stopping autosave');
+  mydispexception(me);
+end
+
+if ~isempty(timerobj)
+  try
+    stop(timerobj);
+  catch me
+    mydispexception(me)
+    logdisp('Could not stop autosave timer')
+  end
+end
+
+%--------------------------
+function removeit(timerobj)
+%--------------------------
 %Stop autosave timer
-
-global DATA
 
 %Try to cleanup
 try
   cleanup;
 catch me
-  disp('Could not perform cleanup before stopping autosave');
+  logdisp('Could not perform cleanup before stopping autosave');
   mydispexception(me);
+end
+if nargin == 0 || ~isa(timerobj,'Timer')
+  % no timer object was provide or the provided object is not a timer
+  timerobj = timerfind('Name','AutoSaveTimer');
 end
 
 %Try to stop
-try
-  stop(DATA.AutoSaveTimer);
-  delete(DATA.AutoSaveTimer);
-  DATA.AutoSaveTimer = [];
-  disp('Autosave time deleted.');
-catch me
-  disp('Something went wrong stopping autosave timer.');
-  mydispexception(me);  
+if ~isempty(timerobj)
+  try
+    stop(timerobj);
+    delete(timerobj);
+    logdisp('Autosave timer deleted.');
+  catch me
+    logdisp('Something went wrong stopping autosave timer.');
+    mydispexception(me);  
+  end
 end
 
 %------------------
-function doautosave %#ok<DEFNU>
+function doautosave
 %------------------
 %Performs the autosave, first performs cleanup
 
-global DATA
+global DATA SET
+
+%Try to cleanup prior to save
+try
+  cleanup;
+catch me
+  logdisp('Could not perform autosave cleanup.');
+  mydispexception(me);
+end
 
 %Do not save if no data loaded.
 if ~DATA.DataLoaded
   return;
 end
 
-%Try to cleanup prior to save
-try
-  cleanup;
-catch me
-  disp('Could not perform cleanup.');
-  mydispexception(me);
+%Do not need to save if NeedToSave is not updated
+if ~DATA.NeedToSave
+  return;
 end
 
 %check if there is 'myworkon' running
@@ -119,16 +168,35 @@ end
 %Save it
 topatientdatabase = false;
 silent = true;
+fast = true;
 pathname = getpreferencespath;
+oldfilename = SET(1).FileName;
+
 filename = sprintf('autosave-%s.mat',datestr(now,'yyyymmddTHHMMSS',now));
 h = msgbox(dprintf('Autosaving %s%s%s',pathname,filesep,filename)); %Reason for msgbox instead of mymsgbox is that msgbox is non modular (i.e code does not stop and wait for ok).
-disp(sprintf('Autosaving %s%s%s',pathname,filesep,filename)); %#ok<DSPS>
-filemenu('saveallas_helper',pathname,filename,topatientdatabase,silent)
-disp('Autosave done.');
+logdisp(sprintf('Autosaving %s%s%s',pathname,filesep,filename));
+try
+  filemenu('saveallas_helper',pathname,filename,topatientdatabase,silent,fast);
+  setfilenamehelper(oldfilename);
+catch
+  setfilenamehelper(oldfilename);
+end
+logdisp('Autosave done.');
 
 try
   delete(h); %Try to delete the message box
 catch
+end
+
+%-----------------------------------
+function setfilenamehelper(filename)
+%-----------------------------------
+%Sets filename for all stacks.
+
+global SET
+
+for loop = 1:length(SET)
+  SET(loop).FileName = filename;
 end
 
 %---------------
@@ -147,11 +215,11 @@ pathname = getpreferencespath;
 f = dir([pathname filesep 'autosave*.mat']);
 
 if isempty(f)
-  disp('No autosave files to delete.');
+  logdisp('No autosave files to delete.',true);
   return;
 end
 
-disp('Checking for autosave files to clean.');
+logdisp('Checking for autosave files to clean.');
 
 %Files are returned alphanumerically, we should delete "the first ones"
 numfiles = length(f);
@@ -181,12 +249,12 @@ end
 if sum(dodelete)>0
   for loop = 1:length(dodelete)
     if dodelete(loop)
-      disp(sprintf('Deleting autosave file %s',f(loop).name)); %#ok<DSPS>
+      logdisp(sprintf('Deleting autosave file %s',f(loop).name));
       delete([pathname filesep f(loop).name]);
     end
   end
 else
-  disp('No files to delete.');
+  logdisp('No autosave files to delete.');
 end
 
 

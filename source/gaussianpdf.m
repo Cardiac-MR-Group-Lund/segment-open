@@ -1,8 +1,5 @@
 function f = gaussianpdf(x,mu,sigma)
-%This function creates a gaussian distribution. The function is written in
-%order to not use the built in matlab command pdf('norm',x,mu,sigma) since
-%we then have to compile the statistics tool box into Segment
-%
+%Creates a gaussian distribution. 
 %Input:
 %x: values for which the distribution should be calculated
 %mu: mean
@@ -10,7 +7,6 @@ function f = gaussianpdf(x,mu,sigma)
 %Output:
 %f: gaussian distribution
 
-%Written by Nils Lundahl
 if length(mu)==1
   f=exp(-0.5 * ((x - mu)./sigma).^2) ./ (sqrt(2*pi) .* sigma);
 elseif length(mu)==2

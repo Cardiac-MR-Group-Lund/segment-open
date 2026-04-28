@@ -1,21 +1,522 @@
-function callbackfunctions(varargin)
+function varargout = callbackfunctions(varargin)
 % This .m file has the ambition of containing all Callback functions
 
 % Split out by Klas
 
+%#ok<*GVMIS> 
+
 %Invoke subfunction
-macro_helper(varargin{:}); %future macro recording use
-feval(varargin{:}); % FEVAL switchyard
+if (nargout)
+  [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
+else
+  feval(varargin{:}); % FEVAL switchyard
+end
+
+%------------------------
+function valvetracking_Callback
+%------------------------
+
+valvetracking.valvetrackingml('track');
+
+%------------------------
+function createcutplaneobject_Callback
+%------------------------
+%Creates a cutplane object with selected object as parent
+global SET NO
+
+O = SET(NO).LevelSet.Object;
+O.createcutplaneobject_Callback;
+
+%------------------------
+function fdabutton_Callback
+%------------------------
+%Manage the GUI appareance in FDA theme
+global DATA SET
+
+%---Word-around to unfocus the radiobutton
+DATA.requestfocus;
+
+%--- Save theme to preferences
+DATA.Pref.RunFDAVersion = true;
+silent = true;
+segpref('save_Callback',silent);
+
+%--- Get all GUI handles
+h = DATA.Handles;
+handlenames = fieldnames(h);
+
+%--- Verify that current tab is FDA cleared, otherwise switch to LV tab
+if ~isempty(h.toggleiconholder.clickedicon)
+  if ~h.toggleiconholder.clickedicon.isFDACleared
+    executeicon = true;
+    h.toggleiconholder.indent('ribbonfunction',executeicon);
+  end
+end
+
+%--- Make non-FDA cleared menus invisible
+for loop = 1:numel(handlenames)
+  currenthandle = h.(handlenames{loop});
+  try
+    if isa(currenthandle,'matlab.ui.container.Menu')
+      set(currenthandle,'Visible','off');
+    end
+  catch me
+    mydispexception(me);
+  end
+end
+set(getfdaclearedmenus,'visible','on');
+
+%--- Disable non-FDA cleared icons
+fdapreferences = DATA.Pref.RunFDAVersion;
+if ~isempty(SET)  %no data loaded, no need to update the icons placeholders
+  h.toggleiconholder.enable('',fdapreferences);
+  h.permanenticonholder.enable('',fdapreferences);
+  h.configiconholder.enable('',fdapreferences);
+end
+
+%------------------------
+function researchbutton_Callback
+%------------------------
+%Manage the GUI appareance in Research theme
+global DATA SET
+
+%---Word-around to unfocus the radiobutton
+DATA.requestfocus;
+
+%--- Save theme to preferences
+DATA.Pref.RunFDAVersion = false;
+silent = true;
+segpref('save_Callback',silent);
+
+%--- Get all GUI handles
+h = DATA.Handles;
+handlenames = fieldnames(h);
+
+%--- Make all menus invisible
+for loop = 1:numel(handlenames)
+  currenthandle = h.(handlenames{loop});
+  try
+    if isa(currenthandle,'matlab.ui.container.Menu')
+      if strcmp(currenthandle.Visible,'off')
+        set(currenthandle,'Visible','on');
+      end
+    end
+  catch me
+    mydispexception(me);
+  end
+end
+
+%--- Enable all icons
+fdapreferences = DATA.Pref.RunFDAVersion;
+if ~isempty(SET)  %no data loaded, no need to update the icons placeholders
+  h.toggleiconholder.enable('',fdapreferences);
+  h.permanenticonholder.enable('',fdapreferences);
+  h.configiconholder.enable('',fdapreferences);
+end
+
+%------------------------------------------
+function handles = getfdaclearedmenus
+%------------------------------------------
+% Return a vector containing the handles to all the Menu items that FDA
+% cleared
+global DATA
+
+h = DATA.Handles;
+
+%List of File menu items
+filehandles = [ ...
+  h.filemenu ...
+  h.fileopenfromdiscmenu ...
+  h.fileloadnextmenu ...
+  h.openpatientdatabasemenu ...
+  h.fileloadsegmentationmenu ...
+  h.filesaveallmenu ...
+  h.filesavetodatabasemenu ...
+  h.filesaveallasmenu ...
+  h.filesavesubmenu ...
+  h.filesavesegdicom ...
+  h.filesavecurrentmenu ...
+  h.filesavesegmentationmenu ...
+  h.filecloseallmenu ...
+  h.fileclosemultiplemenu ...
+  h.fileclosecurrentimagestack ...
+  h.fileresetguimenu ...
+  h.filequitmenu ...
+  ];
+
+%List of Edit menu items
+edithandles = [...
+  h.editmenu...
+  h.editselectallslices ...
+  h.editunselectallslices ...
+  h.editautoesedmenu ...
+  h.editsetedmenu ...
+  h.editsetesmenu ...
+  h.editsetfirsttimeframemenu ...
+  h.editsetfirsttimeframeforselectedmenu ...
+  ];
+
+%List of Image Tools menu items
+toolshandles = [...
+  h.toolsmenu ...
+  h.toolsremovetimeframesmenu ...
+  h.editremovecurrenttimeframe ...
+  h.editremovenexttimeframe ...
+  h.editremoveallbutthistimeframemenu ...
+  h.editremoveprevioustimeframe ...
+  h.editremoveduplicatetimeframe ...
+  h.editremoveallbutedes ...
+  h.toolsremovetimeslicesmenu ...
+  h.editremovecurrentslicemenu ...
+  h.editremoveslicesmenu ...
+  h.editremoveunselectedmenu ...
+  h.duplicatebasalslicemenu ...
+  h.duplicateapicalslicemenu ...
+  h.setcolormapmenu ...
+  h.originalcolormapmenu ...
+  h.colormapgraymenu ...
+  h.hsvcolormapmenu ...
+  h.jetcolormapmenu ...
+  h.hotcolormapmenu ...
+  h.spectcolormapmenu ...
+  h.gtcolormapmenu ...
+  h.toolsfliprotatemenu ...
+  h.toolsflipxmenu ...
+  h.toolsflipymenu ...
+  h.toolsfliptmenu ...
+  h.toolsflipzmenu ...
+  h.toolsrotate90rightmenu ...
+  h.toolsflipxzmenu ...
+  h.toolsflipztmenu ...
+  h.toolsflipxmirrormenu ...
+  h.toolsresamplestackmenu ...
+  h.toolsupsamplemenu ...
+  h.toolsupsampleslicesmenu ...
+  h.toolsupsampletemporalmenu ...
+  h.toolscropstackmenu ...
+  h.toolsunlinkimagesmenu ...
+  h.toolsadjustimagedetailsmenu ...
+  ];
+
+%List of ROI menu items
+roihandles = [...
+  h.roimenu ...
+  h.roiimportmenu ...
+  h.roicopyall ...
+  h.flowaddfixsizeroi ...
+  h.roisetroilabelmenu ...
+  h.roisetroilcolormenu ...
+  h.roideletetemplatemenu ...
+  h.roideleteroiintimeframemenu ...
+  h.roideleteroinalltimeframesbutthismenu ...
+  h.roicopyendomenu ...
+  h.roicopyepimenu ...
+  h.roicopytolvmenu ...
+  h.roisignalintensityanalysis ...
+  h.roihistogrammenu ...
+  h.roiexportroivaluesmenu ...
+  h.roithresholdnumericmenu ...
+  h.roithresholdnumericvisual ...
+  h.roivisualthresholdingmenu ...
+  ];
+
+%List of Annotations menu items
+annotationshandles = [...
+  h.measuremenu ...
+  h.annotationsimportpointsmenu ...
+  h.annotationsrenamepointsmenu ...
+  h.annotationsclearpointsmenu ...
+  h.annotationstemporalfiltermenu ...
+  h.annotationsexportpointsmenu ...
+  h.exportmeasurements ...
+  ];
+
+%List of Segmentation menu items
+segmentationhandles = [...
+  h.segmentmenu ...
+  h.lvmenu ...
+  h.lvaisaxmenu ...
+  h.lvaisaxedesmenu ...
+  h.lvaisaxslicesmenu ...
+  h.importsegmenu ...
+  h.interchangesegmenu ...
+  h.calcendointersectionall ...
+  h.calcendointersectioncurrent ...
+  h.copyrefinemenu ...
+  h.toolscopyendoupwardsmenu ...
+  h.toolscopyepiupwardsmenu ...
+  h.toolscopyendodownwardsmenu ...
+  h.toolscopyepidownwardsmenu ...
+  h.toolscopytoalltimeframes ...
+  h.clearseginslicesmenu ...
+  h.clearsegmentationendo ...
+  h.clearsegmentationendothismenu ...
+  h.clearsegmentationepi ...
+  h.clearsegmentationepithismenu ...
+  h.alternativelvmenu ...
+  h.alternativelvsegmenu ...
+  h.autoendomenu ...
+  h.autoepimenu ...
+  h.alternativelvrefineendomenu ...
+  h.alternativelvrefineepimenu ...
+  h.setlongaxismotionmenu ...
+  h.autoestimatepapvolumemenu ...
+  h.estimatepapvolumefromroimenu ...
+  h.adjustpapthresholdmenu ...
+  h.segmentresetpapilaryvolumemenu ...
+  h.rvmenu ...
+  h.rvaisegmenu ...
+  ...h.rvinterchangesegmenu ...
+  h.copyendolvtorvmenu ...
+  h.copyepilvtorvmenu ...
+  h.rvclearseginslicesmenu ...
+  h.rvclearsegmentationendo ...
+  h.rvclearsegmentationendothismenu ...
+  h.rvclearsegmentationepi ...
+  h.rvclearsegmentationepithismenu ...
+  ];
+
+%List of MR menu items
+mrhandles = [...
+  h.mrmenu ...
+  h.flowmenu ...
+  h.flowcouplestacks ...
+  h.flowcreatevelmag ...
+  h.flowdeletevelmag ...
+  h.flowcreateangio ...
+  h.flowdeleteangio ...
+  h.flowconcomittantmenu ...
+  h.flowsetvenc ...
+  h.flowswitchroisignmenu ...
+  h.qpqsmenu ...
+  h.pwvmenu ...
+  h.transittimetoolmenu ...
+  h.flowcurvaturemenu ...
+  h.flowalternativetrackmenu ...
+  h.manualheartbeats ...
+  ];
+
+%List of Analysis menu items
+analysishandles = [...
+  h.analysismenu ...
+  h.reportradvelmenu ...
+  h.reportslicemenu ...
+  ];
+
+%List of View menu items
+viewhandles = [...
+  h.viewmenu...
+  h.viewallimagestacksmenu ...
+  ];
+
+%List of Export menu items
+exporthandles = [...
+  h.exportmenu ...
+  h.exporttoclipboardmenu ...
+  h.exporttoclipboardmenunoheader ...
+  h.exporttoclipboardthisstackmenu ...
+  h.exporttoclipboardthisstackmenunoheader ...
+  h.exportvolumecurvemenu ...
+  h.exportmmodemenu ...
+  h.exportcontoursmenu ...
+  h.exportcontourstoclipboardmenu ...
+  h.exportallcontourstostlmenu ...
+  h.exportcontourtostlmenu ...
+  h.exportlvcontourtostlmenu ...
+  h.exportvolumeofcontoursmenu ...
+  h.exportimagemenu ...
+  h.exportscreenshotmenu ...
+  h.exportmoviemenu ...
+  ];
+
+%List of Utility menu items
+utilityhandles = [...
+  h.utilitymenu ...
+  h.anonymizemenu ...
+  h.pseydonymizesubject ...
+  h.pseydonymizemat ...
+  h.pseydonymizedicom ...
+  h.utilitysortdicomstackmenu ...
+  h.utilitysortfromcdmenu ...
+  h.utilitycreatethumbnailsmenu ...
+  h.batchexportmatmenu ...
+  h.utilitybatchexportresultsmenu ...
+  h.utilitybatchexportsegdicommenu ...
+  h.utilitybatchexportroimenu ...
+  h.utilitybatchexportinfomenu ...
+  h.utilitybatchexport17segmentsmenu ...
+  h.utilitybatchexportsegmentwallthicknessmenu ...
+  h.utilitybatchexportlvslicevolumemenu ...
+  h.batchexportniftimenu ...
+  h.batchoperationsonmatmenu ...
+  h.batchlvsegmentation ...
+  h.batchrvsegmentation ...
+  h.batchlvrvsegmentation ...
+  h.batchclearsegmentation ...
+  ];
+
+%List of Setting menu items
+settinghandles = [...
+  h.settingsmenu...
+  h.setuptoolsmenu...
+  h.wizardsetuphelpmenu...
+  h.licensetoolsmenu...
+  h.generatelicensemenu...
+  h.hardwarekeysmenu...
+  h.createhardwareinfofilemenu...
+  h.installhardwarekeymenu...
+  h.checkhardwarekeymenu...
+  h.uninstallhardwarekeymenu...
+  h.licenseinformationmenu...
+  h.removelicensemenu...
+  h.preferencesmenu...
+  ];
+
+%List of Help menu items
+helphandles = [...
+  h.helpmenu ...
+  h.helpaboutmenu ...
+  h.hotkeysmenu ...
+  h.supportmenu ...
+  h.bugreportmenu ...
+  h.helpsupportmenu ...
+  h.logfilesmenu ...
+  h.openlogfilemenu ...
+  h.openlogfoldermenu ...
+  h.usermanuals ...
+  h.helpvideomenu ...
+  h.helpversioncheckmenu ...
+  h.citationmenu ...
+  h.termsconditionsmenu ...
+  h.evalcommandmenu ...
+  h.researchmanual ...
+  h.fdamanual ...
+  ];
+
+%List of context menu items
+selectcontextmenuhandles = [...
+  h.selectcontextmenu ...
+  h.headerselectcontextmenu ...
+  h.viewonecontext ...
+  h.viewmontagecontext ...
+  h.viewmontagerowcontext ...
+  h.editunselectallslicesmenu ...
+  h.clearsegcontextmenu ...
+  h.clearsegthismenu ...
+  h.clearallcontextmenu ...
+  ];
+thumbnailscontextmenuhandles = [...
+  h.datasetpreviewmenu ...
+  h.headerdatasetpreviewcontextmenu ...
+  h.updatemenu ...
+  h.thumbnailsviewmontagecontextmenu ...
+  h.thumbnailsviewsinglecontextmenu ...
+  h.setimagedescriptioncontextmenu ...
+  h.setheartratecontextmenu ...
+  h.deleteselectedmenu ...
+  h.duplicatedataset ...
+  ];
+roicontextmenuhandles = [...
+  h.roicontextmenu ...
+  h.headerroicontextmenu ...
+  h.plotflowcontextmenu ...
+  h.eddycurrentcontextmenu ...
+  h.deleteroicontextmenu ...
+  h.deleteroithiscontextmenu ...
+  h.deleteroiallcontextmenu ...
+  h.setroilabelcontextmenu ...
+  h.setroicolorcontextmenu ...
+  h.copyroiupwardscontextmenu ...
+  h.copyroidownwardscontextmenu ...
+  h.copyroitoalltimeframescontextmenu ...
+  h.refineroicontextmenu ...
+  h.switchflowsigncontextmenu ....
+  ];
+measurecontextmenuhandles = [...
+  h.measurecontextmenu ...
+  h.headermeasurecontextmenu ...
+  h.deletethismeascontextmenu ...
+  h.deletallmeascontextmenu ...
+  h.renamethismeascontextmenu ... 
+  ];
+pointcontextmenuhandles = [...
+  h.pointcontextmenu ...
+  h.headerpointcontextmenu ...
+  h.deletethispointcontextmenu ...
+  h.deleteallpointscontextmenu ...
+  h.renamethispointscontextmenu ...
+  h.makepointtimeresolvedcontextmenu ...
+  h.keeppointcontextmenu ...
+  ];
+rvcontextmenuhandles = [...
+  h.rvcontextmenu ...
+  h.headerrvcontextmenu ...
+  h.clearrvcontextmenu ...
+  h.clearrvthiscontextmenu ...
+  h.clearallrvcontextmenu ...
+  h.clearrvexceptedescontextmenu ...
+  ];
+contrastcontextmenuhandles = [...
+  h.contrastcontextmenu ...
+  h.headercontrastcontextmenu ...
+  h.autocontrastcontextmenu ...
+  h.resetcontrastcontextmenu ...
+  ];
+lvcontextmenuhandles = [...
+  h.lvcontextmenu ...
+  h.headerlvcontextmenu ...
+  h.clearlvcontextmenu ...
+  h.clearlvthiscontextmenu ...
+  h.clearalllvcontextmenu ...
+  h.clearlvexceptedescontextmenu ...
+  ];
+interpcontextmenuhandles = [...
+  h.interppointmenu ...
+  h.headerinterppointmenu ...
+  h.deleteinterppointcontextmenu ...
+  h.deleteallinterppointsthiscontextmenu ...
+  h.deleteallinterppointscontextmenu ...
+  ];
+
+handles = [filehandles edithandles toolshandles roihandles ...
+  annotationshandles segmentationhandles mrhandles analysishandles ...
+  viewhandles exporthandles utilityhandles settinghandles helphandles ...
+  selectcontextmenuhandles thumbnailscontextmenuhandles ...
+  roicontextmenuhandles measurecontextmenuhandles pointcontextmenuhandles ...
+  rvcontextmenuhandles contrastcontextmenuhandles lvcontextmenuhandles ...
+  interpcontextmenuhandles];
 
 %---------------------
-function orthoview_Callback %#ok<DEFNU>
+function approve_Callback
+%-----------------------
+%Callback when pressing checkbox "Approve analysis" in Segment CMR
+%Setting reviewed to true for AI AutoMate files
+
+global SET DATA
+
+pressed = findindented(DATA.Handles.approveiconholder,'notapproved');
+       
+if pressed 
+  user = helperfunctions('getuser');
+  SET(1).Autoloader.ApprovedTime = datestr(now,'yyyy-mm-dd HH:MM:SS');
+  SET(1).Autoloader.ApprovedBy = user;
+  SET(1).Autoloader.Approved = true;
+else
+  SET(1).Autoloader.ApprovedTime ='';
+  SET(1).Autoloader.ApprovedBy = '';
+  SET(1).Autoloader.Approved = false;
+end
+
+%---------------------
+function orthoview_Callback
 %-----------------------
 global SET NO
+
 %First we check so that there are any slices because if not there is no
 %point
 
 if SET(NO).ZSize==1
-  myfailed('To few slices for orthogonal view.')
+  myfailed('Too few slices for orthogonal view.')
   return
 end
 
@@ -23,280 +524,54 @@ end
 viewfunctions('orthoview',NO);
 
 %This updates the view.
-viewfunctions('setview',2,2,ones(1,4)*NO,{'orth','hla','vla','gla'})
+viewfunctions('setview',2,2,ones(1,4)*NO,{'orth','hla','vla','gla'});
 
-%------------------------------
-function viewviewport_Callback %#ok<DEFNU>
-%------------------------------
-%Displays viewport in one panel
+%--------------------------------
+function fpsminus_Callback
+%--------------------------------
+% decrease FPS value
+offset = -1;
+fpsedit_Callback(offset)
 
+%--------------------------------
+function fpsplus_Callback
+%--------------------------------
+% increase FPS value
+offset = 1;
+fpsedit_Callback(offset)
+
+%--------------------------------
+function fpsedit_Callback(offset)
+%--------------------------------
+% edit FPS
 global DATA
-
-segment3dp.tools('storetoobject');
-
-viewfunctions('setview',1,1,[],{'speedim'})
-
-DATA.drawlist = [];
-DATA.drawlist{1} = {'segment3dp.tools(''helprender'');'};
-
-drawfunctions('setxynan',1);
-
-run = true;
-DATA.Handles.configiconholder.indent('view3d',run);
-
-segment3dp.tools('helprender');
-
-DATA.LevelSet.ViewPort.panelhandle.Position = DATA.Handles.imageaxes(1).Position;
-
-%------------------------------
-function view4panel3dp_Callback %#ok<DEFNU>
-%------------------------------
-global DATA
-
-%indent(DATA.Handles.configiconholder,'view4',1);
-
-segment3dp.tools('storetoobject');
-
-viewfunctions('setview',2,2,[],{'trans3DP','speedim','sag3DP','cor3DP'})
-
-if DATA.Handles.configiconholder.findindented('view3d')
-  %Update the size
-  DATA.LevelSet.ViewPort.panelhandle.Position = DATA.Handles.imageaxes(2).Position;
-  DATA.drawlist{2} = {'segment3dp.tools(''helprender'');'};
+if nargin == 0
+  offset = 0;
 end
-
-%----------------------------
-function selectpanel_Callback(name) %#ok<DEFNU>
-%----------------------------
-%Select the panel with name
-
-global DATA SET
-
-selpanel = [];
-for loop = 1:length(DATA.ViewPanelsType)
-  if isequal(DATA.ViewPanelsType{loop},name)
-    selpanel = loop;
-  end
+fpsvalue = str2double(get(DATA.Handles.fpsedit,'String'));
+if isempty(fpsvalue) || isnan(fpsvalue)
+  fpsvalue = 25; % Default value if non-valid value
 end
+fpsvalue = updatefps(fpsvalue,offset);
+set(DATA.Handles.fpsedit,'String', num2str(fpsvalue));
 
-%if ~isempty(selpanel)
-%  segment('switchtopanel',selpanel)
-%end
-
-if ~isempty(selpanel)
-  DATA.CurrentPanel = selpanel;
-  no = DATA.ViewPanels(selpanel);
-  switch name
-    case 'trans3DP'
-      SET(no).LevelSet.Pen.Color = 'r';
-    case 'sag3DP'
-      SET(no).LevelSet.Pen.Color = 'g';
-    case 'cor3DP'
-      SET(no).LevelSet.Pen.Color = 'b';
-  end
-  
-  for loop = 1:length(DATA.ViewPanelsType)
-    if isequal(DATA.ViewPanelsType{loop},name)
-      DATA.CurrentPanel = loop;
-    end
-  end
-  
-  %Graphical update
-  drawfunctions('drawselectedframe',selpanel)
-  speedimpanel = find(strcmp(DATA.ViewPanelsType,'speedim'));
-  if isempty(speedimpanel)
-    return
-  end
-  drawfunctions('drawpanel',speedimpanel);
-  viewfunctions('updatezoomandaspectratio',speedimpanel);
+%---------------------------------------------
+function fpsvalue = updatefps(fpsvalue,offset)
+%---------------------------------------------
+% Adjust FPS value and ensure it stays within the range
+global SET NO
+if nargin == 0
+  offset = 0;
 end
+no = NO;
+fpsvalue = fpsvalue + offset;
+% Check value to be in range [1 60]
+fpsvalue = max(1, min(60, fpsvalue));
 
-%------------------------
-function viewhelper(type)
-%------------------------
-%Set a two panel view with anatomical and speed image
-global DATA SET NO
-
-segment3dp.tools('storetoobject');
-
-speedpanel = 2; %currently is always panel number2
-
-switch type
-  case 'trans3DP'
-    SET(NO).LevelSet.Pen.Color = 'r';
-  case 'sag3DP'
-    SET(NO).LevelSet.Pen.Color = 'g';
-  case 'cor3DP'
-    SET(NO).LevelSet.Pen.Color = 'b';
-end
-
-if DATA.Handles.configiconholder.findindented('view3d')
-  
-  %Clear all graphics function from drawlist
-  drawfunctions('setxynan',2)
-  viewfunctions('setview',1,2,[],{type,'viewport'})
-  
-  %Update the size
-  DATA.LevelSet.ViewPort.panelhandle.Position = DATA.Handles.imageaxes(2).Position;
-  
-  DATA.drawlist{speedpanel} = {'segment3dp.tools(''helprender'');'};
-  
-else
-  viewfunctions('setview',1,2,[],{type,'speedim'})
-  %viewfunctions('updatezoomandaspectratio',1);
-  %viewfunctions('updatezoomandaspectratio',2);
-end
-
-%----------------------------
-function viewtransversal_Callback %#ok<DEFNU>
-%----------------------------
-viewhelper('trans3DP');
-
-%----------------------------
-function viewcoronal_Callback %#ok<DEFNU>
-%----------------------------
-viewhelper('cor3DP');
-
-%----------------------------
-function viewsagittal_Callback %#ok<DEFNU>
-%----------------------------
-viewhelper('sag3DP');
-
-%----------------------------
-function reset3d_Callback %#ok<DEFNU>
-%----------------------------
-%Reset 3D view
-
-global DATA
-
-if segment3dp.isviewportalive
-  %3D display on rotate
-  volshowobject = DATA.LevelSet.ViewPort.getvolshowobject;
-  
-  %Reset to
-  newpos = [0 -4 0];
-  
-  %Set the new camera position
-  ax = DATA.LevelSet.ViewPort.getaxeshandle;
-  volshowobject.CameraPosition = newpos;
-  volshowobject.CameraUpVector = [0 0 -1];
-  ax.CameraPosition = newpos;
-  ax.CameraUpVector = [0 0 -1];
-end
-
-%------------------------------------------
-function set3dvieworientation_Callback(view) %#ok<DEFNU>
-%------------------------------------------
-%Set predefined views
-
-global DATA
-
-newposition = [];
-newvector = [];
-
-%Check if viewport is active
-if segment3dp.isviewportalive
-  
-  d = 4;
-  
-  switch view
-    case 'transversal'
-      newposition = [0 0 -d];
-      newvector = [0 -1 0];
-    case 'sagittal'
-      newposition = [-d 0 0];
-      newvector = [0 0 -1];
-    case 'coronal'
-      newposition = [0 -d 0];
-      newvector = [0 0 -1];
-  end
-  
-  %Make the update
-  if ~isempty(newposition)
-    DATA.LevelSet.ViewPort.setcameraposition(newposition);
-  end
-  
-  if ~isempty(newvector)
-    DATA.LevelSet.ViewPort.setcameraupvector(newvector);
-  end
-  
-  DATA.LevelSet.ViewPort.updatepoints;
-end
-
-%-----------------------------------
-function set3dviewotherside_Callback %#ok<DEFNU>
-%-----------------------------------
-%Set predefined views
-
-global DATA
-
-%Check if viewport is active
-if segment3dp.isviewportalive
-  p = DATA.LevelSet.ViewPort.getcameraposition;
-  DATA.LevelSet.ViewPort.setcameraposition(-p);
-  DATA.LevelSet.ViewPort.updatepoints;
-end
-
-%----------------------------
-function zoomin3d_Callback(f) %#ok<DEFNU>
-%----------------------------
-%Zoom in viewpanel
-
-global DATA
-
-if segment3dp.isviewportalive
-  pos = DATA.LevelSet.ViewPort.getvolshowobject.CameraPosition;
-  DATA.LevelSet.ViewPort.setcameraposition(pos*(1+f));
-  DATA.LevelSet.ViewPort.updatepoints;
-end
-
-%--------------------------------------
-function rotate3d_Callback(dtheta,dphi) %#ok<DEFNU>
-%--------------------------------------
-%Rotate 3D view with dtheta, and dphi degrees
-%Obs this function is not defined from RLAPFH coordinate system
-
-global DATA
-
-if segment3dp.isviewportalive
-  
-  %3D display on rotate
-  volshowobject = DATA.LevelSet.ViewPort.getvolshowobject;
-  pos = volshowobject.CameraPosition;
-  
-  r = sqrt(sum(pos.*pos));
-  theta = acos(pos(3)/r);
-  phi = atan2(pos(2),pos(1));
-  
-  theta = theta+dtheta/180*pi;
-  phi = phi+dphi/180*pi;
-  
-  newpos = [...
-    r*sin(theta)*cos(phi) ...
-    r*sin(theta)*sin(phi) ...
-    r*cos(theta)];
-    
-  %Set the new camera position
-  ax = DATA.LevelSet.ViewPort.getaxeshandle;
-  volshowobject.CameraPosition = newpos;
-  ax.CameraPosition = newpos;
-  
-end
-
-%----------------------
-function lasso_Callback %#ok<DEFNU>
-%----------------------
-%Lasso placeholder
-
-myfailed('Lasso not yet available.');
+SET(no).FPS = fpsvalue;
 
 %---------------------
-function mmode_Callback %#ok<DEFNU>
-%-----------------------
-myfailed('This functions is no longer available.')
-
-%---------------------
-function play_Callback(panels) %#ok<DEFNU>
+function play_Callback(panels) 
 %-----------------------
 global DATA SET
 
@@ -310,17 +585,24 @@ for loop=DATA.ViewPanels(panels)
     maxt = SET(loop).TSize;
   end
 end
+switch DATA.ProgramName
+  case 'Segment CT'
+    iconholdername = 'permanenticonholder';
+  otherwise
+    iconholdername = 'playiconholder';
+end
 
 if maxt == 1
   myfailed('Need a time resolved image stack')
-  undent(DATA.Handles.permanenticonholder,'play',0)
+  undent(DATA.Handles.(iconholdername),'play',0)
   return
 end
 
 %Try different approach where all stacks are played after NO
-startframes = SET(DATA.ViewPanels(panels(1))).CurrentTimeFrame;
+firstno = DATA.ViewPanels(panels(1));
+startframes = SET(firstno).CurrentTimeFrame;
 starttime = now;
-beattime = SET(DATA.ViewPanels(panels(1))).BeatTime;
+beattime = SET(firstno).BeatTime;
 
 %prior to running the following graphics objects are turned 'off' by
 %setting xdata and ydata to nan. This is because these objects need to be
@@ -339,27 +621,50 @@ for p = panels
     DATA.Handles.(lower(type{t}))(p).XData = nan;
     DATA.Handles.(lower(type{t}))(p).YData = nan;
   end
+  viewfunctions('updatedrawlist',p);
 end
 
 synchronize = findindented(DATA.Handles.hideiconholder,'synchronize');
 
-DATA.Run=1;
+DATA.Run = 1;
 t = maxt;
-while DATA.Run%true
+
+if DATA.issegmentcmr || DATA.issegment
+  usefps = true;
+  currentno = DATA.ViewPanels(DATA.CurrentPanel);
+else
+  usefps = false;
+end
+
+while DATA.Run
   %stopping criteria
-  if ~findindented(DATA.Handles.permanenticonholder,'play')
-    DATA.Run=0;
+  if ~findindented(DATA.Handles.(iconholdername),'play')
+    DATA.Run = 0;
   end
   
   for p = panels
     no = DATA.ViewPanels(p);
-    if SET(no).TSize>1
+    if SET(no).TSize > 1
       if DATA.Record
         t = 1+mod(t,maxt);
+        currentf = t;
       else
-        t = 1+mod(floor(rem(now-starttime,1)*24*3600/(beattime/maxt)+startframes),maxt);
+        if usefps
+          fps = SET(currentno).FPS;
+          % Calculate time elapsed since starttime in seconds
+          elapsedtime = rem(now-starttime,1)*24*3600;
+          % Calculate how many frames elapsed
+          frameselapsed = floor(elapsedtime * fps);
+          % Calculate current frame based on fps
+          currentf = 1+mod(frameselapsed+startframes,maxt);
+        else
+          % original implementation using beattime
+          t = 1+mod(floor(rem(now-starttime,1)*24*3600/(beattime/maxt)+startframes),maxt);
+          currentf = round(SET(no).TSize*(t/maxt));
+        end        
       end
-      SET(DATA.ViewPanels(p)).CurrentTimeFrame = max(min(round(SET(no).TSize*(t/maxt)),SET(no).TSize),1);
+      % Ensure current timeframe is inside [1 TSize] limits
+      SET(no).CurrentTimeFrame = max(min(currentf,SET(no).TSize),1);
       drawfunctions('drawpanel',p);
     end
   end
@@ -378,7 +683,7 @@ while DATA.Run%true
 end
 
 %---------------------
-function play_Callback2(panels) %#ok<DEFNU>
+function play_Callback2(panels) 
 %-----------------------
 global DATA SET NO
 
@@ -396,7 +701,7 @@ end
 
 if maxt == 1
   myfailed('Need a time resolved image stack')
-  undent(DATA.Handles.permanenticonholder,'play',0)
+  undent(DATA.Handles.playiconholder,'play',0)
   return
 end
 
@@ -426,7 +731,7 @@ DATA.Run=1;
 while DATA.Run%true
   %stopping criteria
   tic
-  if ~findindented(DATA.Handles.permanenticonholder,'play')
+  if ~findindented(DATA.Handles.playiconholder,'play')
     DATA.Run=0;
   end
   
@@ -466,7 +771,7 @@ while DATA.Run%true
 end
 
 %-------------------------------------------
-function segmentclearalllv_Callback %#ok<DEFNU>
+function segmentclearalllv_Callback 
 %-------------------------------------------
 %Clear all LV segmentation, both endo and epi
 
@@ -474,7 +779,7 @@ global DATA
 
 if nargin==1
   if ~yesno('Do you really want to remove all LV segmentation ?',[],DATA.GUI.Segment)
-    %     myfailed('Aborted by user.',DATA.GUI.Segment);
+
     return;
   end
 end
@@ -482,7 +787,7 @@ end
 segmentation('clearalllv_Callback');
 
 %-------------------------------------------
-function segmentclearallrv_Callback %#ok<DEFNU>
+function segmentclearallrv_Callback 
 %-------------------------------------------
 %Clear all RV segmentation, both endo and epi
 
@@ -498,7 +803,7 @@ end
 segmentation('clearallrv_Callback');
 
 %-------------------------------------------------------
-function segmentclearalllvbutsystolediastole_Callback %#ok<DEFNU>
+function segmentclearalllvbutsystolediastole_Callback 
 %-------------------------------------------------------
 %Clears all LV segmentation except in systole and diastole.
 
@@ -518,8 +823,8 @@ end
 ind = true(1,SET(NO).TSize);
 ind(SET(NO).EDT) = false;
 ind(SET(NO).EST) = false;
-arg = struct('endo',true,'epi',true,'rvendo',false,'rvepi',false);
-indarg = struct('endoind',ind,'epiind',ind,'rvendoind',ind,'rvepiind',ind);
+arg = struct('endo',true,'epi',true,'rvendo',false,'rvepi',false, 'la', false, 'ra', false);
+indarg = struct('endoind',ind,'epiind',ind,'rvendoind',ind,'rvepiind',ind, 'laind', ind, 'raind', ind);
 segmentation('removeallinterp_Callback',true,[],arg,indarg);
 
 %Create index structure
@@ -546,7 +851,7 @@ drawfunctions('drawinterp', DATA.CurrentPanel)
 
 
 %-------------------------------------------------------
-function segmentclearallrvbutsystolediastole_Callback %#ok<DEFNU>
+function segmentclearallrvbutsystolediastole_Callback 
 %-------------------------------------------------------
 %Clears all RV segmentation except in systole and diastole.
 
@@ -566,8 +871,8 @@ end
 ind = true(1,SET(NO).TSize);
 ind(SET(NO).EDT) = false;
 ind(SET(NO).EST) = false;
-arg = struct('endo',false,'epi',false,'rvendo',true,'rvepi',true);
-indarg = struct('endoind',ind,'epiind',ind,'rvendoind',ind,'rvepiind',ind);
+arg = struct('endo',false,'epi',false,'rvendo',true,'rvepi',true, 'la', false, 'ra', false);
+indarg = struct('endoind',ind,'epiind',ind,'rvendoind',ind,'rvepiind',ind, 'laind', ind, 'raind', ind);
 segmentation('removeallinterp_Callback',true,[],arg,indarg);
 
 if ~isempty(SET(NO).RVEndoX)
@@ -588,7 +893,7 @@ drawfunctions('drawcontours',DATA.CurrentPanel)
 drawfunctions('drawinterp',DATA.CurrentPanel)
 
 %-----------------------------------------
-function contextloadno_Callback(viewpanelstype) %#ok<DEFNU>
+function contextloadno_Callback(viewpanelstype) 
 %-----------------------------------------
 %Loads imagestack no with the desired viewmode
 global DATA
@@ -605,14 +910,21 @@ DATA.LastObject = [];
 
 
 %-----------------------------------------
-function pointdeletethis_Callback %#ok<DEFNU>
+function pointdeletethis_Callback 
 %-----------------------------------------
 %remove point closest to click
+
 global DATA SET
+
 no = DATA.ViewPanels(DATA.CurrentPanel);
-pointind = DATA.LastObject(1);
-slice = DATA.LastObject(2);
-tf = DATA.LastObject(3);
+
+if contains(DATA.CurrentTheme,'3dp')
+  pointind = annotationpoint('findpoint_helper');
+else
+  pointind = DATA.LastObject(1);
+  %slice = DATA.LastObject(2);
+  %tf = DATA.LastObject(3);
+end
 
 SET(no).Point.X(pointind) = [];
 SET(no).Point.Y(pointind) = [];
@@ -623,7 +935,7 @@ SET(no).Point.Label(pointind) = [];
 drawfunctions('drawno',no);
 
 %-----------------------------------------
-function pointrenamethis_Callback %#ok<DEFNU>
+function pointrenamethis_Callback 
 %-----------------------------------------
 %rename point closest to click
 global DATA SET
@@ -650,6 +962,7 @@ else
     'RV insertion Anterior',...
     'RV insertion Inferior',...
     'AV plane',...
+    'MV plane',...
     'TV plane',...
     'P1',...
     'P2',...
@@ -657,9 +970,24 @@ else
     'Sector start',...
     'User defined ...'};
   
-  % s = myinputdlg({'Enter name'},'Name',1,{sprintf('%s',SET(no).Point.Label{pointind})});
-  
-  s = mymenu(strcat(dprintf('Select a new name for the point')),menuitems,DATA.GUI.Segment);
+  % s = myinputdlg({'Enter name'},'Name',1,{sprintf('%s',SET(no).Point.Label{pointind})});  
+%   s = mymenu(strcat(dprintf('Select a new name for the point')),menuitems,DATA.GUI.Segment);
+  n = 1;
+  fieldlabel = 'Point';
+  f(n).Field = fieldlabel;
+  labelstr = dprintf('Select a new name for the point');
+  labelstr = mysplitstring(labelstr);
+  % setup string with newline so the label in myinputstruct is split in 2
+  % lines
+  f(n).Label = [labelstr{1},newline,labelstr{2}];
+  f(n).Default = menuitems;
+  [outs,ok] = myinputstruct(f,dprintf('Rename point'),10);
+  if ok
+    s = outs.(fieldlabel);
+  else
+    % cancel was clicked
+    return
+  end
   if isempty(s)
     myfailed('Invalid name.',DATA.GUI.Segment);
     return;
@@ -681,11 +1009,11 @@ end
 drawfunctions('drawno',no);
 
 %-----------------------------------------
-function pointclearall_Callback %#ok<DEFNU>
+function pointclearall_Callback 
 %-----------------------------------------
 %remove all points
 
-global DATA SET NO
+global SET NO
 
 no = NO;%DATA.ViewPanels(DATA.CurrentPanel);
 
@@ -696,14 +1024,45 @@ SET(no).Point.Z = [];
 SET(no).Point.Label = {};
 
 drawfunctions('drawno',no);
-if any(strcmp(DATA.ProgramName,{'Segment 3DPrint'}))
-  if segment3dp.isviewportalive
-    DATA.LevelSet.ViewPort.setpoints(NaN,NaN,NaN)
+
+%-------------------------------
+function pointclearallname(name,no) 
+%-------------------------------
+%Function to delete points of a specific color = name
+
+global DATA SET NO
+
+if nargin < 2
+  no = NO;
+end
+
+n = length(SET(no).Point.X);
+if isequal(n,0)
+  return
+end
+
+inds = false(1,n);
+
+for loop = 1:n
+  if isequal(SET(no).Point.Label{loop},name)
+    inds(loop) = true;
+  end
+end
+
+if contains(DATA.ProgramName,'3DPrint')
+  segment3dp.pointtools('deletepointsmenu_helper',[],inds) %[] is unused...
+else
+  for indloop = 1:length(inds)
+    SET(no).Point.X(inds(indloop)) = [];
+    SET(no).Point.Y(inds(indloop)) = [];
+    SET(no).Point.T(inds(indloop)) = [];
+    SET(no).Point.Z(inds(indloop)) = [];
+    SET(no).Point.Label(inds(indloop)) = [];
   end
 end
 
 %-----------------------------------------
-function pointmaketimeresolvedthis_Callback %#ok<DEFNU>
+function pointmaketimeresolvedthis_Callback 
 %-----------------------------------------
 %make point closest to click timeresolved
 global DATA SET
@@ -722,7 +1081,7 @@ SET(no).Point.T(pointind) = nan;
 drawfunctions('drawno',no);
 
 %-----------------------------------------
-function pointshowthisframeonly_Callback %#ok<DEFNU>
+function pointshowthisframeonly_Callback 
 %-----------------------------------------
 %remove point closest to click
 global DATA SET
@@ -741,7 +1100,7 @@ SET(no).Point.T(pointind) = tf;
 drawfunctions('drawno',no);
 
 %-----------------------------------------
-function interpdeletepoint %#ok<DEFNU>
+function interpdeletepoint 
 %-----------------------------------------
 %remove interpolation point closest to click
 
@@ -765,16 +1124,23 @@ SET(no).([pointtype,'Y']){tf,slice}(pointind) = [];
 X = SET(no).([pointtype,'X']){tf,slice};
 Y = SET(no).([pointtype,'Y']){tf,slice};
 %removes duplicate points and resamples the contour
-[x,y] = calcfunctions('resamplecurve',X,Y,DATA.NumPoints-1);
+opencontour = false;
+datanumpoints = tools('getnumpointsforno',no);
+[x,y] = calcfunctions('resamplecurve',X,Y,datanumpoints-1,opencontour);
 SET(no).([pointtype(1:end-6),'Y'])(:,tf,slice)=[y,y(1)];
 SET(no).([pointtype(1:end-6),'X'])(:,tf,slice)=[x,x(1)];
 
 drawfunctions('drawno',no);
+if isequal(tf,SET(no).EDT) && ~isempty(SET(no).StrainMitt)
+  updateredo(SET(no).StrainMitt,pointtype);
+end
+
 
 %-----------------------------------------
-function interpdeletepointthisslicephase %#ok<DEFNU>
+function interpdeletepointthisslicephase 
 %-----------------------------------------
 %remove interpolation point closest to click
+
 global DATA SET
 
 no = DATA.ViewPanels(DATA.CurrentPanel);
@@ -783,7 +1149,7 @@ if noobjectshelper
   return
 end
 
-pointind = DATA.LastObject(1);
+%pointind = DATA.LastObject(1);
 slice = DATA.LastObject(2);
 tf = DATA.LastObject(3);
 pointtype = DATA.LastObjectType;
@@ -794,7 +1160,7 @@ SET(no).([pointtype,'Y']){tf,slice} = [];
 drawfunctions('drawno',no);
 
 %-------------------------------------
-function measureclearthis_Callback(~)  %#ok<DEFNU>
+function measureclearthis_Callback(~)  
 %-------------------------------------
 %Clear this measurement
 
@@ -822,7 +1188,7 @@ drawfunctions('drawno',no);
 segment('updatemeasurement');
 
 %--------------------------------
-function measureclearall_Callback %#ok<DEFNU>
+function measureclearall_Callback 
 %--------------------------------
 %Clear all measurements
 
@@ -866,7 +1232,7 @@ end
 m = mymenu('Select measurement',namecell);
 
 %-------------------------------------
-function measurerenamethis_Callback(~) %#ok<DEFNU>
+function measurerenamethis_Callback(measureind) 
 %-------------------------------------
 %Rename measurement
 
@@ -881,11 +1247,10 @@ if nargin==0
   measureind = DATA.LastObject(1);
 else
   %ask
-  measureind = measureaskhelper;
+%   measureind = measureaskhelper;
 end
 
 if isequal(measureind,0)
-  %   myfailed('Aborted.');
   return;
 end
 
@@ -897,7 +1262,6 @@ if ~isempty(stri)
   SET(no).Measure(measureind).Name = stri;
   SET(no).Measure(measureind).LongName = lstr;
 else
-  myfailed('Invalid name.',DATA.GUI.Segment);
   return;
 end
 
@@ -917,6 +1281,28 @@ if isempty(DATA.LastObject)
 else
   doreturn = false;
 end
+
+%----------------------------------
+function imagecomment_Callback
+%----------------------------------
+%Function to add image comment to SET(NO)
+addcommenttostack;
+viewfunctions('setview'); %refresh
+
+%----------------------------------
+function clearimagecomment_Callback
+%----------------------------------
+%Function to clear all image comments in SET(NO)
+global SET NO
+str1 = dprintf('This will remove all image comments in the stack.');
+str2 = dprintf('Are you sure?');
+str = sprintf('%s %s', str1,str2);
+if ~yesno(str)
+  return;
+end
+
+SET(NO).Comment = [];
+viewfunctions('setview'); %refresh
 
 %------------------------------
 function [stri,lstr] = measureasklabel(measureind)
@@ -947,21 +1333,21 @@ SET(no).([pointtype,'Y']) = [];
 drawfunctions('drawno',no);
 
 %-----------------------------------------
-function clearallslices_Callback %#ok<DEFNU>
+function clearallslices_Callback 
 %-----------------------------------------
 %Clear all segmentation, both endo and epi, lv and rv mar and scar.
 
 segmentation('clearslices_Callback');
 
 %-----------------------------------------
-function segmentclearall_Callback(silent)  %#ok<DEFNU>
+function segmentclearall_Callback(silent)  
 %-----------------------------------------
 %Clear all segmentation, both endo and epi, lv and rv mar and scar.
 
 global DATA
 
 if nargin == 0 || not(silent)
-  msg = dprintf('This removes all existing segmentation of LV, RV, ROI, MaR and scar. Are you sure?');
+  msg = dprintf('This removes all existing segmentation of LV, RV, LA, RA, ROI, MaR and scar. Are you sure?');
   if ~yesno(msg,[],DATA.GUI.Segment)
     return;
   end
@@ -971,7 +1357,7 @@ viability('viabilityclear_Callback');
 roi('roiclearall_Callback')
 segmentation('clearall_Callback');
 mar('clearall_Callback');
-
+generalpen.atriumpenfunctions('deleteallobjects');
 
 %-----------------------------------------------------
 function segmentclearallbutsystolediastole_Callback
@@ -993,8 +1379,8 @@ end
 ind = true(1,SET(NO).TSize);
 ind(SET(NO).EDT) = false;
 ind(SET(NO).EST) = false;
-arg = struct('endo',true,'epi',true,'rvendo',true,'rvepi',true);
-indarg = struct('endoind',ind,'epiind',ind,'rvendoind',ind,'rvepiind',ind);
+arg = struct('endo',true,'epi',true,'rvendo',true,'rvepi',true, 'la', true, 'ra', true);
+indarg = struct('endoind',ind,'epiind',ind,'rvendoind',ind,'rvepiind',ind, 'laind', ind, 'raind', ind);
 segmentation('removeallinterp_Callback',true,[],arg,indarg);
 
 if ~isempty(SET(NO).EndoX)
@@ -1020,8 +1406,17 @@ end
 SET(NO).EndoDraged(ind,:) = false;
 SET(NO).EpiDraged(ind,:) = false;
 
+types = {'LA','RA'};
+for loop = 1:length(types)
+  if (~isempty(SET(NO).(types{loop})) && ~isempty(SET(NO).(types{loop}).X))
+    SET(NO).(types{loop}).X(:,ind,:) = NaN;
+    SET(NO).(types{loop}).Y(:,ind,:) = NaN;
+  end
+end
+
 segment('updatevolume');
 drawfunctions('drawcontours',DATA.CurrentPanel);
+drawfunctions('drawcontourslara',DATA.CurrentPanel);
 drawfunctions('drawinterp',DATA.CurrentPanel);
 
 %--------------------------------------------
@@ -1038,8 +1433,8 @@ end
 %Create index structure
 ind = true(1,SET(NO).TSize);
 ind(SET(NO).EDT) = false;
-arg = struct('endo',true,'epi',true,'rvendo',true,'rvepi',true);
-indarg = struct('endoind',ind,'epiind',ind,'rvendoind',ind,'rvepiind',ind);
+arg = struct('endo',true,'epi',true,'rvendo',true,'rvepi',true, 'la', true, 'ra', true);
+indarg = struct('endoind',ind,'epiind',ind,'rvendoind',ind,'rvepiind',ind, 'laind', ind, 'raind', ind);
 segmentation('removeallinterp_Callback',true,[],arg,indarg);
 
 if ~isempty(SET(NO).EndoX)
@@ -1065,13 +1460,21 @@ end
 SET(NO).EndoDraged(ind,:) = false;
 SET(NO).EpiDraged(ind,:) = false;
 
+types = {'LA','RA'};
+for loop = 1:length(types)
+  if (~isempty(SET(NO).(types{loop})) && ~isempty(SET(NO).(types{loop}).X))
+    SET(NO).(types{loop}).X(:,ind,:) = NaN;
+    SET(NO).(types{loop}).Y(:,ind,:) = NaN;
+  end
+end
+
 segment('updatevolume');
 drawfunctions('drawcontours',DATA.CurrentPanel);
+drawfunctions('drawcontourslara',DATA.CurrentPanel);
 drawfunctions('drawinterp',DATA.CurrentPanel);
 
-
 %------------------------------------
-function result = updateintersections_Callback(slices,no,type) %#ok<DEFNU>
+function result = updateintersections_Callback(slices,no,type) 
 %------------------------------------
 % Calculates the intersection of a endocardial segmentation
 % and SET(no) for
@@ -1122,7 +1525,7 @@ end
 if length(segno)>1
   segstring = cell(length(segno),1);
   for i = 1: length(segno)
-    segstring{i} = dprintf('Image stack %d - %s',segno(i),SET(segno(i)).ImageType);
+    segstring{i} = sprintf('%s %d - %s',dprintf('Image stack'),segno(i),SET(segno(i)).ImageType); 
   end
   
   [selected, ok] = listdlg('ListString',segstring,...
@@ -1139,731 +1542,3 @@ end
 
 calcsegintersect(segno,no,slices,type);
 viewfunctions('setview'); %drawfunctions('drawall');
-
-
-%----------------------
-function selectlvmethod %#ok<DEFNU>
-%----------------------
-%callback from 3DPrint auto LV icon to select if apply CT or MR auto LV seg
-
-global SET NO
-
-no = NO;
-ismr = strfind(SET(no).ImagingTechnique,'MR');
-isct = strfind(SET(no).ImagingTechnique,'CT');
-
-if not(isempty(ismr)) && isempty(isct)
-  lvsegmentation;
-elseif not(isempty(isct)) && isempty(ismr)
-  ct.ctlicensecheck('CTLVSegmentation');
-else
-  %user select if it is CT or MR or cancel
-  menuitems{1} = 'MR';
-  menuitems{2} = 'CT';
-  menuitems{3} = 'Other';
-  answer = mymenu('Select imaging technique for the selected image stack.',menuitems);
-  if answer
-    if answer == 1
-      lvsegmentation;
-    elseif answer == 2
-      ct.ctlicensecheck('CTLVSegmentation');
-    elseif answer == 3
-      myfailed('No automatic LV segmentation method for other imaging techniques avaliable.');
-    end
-  else
-    disp('LV segmentation canceled.');
-  end
-end
-
-%---------------------------------------------
-function calccalciummask_Callback
-%---------------------------------------------
-global SET NO
-sizesetstruct=size(SET);
-
-temp=[];
-tempCaSc=[];
-
-temp=[];
-tempCaSc=[];
-
-if sizesetstruct(1,2)==1
-  m=1;
-else
-  m=2;
-end
-
-for n=1:sizesetstruct(1,m)
-  temp=[temp isempty(SET(n).EndoX)==0];
-  tempCaSc=[tempCaSc contains(SET(n).SeriesDescription,'CaSc')];
-end
-sumtempCaSc= sum(tempCaSc);
-if sum(temp)==0
-  myfailed('there is no contrastimage')
-  return
-end
-if sum(temp)==1
-  seg= find(temp);
-elseif sum(temp)==2
-  findindex1=find(temp);
-  seg = mymenu('Choose segmentation stack',['Image stack no ' num2str(SET(findindex1(1)).Linked)], ['Image stack no ' num2str(SET(findindex1(2)).Linked)]);
-end
-
-if sumtempCaSc==0
-  myfailed('There is no Ca image')
-  return
-end
-if sumtempCaSc==1
-  no=find(tempCaSc);
-elseif sumtempCaSc==2
-  findindex=find(tempCaSc);
-  no = mymenu('In which image stack do you want to detect calcium?',['Image stack no ' num2str(SET(findindex(1)).Linked)], ['Image stack no ' num2str(SET(findindex(2)).Linked)]);
-  no=findindex(no);
-elseif sumtempCaSc==3
-  no = mymenu('In which image stack do you want to detect calcium?',['Image stack no ' num2str(SET(findindex(1)).Linked)], ['Image stack no ' num2str(SET(findindex(2)).Linked)], ['Image stack no ' num2str(SET(findindex(3)).Linked)]);
-  no=findindex(no);
-end
-
-callbackfunctions('calccalciummask',no,seg,0)
-
-%---------------------------------------------
-function splitcalciummask_Callback
-%---------------------------------------------?
-
-global SET NO
-sizesetstruct=size(SET);
-
-temp=[];
-tempCaSc=[];
-
-if sizesetstruct(1,2)==1
-  m=1;
-else
-  m=2;
-end
-
-for n=1:sizesetstruct(1,m)
-  temp=[temp isempty(SET(n).EndoX)==0];
-  tempCaSc=[tempCaSc contains(SET(n).SeriesDescription,'CaSc')];
-  %tempCaSc=[tempCaSc contains(SET(n).SeriesDescription,'CorASeq')];
-end
-sumtempCaSc= sum(tempCaSc);
-if sum(temp)==0
- % myfailed('There is no contrast image')
-  seg=0;
-end
-if sum(temp)==1
-  seg= find(temp);
-elseif sum(temp)>1
-  %seg = mymenu('In which image stack do you want to use for the segmentation','e', 'e', 'Image stack no 3','Image stack no 4');
-  myfailed('several contrastimages')
-  return
-end
-
-if sumtempCaSc==0
-  myfailed('There is no Ca image')
-  return
-end
-if sumtempCaSc==1
-  no=find(tempCaSc);
-elseif sumtempCaSc==2
-  findindex=find(tempCaSc);
-  no = mymenu('In which image stack do you want to detect calcium?',['Image stack no ' num2str(SET(findindex(1)).Linked)], ['Image stack no ' num2str(SET(findindex(2)).Linked)]);
-  no=findindex(no);
-elseif sumtempCaSc==3
-  no = mymenu('In which image stack do you want to detect calcium?',['Image stack no ' num2str(SET(findindex(1)).Linked)], ['Image stack no ' num2str(SET(findindex(2)).Linked)],['Image stack no ' num2str(SET(findindex(3)).Linked)]);
-  no=findindex(no);
-  
-end
-
-
-callbackfunctions('calccalciummask',no,seg,1)
-
-
-%---------------------------------------------
-function rawca_Callback
-%---------------------------------------------?
-
-global SET NO
-sizesetstruct=size(SET);
-
-temp=[];
-tempCaSc=[];
-
-if sizesetstruct(1,2)==1
-  m=1;
-else
-  m=2;
-end
-
-for n=1:sizesetstruct(1,m)
- 
-  tempCaSc=[tempCaSc contains(SET(n).SeriesDescription,'CaSc')];
-  
-end
-sumtempCaSc= sum(tempCaSc);
-
-seg=0;
-
-if sumtempCaSc==0
-  myfailed('There is no Ca image')
-  return
-end
-if sumtempCaSc==1
-  no=find(tempCaSc);
-elseif sumtempCaSc==2
-  findindex=find(tempCaSc);
-  no = mymenu('In which image stack do you want to detect calcium?',['Image stack no ' num2str(SET(findindex(1)).Linked)], ['Image stack no ' num2str(SET(findindex(2)).Linked)]);
-  no=findindex(no);
-elseif sumtempCaSc==3
-  no = mymenu('In which image stack do you want to detect calcium?',['Image stack no ' num2str(SET(findindex(1)).Linked)], ['Image stack no ' num2str(SET(findindex(2)).Linked)],['Image stack no ' num2str(SET(findindex(3)).Linked)]);
-  no=findindex(no);
-  
-end
-
-
-callbackfunctions('calccalciummask',no,seg,1)
-
-
-
-%---------------------------
-function calccalciummask(no,seg,onORoff) %#ok<DEFNU>
-%---------------------------
-%Computes calciummask, will be replace by code from Lisa
-radius1=[];
-global SET NO
-
-if nargin==0
-  no = NO;
-end
-%segim=SET(seg).IM;
-im=SET(no).IM;
-im = calcfunctions('calctruedata',im,no); %g?r om till Hounsfieldunits
-outputmask = uint8((im>=130));
-
-imbin = (im>=130); %allt ?ver 130 Hu r?knas som kalk
-imbin = squeeze(imbin);
-bw = bwconncomp(imbin);
-
-
-if bw.NumObjects>0
-  for k=1:bw.NumObjects
-    thislist=bw.PixelIdxList{1,k};
-    [R]=numel(thislist);
-    %   Cascore i mm3
-    Cascore1 = R*SET(no).ResolutionX*SET(no).ResolutionY*(SET(no).SliceThickness+SET(no).SliceGap);
-    if  Cascore1>3
-      outputmask(bw.PixelIdxList{k})=uint8(2);
-    end
-    
-  end
-end
-
-SET(no).CT.CalciumMask = outputmask;
-if seg~=0
-lengthsofthisIm=[];
-% Pick outsets of 4 or more
-sizesetstruct=size(SET);
-
-threedvol=uint8(zeros(SET(seg).XSize,SET(seg).YSize,SET(seg).ZSize));
-threedvol2=uint8(zeros(SET(seg).XSize,SET(seg).YSize,SET(seg).ZSize));
-threedvolM=uint8(zeros(SET(seg).XSize,SET(seg).YSize,SET(seg).ZSize));
-threedvolA=uint8(zeros(SET(seg).XSize,SET(seg).YSize,SET(seg).ZSize));
-SET(no).CT.CalciumPenMask=uint8(zeros(SET(seg).XSize,SET(seg).YSize,SET(seg).ZSize));
-shortaxisImagelocation=0;
-EXlocation= 0;
-
-for n=1:sizesetstruct(1,2)
-  
-  if strcmp(SET(n).ImageViewPlane,'Short-axis')==1 && contains(SET(n).SeriesDescription,'CaSc')==1
-    shortaxisImagelocation=n;
-  end
-  
-  if isempty(SET(n).EndoX)==0
-    EXlocation= n;
-  else
-    EXlocation= seg;
-  end
-  if strcmp(SET(n).ImageViewPlane,'Transversal')==1 && contains(SET(n).SeriesDescription,'CorASeq')==1
-    transversalContrastLocation=n;
-  end
-end
-
-
-% kolla vid vilken slice k segmenteringen b?rjar
-
-sizeOfEndoSeg=size(SET(EXlocation).EndoX);
-for k=1:sizeOfEndoSeg(1,3)
-  if isnan(SET(EXlocation).EndoX(:,:,k))==0
-    hereIsNotNan=k;
-    break;
-  end
-end
-
-
-
-%  Mask making
-
-meanX=mean(SET(EXlocation).EndoX(:,:,hereIsNotNan));
-meanY=mean(SET(EXlocation).EndoY(:,:,hereIsNotNan));
-
-%ta bild 8 snitt upp
-
-imbin1=[];
-imbin2=[];
-Cascore1=0;
-Cascore2=0;
-
-firstZslice=hereIsNotNan-8;
-lastZslice=hereIsNotNan+8;
-mitsizes=[];
-for slice=firstZslice:lastZslice
-  
-  im1=imadjust(SET(EXlocation).IM(:,:,1,slice));
-  
-  %ber?kna treshold
-  im1=calcfunctions('calctruedata',im1,EXlocation); %g?r om till Hounsfieldunits
-  iim=(im1+1024)/ max(max(im1+1024));
-  JJ=imhist(iim);
-  minloc=178+find(JJ(179:230)==min(JJ(179:230)));
-  maxloc=153+find(JJ(154:minloc(1))==max(JJ(154:minloc(1))));
-  if length(maxloc(end))>=1 && JJ(maxloc(end))>700
-    T1=round((maxloc(end)+minloc(1))/2)/256;
-  else
-    T1=minloc(1)/256;
-  end
-  T=T1*max(max(im1+1024))-1024;
-  im2=im1>T;
-  im2=imfill(im2, 'holes');
-  
-  imageSizeX =SET(EXlocation).YSize;
-  imageSizeY = SET(EXlocation).XSize;
-  %om slice>=hereIsNotNan anv?nd befintlig lv segmentering 
-  if slice>=hereIsNotNan
-      finalmitralmask=zeros(imageSizeY,imageSizeX);
-      endoX=round(SET(EXlocation).EndoX(:,:,slice));
-      endoY=round(SET(EXlocation).EndoY(:,:,slice));
-      for l=1:numel(SET(EXlocation).EndoY(:,:,slice)) 
-      finalmitralmask(endoX(l),endoY(l))=1;
-      end
-      
-      se = strel('square',10);
-  finalmitralmask=(imdilate(finalmitralmask,se));
-  finalmitralmask=imfill(finalmitralmask);
-%       figure
-%       imshow(finalmitralmask)
-  else
-  %hitta kantpunkter
-  scanwidth=10;
-  
-  for k=1:100
-    sumyXled=0;
-    
-    sumyXled= sum(im2(round(meanX)-scanwidth:round(meanX)+scanwidth, round(meanY)+k));
-    
-    if sumyXled/(scanwidth*2)<0.5
-      edgeX=round(meanY)+k;
-      break
-    end
-  end
-  
-  isedgeYcreated=0;
-  for k=1:100
-    sumyYled=0;
-    sumyYled= sum(im2(round(meanX)+k, round(meanY)-scanwidth:round(meanY)+scanwidth));
- 
-    if sumyYled/(scanwidth*2)<0.5
-      edgeY=round(meanX)+k;
-       isedgeYcreated=1;
-      break
-    end
-   
-  end
-
- isedgeY2created=0;
-  for k=1:100
-    sumyYled=0;
-    sumyYled= sum(im2(round(meanX)-k, round(meanY)-scanwidth:round(meanY)+scanwidth));
- 
-    if sumyYled/(scanwidth*2)<0.5
-      edgeY2=round(meanX)-k;
-       isedgeY2created=1;
-      break
-    end
-  end
-  
- if isedgeY2created==0 || isedgeYcreated==0
-    newmeanX=meanX;
- else
-  newmeanX=(edgeY+edgeY2)/2;
- end
-  meanX=newmeanX;
-  
-  %Create circlemask
-  imageSizeX =SET(EXlocation).YSize;
-  imageSizeY = SET(EXlocation).XSize;
-  [columnsInImage rowsInImage] = meshgrid(1:imageSizeX, 1:imageSizeY);
-  centerX = meanY;
-  centerY = meanX;
-  if isedgeYcreated==0
-    radius = round(max([edgeX-meanY meanX-edgeY2]));
-  else
-  radius = round(max([edgeX-meanY edgeY-meanX]));
-  end
-  radius1=[radius1; radius];
-  if radius<30
-      radius=30;
-  end
-  if radius>55
-      radius=55;
-  end
-  circlePixels = (rowsInImage - centerY).^2 ...
-    + (columnsInImage - centerX).^2 <= radius.^2;
-  
-  immm=imfuse(im2,circlePixels);
-  immm=im2.*circlePixels;
-  
-  linemask= columnsInImage> (round(meanY)-radius);
-  
-  
-  
-  L=bwlabel(im2.*linemask);
- 
-  centerpoints=[];
-  centerdists=[];
-  sizes=[];
-  for k=1:max(max(L))
-    [C,R]=find(L==k);
-    sizes= [sizes; length(R)];
-    centerpoints=[centerpoints; mean(R) mean(C)];
-    centerdists= [centerdists; sqrt((mean(R)-meanY)^2+(mean(C)-meanX)^2)];
-  end
-  maxsize=max(sizes);
-  bigobjindex=sizes>(maxsize/4);
-  O=find(bigobjindex);
-  centerdists2=centerdists(O);
-  centerpoints2=centerpoints(O,:);
-  EndoObjNbr=find(centerdists==min(centerdists2));
-  L= L==EndoObjNbr;
-  if maxsize>8000
-      L=circlePixels;
-  end
-  mitsizes=[mitsizes maxsize];
- 
-%   if sum(sum(L))>15000
-%     [C,R]=find(L);
-%     xline=mean(R);
-%     linemask= columnsInImage> xline-radius;
-%     L=L.*linemask;
-%     L=bwlabel(L);
-%     centerpoints=[];
-%     centerdists=[];
-%     sizes=[];
-%     for k=1:max(max(L))
-%       [C,R]=find(L==k);
-%       sizes= [sizes; length(R)];
-%       centerpoints=[centerpoints; mean(R) mean(C)];
-%       centerdists= [centerdists; sqrt((mean(R)-meanY)^2+(mean(C)-meanX)^2)];
-%     end
-%     maxsize=max(sizes);
-%     bigobjindex=sizes>(maxsize/2);
-%     O=find(bigobjindex);
-%     centerdists2=centerdists(O);
-%     centerpoints2=centerpoints(O,:);
-%     EndoObjNbr=find(centerdists==min(centerdists2));
-%     L= L==EndoObjNbr;
-%   end
-  finalmitralmask=L;
-  
-  end
-  [yM,xM]=find(finalmitralmask);
- 
-  %    Aortamask
-  
-  linemaskA= columnsInImage<min(xM)+5;
-  
-  pointtolookfor=min(xM);
-%    figure
-%   imagesc(finalmitralmask)
-%   hold on
-%   plot(pointtolookfor,meanX,'o')
-  iseroded=0;
-  L=bwlabel(im2.*linemaskA);
-  L2=L;
-  for k=1:max(max(L))
-    if sum(sum(L==k))>3000 
-      
-      se = strel('square',7);
-      L = imerode(L,se);
-      L=bwlabel(L>0);
-      iseroded=iseroded+1;
-      break
-    end
-  end
-  for k=1:max(max(L))
-    if sum(sum(L==k))>3000
-      
-      se = strel('square',7);
-      L = imerode(L,se);
-      L=bwlabel(L>0);
-      iseroded=iseroded+1;
-      break
-    end
-  end
-  centerpoints=[];
-  centerdists=[];
-  sizes=[];
-  isitnegative=[];
-  
-  for k=1:max(max(L))
-    [C,R]=find(L==k);
-    sizes= [sizes; length(R)];
-    centerpoints=[centerpoints; mean(R) mean(C)];
-    centerdists= [centerdists; sqrt((mean(R)-pointtolookfor)^2+(mean(C)-meanX)^2)];
-    isitnegative=[isitnegative; (mean(R)-pointtolookfor)<0];
-  end
-
-  maxsize=max(sizes);
-  bigobjindex=sizes>(maxsize/10);
-  O=find(bigobjindex);
-  centerdists2=centerdists(O);
-  centerpoints2=centerpoints(O,:);
-  if isitnegative(find(centerdists==min(centerdists2)))==0
-      centerdists2=sort(unique(centerdists2));
-      EndoObjNbr=find(centerdists==centerdists2(end-1));
-  else
-  EndoObjNbr=find(centerdists==min(centerdists2));
-  end
-  L2=L;
-  L= L==EndoObjNbr;
-  
-  if sum(sum(L))>8000
-    
-    centerX = pointtolookfor;
-    centerY = meanX;
-    radius = 50;
-    circlePixels = (rowsInImage - centerY).^2 ...
-      + (columnsInImage - centerX).^2 <= radius.^2;
-    finalaortamask=L.*circlePixels;
-  else
-    finalaortamask=L ;
-  end
-  while iseroded>0
-    finalaortamask= imdilate(finalaortamask,se);
-    iseroded=iseroded-1;
-  end
-  
-  % check if the mask is bad
-  
-  [RA,CA]=find(finalaortamask);
-  [RM,CM]=find(finalmitralmask);
-  
-  lengthsofthisIm=[lengthsofthisIm sqrt((pointtolookfor-max(CA))^2 + (meanX-mean( RA(find(CA==max(CA)))))^2)];
-  
-  for i=1:length(CA)
-    dist(i) = sqrt((pointtolookfor-CA(i))^2 + (meanX-RA(i))^2) ;
-  end
-  
-  
- 
-  
-  if mean(RA)>mean(RM)
-   centerdists2=sort(unique(centerdists2));
-   if length(centerdists2)>1
-   centerdists2(1)=200;
-   end
-      EndoObjNbr=find(centerdists==min(centerdists2));
-            
-if sum(sum(L2==EndoObjNbr))>500 && min(dist(find(CA==max(CA))))>30
-      L= L2==EndoObjNbr;
-
-  if sum(sum(L))>8000
-    
-    centerX = pointtolookfor;
-    centerY = meanX;
-    radius = 50;
-    circlePixels = (rowsInImage - centerY).^2 ...
-      + (columnsInImage - centerX).^2 <= radius.^2;
-    finalaortamask=L.*circlePixels;
-  else
-    finalaortamask=L ;
-  end
-  while iseroded>0
-    finalaortamask= imdilate(finalaortamask,se);
-    iseroded=iseroded-1;
-  end
-end
-  end
-   if min(dist(find(CA==max(CA))))>35 || slice>hereIsNotNan+3
-    finalaortamask= finalaortamask*0;
-  end
-  sizeoA(slice-firstZslice+1)= sum(sum(finalaortamask));
-%   if sum(sum(finalaortamask))>5500
-%     finalaortamask= finalaortamask*0;
-%   end
-  
-  [yA,xA]=find(finalaortamask);
-
-  
-  % Save to mask & Dilate
-
-  outputmask2=uint8(((finalaortamask+finalmitralmask)>0));
-  outputmaskMitral=uint8(((finalmitralmask)>0));
-  outputmaskAortic=uint8(((finalaortamask)>0));
-  
-
- simm=SET(seg).IM;
-simm=squeeze(simm);
-% if slice>=(hereIsNotNan-8) && slice<(hereIsNotNan+8)  
-%   figure
-%   subplot(1,2,1)
-%    imagesc(simm(:,:,slice))
-%    colormap('gray');
-%     hold on
-%       
-%     [~,c] = contour((finalaortamask)>0);
-%     c.LineColor= [0 0 1];
-%   
-%      [~,c] = contour((finalmitralmask)>0);
-%     c.LineColor= [1 0 0];
-% slice
-%      end
-  
- 
-  se = strel('square',20);
-  outputmask3=imfill(imdilate(outputmask2,se));
-  outputmask2=edge(imfill(imdilate(outputmask2,se)));
-  
-  outputmaskMitral=imfill(imdilate(outputmaskMitral,se));
-  outputmaskAortic=imfill(imdilate(outputmaskAortic,se));
-  
-  [yM,xM]=find(outputmaskMitral);
-  [yA,xA]=find(outputmaskAortic);
-  
-  if isempty(max(xA))
-      linemaskA= uint8(columnsInImage < min(xM));
-  else
-  linemaskA= uint8(columnsInImage < max(xA));
-  end
-  linemaskM= uint8(~linemaskA);
-  
-  threedvol(:,:,slice) = uint8(outputmask2);
-  threedvol2(:,:,slice) = uint8(outputmask3);
-  threedvolM(:,:,slice) = uint8(outputmask3.*linemaskM);
-  threedvolA(:,:,slice) = uint8(outputmask3.*linemaskA);
-  
-%  figure
-%    imagesc(segim(:,:,1,slice))
-%    colormap('gray');
-%     hold on
-%       
-%     [~,c] = contour((outputmask3.*linemaskA)>0);
-%     c.LineColor= [0 1 1]; [~,c] = contour((outputmask3.*linemaskM)>0);
-%     c.LineColor= [0 0 1]; plot(pointtolookfor,meanX,'o');
-
-  
-end
-h = waitbar(0,'Please wait.');
-
-threedvol=uint8(threedvol);
-outputmask2 = segment3dp.resamplestack(seg,no,threedvol,h); %edge
-threedvol2=uint8(threedvol2);
-outputmask3 = segment3dp.resamplestack(seg,no,threedvol2,h);
-threedvolM=uint8(threedvolM);
-outputmaskM = segment3dp.resamplestack(seg,no,threedvolM,h);
-threedvolA=uint8(threedvolA);
-outputmaskA = segment3dp.resamplestack(seg,no,threedvolA,h);
-
-close(h);
-
-[~,~,zet]=size(outputmask2);
-if onORoff==0
-  for i=1:zet
-    SET(no).CT.CalciumMask(:,:,1,i) =uint8(3)*uint8(uint8(SET(no).CT.CalciumMask(:,:,1,i))==2).*uint8(outputmask3(:,:,i))+  4* uint8((outputmask2(:,:,i)));
-  end
-elseif onORoff==1
-  for i=1:zet
-    SET(no).CT.CalciumMask(:,:,1,i) =uint8(7)*uint8(uint8(SET(no).CT.CalciumMask(:,:,1,i))==2).*uint8(outputmaskM(:,:,i)) + uint8(6)*uint8(uint8(SET(no).CT.CalciumMask(:,:,1,i))==2).*uint8(outputmaskA(:,:,i)) +  uint8(4)*uint8(outputmask2(:,:,i));
-  end
-end
-end
-
-    
-disp('dsds');
-
-%---------------------------
-function removeallcalciumsegmentation_Callback
-%---------------------------
-%removes all calciumsegmentation
-
-global DATA SET NO
-no=NO;
-if ~isfield(SET(no).CT, 'CalciumMask')
-  myfailed('There is no calcium mask in this image stack');
-  return
-end
-
-threes=find (SET(no).CT.CalciumMask==3);
-sixs=find (SET(no).CT.CalciumMask==6);
-sevens=find(SET(no).CT.CalciumMask==7);
-eights=find (SET(no).CT.CalciumMask==8);
-
-CalciumMask=SET(no).CT.CalciumMask;
-
-if ~isempty(threes)
-  CalciumMask(threes)=5;
-end
-if ~isempty(sixs)
-  CalciumMask(sixs)=5;
-end
-if ~isempty(sevens)
-  CalciumMask(sevens)=5;
-end
-if ~isempty(eights)
-  CalciumMask(eights)=5;
-end
-
-SET(no).CT.CalciumMask=CalciumMask;
-
-
-DATA.ViewIM{DATA.CurrentPanel} = [];
-drawfunctions('drawimages',DATA.CurrentPanel);
-
-%---------------------------
-function removeallcalciumsegmentationonthisslice_Callback
-%---------------------------
-%removes all calciumsegmentation
-
-global DATA SET NO
-no=NO;
-if ~isfield(SET(no).CT,'CalciumMask')
-  myfailed('There is no calcium mask in this image stack');
-  return
-end
-
-slice=SET(no).CurrentSlice;
-threes=find (SET(no).CT.CalciumMask(:,:,1,slice)==3);
-sixs=find (SET(no).CT.CalciumMask(:,:,1,slice)==6);
-sevens=find(SET(no).CT.CalciumMask(:,:,1,slice)==7);
-eights=find (SET(no).CT.CalciumMask(:,:,1,slice)==8);
-
-CalciumMask=SET(no).CT.CalciumMask(:,:,1,slice);
-
-if ~isempty(threes)
-  CalciumMask(threes)=5;
-end
-if ~isempty(sixs)
-  CalciumMask(sixs)=5;
-end
-if ~isempty(sevens)
-  CalciumMask(sevens)=5;
-end
-if ~isempty(eights)
-  CalciumMask(eights)=5;
-end
-
-SET(no).CT.CalciumMask(:,:,1,slice)=CalciumMask;
-
-
-DATA.ViewIM{DATA.CurrentPanel} = [];
-drawfunctions('drawimages',DATA.CurrentPanel);

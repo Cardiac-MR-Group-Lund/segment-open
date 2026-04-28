@@ -1,5 +1,5 @@
 function myfailed(stri,fighandle)
-global DATA
+global DATA %#ok<*GVMIS> 
 %MYFAILED(STRI,FIGHANDLE)
 %  Displays an error message STRI. FIGHANDLE is 
 %  an optional alignment indicating alignment. 
@@ -14,25 +14,45 @@ global DATA
 
 %Einar Heiberg
 
-if nargin<1
+if nargin < 1
   myfailed('Expected one input argument.');
   return;
 end
 
 %If silent then just "write to log-file" and return
+
+% make sure that the string we display is in English to be able to read and
+% understand our log file
 try
-  if DATA.Silent
-    disp(sprintf('Error: %s',stri)); %#ok<DSPS>
+  logstr = translation.dictionary(stri,'English',DATA.Pref.Language);
+catch
+  logstr = stri;
+end
+
+%For autoloader, add warning to warninglist instead of showing it
+try 
+  if ~isempty(DATA) && DATA.Autoloader
+    fprintf('Error: %s\n',logstr); 
+    warningfunctions('addwarning', logstr);
     return;
   end
 catch
   %Do nothing as if error then depends on DATA not initialised
 end
 
+try
+  if ~isempty(DATA) && DATA.Silent
+    fprintf('Myfailed: %s\n',logstr); 
+    return;
+  end
+catch
+  %Do nothing as if error then depends on DATA not initialised
+end
+
+logdisp(['Error: ' logstr])
+%fprintf('Error: %s\n',logstr);
+
 stri = translation.dictionary(stri);
-
-mydisp(dprintf('Error:%s\n',stri));
-
 keystroke = popfrombuffer('KeyStroke');
 
 if isequal(keystroke,'ok')
@@ -41,10 +61,20 @@ if isequal(keystroke,'ok')
 end
 
 h = errordlg(stri,dprintf('Operation failed.'),'invisible');
+fontsize = 10;
 try
   if ~isempty(DATA)
     htext = findobj(h, 'Type', 'Text');  %find text control in dialog
-    set(htext,'Color',DATA.GUISettings.ForegroundColor,'FontSize',9,'Units','normalized');
+    set(htext,'Color',DATA.GUISettings.ForegroundColor,'FontSize',fontsize);
+    if length(stri) > 25
+      % get current extent of the text message
+      ext = htext.Extent;
+      pos = h.Position;
+      % adjust width with enough space for the message plus 10 pixels margin
+      pos(3) = ext(1)+ext(3);
+      h.Position = pos;
+      set(htext,'Units','normalized')
+    end
   end
 catch me
   mydispexception(me)
@@ -54,23 +84,24 @@ setupicon(h);
 try
   set(h,'Color',DATA.GUISettings.BackgroundColor);
   kids = h.Children;
-  for i=1:length(kids)
+  for i = 1:length(kids)
     try set(kids(i),'BackgroundColor',DATA.GUISettings.BackgroundColor);catch, end
     try set(kids(i),'Color',DATA.GUISettings.BackgroundColor);catch, end
     try set(kids(i),'ForegroundColor',DATA.GUISettings.ForegroundColor);catch, end
     try
       kidstyle = kids(i).Style;
       if strcmp(kidstyle,'pushbutton')
-        set(kids(i),'Units','normalized','FontSize',9)
+        set(kids(i),'Units','normalized','FontSize',fontsize)
       end
     catch
     end
   end
 catch
 end
-if length(stri) > 40
+
+if length(stri) > 25
   ps = get(h,'Position');
-  set(h,'Position',[ps(1) ps(2) ps(3)*1.2 ps(4)])
+  set(h,'Position',[ps(1) ps(2) ps(3)*1.2 ps(4)*1.2])
 end
 try
   if nargin>1
@@ -81,8 +112,21 @@ try
 catch %#ok<CTCH>
 end
 
-set(h,'windowstyle','modal');
-set(h,'visible','on');
+try
+  if ~isempty(DATA) && DATA.Testing
+    DATA.GUI.Dialog = h;
+    pause(0.1)
+    oktimer = timer('ExecutionMode','singleShot',...
+      'TimerFcn', 'clickonbutton', ...
+      'StartDelay',0.5,'Name','okbuttonclick');
+    start(oktimer)
+    pushtobuffer('Warnings',stri);
+  end
+catch me
+  mydispexception(me)
+end
+
+set(h,'windowstyle','modal','visible','on');
 flushlog;
 uiwait(h);
 try

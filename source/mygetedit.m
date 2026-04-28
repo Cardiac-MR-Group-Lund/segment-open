@@ -3,7 +3,7 @@ function stri = mygetedit(h)
 %macro evaluation possible.
 
 %Einar Heiberg
-global DATA
+global DATA %#ok<*GVMIS> 
 
 if ~DATA.Testing
   stri = get(h,'string');

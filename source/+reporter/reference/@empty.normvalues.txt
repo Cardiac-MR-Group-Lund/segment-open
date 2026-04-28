@@ -1,5 +1,0 @@
-Name: 'Empty reference values'
-ImagingType: 'SSFP'
-Sex: 'F'
-LowerAgeBound: 0
-UpperAgeBound: 0

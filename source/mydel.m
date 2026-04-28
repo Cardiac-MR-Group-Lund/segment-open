@@ -14,7 +14,7 @@ message = '';
 
 if ispc && not(isempty(findstr(source,'*'))) %using wildcards
  [ok,message]= dos(sprintf('del "%s"',source));
- if isempty(message),
+ if isempty(message)
    ok=true;
  end
 elseif isunix && not(isempty(findstr(source,'*')))

@@ -6,6 +6,7 @@ function v = popfrombuffer(f)
 
 %Einar Heiberg
 
+%#ok<*GVMIS>
 global DATA
 
 try
@@ -16,13 +17,13 @@ try
       v = {}; %Empty => return empty
     else
       v = [];
-    end;
+    end
   else
     if isacell
       v = buffer{1}; %Return first element
     else
       v = buffer(1); %Return first element
-    end;
+    end
 
     %Update stored buffer
     if isacell
@@ -35,18 +36,18 @@ try
         end
       else
         buffer = {};
-      end;
+      end
     else
       %vector buffers
-      buffer = buffer(2:end);      
+      buffer = buffer(2:end);
       if isempty(buffer)
         buffer = []; %make is nice format
-      end;        
-    end;
-    
+      end
+    end
+
     %Store it.
     DATA.Buffer.(f) = buffer;
-  end;
+  end
 catch
   v = [];
-end;
+end

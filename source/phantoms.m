@@ -3,15 +3,16 @@ function varargout = phantoms(varargin)
 
 %Einar Heiberg
 
+%#ok<*GVMIS> 
+
 %The mighty main clause goes...
-macro_helper(varargin{:});
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
   
 %--------------------------
 function filephantomhelper
 %--------------------------
 %Helper fcn used when creating image phantoms. Set fake patient data.
-global DATA SET NO
+global DATA SET NO 
 
 DATA.Preview.PatientInfo.Name = 'Image phantom.';
 DATA.Preview.PatientInfo.ID = '';
@@ -19,9 +20,10 @@ DATA.Preview.PatientInfo.BirthDate = '';
 DATA.Preview.PatientInfo.Sex = '';
 DATA.Preview.PatientInfo.Age = '';
 DATA.Preview.HeartRate = 60;
-DATA.Preview.PatientInfo.AcquisitionDate = datestr(now,'yyyy-mm-dd HH:MM:SS');
+DATA.Preview.PatientInfo.AcquisitionDate = datestr(now,'yyyymmdd');
 DATA.Preview.AcquisitionTime = '00.00';
 DATA.Preview.PatientInfo.BSA = 0;
+DATA.Preview.PatientInfo.BMI = 0;
 DATA.Preview.PatientInfo.Weight = 0;
 DATA.Preview.PatientInfo.Length = 0;
 DATA.Preview.ResolutionX = 1;
@@ -36,9 +38,11 @@ DATA.Preview.TIncr = 1;
 DATA.Preview.TimeVector = 0:1:size(SET(NO).IM,3)-1; 
 DATA.Preview.Bitstored = 12;
 DATA.Preview.TriggerTime = DATA.Preview.TimeVector;
+DATA.Preview.ImagePosition = zeros(1,3);
+DATA.Preview.ImageOrientation = [1 0 0 0 1 0];
 
 %----------------------------
-function filephantom_Callback %#ok<DEFNU>
+function filephantom_Callback
 %----------------------------
 %Displays menu of different built in computer models.
 global DATA
@@ -51,6 +55,7 @@ c = mymenu('Choose What Phantom to Load/Create.',{...
   'Plain Cylinder',...
   'Torus Test (Rotated Image Stack)',...
   '3D Flow Test',...
+  '4D flow Test',...
   'QFlow Test',...
   'PWV Test',...
   'Strain Test 1', ...
@@ -78,22 +83,24 @@ switch c
   case 7
     flow3test;
   case 8
-    qflowtest;
+    flow4dtest;
   case 9
-    pwvtest;
+    qflowtest;
   case 10
-    straintest1;
+    pwvtest;
   case 11
-    straintest2;
+    straintest1;
   case 12
-    t2starphantom;
+    straintest2;
   case 13
-    patchinessphantom;
+    t2starphantom;
   case 14
-    taggingphantom;
+    patchinessphantom;
   case 15
-    petphantom;
+    taggingphantom;
   case 16
+    petphantom;
+  case 17
     coordinatephantom;
   otherwise
     mywarning('Aborted by user.',DATA.GUI.Segment);
@@ -145,7 +152,7 @@ if nargin==0
     myfailed('Invalid inner radius.',DATA.GUI.Segment);
     return;
   else
-    [inrad,ok] = str2num(s{1}); %#ok<ST2NM>
+    [inrad,ok] = str2num(s{1});
     if not(ok)
       myfailed('Invalid inner radius.',DATA.GUI.Segment);
       return;
@@ -157,7 +164,7 @@ if nargin==0
     myfailed('Invalid outer radius.',DATA.GUI.Segment);
     return;
   else
-    [outrad,ok] = str2num(s{1}); %#ok<ST2NM>
+    [outrad,ok] = str2num(s{1});
     if not(ok)
       myfailed('Invalid outer radius.',DATA.GUI.Segment);
       return;
@@ -399,7 +406,7 @@ if nargin==0
     myfailed('Invalid inner radius.',DATA.GUI.Segment);
     return;
   else
-    [inrad,ok] = str2num(s{1}); %#ok<ST2NM>
+    [inrad,ok] = str2num(s{1});
     if not(ok)
       myfailed('Invalid inner radius.',DATA.GUI.Segment);
       return;
@@ -411,7 +418,7 @@ if nargin==0
     myfailed('Invalid outer radius.',DATA.GUI.Segment);
     return;
   else
-    [outrad,ok] = str2num(s{1}); %#ok<ST2NM>
+    [outrad,ok] = str2num(s{1});
     if not(ok)
       myfailed('Invalid outer radius.',DATA.GUI.Segment);
       return;
@@ -440,6 +447,71 @@ if not(isempty(DATA.ViewMatrix))
   DATA.init_graphics;
 end
  
+
+
+%-----------------------------------
+function perfusionupslopephantom(datapoint)
+%-----------------------------------
+global DATA SET NO
+
+%datapoing should be witine 1-20, the 20 different upslope in stress
+%cylinder
+
+load('perfusionphantom_data'); %'stress_time', 'stress_blood', 'stress_myo', 'rest_time', 'rest_blood', 'rest_myo');
+
+inrad = 42; % pixels (55 mm and resolution 1.3)
+outrad = 72; % pixels (72 mm and resolution 1.3)
+
+nx = 200;
+ny = 200;
+nz = 1;
+[x,y] = ndgrid(1:nx,1:ny);
+temp_myo = single(sqrt((x-nx*0.5).^2+(y-ny*0.5).^2)<=outrad)-single(sqrt((x-nx*0.5).^2+(y-ny*0.5).^2)<=inrad);
+temp_blood = single(sqrt((x-nx*0.5).^2+(y-ny*0.5).^2)<=inrad);
+
+%noise
+noisescale = 100;
+
+%set up rest image stack
+nt = 24;
+NO = length(SET)+1;
+im = repmat(single(temp_myo),[1 1 nt nz]);
+for tloop = 1:nt
+  im(:,:,tloop) = temp_myo*rest_myo(tloop)+temp_blood*rest_blood(tloop);
+end
+SET(NO).IM = im+noisescale*randn(size(im));
+filephantomhelper;
+openfile('setupstacksfromdicom',NO);
+SET(NO).TIncr = 0.6955;
+SET(NO).ResolutionX = 1.333;
+SET(NO).ResolutionY = 1.333;
+SET(NO).ImageViewPlane = 'Short-axis';
+SET(NO).ImageType = 'Perfusion Rest';
+segment('renderstacksfromdicom',NO);
+
+%set up stress image stack
+nt = 20;
+NO = length(SET)+1;
+im = repmat(single(temp_myo),[1 1 nt nz]);
+for tloop = 1:nt
+  im(:,:,tloop) = temp_myo*stress_myo(tloop,datapoint)+temp_blood*stress_blood(tloop);
+end
+SET(NO).IM = im+noisescale*randn(size(im));
+filephantomhelper;
+openfile('setupstacksfromdicom',NO);
+SET(NO).TIncr = 0.687;
+SET(NO).ResolutionX = 1.333;
+SET(NO).ResolutionY = 1.333;
+SET(NO).ImageViewPlane = 'Short-axis';
+SET(NO).ImageType = 'Perfusion Stress';
+segment('renderstacksfromdicom',NO);
+
+
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+
 %-------------
 function torus
 %-------------
@@ -710,71 +782,129 @@ function pwvtest
 %---------------
 %Create phantoms for different resolutions
 
-global SET
-
-aorticlength = 240;
-
-points = [20:40]; % 25 30 35 40];
+points = 20:60; % 25 30 35 40];
 
 medianerrorpercent = nan(1,length(points));
 medianerrorvel = nan(1,length(points));
-errorpercent20 = nan(1,length(points));
-errorpercent14 = nan(1,length(points));
 errorpercent10 = nan(1,length(points));
+errorpercent8 = nan(1,length(points));
+errorpercent6 = nan(1,length(points));
 errorpercent4 = nan(1,length(points));
-maxpwv = 20;
+errorpercent2 = nan(1,length(points));
 
-for loop = 1:length(points);
+%--- Define
+
+%From Dorniak paper
+if 1==0
+  aorticfloworig = [2.598908 35.102913 143.620758 269.466339 345.688629 377.106323 ....
+    370.276184 345.908478 315.445404 281.697540 238.217163 191.375366 138.121368 ...
+    71.464691 -11.375866 -46.683861 -28.849838 -15.191250 2.068810 19.120804 ...
+    26.928499 21.993345 13.702498 11.135820 7.779805 6.833653 6.753801 3.557485 ...
+    2.488269 0.022708 -1.034425 0.541035 -0.553828 1.434078 4.693777 4.872540 ...
+    5.345801 2.741043 -1.921593 -5.615703];
+  aorticlength = 240; %Dorniak
+  rrinterval = 1000; %ms
+  errorlimit = 6; %
+  frameslimit = 35;
+  titstri = 'From Dorniak et al.';
+end
+
+%--- Adolescence
+if 1==1
+  %This curve looks a bit odd, think it is because it only 35 points
+  aorticfloworig = [-4.605971 -3.355848 6.655948 10.388669 12.344341 13.581107 44.152824 45.725918...
+130.884354 210.567917 217.421051 289.702881 321.413696 334.595947 359.026031 378.04129...
+374.837524 374.671112 384.680756 369.430695 353.9151 363.583649 346.625488 341.274628...
+335.993103 318.00238 307.104156 301.577576 283.289825 272.58136 264.318024 240.843521...
+227.263138 214.715912 191.997238 181.684372 167.926315 143.934082 136.875092 124.074615...
+96.532089 88.922981 62.118183 0.727246 9.632257 -27.200315 -18.363308 -22.620886...
+-10.091221 4.729416 -2.292595 1.127446 13.313405 7.890378 13.477008 24.932251...
+17.25058 23.108801 37.152134 37.869781 40.895157 41.259884 36.817719 39.641418...
+36.402618 31.424355 32.869534 34.684559 27.630194 30.670191 27.307005 23.396568...
+22.210863 21.652742 23.296852 19.452278 18.545553 18.451067 15.207035 15.619297...
+13.469283 16.132494 13.845286 13.561932 14.884341 9.614994 15.747858 8.892062...
+9.274066 14.873309 11.876789 11.116342 15.890623 16.08906 15.325947 7.501011...
+18.414162 15.29649 2.257011 10.617018 10.157019 9.92733 8.016063 6.153389 -1.452651];
+  aorticlength = 150; %170; %Adolecense from Simon
+  errorlimit = 4; %horisontal lines
+  frameslimit = 20; %vertical line
+  rrinterval = 785; %ms
+  titstri = 'Adolescents';
+end
+
+if 1==0
+  titstri = 'Neonates';
+  aorticfloworig = [0.522604 2.170625 5.544107 16.235159 22.014957 24.026754 27.311241 27.69031...
+25.566141 27.112461 23.414236 19.095198 20.864752 20.291439 19.200827 17.686121...
+16.334572 14.813066 12.023373 9.163867 6.683729 1.607391 -3.67834 -2.513627...
+-1.535576 -1.32524 -3.635419 -1.191179 -0.676001 -0.54192 0.751832 0.344796...
+-0.293438 1.590345 2.741927 -0.251833 -1.10533 1.510298 0.997635 -1.036164...
+1.966107 -0.259762 -2.582516 0.359885 0.524062 -0.03125 0.482969 0.12442...
+2.565595 3.324009];
+  aorticlength = 60; %neoates
+  errorlimit = 7; %horisontal lines
+  frameslimit = 20; %vertical line
+  rrinterval = 544; %ms 
+end
+
+%aorticvel = [0.285990 -1.035773 18.593004 46.388973 55.518158 57.390968 51.825962 46.047485 ...
+%  41.912014 37.252258 30.668367 24.262655 17.317179 3.481020 -0.795986 1.652485 3.303942 ...
+%  5.812184 7.334977 5.369340 4.022235 3.589658 2.739275 2.197035 2.371136 1.982474 2.267787 ...
+%  2.722781 1.223764 2.169307 2.805134 0.402295 0.122498 0.201778 1.849535];
+
+%define
+pwvsteps = 5;
+maxpwv = 10; %if change here, need to change below
+
+for loop = 1:length(points)
   
-  ti = aorticlength./linspace(2,maxpwv,10);
+  ti = aorticlength./linspace(2,maxpwv,pwvsteps); %delay in ms, pwvsteps is number of steps
+ 
+  ttrue = zeros(1,pwvsteps);
+  tmeas = zeros(1,pwvsteps);  
   
-  ttrue = zeros(1,length(ti));
-  tmeas = zeros(1,length(ti));  
-  
-  for tloop = 1:length(ti)
+  for tloop = 1:length(ti)    
     
-    aorticflow = [2.598908 35.102913 143.620758 269.466339 345.688629 377.106323 ....
-      370.276184 345.908478 315.445404 281.697540 238.217163 191.375366 138.121368 ...
-      71.464691 -11.375866 -46.683861 -28.849838 -15.191250 2.068810 19.120804 ...
-      26.928499 21.993345 13.702498 11.135820 7.779805 6.833653 6.753801 3.557485 ...
-      2.488269 0.022708 -1.034425 0.541035 -0.553828 1.434078 4.693777 4.872540 ...
-      5.345801 2.741043 -1.921593 -5.615703];
+    %Sample up aortic flow
+    n = 10000;
+    aorticflow = upsamplehelper(aorticfloworig,n); %resamples to n-points, i.e 10 000 points
+    ms2pos = n/rrinterval; %how many indices is one ms
     
-    aorticflow2 = [-12.269211 1.010513 104.714584 232.957077 334.462646 390.486237 405.852081 ...
-      393.985596 361.134277 311.153259 252.534485 191.633606 117.670441 27.972794 -7.453537 ...
-      3.009796 8.271790 21.235657 27.738190 19.450378 8.251190 1.799011 -1.717758 -2.268219 ...
-      -0.423431 -0.128174 0.008011 0.706100 0.537872 -0.161362 0.516129 1.579285 0.289536 ...
-      0.018311 1.115799 2.776337 4.616547 5.564117 1.755524 -5.348969];    
-    
-    %Sample up
-    n = 10*1000;
-    aorticflow = upsamplehelper(aorticflow,n);
-    
-    %Generate impulse response
+    %Generate impulse response that is moved in time
     %[imp,deltat] = impulse(n,ti(tloop));   
     imp = zeros(size(aorticflow));
-    imp(round(ti(tloop)*10)) = 1; %*10 as
+    imp(round(ti(tloop)*ms2pos)) = 1;
     
-    output = conv(aorticflow,imp);
-    output = output(1:length(aorticflow));
+    %Perform convolution, this moves it in time
+    abdominalflow = conv(aorticflow,imp);
+    abdominalflow = abdominalflow(1:length(aorticflow));
     
+    %Smooth the impulse response
+    fi = linspace(-3,3,2000); %This corresponds to 0.2s
+    f = exp(-fi.^2);
+    f = f./sum(f(:));
+    aorticflow = conv(aorticflow,f,'same');
+    abdominalflow = conv(abdominalflow,f,'same');
+     
     %figure(23+loop);
     %plot(imp);
     
+    %Save how much in time I moved it.
     ttrue(tloop) = ti(tloop); %was deltat
     
-    %Sample down
-    n = points(loop);
-    
+    %Sample down to loop number of points
+    n = points(loop);    
     aorticflow = upsamplehelper(aorticflow,n);
-    abdominalflow = upsamplehelper(output,n);
     
-    %Sample up again
-    n = 200;
+    %Multiply with 0.6 this corresponds to 40% of blood goes to the head
+    abdominalflow = 0.6*upsamplehelper(abdominalflow,n);
+    
+    %resample up again
+    n = 1000;
     aorticflow = upsamplehelper(aorticflow,n);
     abdominalflow = upsamplehelper(abdominalflow,n);
     
-    if 1==0
+    if (tloop==0)
       figure(78);
       clf;
       subplot(2,1,1);
@@ -784,29 +914,25 @@ for loop = 1:length(points);
       hold off;
       subplot(2,1,2);
       plot(imp);
-      pause;
     end
     
-    tmeas(tloop) = pwtestcalchelper(aorticflow,abdominalflow);
+    tmeas(tloop) = pwtestcalchelper(aorticflow,abdominalflow,rrinterval);
   end
   
   truevel = aorticlength./ttrue;
   measvel = aorticlength./tmeas;
-  
-  medianerrorpercent(loop) = median(100*abs(truevel-measvel)./truevel);  
-  medianerrorvel(loop) = median(truevel-measvel);
-  errorpercent20(loop) = 100*(truevel(end)-measvel(end))./truevel(end);  
-  errorpercent14(loop) = 100*(truevel(7)-measvel(7))./truevel(7);
-  errorpercent10(loop) = 100*(truevel(5)-measvel(5))./truevel(5);
-  errorpercent4(loop) = 100*(truevel(2)-measvel(2))./truevel(2);
-  
-  fs = 15;
     
-  if loop==16
-    1
-  end
+  medianerrorpercent(loop) = median(100*abs(truevel-measvel)./truevel);  
+  medianerrorvel(loop) = median(truevel(2)-measvel(2));
+  errorpercent10(loop) = 100*(truevel(5)-measvel(5))./truevel(5);  
+  errorpercent8(loop) = 100*(truevel(4)-measvel(4))./truevel(4);
+  errorpercent6(loop) = 100*(truevel(3)-measvel(3))./truevel(3);
+  errorpercent4(loop) = 100*(truevel(2)-measvel(2))./truevel(2);
+  errorpercent2(loop) = 100*(truevel(1)-measvel(1))./truevel(1);
   
-  disp(sprintf('%d timeframes: %0.5g+-%0.5g',points(loop),mean(truevel-measvel),std(truevel-measvel)));
+  fs = 15; %fontsize
+  
+  %disp(sprintf('%d timeframes: %0.5g+-%0.5g',points(loop),mean(truevel-measvel),std(truevel-measvel)));
   
   if 1==0
   figure(69+loop);
@@ -827,32 +953,45 @@ for loop = 1:length(points);
   
 end
 
-figure(190);
-h = plot(points,errorpercent20,'r-');set(h,'linewidth',2); set(h,'markersize',6);
+figure(191);
+h = plot(points,errorpercent10,'r-');set(h,'linewidth',2); set(h,'markersize',6);
 hold on;
-h = plot(points,errorpercent14,'g-');set(h,'linewidth',2); set(h,'markersize',6);
-h = plot(points,errorpercent10,'m-.');set(h,'linewidth',2); set(h,'markersize',6);
-h = plot(points,errorpercent4,'b-.');set(h,'linewidth',2); set(h,'markersize',6);
-plot([20 40],[-6 -6],'k:');
-plot([20 40],[6 6],'k:');
-plot([35 35],[-60 60],'k-');
+h = plot(points,errorpercent8,'g-');set(h,'linewidth',2); set(h,'markersize',6);
+h = plot(points,errorpercent6,'m-');set(h,'linewidth',2); set(h,'markersize',6);
+h = plot(points,errorpercent4,'b-');set(h,'linewidth',2); set(h,'markersize',6);
+h = plot(points,errorpercent2,'c-');set(h,'linewidth',2); set(h,'markersize',6);
+
+plot([points(1) points(end)],[-4 -4],'k:');
+plot([points(1) points(end)],[6 6],'k:');
+plot([frameslimit frameslimit],[-60 60],'k-'); %change here to get different y-axis
 hold off;
-legend('PWV 20 m/s','PWV 14 m/s','PWV 10 m/s','PWV 4 m/s');
+legend('PWV 10 m/s','PWV 8 m/s','PWV 6 m/s','PWV 4 m/s','PWV 2 m/s');
 h = xlabel('Time points'); set(h,'fontsize',fs);
 h = ylabel('PWV error [%]'); set(h,'fontsize',fs);
 set(gca,'ylim',[-60 60],'fontsize',fs);
-set(190,'color',[1 1 1]);
+set(191,'color',[1 1 1]);
+title(titstri);
 
-outdata = cell(21,4);
-for loop=20:40
-  outdata{loop-19,1} = loop;
-  outdata{loop-19,2} = 1000/loop;
-  outdata{loop-19,3} = medianerrorvel(loop-19);
-  outdata{loop-19,4} = medianerrorpercent(loop-19);
-  outdata{loop-19,6} = errorpercent20(loop-19);
-  outdata{loop-19,7} = errorpercent14(loop-19);
-  outdata{loop-19,8} = errorpercent10(loop-19);
-  outdata{loop-19,9} = errorpercent4(loop-19);
+outdata = cell(21,10);
+outdata{1,1} = 'Frames';
+outdata{1,3} = 'MedianErrorPWV';
+outdata{1,4} = 'MedianError%';
+outdata{1,6} = 'Error % 10 m/s';
+outdata{1,7} = 'Error % 8 m/s';
+outdata{1,8} = 'Error % 6 m/s';
+outdata{1,9} = 'Error % 4 m/s';
+outdata{1,10} = 'Error % 2 m/s';
+
+for loop=1:length(points)
+  outdata{loop+1,1} = points(loop);
+  outdata{loop+1,3} = medianerrorvel(loop);
+  outdata{loop+1,4} = medianerrorpercent(loop);
+  outdata{loop+1,6} = errorpercent10(loop);
+  outdata{loop+1,7} = errorpercent8(loop);
+  outdata{loop+1,8} = errorpercent6(loop);
+  outdata{loop+1,9} = errorpercent4(loop);
+  outdata{loop+1,10} = errorpercent2(loop);
+
 end
 
 segment('cell2clipboard',outdata);
@@ -880,7 +1019,7 @@ SET(1).Measure.LongName = 'Aortic Length';
 SET(1).Measure.T = 1;
      
 %----------------------------------------------
-function deltat = pwtestcalchelper(flow1,flow2)
+function deltat = pwtestcalchelper(flow1,flow2,rrinterval)
 %----------------------------------------------
 %Excerpt from code in PWV
 
@@ -896,7 +1035,7 @@ for i = 1:2
     flowcurve = flow2;
   end
   
-  timevec = linspace(0,1000,length(flow1));
+  timevec = linspace(0,rrinterval,length(flow1));
   tmax = max(tmax,timevec(end));
   ymin = min(ymin,min(flowcurve));
   ymax = max(ymax,max(flowcurve));
@@ -913,8 +1052,7 @@ for i = 1:2
   maxtime = timevec(maxix);
   m = (flowcurve(maxix)-k*maxtime);
   slopet(i) = -m/k;
-  
-  
+    
 end
 
 deltat = diff(slopet);
@@ -994,7 +1132,183 @@ segment('renderstacksfromdicom',NO);
 if not(isempty(DATA.ViewMatrix))
   DATA.init_graphics;
 end
- 
+
+%-------------------------------------
+function im = flow4dtestsizefix(im,nt)
+%-------------------------------------
+sz = size(im);
+im = reshape(im,[sz(1) sz(2) 1 sz(3)]); %x y t z
+im = repmat(im,[1 1 nt 1]); %x y t z
+
+%-----------------------------------------
+function im = flow4dtestnoise_helper(im,n)
+%-----------------------------------------
+%Helper to add noise
+
+if n>0
+  im = im+n*randn(size(im));
+end
+
+%------------------
+function flow4dtest
+%------------------
+%4D flow test
+
+global DATA SET NO
+
+myworkon(DATA.fig);
+
+%Set size
+nx = 128;
+ny = 128;
+nz = 40;
+nt = 20;
+rad = 10;
+[xi,yi,zi] = ndgrid(1:nx,1:ny,1:nz);
+venc = 100;
+noiselevel = 1e-3;
+dir = 3; %1=x, 2=y, 3=z
+
+%Setup preview structure
+DATA.Preview.ResolutionX = 1; %mm
+DATA.Preview.ResolutionY = 1;
+DATA.Preview.TIncr = 50/1000; %50ms
+DATA.Preview.TSize = nt;
+
+%Compute area
+area = pi*(rad*DATA.Preview.ResolutionX)^2; %mm^2
+area = area/100; %cm^2
+disp(sprintf('ROI size is %0.5g cm^2',area)); %#ok<DSPS> %convert to cm^2
+
+%Compute volume
+vol = area*venc*DATA.Preview.TIncr*nt;
+disp(sprintf('Stroke volume is %0.5g ml',vol)); %#ok<DSPS> %convert to cm^2
+
+%Magnitude image
+switch dir
+  case 1
+    %tube along x
+    mag = single(rad - sqrt((yi-ny*0.5).^2+(zi-nz*0.5).^2));
+  case 2
+    %tube along y
+    mag = single(rad - sqrt((xi-nx*0.5).^2+(zi-nz*0.5).^2));
+  case 3
+    %tube along z
+    mag = single(rad - sqrt((xi-nx*0.5).^2+(yi-ny*0.5).^2));
+end
+
+%Normalize mag
+mag = max(mag,-0.5);
+mag = min(mag,0.5);
+mag = mag-min(mag(:)); %normalize
+mag = mag./max(mag(:)); %normalize 
+
+NO = length(SET)+1; magno = NO;
+SET(NO).IM = mag;
+SET(NO).IM = flow4dtestsizefix(SET(NO).IM,nt);
+SET(NO).IM = flow4dtestnoise_helper(SET(NO).IM,noiselevel);
+
+%Stationary tissue
+%SET(NO).IM(8:28,   8:28,:,:) = 1;
+%SET(NO).IM(100:120,8:28,:,:) = 1;
+%SET(NO).IM(8:28,   100:120,:,:) = 1;
+%SET(NO).IM(100:120,100:120,:,:) = 1;
+
+filephantomhelper;
+openfile('setupstacksfromdicom',NO);
+
+%Phase image x
+NO = length(SET)+1; phasex = NO;
+switch dir
+  case 1
+    SET(NO).IM = single(0.5+0.5*(mag > 0)); 
+  case {2,3}
+    SET(NO).IM = repmat(single(0.5),size(mag));
+end
+SET(NO).IM = flow4dtestsizefix(SET(NO).IM,nt);
+SET(NO).IM = flow4dtestnoise_helper(SET(NO).IM,noiselevel);
+SET(NO).IM(1) = 0;
+SET(NO).IM(2) = 1;
+filephantomhelper;
+openfile('setupstacksfromdicom',NO);
+
+%Phase image y
+NO = length(SET)+1; phasey = NO;
+switch dir
+  case 2
+    SET(NO).IM = single(0.5+0.5*(mag > 0)); 
+  case {1,3}
+    SET(NO).IM = repmat(single(0.5),size(mag));
+end
+SET(NO).IM = flow4dtestsizefix(SET(NO).IM,nt);
+SET(NO).IM = flow4dtestnoise_helper(SET(NO).IM,noiselevel);
+SET(NO).IM(1) = 0;
+SET(NO).IM(2) = 1;
+filephantomhelper;
+openfile('setupstacksfromdicom',NO);
+
+%Phase image z (no)
+NO = length(SET)+1; phaseno = NO;
+switch dir
+  case {1,2}
+    SET(NO).IM = repmat(single(0.5),size(mag));
+  case 3
+    SET(NO).IM = single(0.5+0.5*(mag > 0)); 
+end
+SET(NO).IM = flow4dtestsizefix(SET(NO).IM,nt);
+SET(NO).IM = flow4dtestnoise_helper(SET(NO).IM,noiselevel);
+SET(NO).IM(1) = 0;
+SET(NO).IM(2) = 1;
+filephantomhelper;
+openfile('setupstacksfromdicom',NO);
+
+%Set links
+nos = [magno phasex phasey phaseno];
+SET(magno).Children = [phasex phasey phaseno];
+for loop = 1:length(nos)
+  no = nos(loop);
+
+  %Set phase and magnitude info
+  SET(no).Flow.MagnitudeNo = magno;
+  SET(no).Flow.PhaseNo = phaseno;
+  SET(no).Flow.PhaseX = phasex;
+  SET(no).Flow.PhaseY = phasey;
+  SET(no).Flow.Angio = [];
+  SET(no).Flow.VelMag = [];
+  SET(no).Flow.Result = [];
+  SET(no).VENC = venc;
+  SET(no).Linked = nos;
+  SET(no).ImageType = '4D Flow';
+  SET(no).IntensityOffset = [];
+  SET(no).IntensityScaling = [];
+
+end
+
+%Fix with magnitude stack
+SET(nos(1)).IntensityOffset = 0;
+SET(nos(1)).IntensityScaling = 1;
+
+segment('renderstacksfromdicom',NO);
+
+%Does all graphical updates
+if not(isempty(DATA.ViewMatrix))
+  DATA.init_graphics;
+end
+
+%Set resolution etc
+for loop = 1:length(nos)
+  no = nos(loop);
+  SET(no).TIncr = 50/1000; %50 ms
+  SET(no).TimeVector = linspace(0,1,nt);  
+  SET(no).ResolutionX = 1;
+  SET(no).ResolutionY = 1;
+  SET(no).SliceThickness = 1;
+  SET(no).SliceGap = 0;
+end
+
+myworkoff(DATA.fig);
+
+
 %-------------------
 function straintest1
 %-------------------

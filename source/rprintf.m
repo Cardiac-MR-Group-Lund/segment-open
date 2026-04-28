@@ -1,7 +1,10 @@
-%------------------------------
 function varargout = rprintf(varargin)
-%------------------------------
-% special function to translate phrases in report
+%Special function to translate phrases in report, works as DPRINTF.
+%
+%See also DPRINTF
+
+%Jelena Bock
+
 global DATA 
 language = DATA.Pref.ReportLanguage;
 fromlanguage = 'English';

@@ -1,30 +1,33 @@
 function varargout = croplvstacks(varargin)
 %CROPLVSTACKS GUI to crop short-axis and long-axis stacks before performing 
 %LV segmentation. Opens if crop is necessary for the current stacks.
-macro_helper(varargin{:});
+%#ok<*GVMIS> 
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 
 %----------------------------------------------------
-function [go,xall,yall] = init(nos,cropped,xall,yall) %#ok<DEFNU>
+function [go,xall,yall] = init(nos,cropped,xall,yall,isonlyboundingbox) 
 %----------------------------------------------------
 %Initate GUI for cropping LV stacks.
 %nos - nos to include in GUI
 %cropped - boolean vector of whether stack is to be cropped or not
 %xall - cell of x coordinates of suggested cropbox for each stack
 %yall - cell of y coordinates of suggested cropbox for each stack
-global DATA SET
+global DATA SET 
 
 numnos = numel(nos);
 if nargin < 4
   xall = cell(1,numnos);
   yall = xall;
-  for i = 1:numnos
-    xall{i} = round(SET(nos(i)).XSize/3):round(SET(nos(i)).XSize*2/3);
-    yall{i} = round(SET(nos(i)).YSize/3):round(SET(nos(i)).YSize*2/3);
+  for loop = 1:numnos
+    xall{loop} = round(SET(nos(loop)).XSize/3):round(SET(nos(loop)).XSize*2/3);
+    yall{loop} = round(SET(nos(loop)).YSize/3):round(SET(nos(loop)).YSize*2/3);
   end
   if nargin < 2
     cropped = true(1,numnos);
-  end
+  end  
+end
+if nargin < 5
+  isonlyboundingbox = false;
 end
 
 gui = mygui('croplvstacks.fig');
@@ -42,36 +45,62 @@ gui.xallinit = xall;
 gui.yallinit = yall;
 gui.nos = nos;
 gui.cropped = cropped;
+if isonlyboundingbox
+  % update figure name and button
+  set(gui.fig,'Name',dprintf('Place bounding box'));
+  set(gui.handles.defaultautocroppushbutton,'String',dprintf('Reset'));
+  pos = get(gui.handles.ch4axes,'Position');
+  pos(3) = 0.5*pos(3);
+  % place instruction box
+  stri = dprintf('Make sure the LV is placed inside the yellow bounding box.');
+  bc = DATA.GUISettings.BackgroundColor;
+  fc = DATA.GUISettings.ForegroundColor;
+  uicontrol(...
+    'parent',gui.fig,...
+    'Style','text',...
+    'Units','normalized',...
+    'Position',pos,...
+    'HorizontalAlignment','left',...
+    'String',stri,...
+    'ForegroundColor',fc,...
+    'BackgroundColor',bc,...
+    'Fontsize',14 ...
+  );
+end
 
-for i = 1:numnos
-  no = nos(i);
-  if cropped(i)
+for loop = 1:numnos
+  no = nos(loop);
+  if cropped(loop)
     im = calcfunctions('remapuint8', ...
       SET(no).IM(:,:,SET(no).CurrentTimeFrame,SET(no).CurrentSlice),no);
-    imagesc(im,'Parent',gui.axh(i));
-    colormap(gui.axh(i),'gray');
-    hold(gui.axh(i),'on');
-    set(gui.axh(i),'Visible','on');
-    axis(gui.axh(i),'image','off');
-    y = yall{i};
-    x = xall{i};
-    gui.frameh(i) = plot(gui.axh(i),[y(1) y(1) y(end) y(end) y(1)] , ...
+    imagesc(im,'Parent',gui.axh(loop));
+    colormap(gui.axh(loop),'gray');
+    hold(gui.axh(loop),'on');
+    set(gui.axh(loop),'Visible','on');
+    axis(gui.axh(loop),'image','off');
+    y = yall{loop};
+    x = xall{loop};
+    gui.frameh(loop) = plot(gui.axh(loop),[y(1) y(1) y(end) y(end) y(1)] , ...
       [x(1) x(end) x(end) x(1) x(1)],'y');
-    gui.resizeh(i) = plot(gui.axh(i),y(end),x(end),'yo');
-    gui.translate(i) = plot(gui.axh(i),y(1),x(1),'yo');
-    set(gui.resizeh(i),'ButtonDownFcn',@(hObject,eventdata,handles)croplvstacks('resize',i));
-    set(gui.translate(i),'ButtonDownFcn',@(hObject,eventdata,handles)croplvstacks('move',i));
+    gui.resizeh(loop) = plot(gui.axh(loop),y(end),x(end),'yo');
+    gui.translate(loop) = plot(gui.axh(loop),y(1),x(1),'yo');
+    set(gui.resizeh(loop),'ButtonDownFcn',@(hObject,eventdata,handles)croplvstacks('resize',loop));
+    set(gui.translate(loop),'ButtonDownFcn',@(hObject,eventdata,handles)croplvstacks('move',loop));
   end
 end
 
-uiwait(gui.fig);
+if DATA.Testing
+  gui.state = true;
+else
+  uiwait(gui.fig);
+end
 go = gui.state;
 xall = gui.xall;
 yall = gui.yall;
 closegui;
 
 %----------
-function ok_Callback %#ok<DEFNU>
+function ok_Callback 
 %----------
 global DATA
 gui = DATA.GUI.CropLVStacks;
@@ -79,7 +108,7 @@ gui.state = true;
 uiresume(gui.fig);
 
 %--------------
-function cancel_Callback %#ok<DEFNU>
+function cancel_Callback 
 %--------------
 global DATA
 
@@ -91,7 +120,7 @@ catch
 end
 
 %----------------
-function move(ix) %#ok<DEFNU>
+function move(ix) 
 %----------------
 global DATA
 gui = DATA.GUI.CropLVStacks;
@@ -99,7 +128,7 @@ set(gui.fig,'WindowButtonMotionFcn',@(hObject,eventdata,handles)croplvstacks('mo
 set(gui.fig,'WindowButtonUpFcn',@(hObject,eventdata,handles)croplvstacks('buttonup',ix));
 
 %------------------
-function resize(ix) %#ok<DEFNU>
+function resize(ix) 
 %------------------
 global DATA
 gui = DATA.GUI.CropLVStacks;
@@ -107,7 +136,7 @@ set(gui.fig,'WindowButtonMotionFcn',@(hObject,eventdata,handles)croplvstacks('mo
 set(gui.fig,'WindowButtonUpFcn',@(hObject,eventdata,handles)croplvstacks('buttonup',ix));
 
 %----------------------
-function motion(arg,ix) %#ok<DEFNU>
+function motion(arg,ix) 
 %----------------------
 global DATA
 gui = DATA.GUI.CropLVStacks;
@@ -150,7 +179,7 @@ switch arg
     set(gui.translate(ix),'XData',ymin,'YData',xmin);
 end
 %--------------------
-function buttonup(ix) %#ok<DEFNU>
+function buttonup(ix) 
 %--------------------
 global DATA
 gui = DATA.GUI.CropLVStacks;
@@ -163,7 +192,7 @@ set(gui.fig,'WindowButtonUpFcn',[]);
 
 
 %--------------------
-function default_Callback %#ok<DEFNU>
+function default_Callback 
 %--------------------
 global DATA
 gui = DATA.GUI.CropLVStacks;

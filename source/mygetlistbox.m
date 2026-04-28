@@ -1,13 +1,19 @@
 function v = mygetlistbox(h)
-%Get value from a listbox handle. Used instead of normal get to also be able
-%to use macros in Segment.
+%Get value from a listbox handle. Used instead of normal get(handles,'Value') 
+%to facilitate writing testing scripts in the softwares.
 
 %Einar Heiberg
-global DATA
+
+global DATA %#ok<*GVMIS> 
 
 try
 if ~DATA.Testing
-  v = get(h,'value');
+  if ~isempty(DATA.Buffer.ListboxValue) %used for batch export
+    v = popfrombuffer('ListboxValue');
+    set(h,'value',v); %Store the value
+  else
+    v = get(h,'value');
+  end
 else
   if isempty(DATA.Buffer.ListboxValue)
     v = get(h,'value');

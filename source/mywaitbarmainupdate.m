@@ -7,11 +7,11 @@ function h = mywaitbarmainupdate(varargin)
 %
 %See also MYWAITBARSTART, MYWAITBARCLOSE.
 
-global DATA
+global DATA %#ok<*GVMIS> 
 
 if ~isempty(DATA)
   h = DATA.mywaitbarmainupdate(varargin{:}); %Call the potentially overloaded method.
 else
   %Well seems not to be overloaded => 
   h = maingui.mywaitbarmainupdate(varargin{:});
-end;
+end

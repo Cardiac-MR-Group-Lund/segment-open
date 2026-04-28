@@ -1,88 +1,115 @@
 function varargout = shuntvalve(varargin)
 %Functionality for Qp/Qs and Shunt and Valve analysis
+
 %Nils Lundahl
+
+%#ok<*GVMIS> 
 
 if nargin == 0
   varargin = {'qpqs'};
 end
 
-macro_helper(varargin{:});
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 
-%-----------------------------------------------------------------
-function [svaorta,svpulmo,fwaorta,bwaorta,fwpulmo,bwpulmo] = getsv
-%-----------------------------------------------------------------
-%Calculate and return stroke, forward and backward volumes both for the 
+%----------------------------------------------------------------------------
+function [svaorta,svpulmo,fwaorta,bwaorta,fwpulmo,bwpulmo,noaorta,nopulmo] = getsv
+%----------------------------------------------------------------------------
+%Calculate and return stroke, forward and backward volumes both for the
 %aorta and the pulmonary artery.
-global SET
-%Find magnitude image on flow
-[~,~,flowno] = findfunctions('findno');
-flowmagnitudeno = [];
-for loop = flowno
-  if loop == SET(loop).Flow.MagnitudeNo
-    flowmagnitudeno = [flowmagnitudeno loop]; %#ok<AGROW>
-  end
-end
 
-%Find proper vessels for analysis
+global SET
+% init output
 svaorta = [];
 svpulmo = [];
 fwaorta = [];
 bwaorta = [];
 fwpulmo = [];
 bwpulmo = [];
-eddycheck = false;
-isinvisible = true;
-for floop =  flowmagnitudeno
-  if SET(floop).RoiN > 0
-    reportflow('init',floop,eddycheck,isinvisible);
-    rois = reportflow('getroiname');
-    aaf = find(strcmp('Aortic ascending flow',rois), 1);
-    paf = find(strcmp('Pulmonary artery',rois), 1);
-    if ~isempty(aaf) || ~isempty(paf)
-      tots = reportflow('gettotal');
-      fwds = reportflow('getfwdflow');
-      bwds = reportflow('getbwdflow');
-      if ~isempty(aaf)
-        svaorta = tots(aaf);
-        fwaorta = fwds(aaf);
-        bwaorta = -bwds(aaf);
-      end
-      if ~isempty(paf)
-        svpulmo = tots(paf);
-        fwpulmo = fwds(paf);
-        bwpulmo = -bwds(paf);
-      end
-    end
-    reportflow('close_Callback');
-  end
+
+[foundstacks,noaorta,nopulmo,roinumaorta,roinumpulmo] = findfunctions('findqpqsno');
+
+if foundstacks(1)
+  svaorta = SET(noaorta).Flow.Result(roinumaorta).nettotvol;
+  fwaorta = SET(noaorta).Flow.Result(roinumaorta).netforwardvol;
+  bwaorta = SET(noaorta).Flow.Result(roinumaorta).netbackwardvol;
+  % #3238 report backward as positive value
+  bwaorta = -bwaorta;
+end
+
+if foundstacks(2)
+  svpulmo = SET(nopulmo).Flow.Result(roinumpulmo).nettotvol;
+  fwpulmo = SET(nopulmo).Flow.Result(roinumpulmo).netforwardvol;
+  bwpulmo = SET(nopulmo).Flow.Result(roinumpulmo).netbackwardvol;
+  % #3238 report backward as positive value
+  bwpulmo = -bwpulmo;
+end
+
+%-----------------------------------------------------------------
+function [coaorta,copulm,noaorta,nopulmo] = getco
+%-----------------------------------------------------------------
+%Calculate and return CO for ROIs aorta and pulm.
+coaorta = [];
+copulm = [];
+
+[foundstacks,noaorta,nopulmo,roinumaorta,roinumpulmo] = findfunctions('findqpqsno');
+if all(foundstacks)
+  coaorta = calcfunctions('calcflowco',noaorta,roinumaorta);
+  copulm = calcfunctions('calcflowco',nopulmo,roinumpulmo);
 end
 
 %---------------------
-function result = qpqs %#ok<DEFNU>
+function [qpqssv,qpqsco] = qpqs(noaorta,nopulmo,roinumaorta,roinumpulmo)
 %---------------------
 %Calculate Qp/Qs and display result in a message box
 
-[svaorta,svpulmo] = getsv;
-result = [];
-if ~isempty(svaorta) && ~isempty(svpulmo)
-  result = svpulmo/svaorta;
+global SET
+myworkon;
+qpqssv = [];
+qpqsco = [];
+
+if nargin ~= 4
+  [foundstacks,noaorta,nopulmo,roinumaorta,roinumpulmo] = findfunctions('findqpqsno');
+else
+  % input exist (as in call from 'reporter.reportgenerator('getqpqs')'
+  foundstacks = true;
 end
 
+if all(foundstacks)
+  % QpQs based on stroke volume SV
+  svaorta = SET(noaorta).Flow.Result(roinumaorta).nettotvol;
+  svpulmo = SET(nopulmo).Flow.Result(roinumpulmo).nettotvol;
+  qpqssv = calcfunctions('calcqpqs',svpulmo,svaorta);
+
+  % QpQs value based on cardiac outpur CO
+  coaorta = calcfunctions('calcflowco',noaorta,roinumaorta);
+  copulm = calcfunctions('calcflowco',nopulmo,roinumpulmo);
+  qpqsco = calcfunctions('calcqpqs',copulm,coaorta);
+end
+
+myworkoff;
 if nargout == 0
-  if ~isempty(result)
-    stri = dprintf(['SV aorta: %0.1f ml\n'...
-      'SV pulmonalis: %0.1f ml\n'...
-      'Qp/Qs ratio: %0.0f %%'],...
-      svaorta,svpulmo,100*result);
+  if ~isempty(qpqssv)
+    strstack = sprintf('\n%s #%d / #%d\n\n',dprintf('Stack'),nopulmo,noaorta);
+    strisv = dprintf(['Net volume aorta: %0.1f ml\n'...
+      'Net volume pulmonalis: %0.1f ml\n'...
+      'Qp/Qs (%s) ratio: %0.2f'],svaorta,svpulmo,dprintf('SV'),qpqssv);
+
+    stricoao = sprintf('\n\n%s: %0.1f l/min\n',dprintf('Aortic cardiac output'),coaorta);
+    stricopul = sprintf('%s: %0.1f l/min\n',dprintf('Pulmonary cardiac output'),copulm);
+    costr = dprintf('CO');
+    striqpqsco = sprintf('%s: %0.2f',dprintf('Qp/Qs (%s) ratio',costr),qpqsco);
+    stri = [strstack,strisv,stricoao,stricopul,striqpqsco];
+
     mymsgbox(stri, 'Qp/Qs');
+    pause(0.1)
   else
-    myfailed('Could not find flows for both aorta and pulmonalis');
+    myfailed('Could not find net volumes for both aorta and pulmonalis');
   end
 end
+myworkoff;
 
 %----------------------------------------------------
-function [mitrfrac,tricfrac,mitrvol,tricvol] = regurg %#ok<DEFNU>
+function [mitrfrac,tricfrac,mitrvol,tricvol] = regurg 
 %----------------------------------------------------
 %Calculate regurgitant fractions for mitralis and tricusp
 global SET
@@ -99,45 +126,45 @@ end
 stri = '';
 
 if ~isempty(bwaorta)
-  stri = [stri dprintf(['Regurgitant volume aorta: %0.0f ml\n'...
-    'Regurgitant fraction aorta: %0.0f %%\n'],...
-    bwaorta,100*bwaorta/fwaorta)];
+  stri = [stri sprintf('%s: %0.0f ml\n%s: %0.0f %%\n',...
+          dprintf('Regurgitant volume aorta'),bwaorta,...
+          dprintf('Regurgitant fraction aorta'),100*bwaorta/fwaorta)];
 end
 
 if ~isempty(bwpulmo)
-  stri = [stri dprintf(['Regurgitant volume pulmonary artery: %0.0f ml\n'...
-    'Regurgitant fraction pulmonary artery: %0.0f %%\n'],...
-    bwpulmo,100*bwpulmo/fwpulmo)];
+   stri = [stri sprintf('%s: %0.0f ml\n%s: %0.0f %%\n',...
+          dprintf('Regurgitant volume pulmonary artery'),bwpulmo,...
+          dprintf('Regurgitant fraction pulmonary artery'),100*bwpulmo/fwpulmo)];
 end
 
 lvsv = SET(cineshortaxisno).SV; %planometric stroke volume
-if lvsv > 0 && ~isempty(fwaorta)
-  mitrvol = lvsv - fwaorta;
-  mitrfrac = mitrvol / lvsv;
-  stri = [stri dprintf(['Regurgitant volume mitralis: %0.0f ml\n'...
-    'Regurgitant fraction mitralis: %0.0f %%\n'],...
-    mitrvol,100*mitrfrac)];
+rvsv = SET(cineshortaxisno).RVSV;
+[mitrvol,mitrfrac,tricvol,tricfrac] = calcfunctions('calcshuntvalve',lvsv,rvsv,fwaorta,fwpulmo);
+
+if ~isempty(mitrvol) && ~isempty(mitrfrac)
+  stri = [stri sprintf('%s: %0.0f ml\n%s: %0.0f %%\n',...
+    dprintf('Regurgitant volume mitralis'),mitrvol,...
+    dprintf('Regurgitant fraction mitralis'),mitrfrac)];
 end
 
-rvsv = SET(cineshortaxisno).RVSV;
-if rvsv > 0 && ~isempty(fwpulmo)
-  tricvol = rvsv - fwpulmo;
-  tricfrac = tricvol / rvsv;
-  stri = [stri dprintf(['Regurgitant volume tricusp: %0.0f ml\n'...
-    'Regurgitant fraction tricusp: %0.0f %%'],...
-    tricvol,100*tricfrac)];
+if ~isempty(tricvol) && ~isempty(tricfrac)
+  stri = [stri sprintf('%s: %0.0f ml\n%s: %0.0f %%',...
+    dprintf('Regurgitant volume tricusp'),tricvol,...
+    dprintf('Regurgitant fraction tricusp'),tricfrac)];
 end
 
 if nargout == 0
   if ~isempty(stri)
-    mymsgbox(stri, 'Shunt and Valve analysis');
+    msgstr = sprintf('\n%s\n\n%s',dprintf('Shunt and Valve analysis'),stri);
+    mymsgbox(msgstr, '');
   else
     myfailed('Could not find sufficient stroke volumes')
   end
 end
+myworkoff;
 
 %-----------------------------------------------------------------
-function [lpafrac,rpafrac,svrpa,svlpa] = getlungflow %#ok<DEFNU> called from report2clipboard
+function [lpafrac,rpafrac,svrpa,svlpa] = getlungflow
 %-----------------------------------------------------------------
 %Calculate and return stroke volume and right/left pulmonary blood flow
 %fractions
@@ -161,19 +188,19 @@ for floop =  flowmagnitudeno
   if SET(floop).RoiN > 0
     reportflow('init',floop,eddycheck,isinvisible);
     rois = reportflow('getroiname');
-    rpaind = find(strcmp('RPA',rois), 1);
-    lpaind = find(strcmp('LPA',rois), 1);
-    paind = find(strcmp('Pulmonary Artery',rois), 1);
-    if ~isempty(rpaind) || ~isempty(lpaind)
+    rpaind = find(strcmpi('RPA',rois), 1);
+    lpaind = find(strcmpi('LPA',rois), 1);
+    paind = find(strcmpi('Pulmonary Artery',rois), 1);
+    if ~isempty(rpaind) || ~isempty(lpaind) || ~isempty(paind)
       nettoflow = reportflow('gettotal'); % netto flow of all ROIs
       if ~isempty(rpaind)
-        svrpa = nettoflow(rpaind);
+        svrpa = abs(nettoflow(rpaind));
       end
       if ~isempty(lpaind)
-        svlpa = nettoflow(lpaind);
+        svlpa = abs(nettoflow(lpaind));
       end
       if ~isempty(paind)
-        svpa = nettoflow(paind);
+        svpa = abs(nettoflow(paind));
       end
     end
     reportflow('close_Callback');
@@ -184,15 +211,17 @@ rpafrac = [];
 % calculate fraction for RPA and LPA depending whether both
 % exist or not
 if ~isempty(svrpa) && ~isempty(svlpa)
-  svlung = svlpa + svrpa; 
-  lpafrac = svlpa/svlung;
+  svlung = svlpa + svrpa;
   rpafrac = svrpa/svlung;
+  lpafrac = 1-rpafrac;  
 else
   if ~isempty(svlpa) && ~isempty(svpa)
     lpafrac = svlpa/svpa;
+    rpafrac = 1-lpafrac;
   end
   if ~isempty(svrpa) && ~isempty(svpa)
     rpafrac = svrpa/svpa; 
+    lpafrac = 1-rpafrac;
   end
 end
 

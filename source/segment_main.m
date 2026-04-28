@@ -1,13 +1,15 @@
 function varargout = segment_main(varargin)
-% SEGMENT_MAIN Main file for cardiac image analysis software
+% SEGMENT_MAIN Main file for medical image analysis software
 
 % Einar Heiberg
 
 % Revision history
 % Written by Einar Heiberg, spring/autumn 2002.
-% Continously improved ever since 2002-2016.
+% Continously improved ever since
 
 % The documentation and version history is found in the file changelog.m
+
+%#ok<*GVMIS>
 
 %%%%%%%%%%%%%%%%%%
 %%%% Main body %%%
@@ -24,21 +26,17 @@ if nargin == 0 || fileinput  % LAUNCH and initalize GUI
   %Check if os is supported
   arch = mexext();  
   switch arch
-    case {'mexglx','mexmaci'}
+    case {'mexglx','mexmaci','mexmaci64'}
       myfailed('Your platform is not supported. Supported platforms are Windows and Linux 64 bit.');
       return;
-    case {'mexmaci64', 'mexa64'}
-      mywarning('This platform is not officially supported. Bugs and errors may occur.')
   end
   
-  if not(isdeployed())
+  if ~isdeployed()
     %source code version, check matlab version
     try
-      matlabversion = ver;
-      [toolboxindex] = find(ismember({matlabversion.Name},'MATLAB'));
-      if isempty(toolboxindex), toolboxindex=1; end
-      if not(strcmp(matlabversion(toolboxindex).Release,'(R2019a)'))
-        myfailed(sprintf('Recommended Matlab version for Segment is R2019a.\nPlease use this version for best performance of Segment.\nVersions prior to Matlab 2015a will NOT work for this version of Segment.'));
+      if ~strcmp(version('-release'),'2022a')
+        str = sprintf('Recommended MATLAB version for Segment is R2022a.\nPlease use this version for best performance of Segment.\nVersions prior to MATLAB 2015a will NOT work for this version of Segment.');
+        myfailed(str);
       end
     catch
     end
@@ -63,7 +61,6 @@ if nargin == 0 || fileinput  % LAUNCH and initalize GUI
   
 else
   %%%% main clause %%%
-  macro_helper(varargin{:}); %future macro recording use
   [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 end
 %%%%%%%%%%%%%%%
@@ -76,7 +73,7 @@ global DATA
 
 if isa(DATA,'maingui')
   try
-    disp('Already running.');
+    logdisp('Already running.');
     if ~isempty(DATA.fig)
       figure(DATA.fig);
       fig = DATA.fig;
@@ -85,7 +82,7 @@ if isa(DATA,'maingui')
       fig = [];
     end
   catch me
-    disp('Program not aborted properly last time, all data will be lost and program restarted.');
+    logdisp('Program not aborted properly last time, all data will be lost and program restarted.');
     mydispexception(me);
   end
 end
@@ -93,7 +90,7 @@ end
 %--- Find source
 if isdeployed()
   %Compiled version 
-  disp('Standalone');  
+  logdisp('Standalone');  
 else
   %Check if platform is supported.
   ext = mexext;
@@ -110,15 +107,24 @@ else
       myfailed('Platform is currently not supported. Mex-files are missing.');
       return;
     otherwise
-      disp(['Running from Matlab on platform ' arch '.']);
+      logdisp(['Running from Matlab on platform ' arch '.']);
   end
            
   %Do nothing
 end
 
 %Make sure fresh start
-DATA = []; %#ok<NASGU>
+DATA = []; 
 SET = []; %#ok<NASGU>
+
+%Get arguments from command line
+commands = commandlinehelper('getparameters'); 
+
+if isfield(commands,'NoGUI') && (commands.NoGUI)
+  %Start and quit software without displaying the GUI
+  fig = [];
+  return
+end
 
 %This is where we create object
 DATA = segmentgui(programversion);%Load standard Segment GUI
@@ -126,7 +132,7 @@ DATA.GUISettings.ShowColorbar = false;  %until the colorbar is impelemented
 
 % Register where segment.m is located and if we are running from source
 if isdeployed()
-  [status, result] = system('set PATH');
+  [~, result] = system('set PATH');
   pathname = char(regexpi(result, 'Path=(.*?);', 'tokens', 'once'));
   DATA.SegmentFolder=pathname;
   cd(pathname);
@@ -141,16 +147,21 @@ DATA.init;
 try
   fig = DATA.fig;
 catch
-  disp('Software initialization aborted')
+  logdisp('Software initialization aborted')
   fig = [];
   return
 end
 
 checkpath(DATA.SegmentFolder); %ensure running on correct path
 
+if isfield(commands, 'AutoMate') && commands.AutoMate
+  %run AI AutoMate
+  logdisp('AutoMate flag is true');
+  autoloader.deployedautomate(commands);
+end
 
 %---------------------
-function resetpreview %#ok<DEFNU>
+function resetpreview 
 %---------------------
 %Reset preview structure in DATA.Preview
 
@@ -188,6 +199,7 @@ preview.TDelay = 0; %for future use to shift datasets in time
 preview.EchoTime = 0;
 preview.RepetitionTime = 0;
 preview.InversionTime = 0;
+preview.TriggerTime = 0; %default value
 preview.FlipAngle = 0;
 preview.AccessionNumber = '';
 preview.StudyUID = '';
@@ -227,9 +239,12 @@ preview.AcquisitionTime = '';      % added by JS
 preview.SeriesNumber = '';         %  new since merge
 preview.DICOMImageType = '';       %  new since merge
 preview.LoadAll=false;             %  new since merge
+preview.PatientInfo = '';
+preview.Bitstored = 12;
+preview.HeartRate = [];
 
 %-----------------
-function initmenu %#ok<DEFNU>
+function initmenu 
 %-----------------
 %Initalize the main menu, for instance adds extra utilities, and plugins.
 global DATA
@@ -241,7 +256,7 @@ utility('init');
 try
   load('plugins.mat');
 catch  %#ok<CTCH>
-  disp('Could not read plugin file.');
+  logdisp('Could not read plugin file.');
   pluginfiles = {};
 end
 
@@ -271,14 +286,14 @@ for loop=1:length(pluginfiles)
 end
 
 %--------------------------------
-function singleframemode_Callback %#ok<DEFNU>
+function singleframemode_Callback 
 %--------------------------------
 %define if single (one) or all frames mode
 global DATA
 DATA.ThisFrameOnly = not(DATA.Handles.configiconholder.findindented('selectoneall'));
 
 %--------------------------
-function cinetool_Callback %#ok<DEFNU>
+function cinetool_Callback 
 %--------------------------
 %Starts the cinetool that allows simultanues segmentation at the
 %same time as it plays.
@@ -319,7 +334,7 @@ else
 end
 
 %----------------------------
-function addtopanels(no,mode) %#ok<DEFNU>
+function addtopanels(no,mode) 
 %----------------------------
 %Finds an open space, otherwise increases number of panels
 
@@ -355,9 +370,10 @@ DATA.ViewPanelsMatrix = [DATA.ViewPanelsMatrix {[rows cols]}];
 DATA.ViewIM{length(DATA.ViewPanels)} = [];
 
 %---------------------------
-function mainresize_Callback %#ok<DEFNU>
+function mainresize_Callback
 %---------------------------
 %This fcn is called when user resizes GUI
+
 global DATA
 
 if isempty(DATA)
@@ -368,17 +384,18 @@ end
 
 try
   if isfield(DATA.GUI,'Segment')
+    sizechanged(DATA.GUI.Segment)
     if not(isempty(DATA.GUI.Segment))
       saveguiposition(DATA.GUI.Segment)
     end
   end
 catch me
-  disp('Could not do mainresize');
+  logdisp('Could not do mainresize');
   mydispexception(me);
 end
   
 try
-  figunits=get(DATA.fig,'units');
+  figunits = get(DATA.fig,'units');
   set(DATA.fig,'units','pixels');
   pfig = get(DATA.fig,'position');
   set(DATA.fig,'units',figunits);
@@ -387,7 +404,7 @@ try
   set(DATA.Handles.reportpanel,'units','pixels');
   p = get(DATA.Handles.reportpanel,'position');
   
-  rpwidth=round(min(DATA.GUISettings.ReportPanelPixelMax,pfig(3)*DATA.GUISettings.RightGapWidth)); %0.21DATA.GUISettings.RightGapWidth));
+  rpwidth = round(min(DATA.GUISettings.ReportPanelPixelMax,pfig(3)*DATA.GUISettings.RightGapWidth)); %0.21DATA.GUISettings.RightGapWidth));
   set(DATA.Handles.reportpanel,'position',[...
     pfig(3)-rpwidth ...
     p(2) ...  
@@ -395,53 +412,26 @@ try
     p(4)]);
   set(DATA.Handles.reportpanel,'units',panelunits);  
   
-  if any(strcmp(DATA.ProgramName,{'Segment 3DPrint'}))
-      panelunits = get(DATA.Handles.printuipanel,'units');
-      set(DATA.Handles.printuipanel,'units','pixels');
-       rpwidth=round(pfig(3)*DATA.GUISettings.RightGapWidth); %0.21DATA.GUISettings.RightGapWidth));
-      set(DATA.Handles.printuipanel,'position',[...
-      pfig(3)-rpwidth ...
-      p(2) ...
-      rpwidth ...
-      p(4)]);
-    set(DATA.Handles.printuipanel,'units',panelunits)
-
-    if ~isempty(DATA.Handles.iconholder2.cdata)
-      DATA.Handles.iconholder2.render
-    end
-    
-    if ~isempty(DATA.Handles.iconholder3.cdata)
-      DATA.Handles.iconholder3.render
-    end
-    
-    if ~isempty(DATA.Handles.iconholder4.cdata)
-      DATA.Handles.iconholder4.render
-    end
-  end
-  
+  DATA.resizelengthmeasurementtable;
+  DATA.resizelararesulttable;
+ 
   
   DATA.GUISettings.RightGapWidth = rpwidth/pfig(3);
+
+  % render all available iconplaceholders
+  rendericonholders;
   
-  %Render iconplaceholders aswell
-  DATA.Handles.toggleiconholder.render
-  if not(contains(DATA.ProgramName,'3D')) 
-    DATA.Handles.permanenticonholder.render
-    if ~isempty(DATA.Handles.hideiconholder.cdata)
-      DATA.Handles.hideiconholder.render
-    end
-  end
-  
-  if ~isempty(DATA.Handles.configiconholder.cdata)
-    DATA.Handles.configiconholder.render
-  end    
-    
   try
     if ~isempty(DATA.ViewMatrix)
-      rows=DATA.ViewMatrix(1);
-      cols=DATA.ViewMatrix(2);
+      rows = DATA.ViewMatrix(1);
+      cols = DATA.ViewMatrix(2);
       if length(DATA.ViewPanelsType) == 4 && all(strcmp(DATA.ViewPanelsType, {'orth', 'hla', 'vla', 'gla'}))
         viewfunctions('setview',rows,cols,DATA.ViewPanels,DATA.ViewPanelsType);
       else
+        %Force graphical update if 3D view is enabled
+        if any(contains(DATA.ViewPanelsType,'viewport'))
+          drawnow limitrate nocallbacks; %pause(0.05)
+        end
         viewfunctions('setview',rows,cols); %drawfunctions('drawall',rows,cols);
       end
     end
@@ -449,6 +439,8 @@ try
     mydispexception(me)
     DATA.Handles.toggleiconholder.render
     DATA.Handles.permanenticonholder.render
+    DATA.Handles.playiconholder.render
+    DATA.Handles.approveiconholder.render
     if ~isempty(DATA.Handles.configiconholder.cdata) 
       DATA.Handles.configiconholder.render
     end
@@ -456,13 +448,62 @@ try
 catch me
   if ~isempty(DATA.fig)
     %Mainresize is called uponloading when .fig is not initialized.
-    disp('Could not do mainresize');
+    logdisp('Could not do mainresize');
     mydispexception(me);
   end
 end
 
 %---------------------------------
-function renderstacksfromdicom(no) %#ok<DEFNU>
+function rendericonholders
+%---------------------------------
+% function to render all available iconholders from DATA.Handles
+global DATA
+
+try
+  if ~isfield(DATA.Handles,'toggleiconholder')
+    % no icon holders are initialized, so return for now
+    return
+  end
+
+  %Render iconplaceholders aswell
+  DATA.Handles.toggleiconholder.render;
+  if not(contains(DATA.ProgramName,'3D'))
+    DATA.Handles.permanenticonholder.render;
+    if not(contains(DATA.ProgramName,'CT'))
+      if ~isempty(DATA.Handles.playiconholder.cdata)
+        DATA.Handles.playiconholder.render;
+      end
+      if ~isempty(DATA.Handles.approveiconholder.cdata)
+        DATA.Handles.approveiconholder.render;
+      end
+    end
+    if ~isempty(DATA.Handles.hideiconholder.cdata)
+      DATA.Handles.hideiconholder.render
+    end
+  end
+
+  if ~isempty(DATA.Handles.configiconholder.cdata)
+    DATA.Handles.configiconholder.render
+  end
+  if any(strcmp(DATA.ProgramName,{'Segment 3DPrint'}))
+    if ~isempty(DATA.Handles.iconholder2.cdata)
+      DATA.Handles.iconholder2.render
+    end
+
+    if ~isempty(DATA.Handles.iconholder3.cdata)
+      DATA.Handles.iconholder3.render
+    end
+
+    if ~isempty(DATA.Handles.iconholder4.cdata)
+      DATA.Handles.iconholder4.render
+    end
+  end
+catch me
+  mydispexception(me);
+end
+
+%---------------------------------
+function renderstacksfromdicom(no) 
 %---------------------------------
 %Render image stacks in main gui. This function is typically called upon
 %loading.
@@ -509,6 +550,11 @@ if ~DATA.Silent
     end
   end
 
+  if ismember(DATA.ProgramName, {'Segment', 'Segment CMR'})
+    DATA.CurrentTheme = 'function';
+    DATA.setrelevantmode;
+  end
+
 %   if (~DATA.Preview.Silent)
 %     %Normal loading
 %     
@@ -521,7 +567,7 @@ if ~DATA.Silent
 
 end
 
-disp('Files loaded.');
+logdisp('Files loaded.',true);
 
 %endoffcalculation;
 
@@ -560,8 +606,14 @@ for loop = 1:length(nos)
 
   tempim = imresize(tempim,DATA.GUISettings.ThumbnailSize*[1 1],'bilinear');
 
+  if DATA.ShowRelevantStacksOnly
+    ind = find(DATA.RelevantStacks == no);
+  else
+    ind = no;
+  end
+
   %Store, vertically
-  DATA.DATASETPREVIEW((no-1)*DATA.GUISettings.ThumbnailSize+(1:DATA.GUISettings.ThumbnailSize),:,:) = tempim;
+  DATA.DATASETPREVIEW((ind-1)*DATA.GUISettings.ThumbnailSize+(1:DATA.GUISettings.ThumbnailSize),:,:) = tempim;
 end
 
 if ~DATA.Silent
@@ -580,13 +632,13 @@ end
 out = no;
 
 %-----------------------------
-function thumbnail_Buttondown %#ok<DEFNU>
+function thumbnail_Buttondown 
 %-----------------------------
 %Buttondown fcn for thumbnails.
 
 global DATA 
 
-thumbsize=DATA.GUISettings.ThumbnailSize;
+thumbsize = DATA.GUISettings.ThumbnailSize;
 
 switch get(DATA.fig,'SelectionType')
   case {'extend','normal'}    
@@ -602,7 +654,13 @@ switch get(DATA.fig,'SelectionType')
     [x,y] = mygetcurrentpoint(DATA.Handles.datasetaxes);
     
     %Find clicked image stack
-    no = getclickedpreview(x,y);
+    ind = getclickedpreview(x,y);
+
+    if DATA.ShowRelevantStacksOnly
+      no = DATA.RelevantStacks(ind);
+    else
+      no = ind;
+    end
     thumbnailno(no); %store
     
     %Create axes
@@ -629,7 +687,7 @@ switch get(DATA.fig,'SelectionType')
     catch %#ok<CTCH>
     end
     DATA.Handles.thumbnailimage=imagesc(...
-       DATA.DATASETPREVIEW(thumbsize*(no-1)+(1:thumbsize),:,:),...
+       DATA.DATASETPREVIEW(thumbsize*(ind-1)+(1:thumbsize),:,:),...
       'parent',DATA.Handles.thumbnaildragaxes);
     axis(DATA.Handles.thumbnaildragaxes,'off');
     
@@ -637,13 +695,18 @@ switch get(DATA.fig,'SelectionType')
     %---Right mouse click
     %Get clicked coordinate
     %Set up
-    set(DATA.fig,'WindowButtonUpFcn',...
-      'segment(''thumbnail_Buttonup'')');
+%     set(DATA.fig,'WindowButtonUpFcn',...
+%       'segment(''thumbnail_Buttonup'')');
     %Get clicked position
     [x,y] = mygetcurrentpoint(DATA.Handles.datasetaxes);
     
     %Find clicked image stack
-    no = getclickedpreview(x,y);
+    ind = getclickedpreview(x,y);
+    if DATA.ShowRelevantStacksOnly
+      no = DATA.RelevantStacks(ind);
+    else
+      no = ind;
+    end
     thumbnailno(no); %store
     
     %add no in DATA.lastobject field so that it can be loaded into panels
@@ -655,10 +718,13 @@ switch get(DATA.fig,'SelectionType')
     set(DATA.Handles.datasetpreviewmenu,...
       'Position',p,...
       'Visible','on');
+    str = sprintf('%s #%d ',dprintf('Image stack'),no);
+    set(DATA.Handles.datasetpreviewmenu.Children(end),...
+      'Text',str,'Checked','on','Enable','off');    
 end
 
 %------------------------
-function thumbnail_Motion %#ok<DEFNU>
+function thumbnail_Motion 
 %------------------------
 %Motion fcn for thumbnails.
 global DATA
@@ -670,10 +736,10 @@ set(DATA.Handles.thumbnaildragaxes,'position',...
   [x-32 y-32 64 64]);
 
 %--------------------------
-function thumbnail_Buttonup %#ok<DEFNU>
+function thumbnail_Buttonup 
 %--------------------------
 %Buttonup fcn for thumbnails.
-global DATA NO
+global DATA SET NO
 %Get coordinate
 [x,y] = mygetcurrentpoint(DATA.Handles.boxaxes);
 
@@ -692,7 +758,7 @@ catch %#ok<CTCH>
 end
 
 %Retrieve what image stack chosen
-no=thumbnailno;
+no = thumbnailno;
 
 % Only change panel im if pointer has moved out of the sidebar.
 if (size(DATA.ViewPanels)==1)
@@ -705,21 +771,33 @@ elseif (x < 0)
   end
   ind = find(DATA.ViewPanels==0,1);
 else
-  if strcmp(DATA.CurrentTheme,'3dp') %If in 3dp mode disperse the image according to current view.
-    
-    DATA.LevelSet = [];
-    
-    segment3dp.tools('check3dpfields');
-    segment3dp.tools('storetoobject');
+  if contains(DATA.CurrentTheme,'3dp') %If in 3dp mode disperse the image according to current view.
+        
     oldno = NO;
     NO = no;
-    ok = segment3dp.tools('init3DP',0,1);
-    if ~ok
-      NO = oldno;
+    segment3dp.tools('check3dpfields',no);
+
+    if contains(DATA.CurrentTheme,'3dp')
+      ok = segment3dp.tools('init3DP',0,1);
+      if ~ok
+        NO = oldno;
+        segment3dp.tools('check3dpfields',NO);
+      end
     end
     
-    segment3dp.tools('update3DP');
+    segment3dp.graphics('update2D');
 
+    %Check the current config of buttons
+    th = DATA.Handles.tabholder;
+  
+    if th.isiconindented('panel1icon')
+      segment3dp.callbackfunctions('view1panel_Callback')
+    elseif th.isiconindented('panel2icon')
+      segment3dp.callbackfunctions('view2panel_Callback')
+    else
+      segment3dp.callbackfunctions('view4panel_Callback')
+    end
+    
     drawfunctions('drawthumbnailframes')
     return
   elseif strcmp(DATA.ViewPanelsType{1},'orth')
@@ -743,11 +821,19 @@ else
 end
 
 if ~isempty(ind)
-    viewfunctions('addno2panel',ind,no)  
+  if DATA.issegment3dp
+    NO = no;
+    segment3dp.callbackfunctions('view4panel_Callback')
+    O = SET(NO).LevelSet.Object;
+    O.updateobjectlist();
+    drawfunctions('drawthumbnailframes')
+  else
+    viewfunctions('addno2panel',ind,no)
+  end
 end
 
 %--------------------------
-function z = remap(im,cmap,c,b) %#ok<DEFNU>
+function z = remap(im,cmap,c,b) 
 %--------------------------
 %Remap data according to cmap
 
@@ -788,8 +874,22 @@ else
 end
 
 
+%----------------------
+function updatetext(no)
+%----------------------
+% Function to update text in all linked panel
+global DATA SET NO
+if nargin == 0
+  no = NO;
+end
+panelslinked = find(ismember(DATA.ViewPanels,SET(no).Linked));
+
+for p = panelslinked
+  drawfunctions('drawtext',p)
+end
+
 %-------------------------
-function updatemeasurement %#ok<DEFNU>
+function updatemeasurement 
 %-------------------------
 %calculate measurement and graphically update
 global DATA
@@ -876,6 +976,7 @@ end
 %update all reports
 DATA.updatelvreport
 DATA.updatervreport
+DATA.updatemeasurementreport
 % DATA.updateflowreport
 
 %updateplot
@@ -958,12 +1059,12 @@ else
 end
 
 %--------------------------------
-function no=getclickedpreview(~,y)
+function no = getclickedpreview(~,y)
 %--------------------------------
 %function which returns the clicked preview image
 global DATA
 
-if nargin==0
+if nargin == 0
   [~,y] = mygetcurrentpoint(DATA.Handles.datasetaxes);
 end
 
@@ -971,7 +1072,7 @@ no = floor(y/DATA.GUISettings.ThumbnailSize)+1;
     
 
 %--------------------
-function r = getfieldifcommon(SET, fname) %#ok<DEFNU>
+function r = getfieldifcommon(SET, fname) 
 %--------------------
 %Helper function  to filesavedicom_Callback
 if numel(SET) == 0
@@ -1089,12 +1190,12 @@ DATA.Run = 0;
 try
   stateandicon=viewfunctions('iconson','play');
   stateandicon{2}.undent;
-  DATA.Handles.permanenticonholder.render;
+  DATA.Handles.playiconholder.render;
 catch
 end
 
 %----------------------------------
-function viewspecial_Callback(mode) %#ok<DEFNU>
+function viewspecial_Callback(mode) 
 %----------------------------------
 %Called to switch to predefined layouts of the GUI. Mode is current mode to
 %use.
@@ -1205,78 +1306,104 @@ switch mode
     end
     myworkon;
     if isempty(stressno)      
-      viewfunctions('setview',1,1,restno,{'montagerow'});
+      viewfunctions('setview',1,1,restno(1),{'montagerow'});
     elseif isempty(restno)
-      viewfunctions('setview',1,1,restno,{'montagerow'});
+      viewfunctions('setview',1,1,stressno(1),{'montagerow'});
     else
-      viewfunctions('setview',2,1,[stressno,restno],{'montagerow','montagerow'});
+      viewfunctions('setview',2,1,[stressno(1),restno(1)],{'montagerow','montagerow'});
     end
     myworkoff;
   case 'strainsax'
-    ftno = strcmp('Feature tracking',{SET.ImageType});
-    saxno = strcmp('Short-axis',{SET.ImageViewPlane});
-    [points,strainnos] = sort(ftno+saxno,'descend');
-    strainno = strainnos(1);
-    if points(1)<1 || isempty(strainno)
-      myfailed('No strain stack found',DATA.GUI.Segment);
-      return;
+    strainno = [];
+    for noloop = 1:length(SET)
+      if ~isempty(SET(noloop).StrainMitt) && strcmpi(SET(noloop).StrainMitt.ImageViewPlane,'sax')
+        strainno = noloop;
+        break
+      end
+    end
+  
+    if isempty(strainno)
+      % look for pre-MITT strain calculation
+      ftno = strcmp('Feature tracking',{SET.ImageType});
+      saxno = strcmp('Short-axis',{SET.ImageViewPlane}); 
+      [points,strainnos] = sort(ftno+saxno,'descend');
+      
+      strainno = strainnos(1);
+      if points(1) < 1 || isempty(strainno)
+        % no strain was found at all
+        myfailed('No strain stack found',DATA.GUI.Segment);
+        return;
+      end      
     end
     myworkon;
     viewfunctions('setview',1,1,strainno,{'montagerow'});
     myworkoff;
-  case 'strainlax'
-    twochno = strcmp('2CH',{SET.ImageViewPlane});
-    threechno = strcmp('3CH',{SET.ImageViewPlane});
-    fourchno = strcmp('4CH',{SET.ImageViewPlane});
+    
+  case 'strainlax'   
+    laxgroup = [];
     for noloop = 1:length(SET)
-      havestrain(noloop) = not(isempty(SET(noloop).StrainTagging));
+      if ~isempty(SET(noloop).StrainMitt) && ~isempty(SET(noloop).StrainMitt.LAXGroup)
+        laxgroup = SET(noloop).StrainMitt.LAXGroup;
+        break
+      end
     end
-    [points,strain2chnos] = sort(twochno+havestrain,'descend');
-    [points,strain3chnos] = sort(threechno+havestrain,'descend');
-    [points,strain4chnos] = sort(fourchno+havestrain,'descend');
-    strain2chno = strain2chnos(1);
-    strain3chno = strain3chnos(1);
-    strain4chno = strain4chnos(1);
-    if isempty(strain2chno) && isempty(strain3chno) && isempty(strain4chno)
-      myfailed('No strain stack found',DATA.GUI.Segment);
-      return;
+    if isempty(laxgroup)
+      % look for pre-MITT strain 
+      twochno = strcmp('2CH',{SET.ImageViewPlane}); 
+      threechno = strcmp('3CH',{SET.ImageViewPlane}); 
+      fourchno = strcmp('4CH',{SET.ImageViewPlane});
+      numstacks = length(SET); 
+      havestrain = false(1,numstacks);
+      for noloop = 1:numstacks
+        havestrain(noloop) = not(isempty(SET(noloop).StrainTagging)); 
+      end
+      [~,strain2chnos] = sort(twochno+havestrain,'descend'); 
+      [~,strain3chnos] = sort(threechno+havestrain,'descend'); 
+      [~,strain4chnos] = sort(fourchno+havestrain,'descend'); 
+      laxgroup = unique([strain2chnos(1), strain3chnos(1),strain4chnos(1)],"stable");
+      if isempty(laxgroup)
+        myfailed('No strain stack found',DATA.GUI.Segment);
+        return;
+      end
     end
     myworkon;
-    if not(isempty(strain2chno)) && not(isempty(strain3chno)) && not(isempty(strain4chno))
-      viewfunctions('setview',1,3,[strain2chno,strain3chno,strain4chno],{'one','one','one'});
-    elseif not(isempty(strain2chno)) && not(isempty(strain3chno))
-      viewfunctions('setview',1,2,[strain2chno,strain3chno],{'one','one'});
-    elseif not(isempty(strain2chno)) && not(isempty(strain4chno))
-      viewfunctions('setview',1,2,[strain2chno,strain4chno],{'one','one'});
-    elseif not(isempty(strain3chno)) && not(isempty(strain4chno))
-      viewfunctions('setview',1,2,[strain3chno,strain4chno],{'one','one'});
-    elseif not(isempty(strain2chno))
-      viewfunctions('setview',1,1,strain2chno,{'montagerow'});
-    elseif not(isempty(strain3chno))
-      viewfunctions('setview',1,1,strain3chno,{'montagerow'});
-    elseif not(isempty(strain4chno))
-      viewfunctions('setview',1,1,strain4chno,{'montagerow'});
-    end
+    numnos = length(laxgroup);
+    switch numnos
+      case 1
+        ptype = 'montagerow';
+      case {2,3}
+        ptype = 'one';
+      otherwise
+        myfailed('Mismatched strain stacks found',DATA.GUI.Segment);
+        return
+    end        
+    viewpaneltype = repmat({ptype},1,numnos);
+    viewfunctions('setview',1,numnos,laxgroup,viewpaneltype);
     myworkoff;
+    
   case 'cinescarperf'
   case 'stress'
   otherwise
     myfailed('Unknown option to viewspecial_Callback',DATA.GUI.Segment);
     return;
 end
-%adjust visible thumbnails so that NO is visible
-nosafter = intersect(NO:NO+DATA.Pref.NumberVisibleThumbnails-1,1:length(SET));
-nosbefore = intersect(NO-DATA.Pref.NumberVisibleThumbnails+1:NO,1:length(SET));
-newnos = union(nosbefore,nosafter);
-if length(SET) > DATA.Pref.NumberVisibleThumbnails
-  newnos = newnos(1:DATA.Pref.NumberVisibleThumbnails);
-  if min(DATA.VisibleThumbnails)-NO > 0
-    whattodo = 'up';
-  else
-    whattodo = 'down';
+if any(DATA.VisibleThumbnails == NO)
+  % do nothing, NO is already visible
+else
+  %adjust visible thumbnails so that NO is visible
+  nosafter = intersect(NO:NO+DATA.Pref.NumberVisibleThumbnails-1,1:length(SET));
+  nosbefore = intersect(NO-DATA.Pref.NumberVisibleThumbnails+1:NO,1:length(SET));
+  newnos = union(nosbefore,nosafter);
+  if length(SET) > DATA.Pref.NumberVisibleThumbnails
+    newnos = newnos(1:DATA.Pref.NumberVisibleThumbnails);
+    if min(DATA.VisibleThumbnails)-NO > 0
+      whattodo = 'up';
+    else
+      whattodo = 'down';
+    end
+    DATA.VisibleThumbnails = newnos;
+    thumbnailslider_Callback(whattodo);
   end
-  DATA.VisibleThumbnails = newnos;
-  thumbnailslider_Callback(whattodo);
 end
 segment('updatemeasurement');
 DATA.updatetimebaraxes
@@ -1446,12 +1573,12 @@ end
 
 
 %---------------------------
-function viewzoomin_Callback %#ok<DEFNU>
+function viewzoomin_Callback 
 %---------------------------
 %Zooms in current view panel
 global DATA
 
-if strcmp(DATA.CurrentTheme,'3dp')
+if contains(DATA.CurrentTheme,'3dp')
   segment3dp.tools('zoomin_Callback')
   return
 end
@@ -1472,12 +1599,12 @@ end
 %drawfunctions('viewupdateannotext');
 
 %----------------------------
-function viewzoomout_Callback  %#ok<DEFNU>
+function viewzoomout_Callback  
 %----------------------------
 %Zooms out in current view panel
 global DATA
 
-if strcmp(DATA.CurrentTheme,'3dp')
+if contains(DATA.CurrentTheme,'3dp')
   segment3dp.tools('zoomout_Callback')
   return
 end
@@ -1498,7 +1625,7 @@ end
 %drawfunctions('viewupdateannotext');
 
 %--------------------------------------
-function viewpandir_Callback(direction) %#ok<DEFNU>
+function viewpandir_Callback(direction) 
 %--------------------------------------
 %Pans current view panel
 global DATA 
@@ -1521,7 +1648,7 @@ end
 set(ca,'xlim',xlim,'ylim',ylim);
 
 %--------------------------------------
-function viewmanualinteraction_Callback  %#ok<DEFNU>
+function viewmanualinteraction_Callback  
 %--------------------------------------
 %Displays a GUI indicating in which slices and timeframes manual
 %interaction have been made for LV segmentation.
@@ -1571,7 +1698,7 @@ axes(handles.endoaxes);
 image([1 SET(NO).TSize]-0.5,[1 SET(NO).ZSize]-0.5,im);
 set(gca,'xtick',1:SET(NO).TSize,'ytick',1:SET(NO).ZSize);
 ylabel(dprintf('Apex    =>     Base'));
-xlabel(dprintf('Timeframe'));
+xlabel(dprintf('Time frame'));
 grid on;
 
 %Fix colors epi
@@ -1610,7 +1737,7 @@ axes(handles.epiaxes);
 image([1 SET(NO).TSize]-0.5,[1 SET(NO).ZSize]-0.5,im);
 set(gca,'xtick',1:SET(NO).TSize,'ytick',1:SET(NO).ZSize);
 ylabel(dprintf('Apex    =>     Base'), 'Color', DATA.GUISettings.ForegroundColor);
-xlabel(dprintf('Timeframe'), 'Color', DATA.GUISettings.ForegroundColor);
+xlabel(dprintf('Time frame'), 'Color', DATA.GUISettings.ForegroundColor);
 grid on;
 
 %Make plot axis color match Segment's theme
@@ -1625,7 +1752,7 @@ set(handles.frame3,'Backgroundcolor', [1 0 0]); %red
 set(handles.frame4,'Backgroundcolor', [0 1 1]); %cyan
 
 %-----------------------------------
-function figure_DeleteFcn %#ok<DEFNU>
+function figure_DeleteFcn 
 %-----------------------------------
 %Shut down Segment in a controlled manner, and remove
 %global DATA SET NO. Note that filequit callback takes
@@ -1653,7 +1780,7 @@ else
 end
 
 %-----------------------------
-function volumeaxes_Buttondown %#ok<DEFNU>
+function volumeaxes_Buttondown 
 %-----------------------------
 %Called when user has clicked volume graph, sets current
 %timeframe to clicked point.
@@ -1693,7 +1820,7 @@ SET(NO).CurrentTimeFrame = t;
 end
 
 %--------------------------
-function esed_Buttonup(type) %#ok<DEFNU>
+function esed_Buttonup(type) 
 %---------------------------
 %Buttonup function when dragging ES or ED markers in volume graph
 global DATA SET NO
@@ -1743,7 +1870,7 @@ t=max([t,1]);
 end
 
 %-------------------------
-function esed_Motion(type) %#ok<DEFNU>
+function esed_Motion(type) 
 %-------------------------
 %Motion function when dragging ES or ED markers in volume graph.
 global DATA SET NO
@@ -1801,7 +1928,7 @@ if any(NO == DATA.LVNO) || strcmp(DATA.ProgramName,'Segment')
 end
 
 %-----------------------------
-function timebaraxes_Buttondown %#ok<DEFNU>
+function timebaraxes_Buttondown 
 %-----------------------------
 %Called when user has clicked time bar graph, sets current
 %timeframe to clicked point.
@@ -1849,7 +1976,7 @@ set(DATA.fig,'WindowButtonUpFcn','buttonupfunctions(''buttonup_Callback'')');
 set(DATA.fig,'WindowButtonMotionFcn','segment(''timebar_Motion'')');
 
 %--------------------------
-function esedtimebar_Buttonup(type) %#ok<DEFNU>
+function esedtimebar_Buttonup(type) 
 %---------------------------
 %Buttonup function when dragging ES or ED markers.
 global DATA SET NO
@@ -1862,19 +1989,28 @@ xlim=get(DATA.Handles.timebaraxes,'xlim');
 [~,t]=min((SET(NO).TimeVector/SET(NO).TimeVector(end)-x/xlim(2)).^2);
 t=max([t,1]);
 
-%Store position
+%Store position in all linked images
+nos = SET(NO).Linked;
 switch type
   case 'es'
-    SET(NO).EST = t;
+    for no = nos
+      SET(no).EST = t;
+    end
   case 'ed'
-    SET(NO).EDT = t;
+    for no = nos
+      SET(no).EDT = t;
+    end
 end
 
 %Restore
 set(DATA.fig,'WindowButtonUpFcn','buttonupfunctions(''buttonup_Callback'')');
 set(DATA.fig,'WindowButtonMotionFcn',@DATA.toggleplaceholdermotion);
-SET(NO).CurrentTimeFrame = t;
+for no = nos
+  SET(no).CurrentTimeFrame = t;
+end
 updatevolume;
+updatemeasurement;
+
 panels = find(DATA.ViewPanels == NO);
 for p = panels
     DATA.ViewIM{p} = [];
@@ -1883,9 +2019,13 @@ end
 
 %update timebars
 viewfunctions('updatetimebars')
+if ~isempty(DATA.GUI.StrainMitt)
+  strainmitt.strainmitt('updateplot');
+  strainmitt.strainmitt('updatebullseye');
+end
 
 %-------------------------
-function esedtimebar_Motion(type) %#ok<DEFNU>
+function esedtimebar_Motion(type) 
 %-------------------------
 %Motion function when dragging ES or ED markers in time bar graph.
 global DATA SET NO
@@ -1945,7 +2085,7 @@ end
 viewfunctions('updatetimebars')
 
 %-----------------------------
-function flowaxes_Buttondown %#ok<DEFNU>
+function flowaxes_Buttondown 
 %-----------------------------
 %Called when user has clicked flow graph, sets current
 %timeframe to clicked point.
@@ -1979,7 +2119,7 @@ SET(NO).CurrentTimeFrame = t;
 end
 
 %------------------------------
-function ok = enablecalculation %#ok<DEFNU>
+function ok = enablecalculation 
 %------------------------------
 %Returns ok, if slices are selected. Sideeffect of
 %this function is that it turns on interaction lock, stops movie. Calling
@@ -2002,11 +2142,11 @@ if (not(isempty(SET(NO).StartSlice)))||(SET(NO).ZSize==1)
 else
   ok = false;
   myworkoff;
-  disp('Warning: No slices selected => command ignored.');
+  logdisp('Warning: No slices selected => command ignored.');
 end
 
 %-------------------------
-function endoffcalculation %#ok<DEFNU>
+function endoffcalculation 
 %-------------------------
 %Turns off interaction lock, called after a calculation. See above.
 global DATA 
@@ -2014,7 +2154,7 @@ DATA.Interactionlock = false;
 myworkoff;
 
 %--------------------------------------
-function plotmodelrot_Callback(daz,del) %#ok<DEFNU>
+function plotmodelrot_Callback(daz,del) 
 %--------------------------------------
 %Changes view of 3D model of the segmentation.
 global DATA
@@ -2032,7 +2172,7 @@ if DATA.Record
 end
 
 %------------------------------
-function updatemmodevisibility %#ok<DEFNU>
+function updatemmodevisibility 
 %------------------------------
 %Updates mmode visibility.
 global DATA SET NO
@@ -2180,7 +2320,7 @@ if not(isempty(panel))
 end
 
 %--------------------------
-function mmodecenter_Motion %#ok<DEFNU>
+function mmodecenter_Motion 
 %--------------------------
 %Motion function of the mmode center point.
 global SET NO
@@ -2191,7 +2331,7 @@ SET(NO).Mmode.Y = y;
 updatemmode('fast');
 
 %---------------------
-function mmode1_Motion %#ok<DEFNU>
+function mmode1_Motion 
 %---------------------
 %Motion function of the first mmode point.
 global SET NO
@@ -2207,7 +2347,7 @@ SET(NO).Mmode.Ly = ly;
 updatemmode('fast');
 
 %---------------------
-function mmode2_Motion %#ok<DEFNU>
+function mmode2_Motion 
 %---------------------
 %Motion function of the second mmode point.
 global SET NO
@@ -2223,7 +2363,7 @@ SET(NO).Mmode.Ly = ly;
 updatemmode('fast');
 
 %-------------------------
-function mmode1line_Motion %#ok<DEFNU>
+function mmode1line_Motion 
 %-------------------------
 %Motion function of the first mmode line.
 global SET NO
@@ -2233,7 +2373,7 @@ SET(NO).Mmode.M1 = (y-SET(NO).XSize/2);
 updatemmodeline
 
 %-------------------------
-function mmode2line_Motion %#ok<DEFNU>
+function mmode2line_Motion 
 %-------------------------
 %Motion function of the second mmode line.
 global SET NO
@@ -2243,7 +2383,7 @@ SET(NO).Mmode.M2 = (y-SET(NO).XSize/2);
 updatemmodeline;
 
 %---------------------------
-function mmodempoint1_Motion %#ok<DEFNU>
+function mmodempoint1_Motion 
 %---------------------------
 %Motion function for mmodepoint one.
 global SET NO
@@ -2253,7 +2393,7 @@ SET(NO).Mmode.M1 = (SET(NO).Mmode.X-x)*SET(NO).Mmode.Lx+(SET(NO).Mmode.Y-y)*SET(
 updatemmodeline;
 
 %---------------------------
-function mmodempoint2_Motion %#ok<DEFNU>
+function mmodempoint2_Motion 
 %---------------------------
 %Motion function for mmodepoint two.
 global SET NO
@@ -2263,7 +2403,7 @@ SET(NO).Mmode.M2 = (SET(NO).Mmode.X-x)*SET(NO).Mmode.Lx+(SET(NO).Mmode.Y-y)*SET(
 updatemmodeline;
 
 %-----------------------------
-function mmodetimebar1_Motion %#ok<DEFNU>
+function mmodetimebar1_Motion 
 %-----------------------------
 %Motion function for mmodepoint timebar
 global SET NO
@@ -2273,7 +2413,7 @@ SET(NO).Mmode.T1 = x;
 updatemmodeline;
 
 %-----------------------------
-function mmodetimebar2_Motion %#ok<DEFNU>
+function mmodetimebar2_Motion 
 %-----------------------------
 %Motion function for mmodepoint timebar
 global SET NO
@@ -2283,7 +2423,7 @@ SET(NO).Mmode.T2 = x;
 updatemmodeline;
 
 %----------------------
-function mmode_Buttonup %#ok<DEFNU>
+function mmode_Buttonup 
 %----------------------
 %This function is called when buttonup occurs after draging one
 %of the mmode objects.
@@ -2300,7 +2440,7 @@ set(DATA.imagefig,'WindowButtonUpFcn',...
 updatemmode;
 
 % %-------------------------------------
-% function mmodecenter_Buttondown(panel) %#ok<DEFNU>
+% function mmodecenter_Buttondown(panel) 
 % %-------------------------------------
 % %Called when mmode center is pressed down, sets motion and buttonup
 % %function.
@@ -2317,7 +2457,7 @@ updatemmode;
 %   sprintf('%s(''mmode_Buttonup'')',mfilename));
 % 
 % %--------------------------------
-% function mmode1_Buttondown(panel) %#ok<DEFNU>
+% function mmode1_Buttondown(panel) 
 % %--------------------------------
 % %Called when mmode1 is pressed down, sets motion and buttonup
 % %function.
@@ -2334,7 +2474,7 @@ updatemmode;
 %   sprintf('%s(''mmode_Buttonup'')',mfilename));
 % 
 % %--------------------------------
-% function mmode2_Buttondown(panel) %#ok<DEFNU>
+% function mmode2_Buttondown(panel) 
 % %--------------------------------
 % %Called when mmode1 is pressed down, sets motion and buttonup
 % %function.
@@ -2351,7 +2491,7 @@ updatemmode;
 %   sprintf('%s(''mmode_Buttonup'')',mfilename));
 % 
 % %------------------------------------
-% function mmode1line_Buttondown(panel) %#ok<DEFNU>
+% function mmode1line_Buttondown(panel) 
 % %------------------------------------
 % %Called when mmode1line is pressed down, sets motion and buttonup
 % %function.
@@ -2368,7 +2508,7 @@ updatemmode;
 %   sprintf('%s(''mmode_Buttonup'')',mfilename));
 % 
 % %------------------------------------
-% function mmode2line_Buttondown(panel) %#ok<DEFNU>
+% function mmode2line_Buttondown(panel) 
 % %------------------------------------
 % %Called when mmode1line is pressed down, sets motion and buttonup
 % %function.
@@ -2385,7 +2525,7 @@ updatemmode;
 %   sprintf('%s(''mmode_Buttonup'')',mfilename));
 % 
 % %-------------------------------------
-% function mmodepoint1_Buttondown(panel) %#ok<DEFNU>
+% function mmodepoint1_Buttondown(panel) 
 % %-------------------------------------
 % %Called when mmodepoint1 is pressed down, sets motion and buttonup
 % %function.
@@ -2402,7 +2542,7 @@ updatemmode;
 %   sprintf('%s(''mmode_Buttonup'')',mfilename));
 % 
 % %-------------------------------------
-% function mmodepoint2_Buttondown(panel) %#ok<DEFNU>
+% function mmodepoint2_Buttondown(panel) 
 % %-------------------------------------
 % %Called when mmodepoint1 is pressed down, sets motion and buttonup
 % %function.
@@ -2419,7 +2559,7 @@ updatemmode;
 %   sprintf('%s(''mmode_Buttonup'')',mfilename));
 % 
 % %---------------------------------------
-% function mmodetimebar1_Buttondown(panel) %#ok<DEFNU>
+% function mmodetimebar1_Buttondown(panel) 
 % %---------------------------------------
 % %Called when mmodepoint1 is pressed down, sets motion and buttonup
 % %function.
@@ -2436,7 +2576,7 @@ updatemmode;
 %   sprintf('%s(''mmode_Buttonup'')',mfilename));
 % 
 % %---------------------------------------
-% function mmodetimebar2_Buttondown(panel) %#ok<DEFNU>
+% function mmodetimebar2_Buttondown(panel) 
 % %---------------------------------------
 % %Called when mmodepoint1 is pressed down, sets motion and buttonup
 % %function.
@@ -2453,7 +2593,7 @@ updatemmode;
 %   sprintf('%s(''mmode_Buttonup'')',mfilename));
 
 %-------------------------
-function setcurrenttimeframe(frame) %#ok<DEFNU>
+function setcurrenttimeframe(frame) 
 %-------------------------
 %function to set current time frame, input argument is frame to be set to
 %current time frame
@@ -2475,9 +2615,9 @@ viewfunctions('setview');
 drawnow('expose'); %Expose does not other callbacks to evaluate.
 
 
-%-----------------------------------------------------
+%---------------------------------------------------------------
 function [xout,yout] = checkconsistencyhelper(xin,yin,numpoints)
-%-----------------------------------------------------
+%---------------------------------------------------------------
 %Make sure that the contour is counter clock-wise and that it starts at
 %three o clock. Also ensures that the points are evenly distributed.
 
@@ -2493,7 +2633,7 @@ diffy = conv2(yin,[1;-1],'valid');
 diffvec = sqrt(diffx.*diffx+diffy.*diffy);
 
 if any((diffvec-mean(diffvec))/mean(diffvec)>2)
-  %disp('Problem with endo => fixed, report to support');
+  %logdisp('Problem with endo => fixed, report to support');
 end
 contourlength = cumsum(diffvec);
 xout = interp1(contourlength,xin(2:end),linspace(contourlength(1),contourlength(end),numpoints-1));
@@ -2508,7 +2648,7 @@ mx = mean(xr);
 my = mean(yr);
 
 if sum(unwrap(conv2(angle(complex(xr-mx,yr-my)),[1;-1],'valid')))<0
-  disp(sprintf('counterclockwise endo %d slice %d',timeframe,zloop)); %#ok<DSPS>
+  logdisp(sprintf('counterclockwise endo %d slice %d',timeframe,zloop));
   xr = fliplr(xr);
   yr = fliplr(yr);
 end
@@ -2524,138 +2664,213 @@ function checkconsistency(timeframes,slice,no)
 %---------------------------------------------
 %Check consistency, to prevent earlier
 %manual segmentations that have problems with
-%direction lef/right
+%direction left/right
 global SET NO DATA
 
-if nargin==0
-  timeframes=SET(NO).CurrentTimeFrame; %1;
+
+if nargin == 0
+  timeframes = SET(NO).CurrentTimeFrame;
 end
 
-if nargin<2
-  slice=SET(NO).CurrentSlice;
+if nargin < 2
+  slice = SET(NO).CurrentSlice;
 end
 
 if nargin<3
   no = NO;
 end
+issax = contains(SET(no).ImageViewPlane,'short','IgnoreCase',true);
+if issax
+  closecurvelv = true;
+  closecurverv = true;
+  offset = 0;
+else
+  closecurvelv = true;
+  closecurverv = false;
+  offset = 0;
+end
 
-if not(isempty(SET(no).EndoX)) && not(size(SET(no).EndoX,1)==DATA.NumPoints)
-  tempendox = nan(DATA.NumPoints-1,SET(no).TSize,SET(no).ZSize);
+numpoints = tools('getnumpointsforno',no);
+
+if not(isempty(SET(no).EndoX)) && not(size(SET(no).EndoX,1)==numpoints)
+  tempendox = nan(numpoints-offset,SET(no).TSize,SET(no).ZSize);
   tempendoy = tempendox;
   timeframes = 1:SET(no).TSize;
-  slice = 1:SET(no).ZSize;  
+  slice = 1:SET(no).ZSize;
 elseif isempty(SET(no).EndoX)
-  tempendox = []; % nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);
-  tempendoy = []; % tempendox;
+  tempendox = [];
+  tempendoy = [];
 else
-  tempendox = SET(no).EndoX(1:end-1,:,:);
-  tempendoy = SET(no).EndoY(1:end-1,:,:);
+  tempendox = SET(no).EndoX(1:end-offset,:,:);
+  tempendoy = SET(no).EndoY(1:end-offset,:,:);
 end
-if not(isempty(SET(no).EpiX)) && not(size(SET(no).EpiX,1)==DATA.NumPoints)
-  tempepix = nan(DATA.NumPoints-1,SET(no).TSize,SET(no).ZSize);
+if not(isempty(SET(no).EpiX)) && not(size(SET(no).EpiX,1)==numpoints)
+  tempepix = nan(numpoints-offset,SET(no).TSize,SET(no).ZSize);
   tempepiy = tempepix;
   timeframes = 1:SET(no).TSize;
-  slice = 1:SET(no).ZSize;  
+  slice = 1:SET(no).ZSize;
 elseif isempty(SET(no).EpiX)
-  tempepix = []; % nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);;
-  tempepiy = []; % tempendox;
+  tempepix = [];
+  tempepiy = [];
 else
-  tempepix = SET(no).EpiX(1:end-1,:,:);
-  tempepiy = SET(no).EpiY(1:end-1,:,:);
+  tempepix = SET(no).EpiX(1:end-offset,:,:);
+  tempepiy = SET(no).EpiY(1:end-offset,:,:);
 end
-if not(isempty(SET(no).RVEndoX)) && not(size(SET(no).RVEndoX,1)==DATA.NumPoints)
-  temprvendox = nan(DATA.NumPoints-1,SET(no).TSize,SET(no).ZSize);
+
+if not(isempty(SET(no).RVEndoX)) && not(size(SET(no).RVEndoX,1)==numpoints)
+  temprvendox = nan(numpoints-offset,SET(no).TSize,SET(no).ZSize);
   temprvendoy = tempendox;
   timeframes = 1:SET(no).TSize;
-  slice = 1:SET(no).ZSize;  
+  slice = 1:SET(no).ZSize;
 elseif isempty(SET(no).RVEndoX)
-  temprvendox = []; % nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);
-  temprvendoy = []; % tempendox;
+  temprvendox = [];
+  temprvendoy = [];
 else
-  temprvendox = SET(no).RVEndoX(1:end-1,:,:);
-  temprvendoy = SET(no).RVEndoY(1:end-1,:,:);
+  temprvendox = SET(no).RVEndoX(1:end-offset,:,:);
+  temprvendoy = SET(no).RVEndoY(1:end-offset,:,:);
 end
-if not(isempty(SET(no).RVEpiX)) && not(size(SET(no).RVEpiX,1)==DATA.NumPoints)
-  temprvepix = nan(DATA.NumPoints-1,SET(no).TSize,SET(no).ZSize);
+if not(isempty(SET(no).RVEpiX)) && not(size(SET(no).RVEpiX,1)==numpoints)
+  temprvepix = nan(numpoints-offset,SET(no).TSize,SET(no).ZSize);
   temprvepiy = tempendox;
   timeframes = 1:SET(no).TSize;
-  slice = 1:SET(no).ZSize;  
+  slice = 1:SET(no).ZSize;
 elseif isempty(SET(no).RVEpiX)
-  temprvepix = []; % nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);
-  temprvepiy = []; % tempendox;
+  temprvepix = [];
+  temprvepiy = [];
 else
-  temprvepix = SET(no).RVEpiX(1:end-1,:,:);
-  temprvepiy = SET(no).RVEpiY(1:end-1,:,:);
+  temprvepix = SET(no).RVEpiX(1:end-offset,:,:);
+  temprvepiy = SET(no).RVEpiY(1:end-offset,:,:);
 end
-for timeframe = timeframes
-  for zloop=slice
 
-    %Endo
+tol = 0.05;  % tolerance 5%
+opencontour = false;
+
+for timeframe = timeframes
+  for zloop = slice
+   
+    closecurve = closecurvelv;
+    % Endo
     if ~isempty(SET(no).EndoX)
       if not(isnan(SET(no).EndoX(1,timeframe,zloop)))
-        %Call consistenyhelper
-        [tempendox(:,timeframe,zloop),tempendoy(:,timeframe,zloop)]=calcfunctions('resamplecurve',SET(no).EndoX(:,timeframe,zloop),SET(no).EndoY(:,timeframe,zloop),DATA.NumPoints-1);
-%           [tempendox(:,timeframe,zloop),tempendoy(:,timeframe,zloop)] = checkconsistencyhelper(...
-%             SET(no).EndoX(:,timeframe,zloop),...
-%             SET(no).EndoY(:,timeframe,zloop));
+        x = SET(no).EndoX(:,timeframe,zloop);
+        y = SET(no).EndoY(:,timeframe,zloop);
+        if isconsistent(x,y,tol,numpoints)
+          tempendox(:,timeframe,zloop) = x(1:end-offset);
+          tempendoy(:,timeframe,zloop) = y(1:end-offset);
+        else
+          % Resample contour
+          [newx,newy] = calcfunctions('resamplecurve',x,y,numpoints-offset,opencontour,closecurve);
+          tempendox(:,timeframe,zloop) = newx;
+          tempendoy(:,timeframe,zloop) = newy;
+        end
       end
     end
 
-    %Epi
+    % Epi
     if ~isempty(SET(no).EpiX)
       if not(isnan(SET(no).EpiX(1,timeframe,zloop)))
-        [tempepix(:,timeframe,zloop),tempepiy(:,timeframe,zloop)] = ...
-          calcfunctions('resamplecurve',SET(no).EpiX(:,timeframe,zloop),SET(no).EpiY(:,timeframe,zloop),DATA.NumPoints-1);
-%            [tempepix(:,timeframe,zloop),tempepiy(:,timeframe,zloop)] = ...
-%           checkconsistencyhelper(...
-%           SET(no).EpiX(:,timeframe,zloop),...
-%           SET(no).EpiY(:,timeframe,zloop));
+        x = SET(no).EpiX(:,timeframe,zloop);
+        y = SET(no).EpiY(:,timeframe,zloop);
+        if isconsistent(x,y,tol,numpoints)
+          tempepix(:,timeframe,zloop) = x(1:end-offset);
+          tempepiy(:,timeframe,zloop) = y(1:end-offset);
+        else
+          [newx,newy] = calcfunctions('resamplecurve',x,y,numpoints-offset,opencontour,closecurve);
+          tempepix(:,timeframe,zloop) = newx;
+          tempepiy(:,timeframe,zloop) = newy;
+        end
       end
     end
-    
-    %RVEndo
+
+    closecurve = closecurverv;
+
+    % RVEndo
     if ~isempty(SET(no).RVEndoX)
       if not(isnan(SET(no).RVEndoX(1,timeframe,zloop)))
-        [temprvendox(:,timeframe,zloop),temprvendoy(:,timeframe,zloop)] = ...
-          calcfunctions('resamplecurve',SET(no).RVEndoX(:,timeframe,zloop),SET(no).RVEndoY(:,timeframe,zloop),DATA.NumPoints-1);
-%         [temprvendox(:,timeframe,zloop),temprvendoy(:,timeframe,zloop)] = ...
-%           checkconsistencyhelper(...
-%           SET(no).RVEndoX(:,timeframe,zloop),...
-%           SET(no).RVEndoY(:,timeframe,zloop)); 
+        x = SET(no).RVEndoX(:,timeframe,zloop);
+        y = SET(no).RVEndoY(:,timeframe,zloop);
+        if isconsistent(x,y,tol,numpoints)
+          temprvendox(:,timeframe,zloop) = x(1:end-offset);
+          temprvendoy(:,timeframe,zloop) = y(1:end-offset);
+        else
+          [newx,newy] = calcfunctions('resamplecurve',x,y,numpoints-offset,opencontour,closecurve);
+          temprvendox(:,timeframe,zloop) = newx;
+          temprvendoy(:,timeframe,zloop) = newy;
+        end
       end
     end
-    
-    %RVEpi
+
+    % RVEpi
     if ~isempty(SET(no).RVEpiX)
       if not(isnan(SET(no).RVEpiX(1,timeframe,zloop)))
-        %Call consistenyhelper
-        [temprvepix(:,timeframe,zloop),temprvepiy(:,timeframe,zloop)] = ...
-          calcfunctions('resamplecurve', SET(no).RVEpiX(:,timeframe,zloop),SET(no).RVEpiY(:,timeframe,zloop),DATA.NumPoints-1);
-%           checkconsistencyhelper(...
-%           SET(no).RVEpiX(:,timeframe,zloop),...
-%           SET(no).RVEpiY(:,timeframe,zloop));          
+        x = SET(no).RVEpiX(:,timeframe,zloop);
+        y = SET(no).RVEpiY(:,timeframe,zloop);
+        if isconsistent(x,y,tol,numpoints)
+          temprvepix(:,timeframe,zloop) = x(1:end-offset);
+          temprvepiy(:,timeframe,zloop) = y(1:end-offset);
+        else
+          [newx,newy] = calcfunctions('resamplecurve',x,y,numpoints-offset,opencontour,closecurve);
+          temprvepix(:,timeframe,zloop) = newx;
+          temprvepiy(:,timeframe,zloop) = newy;
+        end
       end
     end
-    
   end
 end
-      
+
 if ~isempty(SET(no).EndoX)
-  SET(no).EndoX = cat(1,tempendox,tempendox(1,:,:));
-  SET(no).EndoY = cat(1,tempendoy,tempendoy(1,:,:));
+  SET(no).EndoX = tempendox;
+  SET(no).EndoY = tempendoy;
 end
 if ~isempty(SET(no).EpiX)
-  SET(no).EpiX = cat(1,tempepix,tempepix(1,:,:));
-  SET(no).EpiY = cat(1,tempepiy,tempepiy(1,:,:));
+  SET(no).EpiX = tempepix;
+  SET(no).EpiY = tempepiy;
 end
 if ~isempty(SET(no).RVEndoX)
-  SET(no).RVEndoX = cat(1,temprvendox,temprvendox(1,:,:));
-  SET(no).RVEndoY = cat(1,temprvendoy,temprvendoy(1,:,:));
+  SET(no).RVEndoX = temprvendox;
+  SET(no).RVEndoY = temprvendoy;
 end
 if ~isempty(SET(no).RVEpiX)
-  SET(no).RVEpiX = cat(1,temprvepix,temprvepix(1,:,:));
-  SET(no).RVEpiY = cat(1,temprvepiy,temprvepiy(1,:,:));
+  SET(no).RVEpiX = temprvepix;
+  SET(no).RVEpiY = temprvepiy;
 end
+
+%----------------------------------------------------
+function consistent = isconsistent(x,y,tol,numpoints)
+%----------------------------------------------------
+global DATA
+
+if nargin < 3
+  tol = 5e-2;
+end
+
+if nargin < 4
+  numpoints = DATA.NumPoints;
+end
+
+consistent = false;
+
+% Check number of points
+lenx = length(x);
+leny = length(y);
+oklength = (lenx == numpoints) && (leny == numpoints);
+if ~oklength
+  return
+end
+
+% Check even spacing
+d = sqrt(diff(x).^2 + diff(y).^2);
+spacing = std(d)/mean(d);
+okspacing = spacing < tol;
+
+if ~okspacing
+  return
+end
+% Check if clockwise
+okcw = ispolycw(x,y);
+
+consistent = okcw;
+
 
 %---------------------------------------
 function mask = createmask(outsize,y,x)
@@ -2672,7 +2887,7 @@ end
 
 if not(DATA.Pref.IncludeAllPixelsInRoi)
   %mask = roipoly(repmat(uint8(0),outsize),y,x);  
-  mask = poly2mask(y,x,outsize(1),outsize(2));
+  mask = poly2mask(double(y),double(x),double(outsize(1)),double(outsize(2)));
 else
   mask = false(outsize);  
   mx = round(mean(x));
@@ -2685,7 +2900,7 @@ end
 
 
 %---------------------------
-function resetlight_Callback %#ok<DEFNU>
+function resetlight_Callback 
 %---------------------------
 %Activated by toolbar icon, different from contrast_Callback (below).
 
@@ -2706,7 +2921,7 @@ if DATA.Pref.UseLight
 end
 
 %---------------------------
-function resetlightall_Callback %#ok<DEFNU>
+function resetlightall_Callback 
 %---------------------------
 %Activated by toolbar icon, different from contrast_Callback (below).
 
@@ -2837,155 +3052,292 @@ if doindex
 end
 
 %----------------
-function autozoom %#ok<DEFNU>
+function [x,y,hasanyseg,hasrv,haslara] = getcontourpositions(origno,nos,types)
 %----------------
-%New autozoom autozooms everything that is displayed.
+% function to get x and y position for 'Endo','Epi','RVEndo','RVEpi' that
+% and whether any segmentation exist at all and whether RV segmentation exists
 
-global DATA SET
-
-panel = DATA.CurrentPanel;
-panels = DATA.ViewPanels;
-no = panels(panel);
-origno = no;
-zdirno = cross(SET(no).ImageOrientation(1:3),SET(no).ImageOrientation(4:6));
-
-%Check which nos to do
-nos = no;
-for loop = 1:length(SET)
-
-  loopno = loop;
-  if ~isequal(loopno,0)
-    zdir = cross(SET(loopno).ImageOrientation(1:3),SET(loopno).ImageOrientation(4:6));
-    a = acos(abs(sum(zdir.*zdirno)))/pi*180;
-    if a<20
-      nos = [nos loopno];
-    end
-  end
+global SET
+if nargin == 1
+  nos = origno;
 end
-
-%remove duplicates
-nos = union(nos,[]);
-
-%Loop over to find contours  
+if nargin < 3
+  types = {'Endo','Epi','RVEndo','RVEpi','RA','LA'};
+else
+  types = {types};
+end
 hasanyseg = false;
 hasrv = false;
+haslara = false;
 x = [];
 y = [];
-
+% Loop over to find contours
 for loop = 1:length(nos)
   no = nos(loop);
-  for type={'Endo','Epi','RVEndo','RVEpi'}
-    tmp_x = SET(no).([type{1},'X']);
-    tmp_y = SET(no).([type{1},'Y']);
+  for type = 1:numel(types)
+    if any(matches(types{type},{'LA','RA'}))
+      if ~isempty(SET(no).(types{type}))
+        tmp_x = SET(no).(types{type}).X;
+        tmp_y = SET(no).(types{type}).Y;
+      else
+        tmp_x = [];
+        tmp_y = [];
+      end
+    else
+      tmp_x = SET(no).([types{type},'X']);
+      tmp_y = SET(no).([types{type},'Y']);
+    end
     if ~isempty(tmp_x) && ~all(isnan(tmp_x(:)))
       hasanyseg = true;
-      tmp_x = tmp_x(~isnan(tmp_x(:)));      
-      tmp_y = tmp_y(~isnan(tmp_y(:)));
       
+      % 2026-01-28 new implementation
+      % Find the first time frame (column) that has no NaNs across all rows.
+      % This frame is used as a reference to keep the number of samples
+      % consistent across segments.
+      refidx = find(all(~isnan(tmp_x),1),1,'first');
+      % Reference values
+      ref_x = tmp_x(:,refidx);
+      ref_y = tmp_y(:,refidx);
+
+      % Replace NaNs by copying values from the reference frame.
+      % For each NaN entry, determine its row index and assign the
+      % corresponding reference value, preserving matrix size.
+      idx = find(isnan(tmp_x));
+      if ~isempty(idx)
+        [rowidx,~] = ind2sub(size(tmp_x),idx);
+        tmp_x(idx) = ref_x(rowidx);
+        tmp_y(idx) = ref_y(rowidx);
+      end
+
+      % 2026-01-28 Original code, produces imbalance if one contour is time
+      % resolved and the other is not
+      %       tmp_x = tmp_x(~isnan(tmp_x(:)));
+      %       tmp_y = tmp_y(~isnan(tmp_y(:)));
+
       %Convert to origno's coordinate system
       pos = calcfunctions('xyz2rlapfh',no,tmp_x,tmp_y,repmat(SET(no).ZSize/2,size(tmp_x)));
       pos = calcfunctions('rlapfh2xyz',origno,pos(:,1),pos(:,2),pos(:,3));
-      
-      x = [x;pos(1,:)'];
-      y = [y;pos(2,:)'];
-      if ~isempty(regexpi(type{1},'RV'))
+
+      x = [x;pos(1,:)']; %#ok<AGROW>
+      y = [y;pos(2,:)']; %#ok<AGROW>
+      if contains(types{type},{'RV'})
         hasrv = true;
+      end
+      if contains(types{type},{'LA','RA'})
+        haslara = true;
       end
     end
   end
 end
 
-if hasrv
-  fmargin = 1.15;
+%----------------------
+function autozoom(panel)
+%-----------------------
+%New autozoom autozooms everything that is displayed.
+
+global DATA SET
+
+if nargin < 1
+  panel = DATA.CurrentPanel;
+end
+
+nosinpanels = DATA.ViewPanels;
+no = nosinpanels(panel);
+origno = no;
+
+% exclude ECV stacks, since they do not have proper Image Orientation yet
+% (see ticket #2397)
+ecvnos = findfunctions('findecvno');
+if ismember(origno,ecvnos)
+  nosinpanels = origno;
 else
-  fmargin = 1.5;
+  nosinpanels = setdiff(nosinpanels,ecvnos,'stable');
 end
+nosinpanels = nosinpanels(nosinpanels~=0);
+visiblenos = numel(nosinpanels); 
+noszoomed = false(1,visiblenos);
 
-if ~hasanyseg
-  return;
-end
+for n = 1:visiblenos
 
-%Compute limit & center (in origno coordinate system)
-xmin = min(x);
-xmax = max(x);
-ymin = min(y);
-ymax = max(y);
-xc = mean(x);
-yc = mean(y);
+  no = nosinpanels(n);
 
-%Loop over panels and check if update
-for loop = 1:length(panels)
-  
-  panel = loop;
-  no = panels(loop);
-  
-  if ismember(no,nos) && isequal(DATA.ViewPanelsType{panel},'one')
-
-    %get previous zoomstate
-    zoomstate = viewfunctions('getnewzoomstate',panel,no);
-    
-    %Convert xc,yc
-    pos = calcfunctions('xyz2rlapfh',origno,[xc;xmin;xmax],[yc;ymin;ymax],repmat(SET(origno).ZSize/2,3,1));
-    pos = calcfunctions('rlapfh2xyz',no,pos(:,1),pos(:,2),pos(:,3));
-    xcno = pos(1,1); ycno = pos(2,1);
-    xminno = pos(1,2); yminno = pos(2,2);
-    xmaxno = pos(1,3); ymaxno = pos(2,3);
-    
-    oldxrange = zoomstate(4)-zoomstate(3);
-    oldyrange = zoomstate(2)-zoomstate(1);
-    oldxc = mean(zoomstate(3:4));
-    oldyc = mean(zoomstate(1:2));
-    translatex = oldxc-xcno; 
-    translatey = oldyc-ycno;     
-    
-    %Translate
-    oldxc = oldxc-translatex;
-    oldyc = oldyc-translatey;
-    
-    %Find out zoom
-    fx = max((oldxc-xminno)/(oldxrange/2),(xmaxno-oldxc)/(oldxrange/2));
-    fy = max((oldyc-yminno)/(oldyrange/2),(ymaxno-oldyc)/(oldyrange/2));
-    f = max(fx,fy)*fmargin;
-    
-    newzoomstate = [oldyc-oldyrange/2*f oldyc+oldyrange/2*f oldxc-oldxrange/2*f oldxc+oldxrange/2*f];
-    
-    SET(no).NormalZoomState = newzoomstate;
-    
-    %update it graphically
-    viewfunctions('updatezoomandaspectratio',panel);
-    
-    %we want to update the text position and the frame
-    viewfunctions('updatetextposition',panel)
-        
+  if noszoomed(n)
+    continue;
   end
-  
+  origno = no;
+  zdirno = cross(SET(no).ImageOrientation(1:3),SET(no).ImageOrientation(4:6));
+
+  %Check which nos to do
+  nos = no;
+  for loop = nosinpanels
+    loopno = loop;
+    if ~isequal(loopno,0)
+      zdir = cross(SET(loopno).ImageOrientation(1:3),SET(loopno).ImageOrientation(4:6));
+      a = acos(abs(sum(zdir.*zdirno)))/pi*180;
+      if a<20
+        nos = [nos loopno];
+      end
+    end
+  end
+
+  %remove duplicates
+  nos = union(nos,[]);
+
+  [x,y,hasanyseg,hasrv,haslara] = getcontourpositions(origno,nos);
+
+  % mark nos as zoomed
+  [~, pos] = ismember(nos, nosinpanels);
+  noszoomed(pos) = true;
+
+  if ~hasanyseg    
+    continue;
+  end
+
+  if hasrv || haslara
+    fmargin = 1.15;
+  else
+    fmargin = 1.5;
+  end
+
+  %Compute limit & center (in origno coordinate system)
+  xmin = min(x);
+  xmax = max(x);
+  ymin = min(y);
+  ymax = max(y);
+  xc = mean(x);
+  yc = mean(y);
+
+  %Loop over panels and check if update
+  for loop = 1:length(nosinpanels)
+
+    %   panel = loop;
+    no = nosinpanels(loop);
+    panel = find(DATA.ViewPanels == no);
+
+    if ismember(no,nos)
+      if ~isequal(DATA.ViewPanelsType{panel},'one')
+        if hasrv
+          % adjust margin for montage view
+          fmargin = 1.5;
+        end
+      end
+
+      %get previous zoomstate
+      zoomstate = viewfunctions('getnewzoomstate',panel,no);
+
+      %Convert xc,yc
+      pos = calcfunctions('xyz2rlapfh',origno,[xc;xmin;xmax],[yc;ymin;ymax],repmat(SET(origno).ZSize/2,3,1));
+      pos = calcfunctions('rlapfh2xyz',no,pos(:,1),pos(:,2),pos(:,3));
+      xcno = pos(1,1); ycno = pos(2,1);
+      xminno = pos(1,2); yminno = pos(2,2);
+      xmaxno = pos(1,3); ymaxno = pos(2,3);
+
+      oldxrange = zoomstate(4)-zoomstate(3);
+      oldyrange = zoomstate(2)-zoomstate(1);
+      oldxc = mean(zoomstate(3:4));
+      oldyc = mean(zoomstate(1:2));
+      translatex = oldxc-xcno;
+      translatey = oldyc-ycno;
+
+      %Translate
+      oldxc = oldxc-translatex;
+      oldyc = oldyc-translatey;
+
+      %Find out zoom
+      fx = max((oldxc-xminno)/(oldxrange/2),(xmaxno-oldxc)/(oldxrange/2));
+      fy = max((oldyc-yminno)/(oldyrange/2),(ymaxno-oldyc)/(oldyrange/2));
+      f = max(fx,fy)*fmargin;
+
+      newzoomstate = [oldyc-oldyrange/2*f oldyc+oldyrange/2*f oldxc-oldxrange/2*f oldxc+oldxrange/2*f];
+
+      % Clamp ymin (1) and xmin (3) so they do not go below default zoom limits
+      for pos = [1,3]
+        if newzoomstate(pos) < zoomstate(pos)
+          newzoomstate(pos) = zoomstate(pos);
+        end
+      end
+      % Clamp ymax (2) and xmax (4) so they do not go above default zoom limits
+      for pos = [2,4]
+        if newzoomstate(pos) > zoomstate(pos)
+          newzoomstate(pos) = zoomstate(pos);
+        end
+      end
+      SET(no).NormalZoomState = newzoomstate;
+
+      if contains(DATA.ViewPanelsType{DATA.CurrentPanel},'montage')
+        %clears current viewim
+        DATA.ViewIM{panel}=[];
+        drawfunctions('drawpanel',panel);
+        drawfunctions('drawselectedslice',panel);
+      else
+        %update it graphically
+        viewfunctions('updatezoomandaspectratio',panel);
+        %we want to update the text position and the frame
+        viewfunctions('updatetextposition',panel);
+      end
+    end
+  end
 end
 
 drawfunctions('drawselectedframe',DATA.CurrentPanel);
 
 %------------------------------
-function autocontrastall_Callback %#ok<DEFNU>
+function autocontrastall_Callback
 %------------------------------
 %Automatically calculates contrast settings.
 global SET DATA
-for i = 1:length(SET)
-  autocontrast(i,1);
-  segment('update_thumbnail',i)
-end
-
-for panelloop = 1:length(DATA.ViewPanels)
-  %panel = DATA.ViewPanels(panelloop);
-  DATA.ViewIM{panelloop} = [];
-  drawfunctions('drawimages',panelloop);
+for no = 1:length(SET)
+  % updatting of the image using drawfunctions is perfromed directly in
+  % autocontrast
+  modality = SET(no).Modality;
+  if strcmpi(modality,'MR')
+    autocontrast(no);
+  end
+  if ismember(no,DATA.RelevantStacks)
+    segment('update_thumbnail',no);
+  end
 end
 
 %------------------------------
-function autocontrast_Callback %#ok<DEFNU>
+function autocontrast_Callback 
 %------------------------------
 %Automatically calculates contrast settings.
-global NO
+
+global SET NO
 no = NO;
-autocontrast(no);
+
+%Find modality
+if isfield(SET(NO),'Modality')
+  modality = SET(NO).Modality;
+else
+  %if not found, ask user
+  m = mymenu(...
+    dprintf('Select imaging technique for the selected image stack.'),...
+    'MR','CT',dprintf('Other'));
+  switch m
+    case 1
+      modality = 'MR';
+    case 2
+      modality = 'CT';
+    case 3
+      modality = 'other';
+  end
+end
+
+%Run appropriate callback based on modality
+if strcmp(modality,'MR')
+  autocontrast(no);
+elseif strcmp(modality,'CT')
+  ct.ctautocontrast('autocontrastcardiac',no);
+else
+  str = sprintf('%s\n%s',...
+    dprintf('No automatic contrast adjustment function available.'), ...
+    dprintf('Please use the manual tool instead.')...
+    );
+  myfailed(str);
+  return
+end
+
 segment('update_thumbnail',no)
 
 %-------------------------
@@ -2995,11 +3347,15 @@ function autocontrast(no,silent)
 global SET DATA
 
 if nargin <2
-  silent=0;
+  silent = 0;
 end
 
 %check so that no isn't a phase image
-if isfield(SET(no).Flow, 'PhaseNo') && SET(no).Flow.PhaseNo==no
+if isfield(SET(no).Flow, 'PhaseNo') && SET(no).Flow.PhaseNo==no %2d flow
+  return
+elseif (isfield(SET(no).Flow, 'PhaseY') && ~isempty(SET(no).Flow.PhaseY) && SET(no).Flow.PhaseY==no) || ...
+    (isfield(SET(no).Flow, 'PhaseX') && ~isempty(SET(no).Flow.PhaseX) && SET(no).Flow.PhaseX==no)
+  % check if 4D flow
   return
 end
 
@@ -3043,7 +3399,7 @@ end
 myworkoff;
 
 %-----------------------------------
-function measuremove_Callback(dx,dy) %#ok<DEFNU>
+function measuremove_Callback(dx,dy) 
 %-----------------------------------
 %Helper function to move measurements.
 global DATA SET NO
@@ -3067,10 +3423,12 @@ SET(no).Measure(n).Y = SET(no).Measure(n).Y+dy;
 viewfunctions('setview');  %drawfunctions('drawimageno');
 
 %------------------------------
-function measureexport_Callback %#ok<DEFNU>
+function varargout = measureexport_Callback 
 %------------------------------
 %Export measurements.
 global DATA SET NO
+
+varargout = {};
 
 %Use to point to mag data set
 no = NO;
@@ -3082,7 +3440,9 @@ if ~isempty(SET(no).Measure)
   stri = [];
   stri = [stri ...
     sprintf('PatientName:\t%s\n',SET(no).PatientInfo.Name) ...
-    sprintf('\n') ...
+    newline ...
+    sprintf('PatientID:\t%s\n',SET(no).PatientInfo.ID) ...
+    newline ...
     sprintf('Name\tLength[mm]\n')];
   for loop=1:length(SET(no).Measure)
     stri = [stri ...
@@ -3091,14 +3451,19 @@ if ~isempty(SET(no).Measure)
       SET(no).Measure(loop).Length)]; %#ok<AGROW>
   end
 
-  clipboard('copy',stri);
-  mymsgbox('Results copied to clipboard','Done!',DATA.GUI.Segment);
+  if nargout == 0
+    clipboard('copy',stri);
+    mymsgbox('Results copied to clipboard','Done!',DATA.GUI.Segment);
+  else
+    varargout{1} = stri;
+  end
 else
   myfailed('Nothing to export.',DATA.GUI.Segment);
+  varargout{1} = [];
 end
 
 %-----------------------------------
-function measureshapeexport_Callback %#ok<DEFNU>
+function measureshapeexport_Callback 
 %-----------------------------------
 %Export measurement shape
 global DATA SET NO
@@ -3139,7 +3504,7 @@ function parallelout = updateparallelsets(no)
 %--------------------------
 % Chages CurrentSlice in SETs that are parallel to SET(NO) to the slice
 % closest to SET(NO).CurrentSlice
-%
+
 % Marten Larsson, June, 3, 2009
 
 global DATA SET 
@@ -3330,7 +3695,7 @@ x=X(ind);
 
 
 %------------------
-function rotatetemp(alpha) %#ok<DEFNU>
+function rotatetemp(alpha) 
 %------------------
 %This function should late be replaced with qa tool that rotates objects,
 %just as scale and move does. 
@@ -3373,27 +3738,50 @@ viewfunctions('setview');
 function timebar_Motion 
 %------------------------------
 %Update current timeframe when user clicked in time bar graph.
-global DATA SET NO
-
-[x] = mygetcurrentpoint(DATA.Handles.timebaraxes);
-x = x/1000;
+global DATA SET
 
 %Find timeframe
-SET(NO).CurrentTimeFrame = 1+round(x/SET(NO).TIncr);
-SET(NO).CurrentTimeFrame = min(max(1,SET(NO).CurrentTimeFrame),SET(NO).TSize);
+x = mygetcurrentpoint(DATA.Handles.timebaraxes)/1000;
 
-panels = find(ismember(DATA.ViewPanels,SET(NO).Linked));
-for p = panels
-    DATA.ViewIM{p} = [];
-    drawfunctions('drawpanel',p)
+panel = DATA.CurrentPanel;
+no = DATA.ViewPanels(panel);
+
+%Check if need to synchronise panels
+if contains(DATA.ProgramName,'3DP') || findindented(DATA.Handles.hideiconholder,'synchronize')
+  panels = find(DATA.ViewPanels>0);
+  nos = unique(DATA.ViewPanels(panels));
+else
+  %Find linked images and update current timeframe, even if they are not shown
+  nos = no;
+  linkednos = SET(nos).Linked;
+  if length(linkednos) > 1
+    %look if the linked no is shown
+    panels = find(ismember(DATA.ViewPanels, linkednos));
+  else
+    panels = panel;
+  end
+end
+linkednos = SET(nos).Linked;
+nos = unique([nos,linkednos]);
+
+%Loop over all image and linked images to update current timeframe
+for loop = nos
+  ctf = 1+round(x/SET(loop).TIncr);
+  ctf = min(max(1,ctf), SET(loop).TSize);
+  SET(loop).CurrentTimeFrame = ctf;
 end
 
-%update timebars
-viewfunctions('updatetimebars')
-drawnow;
+%Display current timeframe
+for p = panels
+  viewfunctions('updatedrawlist',p);
+  drawfunctions('drawpanel',p);
+end
+
+%Update timebars
+viewfunctions('updatetimebars');
 
 %----------------------------------
-function timebar_Buttondown %#ok<DEFNU>
+function timebar_Buttondown 
 %----------------------------------
 %Button down function for the time bar in the time bar graph
 global DATA
@@ -3413,7 +3801,7 @@ timebar_Motion
 
 
 %--------------------------------
-function fasterframerate_Callback %#ok<DEFNU>
+function fasterframerate_Callback 
 %--------------------------------
 %Makes movie play faster
 global DATA SET
@@ -3423,8 +3811,8 @@ global DATA SET
 wason = 0;
 if DATA.Run
     wason = 1;
-    undent(DATA.Handles.permanenticonholder,'play',0)
-    %pause(0.1)
+    undent(DATA.Handles.playiconholder,'play',0)
+%     pause(0.1)
 end
 
 ind = find(cat(1,SET(:).TSize)>1);
@@ -3436,11 +3824,12 @@ for no=ind'
   SET(no).BeatTime = SET(no).BeatTime*0.9;
 end
 
+%playing again will trigger matlab graphic crashes
 % if wason
-%     indent(DATA.Handles.permanenticonholder,'play',1)    
+%     indent(DATA.Handles.playiconholder,'play',1)    
 % end
 %--------------------------------
-function slowerframerate_Callback %#ok<DEFNU>
+function slowerframerate_Callback 
 %--------------------------------
 %Makes movie play slower
 global DATA SET
@@ -3448,8 +3837,8 @@ global DATA SET
 wason = 0;
 if DATA.Run
     wason = 1;
-    undent(DATA.Handles.permanenticonholder,'play',0)
-    %pause(0.1)
+    undent(DATA.Handles.playiconholder,'play',0)
+%     pause(0.1)
 end
 
 %If running make sure always update the first one.
@@ -3462,31 +3851,87 @@ for no=ind'
   SET(no).BeatTime = SET(no).BeatTime/0.9;
 end
 
+%playing again will trigger matlab graphic crashes
 % if wason
-%     indent(DATA.Handles.permanenticonholder,'play',1)    
+%     indent(DATA.Handles.playiconholder,'play',1)    
 % end
 
 %--------------
-function ctrlc %#ok<DEFNU>
+function ctrlc 
 %--------------
 %function to handle ctrl-c keypress, which is disabled
 global DATA
 mywarning('Ctrl-C is disabled',DATA.GUI.Segment);
 
 %--------------------------------------------------------
-function [varargout] = cell2clipboard(outdata,writetofile) 
+function verstr = getversion
+%--------------------------------------------------------
+% Get a string with Segment version + revision if possible
+global DATA
+
+programname = DATA.ProgramName;
+basever = DATA.ProgramVersion;
+
+% Check compiled or source version
+if isdeployed
+  mode = 'Compiled';
+else
+  mode = 'MATLAB';
+end
+
+verstr = sprintf('Exported from %s %s, %s', programname, basever, mode);
+
+%--------------------------------------------------------
+function [varargout] = cell2clipboard(outdata,writetofile, savefilename,silent) 
 %--------------------------------------------------------
 %Converts a cell to a string that is output to clipboard.
 %If more than 8000 cells are written then an .xls file is
 %written instead. Note that this used active-X on Windows and requires
 %Excel to be installed on the computer.
 
+global DATA
+
+%Do not add version if the export is very small (less than two cells)
+if numel(outdata) <= 2
+  ignoreversion = true;
+else
+  ignoreversion = false;
+end
+
+if not(isempty(DATA))
+  try
+
+    if ~ignoreversion
+      %Add which version it was exported from
+      cols = size(outdata,2);
+      newrow = cell(1,cols);
+      newrow{1,1} = getversion;
+      outdata = [newrow; outdata];
+    end
+
+  catch me
+    mydispexception(me);
+  end
+end
+
 if nargout>0
   varargout = cell(1,nargout);
 end
 
-if nargin<2
-  writetofile = false;
+if nargin<2 
+  if not(isempty(DATA))
+    writetofile = DATA.Pref.AlwaysExportToExcel;
+  else
+    writetofile = false;
+  end
+end
+
+if nargin <3
+  savefilename = '';
+end
+
+if nargin < 4
+  silent = false;
 end
 
 if not(writetofile) && ( (numel(outdata)<8000)||(nargout>0) )
@@ -3503,6 +3948,8 @@ if not(writetofile) && ( (numel(outdata)<8000)||(nargout>0) )
           end
         case {'uint8','int8','uint32'}
           stri = [stri sprintf('%d\t',temp)]; %#ok<AGROW>
+        case 'string'
+          stri = [stri sprintf('%s\t',temp)]; %#ok<AGROW>
         case {'double','single'}
           if length(temp)>1
             myfailed('Vector not allowed in one cell.');
@@ -3532,7 +3979,7 @@ if not(writetofile) && ( (numel(outdata)<8000)||(nargout>0) )
           end
         otherwise
           myfailed('Unknown object type when exporting.');
-          disp(class(temp))
+          logdisp(class(temp))
           return;
       end
     end
@@ -3545,24 +3992,37 @@ if not(writetofile) && ( (numel(outdata)<8000)||(nargout>0) )
     varargout{1} = stri;
   end
 else
-  [filename, pathname] = myuiputfile('*.xlsx',dprintf('Save as Excel file.'));
-  if isequal(filename,0) || isequal(pathname,0)
-    disp('Aborted');
-    return;
+  if isempty(savefilename)
+    [filename, pathname] = myuiputfile('*.xlsx',dprintf('Save as Excel file.'));
   else
-    [sucess,message] = xlswrite(fullfile(pathname,filename),outdata);
-    if sucess
-      mymsgbox('File successfully written.','Done!');
-    else
-      myfailed(dprintf('Error:%s',message.message));
+    [pathname, filename ext] = fileparts(savefilename);
+    filename = [filename ext];
+  end
+    if isequal(filename,0) || isequal(pathname,0)
+      logdisp('Aborted');
       return;
+    else
+    try
+      [success,~] = xlswrite(fullfile(pathname,filename),outdata);
+    catch
+      try
+        writecell(outdata,fullfile(pathname,filename));
+        success = true;
+      catch
+        myfailed(dprintf('Could not write the file'));
+        return;
+      end
+    end
+    varargout{1} = success;
+    if success && ~silent
+      mymsgbox('File successfully written.','Done!');
     end
   end
 end
 flushlog;
 
 %------------------------------------------
-function [x,y,name] = askcontour(queststri) %#ok<DEFNU>
+function [x,y,name] = askcontour(queststri) 
 %------------------------------------------
 %Show menu so that user can indicate what contour to use.
 %Used by levelset to import contours, and by export function
@@ -3579,11 +4039,18 @@ x = [];
 y = [];
 name = '';
 
-m=mymenu(queststri,...
-  {'LV Endocardium (red)',...
-  'LV Epicardium (green)',...
-  'RV Endocardium (magenta)',...
-  'RV Epicardium (cyan)'},DATA.GUI.Segment);
+contoursnames = {'LV Endocardium (red)',...
+                'LV Epicardium (green)',...
+                'RV Endocardium (magenta)',...
+                'RV Epicardium (cyan)'...
+};
+
+if contains(queststri,'which contour to export')
+  contoursnames{end+1} = 'LA (orange)';
+  contoursnames{end+1} = 'RA (purple)';
+end
+
+m = mymenu(queststri,contoursnames,DATA.GUI.Segment);
 
 switch m
   case 1
@@ -3622,12 +4089,30 @@ switch m
     y=SET(NO).RVEpiY;
     x=SET(NO).RVEpiX;
     name='RVepicardium';
+  case 5
+    %LA
+    if isempty(SET(NO).LA) || isempty(SET(NO).LA.Y) || all(isnan(SET(NO).LA.Y),"all")
+      myfailed('No LA available.',DATA.GUI.Segment);
+      return;
+    end
+    y = SET(NO).LA.Y;
+    x = SET(NO).LA.X;
+    name = 'LA';
+  case 6
+    %RA
+    if isempty(SET(NO).RA) || isempty(SET(NO).RA.Y) || all(isnan(SET(NO).RA.Y),"all")
+      myfailed('No RA available.',DATA.GUI.Segment);
+      return;
+    end
+    y = SET(NO).RA.Y;
+    x = SET(NO).RA.X;
+    name = 'RA';
   otherwise
     myfailed('User aborted.',DATA.GUI.Segment);
 end
 
 %----------------------------
-function evalcommand_Callback %#ok<DEFNU>
+function evalcommand_Callback 
 %----------------------------
 %Function to evaluate matlab commands from compiled version.
 global DATA SET NO %#ok<NUSED>
@@ -3644,22 +4129,25 @@ end
 segmenthelp('openthislogfile_Callback');
 
 %---------------------------------
-function changewheel_Callback(h,e) %#ok<DEFNU>
+function changewheel_Callback(h,e) 
 %---------------------------------
 %scrollwheel with modifer.
 %Tab are not included but you can if you like
+
 global SET DATA
 
 if not(DATA.DataLoaded)
   return;
 end
 
-if strcmp(DATA.CurrentTheme,'3dp') && any(strcmp(DATA.ViewPanelsType{DATA.CurrentPanel},{'trans3DP','sag3DP','cor3DP','speedim','viewport'}))
+%  scrollwheelfcn(h,e)
+if DATA.issegment3dp 
   segment3dp.tools('scrollwheelfcn3dp',h,e)
   return;
 end
 
 wheelup = e.VerticalScrollCount>0;
+speed = e.VerticalScrollCount;
 
 modifier = char(get(gcbf,'currentmodifier'));
 
@@ -3694,10 +4182,11 @@ switch mod_str
 %     end
   case 'control'
     if wheelup
-      thumbnailslider_Callback('up');
+      zoomfactor = -1; %zoom out
     else
-      thumbnailslider_Callback('down');      
+      zoomfactor = 1;% zoom in
     end
+    viewfunctions('zoom',zoomfactor)
   case 'shift-alt'
   case 'control-alt'
   case 'shift-control'
@@ -3715,16 +4204,226 @@ switch mod_str
     end
   case 'shift-control-alt'
   otherwise %no modifier
-    if SET(no).ZSize>1
-      
+    if isoverthumbnails() % check if mouse positioned over thumbnails
       if wheelup
-        viewfunctions('switchslice',1);
+        thumbnailslider_Callback('up');
       else
-        viewfunctions('switchslice',-1);
+        thumbnailslider_Callback('down');
       end
-      
+    else
+      overno = getnoformouseposition;
+      if ~isempty(overno)
+        panel = find(DATA.ViewPanels == overno);
+        if ~ismember(DATA.CurrentPanel,panel)
+          set(DATA.fig,'SelectionType','normal'); % to make sure not to get context menu to pop-up
+          buttondownfunctions('buttondown',panel(1),'select'); % switch to panel where mouse is
+        end
+        
+        if isequal(DATA.ViewPanelsType{DATA.CurrentPanel},'viewport')
+          %Viewport, zoom in / out
+          DATA.LevelSet.ViewPort.zoom(-speed/5);
+        else
+
+          %Normal image switchslice
+          if SET(no).ZSize>1
+            if wheelup
+              viewfunctions('switchslice',1);
+            else
+              viewfunctions('switchslice',-1);
+            end
+          end
+
+        end
+
+      end
     end
 end
+%----------------------------------
+function no = getnoformouseposition
+%----------------------------------
+global DATA
+%Get where the mouse is
+cp = get(DATA.fig,'CurrentPoint');
+
+%List of parts to check collision with
+numpanels = length(DATA.ViewPanelsType);
+%--- Create a point matrix with corners for all objects
+pmatrix = zeros(numpanels,4);
+
+%First start with all panels
+h = DATA.Handles;
+for loop = 1:numpanels  
+  pmatrix(loop,:) = getpixelposition(h.imageaxes(loop));
+end
+
+%Compute corners for all
+pmatrix(:,3) = pmatrix(:,1)+pmatrix(:,3);
+pmatrix(:,4) = pmatrix(:,2)+pmatrix(:,4);
+
+no = [];%DATA.ViewPanels(DATA.CurrentPanel);
+for loop = 1:numpanels
+  pos = pmatrix(loop,:);
+  %Check if inside
+  if (cp(1)>=pos(1)) && (cp(1)<=pos(3)) && (cp(2)>=pos(2)) && (cp(2)<=pos(4))
+    no = DATA.ViewPanels(loop);
+    break    
+  end  
+end
+
+
+%-----------------------------
+function isover = isoverthumbnails
+%-----------------------------
+% check if mouse positioned over thumbnails
+global DATA
+% current position of the mouse
+mousepos = get(DATA.fig,'CurrentPoint');
+% positions of thumbnails and thumbnailslider in pixel
+thumbpos = getpixelposition(DATA.Handles.datasetaxes);
+sliderpos = getpixelposition(DATA.Handles.thumbnailslider);
+
+% compute position of the upper right and lower right corners, based on
+% width and height of thumbnails and thumbnail slider
+thumbpos(3) = thumbpos(1)+thumbpos(3)+sliderpos(3);
+thumbpos(4) = thumbpos(2)+thumbpos(4)+sliderpos(4);
+
+% check if mouse position is inside thumbnails positions
+if (mousepos(1) >= thumbpos(1)) && (mousepos(1) <= thumbpos(3)) ...
+    && (mousepos(2) >= thumbpos(2)) && (mousepos(2) <= thumbpos(4))
+  isover = true;
+else
+  isover = false;
+end
+
+%--------------------------------------
+function scrollwheelfcn(h,eventdata)
+%--------------------------------------
+%This is a new scrollwheel function that includes location awareness
+%This is heavily inspired by scrollwheelfcn3dp
+
+global DATA SET NO
+
+persistent ongoing started
+
+%Prevent that is run multiple times before it is finished
+if isempty(ongoing) %persistent variable is [] when not initialised, or when manually put back to that
+  ongoing = true; %We are running
+  dorun = true;
+  started = now;
+else
+  dorun = false; %The function is already running, skip to run it again
+
+  %In case the function has crashed allow to run if it has not been run
+  %very recently i.e 0.5 s. Theoretically this section should never run
+  if isempty(started)
+    started = now;
+  else
+    if (now-started)*24*3600 > 0.5
+      dorun = true;
+      ongoing = [];
+    end
+  end
+end
+
+if dorun
+
+  %Get how much one should scroll
+  arg = -eventdata.VerticalScrollCount;
+
+  wheelup = eventdata.VerticalScrollCount>0;
+
+  %Get modifier
+  modifier = char(get(h,'currentmodifier'));
+  modstr = modifier;
+
+  %Get where the mouse is
+  cp = get(DATA.fig,'CurrentPoint');
+
+  %List of parts to check collision with
+  numpanels = length(DATA.ViewPanelsType);
+
+  h = DATA.Handles;
+  hvec = [...
+    h.imageaxes(1:numpanels) ...
+    h.datasetaxes ...
+    h.timebaraxes ...
+    h.volumeaxes];
+
+  %List of type
+  hlist = [DATA.ViewPanelsType ...
+    {'datasetaxes'} ...
+    {'timebaraxes'} ...
+    {'volumeaxes'}];
+
+  %List of NO
+  nolist = [DATA.ViewPanels repmat(DATA.CurrentPanel,1,3)]; %these three last refer to that datasetaxes, timebaraxes, and volume axes are not coupled to specific no
+
+  %Set units to pixels
+  set(hvec,'Units','pixels');
+
+  pmatrix = zeros(length(hvec),4);
+
+  for loop = 1:length(hvec)
+    pmatrix(loop,:) = hvec(loop).Position;
+  end
+
+  %Compute corners
+  pmatrix(:,3) = pmatrix(:,1)+pmatrix(:,3);
+  pmatrix(:,4) = pmatrix(:,2)+pmatrix(:,4);
+
+
+  %Loop over them to check if inside some of them
+  hit = [];
+  hitp = 1; %position in the vector where the hit was made
+  loop = 1;
+  while isempty(hit) && loop<=length(hlist)
+  
+    pos = pmatrix(loop,:);
+
+    %Check if inside
+    if (cp(1)>=pos(1)) && (cp(1)<=pos(3)) && (cp(2)>=pos(2)) && (cp(2)<=pos(4))
+      hit = hlist{loop};
+      hitp = loop;
+    end
+
+    %Increase counter
+    loop = loop+1;
+  end
+
+  %Set units back to pixels, this is important for continued 
+  set(hvec,'Units','normalized');
+
+  %If one does not hover over something defined then exit
+  if isempty(hit)
+    return
+  end
+
+  %We hit something take action :-)
+
+  switch hit
+    case {'one','montage','montagerow'}
+      %Scroll in stack
+      panel = hitp;
+      no = nolist(hitp);
+      modstr
+    case 'timebaraxes'
+
+    case 'datasetaxes'
+      if wheelup
+        thumbnailslider_Callback('up');
+      else
+        thumbnailslider_Callback('down');
+      end
+  end
+
+  %hit
+  %hitp
+  %nolist(hitp)
+
+  %Put it back to allow run the next call
+  ongoing = [];
+
+end %dorun
 
 %---------------------------------
 function recursekeyreleasefcn(h,fcn)
@@ -3792,37 +4491,49 @@ if isempty(DATA.Handles.thumbnailslider) || (~DATA.DataLoaded) || DATA.Silent
   return;
 end
 
+if DATA.ShowRelevantStacksOnly
+  numstacks = length(DATA.RelevantStacks);
+  if numstacks == 0
+    numstacks = length(SET);
+  end
+else
+  numstacks = length(SET);
+end
+
+
 %Get range
-slidermin=1;
-slidermax=min(max(length(SET)-DATA.Pref.NumberVisibleThumbnails+1,1),length(SET));
+slidermin = 1;
+slidermax = min(max(numstacks-DATA.Pref.NumberVisibleThumbnails+1,1),numstacks);
 
 %get slider value
-slidervalue=slidermax-round(mygetvalue(DATA.Handles.thumbnailslider))+1;
-slidervalue=min(max(slidervalue,slidermin),slidermax);
+slidervalue = slidermax-round(mygetvalue(DATA.Handles.thumbnailslider))+1;
+slidervalue = min(max(slidervalue,slidermin),slidermax);
 
 if nargin==0
   %No argument simply user changed slider
   if isempty(DATA.VisibleThumbnails)
-    DATA.VisibleThumbnails=1:min(DATA.Pref.NumberVisibleThumbnails,length(SET));
+    DATA.VisibleThumbnails = 1:min(DATA.Pref.NumberVisibleThumbnails,numstacks);
   end
 
-  firstthumbnail=slidervalue;
-  lastthumbnail=max(min(firstthumbnail+DATA.Pref.NumberVisibleThumbnails-1,length(SET)),1);
+  firstthumbnail = slidervalue;
+  lastthumbnail = max(min(firstthumbnail+DATA.Pref.NumberVisibleThumbnails-1,numstacks),1);  
 else
   switch whattodo
     case 'down'
-      firstthumbnail=max(DATA.VisibleThumbnails(1),1);
-      lastthumbnail=min(firstthumbnail+DATA.Pref.NumberVisibleThumbnails-1,length(SET));
+      indfirst = find(DATA.RelevantStacks == DATA.VisibleThumbnails(1));
+      firstthumbnail = max(indfirst-1,1);
+      lastthumbnail = min(firstthumbnail+DATA.Pref.NumberVisibleThumbnails-1,numstacks);
       slidervalue = firstthumbnail;
     case 'up'
-      lastthumbnail=min(DATA.VisibleThumbnails(end),length(SET));
-      firstthumbnail=max(lastthumbnail-DATA.Pref.NumberVisibleThumbnails+1,1);
-      slidervalue = firstthumbnail;      
+      indlast = find(DATA.RelevantStacks == DATA.VisibleThumbnails(end));
+      lastthumbnail = min(indlast+1,numstacks);
+      firstthumbnail = max(lastthumbnail-DATA.Pref.NumberVisibleThumbnails+1,1);
+      slidervalue = firstthumbnail;
   end
 end
 
 %Do the update
-if slidermin==slidermax
+if slidermin == slidermax
   set(DATA.Handles.thumbnailslider,...
   'min', 0,...
   'max',1,...
@@ -3831,7 +4542,7 @@ if slidermin==slidermax
   'enable','off');
 else
   %sliderstep=[1/(length(SET)-DATA.Pref.NumberVisibleThumbnails+1),(slidermax-slidermin+1)];%[0.25/(slidermax-slidermin) 0.5/(slidermax-slidermin)];
-  sliderstep = [1/(length(SET)-DATA.Pref.NumberVisibleThumbnails),2/(length(SET)-DATA.Pref.NumberVisibleThumbnails)];
+  sliderstep = [1/(numstacks-DATA.Pref.NumberVisibleThumbnails),2/(numstacks-DATA.Pref.NumberVisibleThumbnails)];
   set(DATA.Handles.thumbnailslider,...
     'min',slidermin,...
     'max',slidermax,...
@@ -3839,15 +4550,19 @@ else
     'value',slidermax-slidervalue+1,...
     'visible','on',...
     'enable','on');
-  if length(SET) <DATA.Pref.NumberVisibleThumbnails
-      set(DATA.Handles.thumbnailslider,'visible','off','enable','off');
-  end    
+  if numstacks < DATA.Pref.NumberVisibleThumbnails
+    set(DATA.Handles.thumbnailslider,'visible','off','enable','off');
+  end
+end
+if DATA.ShowRelevantStacksOnly && ~isempty(DATA.RelevantStacks)
+  DATA.VisibleThumbnails = DATA.RelevantStacks(firstthumbnail:lastthumbnail);
+else
+  DATA.VisibleThumbnails = firstthumbnail:lastthumbnail;
 end
 
-DATA.VisibleThumbnails=firstthumbnail:lastthumbnail;
 
 %---------------------
-function saveguipositiontodisk %#ok<DEFNU>
+function saveguipositiontodisk 
 %---------------------
 %Save guipositions to disk
 global DATA
@@ -3861,7 +4576,7 @@ catch %#ok<CTCH>
   return;
 end
 
-disp('GUI Positions saved.')
+logdisp('GUI Positions saved.')
 
 %--------------------------------
 function numericversion=getnumericversion
@@ -3874,7 +4589,7 @@ rpos=find(upper(stringversion)=='R');
 numericversion=str2double(stringversion(rpos+1:end));
 
 %--------------------------
-function resetguipositions %#ok<DEFNU>
+function resetguipositions 
 %--------------------------
 %Resets GUI positions of Segment.
 global DATA
@@ -3893,14 +4608,14 @@ for loop = 1:length(guinames)
       setguiposition(gui);
       mainresize_Callback;
     catch me
-      disp(sprintf('Could not reset GUI %s',guinames{loop})); %#ok<DSPS>
+      logdisp(sprintf('Could not reset GUI %s',guinames{loop})); %#ok<DSPS>
       mydispexception(me);
     end
   end
 end
 
 %---------------------------------------------------
-function corrupted=checkcorrupteddataforautomaticsave(setstruct) %#ok<DEFNU>
+function corrupted=checkcorrupteddataforautomaticsave(setstruct) 
 %---------------------------------------------------
 %This function checks if the data (SET) is corrupted due to corrupted
 %loading when loading files which has been saved with older saveversion
@@ -4009,7 +4724,7 @@ end
  viewfunctions('switchslice',sliceincr,1);
  
  %-----------------------------------------------
-function [intersections, maxintersect] = getendointersection(no) %#ok<DEFNU>
+function [intersections, maxintersect] = getendointersection(no) 
 %-----------------------------------------------
 % Returns the intersection of the endocardial segmentation and the current
 % slice and current time frame of SET(no)
@@ -4036,6 +4751,67 @@ if(isfield(SET,'Intersection') && ...
   end
 
 end
+
+%-----------------------------------------------------
+function currentdatatypedescription = getcurrentdatatypedescription(no)
+%-----------------------------------------------------
+% get full decription for the current data type
+global SET
+if nargin == 0
+  no = 1;
+end
+[defaultdatatype,defaultdescription] = segment('getdefaultdatatypes');
+currentdatatype = SET(no).DataType;
+ind = find(matches(defaultdatatype,currentdatatype));
+if ~isempty(ind)
+  currentdatatypedescription = defaultdescription{ind};
+else
+  currentdatatypedescription = dprintf('Invalid data type');
+end
+
+
+%-----------------------------------------------------
+function [defaultdatatype,defaultdescription] = getdefaultdatatypes
+%-----------------------------------------------------
+% Define default data types and their corresponding descriptions
+defaultdatatype = {'mr','ct','rodent','fetus'};
+numentries = numel(defaultdatatype);
+defaultdescription = repmat({''},1,numentries);
+% place translated
+for loop = 1:numentries
+  currenttype = defaultdatatype{loop};
+  switch currenttype
+    case 'mr'
+      defaultdescription{loop} = sprintf('%s %s',dprintf('MR'),dprintf('Human'));
+    case 'ct'
+      defaultdescription{loop} = sprintf('%s %s (beta)',dprintf('CT'),dprintf('Human'));
+    case 'rodent'
+      defaultdescription{loop} = sprintf('%s %s (beta)',dprintf('MR'),dprintf('Rodent'));
+    case 'fetus'
+      defaultdescription{loop} = sprintf('%s %s (beta)',dprintf('MR'),dprintf('Fetus'));
+  end
+end
+
+%---------------------------------------
+function changedatatype(newdatatype)
+%---------------------------------------
+% change data type in SET struct
+
+global SET
+
+if strcmpi(SET(1).DataType,newdatatype)
+  % same data type, do nothing
+else
+  % replace SET.DataType with new datatype for all stacks
+  for no = 1:length(SET)
+    SET(no).DataType = newdatatype;
+    if ~isempty(SET(no).StrainMitt) && isa(SET(no).StrainMitt,'strainmitt.clstrain')
+      strainmitt.strainmitt('updatedatatypestrainmode',no,newdatatype);
+    end
+  end
+  logdisp(['DataType changed to ',newdatatype]);
+end
+
 
 
 

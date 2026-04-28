@@ -4,7 +4,7 @@ function myworkoff(fignr)
 
 %Einar Heiberg
 
-global DATA
+global DATA %#ok<*GVMIS> 
 %resume last pointer
 
 if nargin==0
@@ -20,7 +20,7 @@ end
 
 if ~isempty(DATA)
   if isequal(DATA.LastPointer,'custom')
-    set(DATA.imagefig,'pointer',DATA.LastPointer,...
+    set(fignr,'pointer',DATA.LastPointer,...
       'pointershapecdata',DATA.LastPointerShapeCData);
   end
 end

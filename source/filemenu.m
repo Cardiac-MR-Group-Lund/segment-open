@@ -4,8 +4,8 @@ function varargout = filemenu(varargin)
 
 % Nisse Lundahl
 
+%#ok<*GVMIS> 
 %Invoke subfunction
-macro_helper(varargin{:}); %future macro recording use
 if (nargout)
   [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 else
@@ -16,7 +16,7 @@ end
 function loadednext = loadnext_Callback %#ok<*DEFNU>
 %--------------------------------------
 %Load next .mat file in the current data folder.
-global DATA SET NO
+global DATA SET NO 
 
 if ~DATA.DataLoaded
   loadednext = 0;
@@ -31,7 +31,7 @@ end
 %Get filename from first image stack.
 filename = SET(1).FileName;
 
-[pathname,filename,ext] = fileparts(filename);
+[pathname,filename,~] = fileparts(filename);
 
 f = dir([pathname filesep '*.mat']);
 
@@ -76,13 +76,28 @@ if (pos+1)<=length(f)
     openfile('setupstacksfrommat',NO);
     segment('renderstacksfrommat');
  
+     if SET(1).Autoloader.Autoloaded && SET(1).Autoloader.Autoanalysed %file was created with autoloader and analysed
+      DATA.CurrentTheme = 'review';
+     end
+
     %Does all graphical updates
     if not(isempty(DATA.ViewMatrix))
       DATA.init_graphics;
     end
     
     DATA.NeedToSave = false;
-    
+   
+    %Show warnings from Autoloader
+    if SET(1).Autoloader.Autoloaded %file was created with autoloader
+      set(DATA.Handles.autoloaderwarningsmenu, 'Enable', 'on');
+      if ~SET(1).Autoloader.Approved
+         if ~isempty(SET(1).Autoloader.Warnings)
+           warningfunctions('showautoloaderwarnings', 'AI AutoMate', SET(1).Autoloader.Autoanalysed);
+         end
+      end
+    else
+      set(DATA.Handles.autoloaderwarningsmenu, 'Enable', 'off');
+    end
   catch me
     mydispexception(me);
   end
@@ -92,29 +107,55 @@ else
   loadednext = 0;
 end
 
+%---------------------------------------------
+function savetopatientdatabaseandpacs_Callback
+%---------------------------------------------
+%Callback to save image stacks to patientdatabase and PACS in one go.
+
+savetopatientdatabase_Callback;
+savetopacs_Callback;
+
 %--------------------------------------
-function savetopatientdatabase_Callback
+function savetopatientdatabase_Callback(saveinbackground,autocomment)
 %--------------------------------------
 %Callback to save image stacks to patientdatabase. Uses functions in
 %patientdatabase.
+
+%If the option 'saveinbackground' is set to true, then the comment
+%'autocomment' is automatically added to the study in the patient database.
+%This is used when exporting to REDCap database for example.
+
 global DATA SET NO
+
+if nargin < 1
+  saveinbackground = false;
+end
+
+if nargin < 2
+  autocomment = [];
+end
+
 tools('closeallongoinginterpolations');
 [pathname,filename,ext] = fileparts(SET(NO).FileName);
 
-if DATA.Pref.AskAddComment
-  try
-    patientdatabase('addcomment_init');
-  catch me
-    mydispexception(me);
+if ~saveinbackground
+  if DATA.Pref.AskAddComment
+    try
+      comment = patientdatabase('addcomment_init');
+    catch me
+      mydispexception(me);
+    end
+  else
+    comment = [];
   end
-  
 else
-  
-  try
-    patientdatabase('savetodatabase',pathname,filename,ext,[]);
-  catch me
-    mydispexception(me);
-  end
+  comment = autocomment;
+end
+
+try
+  patientdatabase('savetodatabase',pathname,filename,ext,comment,saveinbackground);
+catch me
+  mydispexception(me);
 end
 
 %------------------------
@@ -122,10 +163,14 @@ function saveall_Callback
 %------------------------
 %Saves all image stacks to one .mat file. Calls GUI method 
 %filesaveallas_Callback which is the workhorse when saving image stacks.
+
 global DATA SET
+
 tools('closeallongoinginterpolations');
 filenames = unique({SET.FileName});
+filenames = filenames(~cellfun('isempty', filenames));
 if numel(filenames) > 1
+  filenames = strrep(filenames,'\','\\');
   i = mymenu('Multiple file names were found in data. Select where to save', ...
     filenames);
   if i > 0
@@ -135,7 +180,11 @@ if numel(filenames) > 1
     return
   end
 else
-  fname = filenames{1};
+  if ~isempty(filenames)
+    fname = filenames{1};
+  else
+    fname = filenames;
+  end
 end
 [pathname,filename,ext] = fileparts(fname);
 
@@ -150,29 +199,55 @@ end
 DATA.LastSaved = now;
 flushlog;
 
-%---------------------------------------------------------------------------
-function fail = saveallas_helper(pathname,filename,topatientdatabase,silent)
-%---------------------------------------------------------------------------
+%--------------------------------------------------------------------------------
+function fail = saveallas_helper(pathname,filename,topatientdatabase,silent,fast)
+%--------------------------------------------------------------------------------
 %Save all image stacks to the file specified. It also stores current view
 %and modes etc.
 
 global DATA SET NO
     
-if nargin<3
+if nargin < 3
   topatientdatabase = false; %Default save to disk not patientdatabase
   %Setting this to true only changes the final saved display message.
 end
 
-if nargin<4
+if nargin < 4
   silent = DATA.Silent;
 end
 
-fail=0;
+if nargin < 5
+  fast = false;
+end
 
-% if not(DATA.DataLoaded)
-%   myfailed('Nothing to save.',DATA.GUI.Segment);
-%   return;
-% end;
+fail = 0; %optimistic
+
+%Check if there are different patientnames, only performed if not silent
+if ~silent
+  differentnames = false;
+  differencestring = '';
+  patientname = SET(1).PatientInfo.Name;
+  namestri = dprintf('Name');
+  stackstri = dprintf('Stack');
+  for loop = 2:length(SET)
+    thisname = SET(loop).PatientInfo.Name;
+    if ~isequal(patientname,thisname)
+      differentnames = true;
+      differencestring = sprintf('%s%s: %d, %s: "%s"\n',differencestring,stackstri,loop,namestri,thisname);
+    end
+  end
+  if differentnames
+    originalname = sprintf('Stack: %d, %s:"%s"\n',1,namestri,patientname);
+    messagestri = dprintf('Different patient names detected.');
+    messagestri = [messagestri newline originalname differencestring];
+    messagestri = [messagestri newline dprintf('It is recommended to abort and update patient info.') ' '];
+    messagestri = [messagestri dprintf('Continue anyway') '?'];
+    if ~yesno(messagestri)
+      fail = true;
+      return
+    end
+  end
+end
 
 %--- Get filename and pathname
 if nargin==0
@@ -209,7 +284,7 @@ else
   filename = [filename '.mat'];
 end
 
-myworkon;
+myworkon(DATA.fig);
 
 %Store info about current user (e.g. username, computer name, date)
 %according to user preferences
@@ -235,14 +310,25 @@ SET(1).View.ViewMatrix = DATA.ViewMatrix;
 SET(1).View.ThisFrameOnly = DATA.ThisFrameOnly;
 SET(1).View.CurrentPanel = DATA.CurrentPanel;
 SET(1).View.CurrentTheme = DATA.CurrentTheme;
+SET(1).View.RelevantMode = DATA.ShowRelevantStacksOnly;
 SET(1).View.CurrentTool = DATA.CurrentTool;
 SET(1).View.LVNO = DATA.LVNO;
 SET(1).View.RVNO = DATA.RVNO;
 SET(1).View.FlowNO = DATA.FlowNO;
 SET(1).View.FlowROI = DATA.FlowROI;
-preview = DATA.DATASETPREVIEW; %saved to file
-info = SET(NO).PatientInfo;
 
+%get preview
+if DATA.ShowRelevantStacksOnly
+  % create preview of all stacks
+  preview = calcfunctions('calcdatasetpreview_helper');
+else
+  preview = DATA.DATASETPREVIEW; %saved to file
+end
+
+%get info 
+info = SET(NO).PatientInfo;
+%correct study date 
+info.AcquisitionDate = helperfunctions('getmostrecentstudydate');
 %fake data
 info.NFrames = 0;
 info.NumSlices = 0;
@@ -269,41 +355,138 @@ info.IntensityScaling = 1;
 info.IntensityOffset = 0;
 info.MultiDataSet = true;
 info.Modality = SET(1).Modality;
+if ~isempty(SET(1).Autoloader)
+  %only AutoMate format in patient database if it is autoloaded and not
+  %reviewed
+  info.AutoMateformat = SET(1).Autoloader.Autoloaded && ~SET(1).Autoloader.Approved;
+else
+  info.AutoMateformat = false;
+end
 
 im = [];  %saved to file
+
+if DATA.issegment3dp()
+  myworkon(DATA.fig)
+  for loop = 1:length(SET)
+
+    %Compress infinite number of objects and force them to be compressed
+    SET(loop).LevelSet.Object.docompress(inf,true); 
+
+    %Restore image enhancement
+    if isfield(SET(loop),'IMBackup') && (~isempty(SET(loop).IMBackup))
+      SET(loop).IM = SET(loop).IMBackup;
+      SET(loop).IMBackup = [];
+    end
+
+  end
+end
+
 setstruct = SET;  %saved to file
 
 lastwarn('');
-warnchk = 'not saved';
+warnchk1 = 'not saved';
+warnchk2 = 'corrupt';
+
+retried = false;
 try
-  save(fullfile(pathname,filename),'preview','info','im','setstruct', DATA.Pref.SaveVersion);
+
+  %Check size
+  w = whos('SET');
+
+  myworkon(DATA.fig);
+  drawnow;
+  threshold = 1.5; %smaller than 1.5 GB
+
+  if ((w.bytes/1e9) < threshold) && (~fast) 
+    %File is smaller than threshold => default and it is not fast
+    logdisp('Normal save')
+    fail = true; %#ok<NASGU> 
+    tic
+    save(fullfile(pathname,filename),'preview','info','im','setstruct', DATA.Pref.SaveVersion);
+    t = toc;
+    logdisp(sprintf('Saving took %0.5g s',t));
+    fail = false;
+  else
+    %Save with nocompression
+    logdisp('Save with compression')
+    retried = true; %It will be no use re-saving it
+    fail = true; %#ok<NASGU> %pesimistic
+    tic
+    save(fullfile(pathname,filename),'preview','info','im','setstruct', '-v7.3','-nocompression');
+    t = toc;
+    logdisp(sprintf('Saving took %0.5g s',t));
+    fail = false;
+  end
+
   warnmsg = lastwarn;
   lastwarn('');
-  if contains(warnmsg,warnchk)
-    mydisp('Retrying using -v7.3 version.');
-    save(fullfile(pathname,filename),'preview','info','im','setstruct','-v7.3')
+  if contains(warnmsg,warnchk1) || contains(warnmsg,warnchk2)
+
+    if ~retried
+      mywarning('First save attempt failed, retrying using -v7.3 version.');
+      logdisp('String contained corrupt or not saved')
+      fail = true; %#ok<NASGU> 
+      save(fullfile(pathname,filename),'preview','info','im','setstruct','-v7.3','-nocompression'); %added nocompression 2024-09-26 /EiH
+      fail = false;
+      retried = true;
+      warnmsg = lastwarn;
+      lastwarn('');
+      if ~isempty(warnmsg)
+        myfailed('Dataset cannot be saved');
+        fail = 1;
+        myworkoff(DATA.fig);
+        return;
+      end
+
+    else
+      mywarning('Problem saving');
+    end
+
+  end
+  myworkoff(DATA.fig);
+catch me %#ok<CTCH>
+  mydispexception(me);
+
+  if ~retried
+    mywarning('First save attempt failed, retrying using -v7.3 version.');
+    lastwarn('');
+    fail = false;
+    try
+      save(fullfile(pathname,filename),'preview','info','im','setstruct','-v7.3','-nocompression'); %added nocompression 2024-09-26 /EiH
+    catch me
+      mydispexception(me)
+      fail = true;
+    end
+    retried = true;
     warnmsg = lastwarn;
     lastwarn('');
     if ~isempty(warnmsg)
-      myfailed('Dataset cannot be saved');
-      fail = 1;
-      myworkoff;
-      return;
+      fail = true;
+    end
+  else
+    fail = 1;
+  end
+
+  if fail || not(retried)
+    if contains(me.message,warnchk1) || contains(me.message,warnchk2)
+      stri = dprintf('Save failed. Data may be corrupted.');
+      if DATA.issegment3dp
+        stri = [stri ' ' dprintf('Try to delete unecessary objects or crop image volume.')];
+      end
+      stri = [stri ' ' dprintf('Retry saving under a different name.')];
+      myfailed(stri);
+    else
+      myfailed('Could not save data. Write permission? Disk full?',DATA.GUI.Segment);
     end
   end
-  myworkoff;
-catch %#ok<CTCH>
-  if ~silent
-    myfailed('Could not save data. Write permission? Disk full?',DATA.GUI.Segment);
-  end
-  fail = 1;
-  myworkoff;
+  myworkoff(DATA.fig);
   return;
 end
 
 if not(silent)
   if topatientdatabase
-    mymsgbox('Image Stacks Saved to Patient Database.');
+    mymsgbox('Image stacks saved to patient database.');
+    logdisp('Image stacks saved to patient database.');
   else
     filename = SET(NO).FileName;
     if length(SET)>1
@@ -312,12 +495,13 @@ if not(silent)
       stri = dprintf('Image stack and segmentation stored to %s.',filename);
     end
     mymsgbox(stri,'Save successful.',DATA.GUI.Segment);
+    logdisp('Save successful');
   end
 end
 if ~isempty(SET(1).FileName)
-  str = sprintf('%s\t%s\t%s\t%s',datestr(now,'yyyy-mm-dd HH:MM'),getenv('USERNAME'),sprintf('Saved file %s',SET(1).FileName),SET(1).PatientInfo.ID);
+  str = sprintf('%s\t%s\t%s\t%s',datestr(now,'yyyy-mm-dd HH:MM'),DATA.LoggedUser,sprintf('Saved file %s',SET(1).FileName),SET(1).PatientInfo.ID);
 else
-  str = sprintf('%s\t%s\t%s\t%s',datestr(now,'yyyy-mm-dd HH:MM'),getenv('USERNAME'),sprintf('Saved file %s',SET(1).PathName),SET(1).PatientInfo.ID);
+  str = sprintf('%s\t%s\t%s\t%s',datestr(now,'yyyy-mm-dd HH:MM'),DATA.LoggedUser,sprintf('Saved file %s',SET(1).PathName),SET(1).PatientInfo.ID);
 end
 
 DATA.adduserevent(str);
@@ -349,14 +533,20 @@ function savetopacs_Callback
 %available PACS (.con files) and when user has selected store files on disk
 %temporarily and then send the files to the PACS.
 
+global SET
+
 % save to pacs
 try
-  pacsaccess('savetopacs');
-  mymsgbox('Image stacks saved to PACS.')
+ successful = pacsaccess('savetopacs');
+ if successful == 1
+    mymsgbox('Image stacks saved to PACS.')
+ end
 catch e
   myfailed(e.message);
 end
 
+%Remove temp file used to export to PACS
+pacsaccess('removetempsegdicom');
 
 %----------------------------
 function savecurrent_Callback 
@@ -438,12 +628,12 @@ for i = kidsno
 end
 
 try
-  myworkon;
+  myworkon(DATA.fig);
   save(fullfile(pathname,filename),'preview','info','im','setstruct');
-  myworkoff;
+  myworkoff(DATA.fig);
 catch %#ok<CTCH>
   myfailed('Could not save data. Write permission? Disk full?',DATA.GUI.Segment);
-  myworkoff;
+  myworkoff(DATA.fig);
   return;
 end
 mymsgbox('Current image stack stored.','',DATA.GUI.Segment);
@@ -476,7 +666,7 @@ else
   end
 end
 
-[temppath,tempname,ext] = fileparts(fullfile(pathname,filename));
+[~,~,ext] = fileparts(fullfile(pathname,filename));
 if isempty(ext)
   filename = [filename '.seg'];
 end
@@ -556,12 +746,12 @@ if not(isempty(SET(NO).Scar))
   SEG.Scar = SET(NO).Scar;
 end
 try
-  myworkon;
+  myworkon(DATA.fig);
   save(fullfile(pathname,filename),'SEG', DATA.Pref.SaveVersion);
-  myworkoff;
+  myworkoff(DATA.fig);
 catch %#ok<CTCH>
   myfailed('Could not save data. Write permission? Disk full?',DATA.GUI.Segment);
-  myworkoff;
+  myworkoff(DATA.fig);
   return;
 end
 
@@ -613,6 +803,7 @@ SET(1).View.ViewMatrix = DATA.ViewMatrix;
 SET(1).View.ThisFrameOnly = DATA.ThisFrameOnly;
 SET(1).View.CurrentPanel = DATA.CurrentPanel;
 SET(1).View.CurrentTheme = DATA.CurrentTheme;
+SET(1).View.RelevantMode = DATA.ShowRelevantStacksOnly;
 SET(1).View.CurrentTool = DATA.CurrentTool;
 SET(1).View.LVNO = DATA.LVNO;
 SET(1).View.RVNO = DATA.RVNO;
@@ -638,18 +829,29 @@ end
 
 try
   if isempty(PatientInfo)
-    segdicomfile.create(filename, SET, study_uid, ...
-      'Mixed patients', '', '', '',DATA.Pref.Pacs.SwitchTags);
+    patname = 'Mixed patients';
+    patid = '';
+    patbd = '';
+    patsex = '';
   else
-    segdicomfile.create(filename, SET, study_uid, ...
-      PatientInfo.Name, PatientInfo.ID, ...
-      PatientInfo.BirthDate, PatientInfo.Sex,DATA.Pref.Pacs.SwitchTags);
+    patname = PatientInfo.Name;
+    patid = PatientInfo.ID;
+    patbd = PatientInfo.BirthDate;
+    patsex = PatientInfo.Sex;
   end
-catch e
-  if strcmp(e.identifier, 'SEGMENT:ERROR')
-    myfailed(e.message);
+  devicemodelname = helperfunctions('getdevicemodelname');
+  seriesdescription = helperfunctions('getseriesdescriptionfordevice');
+  segdicomfile.create(filename, SET, study_uid, ...
+    patname, patid, ...
+    patbd, patsex,DATA.Pref.Pacs.SwitchTags,...
+    devicemodelname,seriesdescription);
+
+catch me
+  if strcmp(me.identifier, 'SEGMENT:ERROR')
+    mydispexception(me)
+    myfailed(me.message);
   else
-    rethrow(e);
+    rethrow(me);
   end
 end
 success = true;
@@ -675,24 +877,48 @@ if nargin>0 && frompreviewmenu
 %   y=p(1,2); % vertical
 %   no = floor(y/DATA.GUISettings.ThumbnailSize)+1;
 %   DATA.switchtoimagestack(no);
-  no = segment_main('getclickedpreview');
+  no = segment_main('thumbnailno');
+%   if no ~= NO
+%     % found mismatch between stacks 
+%     ind = mymenu('Mismatched stacks numbers. Choose stack to delete',['Image stack no ' num2str(no)], ['Image stack no ' num2str(NO)]);
+%     if ind == 0
+%       %cancel option
+%       return
+%     elseif ind == 1 
+%     elseif ind == 2
+%       no = NO;
+%     end
+%   end
 else
   no = NO;
 end
 
 if ~DATA.Silent
   if (DATA.NeedToSave)
-    if ~yesno('Unsaved changes: are you sure you want to delete the current image stack?',[],DATA.GUI.Segment)
+    qstr = dprintf('Unsaved changes: are you sure you want to delete image stack %d?',no);
+    if ~yesno(qstr,[],DATA.GUI.Segment)
       return;
     end
   end
 end
-
+logdisp(['Deleted stack ',num2str(no)])
 if length(SET) < 2
   DATA.filecloseall_Callback(true);
   return;
 end
 closeimagestack(no);
+
+%If Segment 3DPrint then take extra care when deleting image stack
+if DATA.issegment3dp
+  try
+    delete(DATA.LevelSet.ViewPort);
+    DATA.LevelSet.ViewPort = [];
+  catch
+    %Do nothing if could not be deleted, likely already deleted or empty
+  end
+  viewfunctions('setview'); %Same as clicking refresh
+end
+
 flushlog;
 
 %----------------------------------------------
@@ -701,7 +927,7 @@ function closemultipleimagestacks_Callback(arg)
 %Close multiple user selected image stacks. 
 %Useful when a lot of stacks are open.
 
-global SET NO
+global DATA SET NO
 
 if nargin < 1
   %Launch GUI
@@ -720,15 +946,20 @@ else
     kids = [SET(nos).Children];
     set(handles.imagestackslistbox,'Value',union(nos,kids));
   elseif strcmp(arg,'doclose')
+    myworkon(DATA.fig)
     if isequal(length(nos), length(SET))
-        %All imagestacks are selected=> Call closeallimagestack function: 
-        segment('filecloseall_Callback');
+      %All imagestacks are selected=> Call closeallimagestack function:
+      segment('filecloseall_Callback');
     else
-        for no = nos(end:-1:1)
-            closeimagestack(no)
-        end
-        viewfunctions('setview',1,1,NO,{'one'})%segment('switchtoimagestack',NO,true); %NO set in subfcn, force
+      for no = nos(end:-1:1)
+        closeimagestack(no)
+      end
+      viewfunctions('setview',1,1,NO,{'one'})%segment('switchtoimagestack',NO,true); %NO set in subfcn, force
+      if DATA.ShowRelevantStacksOnly
+        viewfunctions('relevantmode_Callback');
+      end
     end
+    myworkoff(DATA.fig);
     flushlog;
     close(handles.figure1);
   end
@@ -742,21 +973,49 @@ function closeimagestack(no)
 
 global DATA SET NO
 
+%Delete autoloader warning for the stack if there is one
+if ~isempty(SET(1).Autoloader)
+  if SET(1).Autoloader.Autoloaded
+    warnings = SET(1).Autoloader.Warnings;
+    if ~isempty(warnings)
+      autoloaderstackid = SET(no).StackID;
+      ind = find(autoloaderstackid == [warnings.stackID]);
+      warnings(ind) = []; %#ok<FNDSB>
+      SET(1).Autoloader.Warnings = warnings;
+    end
+  end
+end
+
 %Make sure report is preserved, if removing stack number 1
 if no == 1
   SET(2).Report = SET(1).Report;
+  SET(2).Autoloader = SET(1).Autoloader;
 end
 
-% if ~isempty(SET(no).Flow)
-%   SET(no).Flow=[];
-% end
 
 %Close all associated GUIs
 DATA.closeallnoguis(no);
+resetFlowNO = 0;
 
-%Remove as overlay from parent stack
-if ~isempty(SET(no).Parent) && isequal(SET(SET(no).Parent).Overlay,no)
-  SET(SET(no).Parent).Overlay = [];
+if ~isempty(SET(no).Parent) 
+  %Remove as overlay from parent stack
+  parentno = SET(no).Parent;
+  if isequal(SET(parentno).Overlay,no)
+    SET(parentno).Overlay = [];
+  end
+  % remove flow calculations from parent stack  
+   SET(parentno).Flow = [];
+   % go over ROI in parent stack
+   numrois = length(SET(parentno).Roi);
+   for r = 1:numrois
+     if isfield(SET(parentno).Roi(r),'Flow')
+       SET(parentno).Roi(r).Flow = [];
+       resetFlowNO = 1;
+     end
+     if isfield(SET(parentno).Roi(r),'FlowSnake')
+       SET(parentno).Roi(r).FlowSnake =[];
+     end
+   end
 end
 
 %If parent, remove all child stacks
@@ -770,54 +1029,57 @@ end
 ind(family) = false;
 %correct global LVNO, RVNO and FlowNO 
 
-resetLVNO=0;
-resetRVNO=0;
-resetFlowNO=0;
+resetLVNO = 0;
+resetRVNO = 0;
+
 if not(isempty(DATA.LVNO))
-  if any(family==DATA.LVNO)
-    resetLVNO=1;
-  elseif any(family<DATA.LVNO)
+  if any(family == DATA.LVNO)
+    resetLVNO = 1;
+  elseif any(family < DATA.LVNO)
     decreseby = length(find(family<DATA.LVNO));
     DATA.LVNO = DATA.LVNO-decreseby;
   end
 end
 if not(isempty(DATA.RVNO))
-  if any(family==DATA.RVNO)
-    resetRVNO=1;
-  elseif any(family<DATA.RVNO)
-    decreseby = length(find(family<DATA.RVNO));
+  if any(family == DATA.RVNO)
+    resetRVNO = 1;
+  elseif any(family < DATA.RVNO)
+    decreseby = length(find(family < DATA.RVNO));
     DATA.RVNO = DATA.RVNO-decreseby;
   end
 end
 if not(isempty(DATA.FlowNO))
-  if any(family==DATA.FlowNO)
-    resetFlowNO=1;
-  elseif any(family<DATA.FlowNO)
-    decreseby = length(find(family<DATA.FlowNO));
+  if any(family == DATA.FlowNO)
+    resetFlowNO = 1;
+  elseif any(family < DATA.FlowNO)
+    decreseby = length(find(family < DATA.FlowNO));
     DATA.FlowNO = DATA.FlowNO-decreseby;
   end
 end
 
+%Here it is actually deleted
 SET = SET(ind);
 
-if not(isempty(DATA.LVNO)) && (DATA.LVNO<1 || DATA.LVNO>length(SET))
+numstacks = length(SET);
+if not(isempty(DATA.LVNO)) && (any(DATA.LVNO < 1) || any(DATA.LVNO > numstacks))
   DATA.LVNO = [];
   resetLVNO = 1;
 end
-if not(isempty(DATA.RVNO)) && (DATA.RVNO<1 || DATA.RVNO>length(SET))
+if not(isempty(DATA.RVNO)) && (any(DATA.RVNO < 1) || any(DATA.RVNO > numstacks))
   DATA.RVNO = [];
   resetRVNO = 1;
 end
-if not(isempty(DATA.FlowNO)) && (DATA.FlowNO<1 || DATA.FlowNO>length(SET))
+if not(isempty(DATA.FlowNO)) && (any(DATA.FlowNO < 1) || any(DATA.FlowNO > numstacks))
   DATA.FlowNO = [];
   resetFlowNO = 1;
 end
 
 %fix references for linked images
 linkfields = {'Parent' 'Children' 'Linked'};
-taggroup = zeros(1,length(SET));
+taggroup = zeros(1,numstacks);
+laxgroup = taggroup;
 
-for setloop = 1:length(SET)
+for setloop = 1:numstacks
   for i = 1:length(linkfields)
       linkfield = linkfields{i};
       lks = SET(setloop).(linkfield);
@@ -848,12 +1110,41 @@ for setloop = 1:length(SET)
         increment = sum(family <= setloop);
         if length(family) > 1 && increment == 1
           % increase increment to 2, because we are deleting a linked stack
-          increment = increment +1;
+          increment = increment + 1;
         end
         SET(setloop).StrainTagging.cineno = SET(setloop).StrainTagging.cineno - increment;
       end
       % write value of cineno into the corresponding taggroup array
       taggroup(1,setloop) = SET(setloop).StrainTagging.cineno;
+    end
+  end
+  if isfield(SET(setloop),'StrainMitt') && ~isempty(SET(setloop).StrainMitt)
+    if strcmpi(SET(setloop).StrainMitt.ImageViewPlane,'lax')
+      if ismember(SET(setloop).StrainMitt.OriginalNO,family)
+        SET(setloop).StrainMitt.OriginalNO = setloop;
+      else
+        increment = sum(family <= SET(setloop).StrainMitt.OriginalNO);
+          if length(family) > 1 && increment == 1
+            % increase increment to 2, because we are deleting a linked stack
+            increment = increment + 1;
+          end
+          SET(setloop).StrainMitt.OriginalNO = SET(setloop).StrainMitt.OriginalNO - increment;
+          
+          if ~isempty(SET(setloop).StrainMitt.LAXGroup)
+            laxgroup(1,setloop) = SET(setloop).StrainMitt.OriginalNO;
+          end
+      end
+    else
+      if ismember(SET(setloop).StrainMitt.OriginalNO,family)
+        SET(setloop).StrainMitt.OriginalNO = setloop;
+      else
+        increment = sum(family <= SET(setloop).StrainMitt.OriginalNO);
+          if length(family) > 1 && increment == 1
+            % increase increment to 2, because we are deleting a linked stack
+            increment = increment + 1;
+          end
+          SET(setloop).StrainMitt.OriginalNO = SET(setloop).StrainMitt.OriginalNO - increment;
+      end
     end
   end
 end
@@ -866,12 +1157,47 @@ if ~isempty(taggroup)
     SET(tagloop).StrainTagging.taggroup = taggroup;
   end
 end
+
+% cleanup laxgroup 
+laxgroup = (nonzeros(laxgroup))';
+if ~isempty(laxgroup)
+  for tagloop = laxgroup
+    % write new taggroup into SET struct
+    SET(tagloop).StrainMitt.LAXGroup = laxgroup;
+  end
+end
+
+%Things for Segment 3DPrint
+if DATA.issegment3dp
+
+  %Loop over sets and ensure that O.no is correcct
+  for loop = 1:length(SET)
+    O = SET(loop).LevelSet.Object;
+    O.NO = loop;
+  end
+
+  %Update 
+  NO = 1;
+  O = SET(NO).LevelSet.Object;
+  if ~isempty(O)
+    O.updateobjectlist();
+    if isfield(DATA.LevelSet,'ViewPort')
+      v = DATA.LevelSet.ViewPort;
+      if (~isempty(v)) && (~isdeleted(v))
+        delete(v); %Close  the viewport
+      end
+    end
+  end
+
+end
+
 if isempty(SET)
   DATA.filecloseall_Callback(true);
   return;
 end
 
 NO = 1;
+
 %Reset NOS if deleted 
 cinestacks = findfunctions('findcineshortaxisno','true');
 
@@ -892,115 +1218,29 @@ end
 if resetFlowNO
   [DATA.FlowNO, DATA.FlowROI] = findfunctions('findflowaxisno');
 end
-% if resetLVNO || resetRVNO
-%   segment('updatevolume'); %DATA.updateaxestables('volume')
-% end
 
-% %update stack buttons
-% if isfield(DATA.Handles,'lvstackpushbutton')
-%   if ~isempty(DATA.LVNO)
-%     set(DATA.Handles.lvstackpushbutton,'String',sprintf('Stack #%d',DATA.LVNO));
-%   else
-%     set(DATA.Handles.lvstackpushbutton,'String',sprintf('SetStack'));
-%   end
-% end
-% if isfield(DATA.Handles,'rvstackpushbutton')
-%   if ~isempty(DATA.RVNO)
-%     set(DATA.Handles.rvstackpushbutton,'String',sprintf('Stack #%d',DATA.RVNO));
-%   else
-%     set(DATA.Handles.rvstackpushbutton,'String',sprintf('Set Stack'));
-%   end
-% end
-% if isfield(DATA.Handles,'flowstackpushbutton')
-%   if ~isempty(DATA.FlowNO)
-%     set(DATA.Handles.flowstackpushbutton,'String',sprintf('Stack #%d',DATA.FlowNO));
-%   else
-%     set(DATA.Handles.flowstackpushbutton,'String',sprintf('Set Stack'));
-%   end
-% end
-
-DATA.ViewMatrix=[1 1];
-viewfunctions('setview',1,1,1,{'one'}); %updates result tables
-DATA.GUISettings.ThumbnailSize=DATA.GUISettings.ThumbnailSize-1;
-drawfunctions('drawthumbnails',1);
-
-
-% %Take away from viewpanels
-% %zer = zeros(1,length(DATA.ViewPanels));
-% tempind = not(DATA.ViewPanels==no);
-% DATA.ViewPanels = DATA.ViewPanels(tempind);
-% DATA.ViewPanelsType = DATA.ViewPanelsType(tempind);
-% DATA.ViewPanelsMatrix = DATA.ViewPanelsMatrix(tempind);
-% DATA.ViewIM = DATA.ViewIM(tempind);
-% DATA.Overlay = DATA.Overlay(tempind);
-% DATA.ViewMatrix = [];
-% 
-% % %DATA.ViewPanels have internal references to old image stack ordering.
-% % for loop=1:length(DATA.ViewPanels)
-% %   temp = DATA.ViewPanels(loop);
-% %   if temp>0
-% %     newpos = zer; %zer frome above;
-% %     newpos(temp) = 1;
-% %     newpos = newpos(tempind); %tempind from above
-% %     newpos = find(newpos);
-% %     if ~isempty(newpos)
-% %       DATA.ViewPanels(loop) = newpos;
-% %     else
-% %       DATA.ViewPanels(loop) = 0;
-% %     end;
-% %   end;
-% % end;
-% 
-% %update NO
-% if isempty(DATA.ViewPanels) || all(DATA.ViewPanels==0)
-%   NO=1;
-% else
-%   tmpno = DATA.ViewPanels(find(DATA.ViewPanels,1));
-%   if tmpno<no
-%     NO=tmpno;
-%   else
-%     NO=tmpno-1;
-%   end
-% end
-% % NO = NO-length(find(ind==0));
-% % if NO < 1
-% %   NO = 1;
-% % end
-% 
-% %Update datasetpreview
-% ind = repmat(ind,DATA.GUISettings.ThumbnailSize,1);
-% % vertical
-% DATA.DATASETPREVIEW = DATA.DATASETPREVIEW(ind(:)',:);
-% 
-% DATA.CurrentPanel = DATA.CurrentPanel-1;
-% if DATA.CurrentPanel<1
-%   DATA.CurrentPanel = 1;
-% end
-
-% if ~isempty(DATA.FlowNO) && no<DATA.FlowNO
-%   DATA.FlowNO=[];
-% end
-% 
-% if ~isempty(DATA.LVNO) && no<DATA.LVNO
-%   DATA.LVNO=[];
-% end
-% 
-% if ~isempty(DATA.RVNO) && no<DATA.RVNO
-%   DATA.LVNO=[];
-% end
-
-% %Switch data does some backup before...
-% SET(NO).StartSlice = SET(NO).StartSlice;
-% SET(NO).EndSlice = SET(NO).EndSlice;
-% SET(NO).CurrentTimeFrame = SET(NO).CurrentTimeFrame;
-
-%if isempty(SET(NO).Scar) && strcmp(DATA.CurrentTheme,'scar')
-%  DATA.updateicons('lv');
-%end
-
-
-% thumbsize=DATA.GUISettings.ThumbnailSize;
-% DATA.printthumbnailnumber(thumbsize);
+if DATA.issegment3dp
+  segment3dp.callbackfunctions('view4panel_Callback');
+  newno = NO;
+else  
+  % check if it was deleted in "ShowRelevantMode"
+  if DATA.ShowRelevantStacksOnly
+    DATA.RelevantStacks = setdiff(DATA.RelevantStacks, family, 'stable');
+    if ~isempty(DATA.RelevantStacks)
+      % Calculate decrements for all elements
+      decrements = arrayfun(@(x) sum(family < x), DATA.RelevantStacks);
+      DATA.RelevantStacks = DATA.RelevantStacks - decrements;
+      NO = DATA.RelevantStacks(1);
+    else
+      viewfunctions('relevantmode_Callback')
+      return
+    end
+  end
+  newno = NO;
+  DATA.ViewMatrix = [1 1];
+  viewfunctions('setview',1,1,newno,{'one'}); %updates result tables
+end
+drawfunctions('drawthumbnails',newno);
 
 %----------------------------------------------------
 function loadsegmentation_Callback(pathname,filename) 
@@ -1026,14 +1266,14 @@ else
   end
 end
 
-SEG = [];
+SEG = []; %#ok<NASGU> 
 try
-  myworkon;
+  myworkon(DATA.fig);
   load(fullfile(pathname,filename),'SEG','-mat');
-  myworkoff;
+  myworkoff(DATA.fig);
 catch %#ok<CTCH>
   myfailed('Could not load data. Data corrupted?',DATA.GUI.Segment);
-  myworkoff;
+  myworkoff(DATA.fig);
   return;
 end
 
@@ -1055,7 +1295,7 @@ if ~isempty(SEG.EndoX)
   end
 end
 
-if str2num(removechars(SEG.ProgramVersion))>str2num(removechars(DATA.ProgramVersion)) %#ok<ST2NM>
+if str2num(removechars(SEG.ProgramVersion)) > str2num(removechars(DATA.ProgramVersion)) %#ok<ST2NM>
   mydisp('Warning, data has been generated with a later version that this program.');
 end
 
@@ -1071,7 +1311,7 @@ try
   [~,~,ext] = fileparts(SET(NO).FileName);
   if not(DATA.Silent)
     if not(isequal(ext,'.mat'))
-      if yesno('Loading segmentation to cropped image data?',[],DATA.GUI.Segment);
+      if yesno('Loading segmentation to cropped image data?',[],DATA.GUI.Segment)
         xofs = SEG.XMin-SET(NO).XMin;
         yofs = SEG.YMin-SET(NO).YMin;
       else
@@ -1093,7 +1333,8 @@ try
   SET(NO).EpiX = SEG.EpiX+xofs;
   SET(NO).EpiY = SEG.EpiY+yofs;
   if is098
-    [SET(NO).EpiX,SET(NO).EpiY] = calcfunctions('resamplemodel',SET(NO).EpiX,SET(NO).EpiY,DATA.NumPoints);
+    datanumpoints = tools('getnumpointsforno',NO);
+    [SET(NO).EpiX,SET(NO).EpiY] = calcfunctions('resamplemodel',SET(NO).EpiX,SET(NO).EpiY,datanumpoints);
   end
 
   SET(NO).EndoPinX = SEG.EndoPinX; %They are translated below.
@@ -1337,11 +1578,11 @@ if ~isempty(DATA)
     commandlinehelper('reset');
   else
     if DATA.quit
-      DATA.adduserevent(sprintf('%s\t%s\t%s\t%s', datestr(now,'yyyy-mm-dd HH:MM'),getenv('USERNAME'),str,'-'));
+      DATA.adduserevent(sprintf('%s\t%s\t%s\t%s', datestr(now,'yyyy-mm-dd HH:MM'),DATA.LoggedUser,str,'-'));
       %DATA.adduserevent(['Time:' datestr(now,'yyyymmddHHMMSS')])
       saveguiposition(DATA.GUI.Segment);
       segment('saveguipositiontodisk');
-      if DATA.Pref.UseCache && contains(DATA.ProgramName,'CMR')
+      if DATA.Pref.UseCache && DATA.issegmentcmr
         cachefunctions('deletecache');
       end
       fig = DATA.fig;

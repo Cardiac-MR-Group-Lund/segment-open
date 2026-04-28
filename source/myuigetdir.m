@@ -2,10 +2,12 @@ function [pathname,ok] = myuigetdir(pathname, titlestr)
 %[PATHNAME,OK] = MYUIGETDIR(PATHNAME,TITLESTRI)
 %Corresponding to uigetdir, but also fixes macro recording and test
 %scripts.
+%
+%See also MYGUIGETFILE, MYUIPUTFILE.
 
 %Einar Heiberg
 
-global DATA
+global DATA %#ok<*GVMIS> 
 
 if nargin<1
   error('Expected at least one input arguments (prompt).');
@@ -43,11 +45,7 @@ if testing
     error('No path selection in buffer.');
   end
 else
-  %Ask user
-  if DATA.isSiemensVersion
-    % in Open apps version the path is fixed
-    pathname = '\\tsclient\c';
-  end
+  %Ask user  
   pathname = uigetdir(pathname, titlestr);
   if isequal(pathname,0)
     return;

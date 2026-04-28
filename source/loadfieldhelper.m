@@ -1,12 +1,82 @@
 function setstruct = loadfieldhelper(setstruct)
 %This fcn fixes backward compability when a .mat file is loaded
 
-global DATA SET 
+%#ok<*GVMIS>
+global DATA SET
 
 if nargin < 1
   setstruct = SET;
 end
 
+numnos = length(setstruct);
+
+%Backward compatibility for new implementation of Segment 3DPrint
+if strcmp(DATA.ProgramName,'Segment 3DPrint')
+  for no = 1:numnos
+    setstruct = segment3dp.tools('backwardscompability3DP',setstruct,no);
+  end
+end
+
+% Check for field StackUID
+if ~isfield(setstruct, 'StackUID')  
+  setstruct = uidfunctions.initUIDs(setstruct);
+end
+
+%RR-interval field check
+if ~isfield(setstruct, 'RRInterval')
+  %loop over all stacks
+  for no = 1:numnos
+    if isfield(setstruct(no), 'HeartRate') && ~isempty(setstruct(no).HeartRate) && (setstruct(no).HeartRate > 0)
+      setstruct(no).RRInterval = 60000/setstruct(no).HeartRate;
+    else
+      setstruct(no).RRInterval = 0;
+    end
+  end
+end
+
+if ~isfield(setstruct, 'OrigHeartRate')
+  for no = 1:numnos
+    if isfield(setstruct(no), 'HeartRate') && ~isempty(setstruct(no).HeartRate) && (setstruct(no).HeartRate > 0)
+     hr = setstruct(no).HeartRate;
+   else
+     hr = [];
+   end
+    setstruct(no).OrigHeartRate = hr;
+  end
+end
+
+%Colormap fields check
+if ~isfield(setstruct, 'ColormapOriginal')
+  setstruct(1).ColormapOriginal = [];
+end
+
+if ~isfield(setstruct,'Colormap')
+  setstruct(1).Colormap = setstruct(1).ColormapOriginal;
+end
+
+%Gadgetron fields check
+if ~isfield(setstruct, 'Gadgetron')
+  setstruct(1).Gadgetron = [];
+else
+  %MBF values used to be stored in a 6x6 array. Need to be reformated to a
+  %1x36 array.
+  for no = 1:numnos
+    if isfield(setstruct(no).Gadgetron,'MBF')
+      mbfnames = {'mbf','mbf_epi','mbf_endo'};
+      for n = 1:numel(mbfnames)
+        currfield = mbfnames{n};
+        if isfield(setstruct(no).Gadgetron.MBF,currfield)
+          if (size(setstruct(no).Gadgetron.MBF.(currfield),1) == 6) ||...
+              (size(setstruct(no).Gadgetron.MBF.(currfield),2) == 6)
+            setstruct(no).Gadgetron.MBF.(currfield) = reshape(setstruct(no).Gadgetron.MBF.(currfield).',1,[]);
+          end
+        end
+      end
+    end
+  end
+end
+
+%Special DICOM tags check
 if not(isfield(setstruct, 'SpectSpecialTag'))
   setstruct(1).SpectSpecialTag = [];
 end
@@ -19,13 +89,12 @@ if not(isfield(setstruct,'Scar'))
   setstruct(1).Scar = [];
 end
 
-for no = 1:length(setstruct)
-   if ~isempty(setstruct(no).Scar)
-       
-     %removed scar segmentation method SCJ (replaced by weighted)
-     if isequal(setstruct(no).Scar.Mode,'new')
-       setstruct(no).Scar.Mode = 'weighted';
-     end
+for no = 1:numnos
+  if ~isempty(setstruct(no).Scar)
+    %removed scar segmentation method SCJ (replaced by weighted)
+    if isfield(setstruct(no).Scar,'Mode') && isequal(setstruct(no).Scar.Mode,'new')
+      setstruct(no).Scar.Mode = 'weighted';
+    end
 
     %UseWeighting field
     if ~isfield(setstruct(no).Scar,'UseWeighting')
@@ -35,7 +104,7 @@ for no = 1:length(setstruct)
         setstruct(no).Scar.UseWeighting = false;
       end
     end
-        
+
     %NoReflow field
     if ~isfield(setstruct(no).Scar,'NoReflow')
       try
@@ -43,52 +112,70 @@ for no = 1:length(setstruct)
       catch
       end
     end
-    
+
     %MOPercentage field
     if ~isfield(setstruct(no).Scar,'MOPercentage')
       setstruct(no).Scar.MOPercentage = NaN;
     end
-    
+
+     if ~isfield(setstruct(no).Scar,'MOThreshold')
+      setstruct(no).Scar.MOThreshold = 1.5; %default is 1.5
+    end
+
     %GreyZone field
     if ~isfield(setstruct(no).Scar,'GreyZone')
       setstruct(no).Scar.GreyZone = [];
       setstruct(no).Scar.GreyZone.map = [];
       setstruct(no).Scar.GreyZone.limit = 0.5;
     end
-    
+
     if ~isfield(setstruct(no).Scar,'MR')
       setstruct(no).Scar.MR.Rotation=0;
       setstruct(no).Scar.MR.Artery=[];
     end
-
-   end
-   
+  end
 end
-          
+
 if ~isfield(setstruct,'EndoInterpOngoing')
-  for no = 1:length(setstruct)    
-     setstruct(no).EndoInterpOngoing = false;
+  for no = 1:numnos
+    setstruct(no).EndoInterpOngoing = false;
   end
 end
 if ~isfield(setstruct,'EpiInterpOngoing')
-  for no = 1:length(setstruct)    
-     setstruct(no).EpiInterpOngoing = false;
+  for no = 1:numnos
+    setstruct(no).EpiInterpOngoing = false;
   end
 end
 if ~isfield(setstruct,'RVEndoInterpOngoing')
-  for no = 1:length(setstruct)    
-     setstruct(no).RVEndoInterpOngoing = false;
+  for no = 1:numnos
+    setstruct(no).RVEndoInterpOngoing = false;
   end
 end
 if ~isfield(setstruct,'RVEpiInterpOngoing')
-  for no = 1:length(setstruct)    
-     setstruct(no).RVEpiInterpOngoing = false;
+  for no = 1:numnos
+    setstruct(no).RVEpiInterpOngoing = false;
+  end
+end
+
+if ~isfield(setstruct,'FPS')
+  for no = 1:numnos
+    if setstruct(no).TSize > 1
+      setstruct(no).FPS = helperfunctions('getdefaultfps',setstruct(no).ImageType);
+    else
+      setstruct(no).FPS = 1;
+    end
+  end
+end
+
+if ~isfield(setstruct,'StackID')
+  for no = 1:numnos
+    setstruct(no).StackID = 0;
   end
 end
 
 if not(isfield(setstruct,'RoiN'))
-  for no = 1:length(setstruct)
-    roi('roireset',no);    
+  for no = 1:numnos
+    roi('roireset',no);
   end
 end
 
@@ -101,6 +188,47 @@ end
 if not(isfield(setstruct,'CenterY'))
   for no=1:length(setstruct)
     setstruct(no).CenterY = setstruct(no).YSize/2;
+  end
+end
+
+%Autoloader field
+if ~isfield(setstruct(1),'Autoloader') || isempty(setstruct(1).Autoloader)
+  setstruct(1).Autoloader.Autoloaded = 0;
+  setstruct(1).Autoloader.Autoanalysed = 0;
+  setstruct(1).Autoloader.Warnings = [];
+  setstruct(1).Autoloader.Approved = 0;
+  setstruct(1).Autoloader.ApprovedBy = '';
+  setstruct(1).Autoloader.ApprovedTime = '';
+  setstruct(1).Autoloader.Time = '';
+  setstruct(1).Autoloader.Version = '';
+  setstruct(1).Autoloader.CreationTime = '';
+  setstruct(1).Autoloader.AnalysesDone = [];
+  setstruct(1).Autoloader.Report = [];
+end
+if isfield(setstruct(1),'Autoloader')
+   if ~isfield(setstruct(1).Autoloader,'CreationTime')
+    setstruct(1).Autoloader.CreationTime = '';
+   end
+    if ~isfield(setstruct(1).Autoloader,'AnalysesDone')
+    setstruct(1).Autoloader.AnalysesDone = [];
+  end
+  if ~isfield(setstruct(1).Autoloader,'Autoanalysed')
+    setstruct(1).Autoloader.Autoanalysed = 0;
+  end
+  if ~isfield(setstruct(1).Autoloader,'Report')
+    setstruct(1).Autoloader.Report = [];
+  end
+  if isfield(setstruct(1).Autoloader,'Reviewed')
+    setstruct(1).Autoloader.Approved = setstruct(1).Autoloader.Reviewed;
+    setstruct(1).Autoloader=rmfield(setstruct(1).Autoloader,'Reviewed');
+  end
+  if isfield(setstruct(1).Autoloader,'ReviewedBy')
+    setstruct(1).Autoloader.ApprovedBy = setstruct(1).Autoloader.ReviewedBy;
+    setstruct(1).Autoloader = rmfield(setstruct(1).Autoloader,'ReviewedBy');
+  end
+  if isfield(setstruct(1).Autoloader,'ReviewedTime')
+    setstruct(1).Autoloader.ApprovedTime = setstruct(1).Autoloader.ReviewedTime;
+    setstruct(1).Autoloader = rmfield(setstruct(1).Autoloader,'ReviewedTime');
   end
 end
 
@@ -137,144 +265,213 @@ if not(isfield(setstruct,'Roi'))&&isfield(setstruct,'RoiX')
   setstruct=rmfield(setstruct,'RoiSign');
   setstruct=rmfield(setstruct,'RoiLineSpec');
 elseif isfield(setstruct,'Roi')
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     if (numel(setstruct(no).Roi) == 1 && isequal(setstruct(no).Roi.Name,{})) || isempty(setstruct(no).Roi)
       setstruct(no).Roi = roi('roireset');
     end
   end
 end
 if isfield(setstruct,'Roi')
-  for no = 1:length(setstruct)
+  for no = 1:numnos
+    numrois = setstruct(no).RoiN;
     if not(isfield(setstruct(no).Roi,'Area'))
       %calculate mean area and std
-      for loop=1:setstruct(no).RoiN
+      for loop = 1:numrois
         [~,area] = calcfunctions('calcroiarea',no,loop);
         setstruct(no).Roi(loop).Area = area;
         [m,sd] = calcfunctions('calcroiintensity',no,loop);
         setstruct(no).Roi(loop).Mean = m;
         setstruct(no).Roi(loop).StD = sd;
       end
+    else
+      % check ROIs with invalid area
+      isinvalidroi = zeros(1,numrois);
+      for loop = 1:numrois
+        vec = setstruct(no).Roi(loop).Area;
+        if all(isnan(vec) | vec == 0)
+          isinvalidroi(loop) = 1;
+        end
+      end
+      indinvalidroi = sort(find(isinvalidroi),'descend'); % descending order is to ensure correct delete
+      if ~isempty(indinvalidroi)
+        for rloop = 1:numel(indinvalidroi)
+          n = indinvalidroi(rloop);
+          numrois = numrois-rloop+1;
+          ind = true(1,numrois);
+          ind(n) = false;
+          if sum(ind(:)) == 0
+            logdisp('Deleted all invalid ROIs (area = NaN)');
+            calcfunctions('clearallflow',no);
+            roi('roireset',no);
+          else
+            logdisp(sprintf('Deleted invalid ROI with area = NaN: %s in stack %d',setstruct(no).Roi(n).Name,no));
+            if ~isempty(setstruct(no).Flow) && ~isempty(setstruct(no).Flow.Result)
+              setstruct(no).Flow.Result(n) = [];
+            end
+            setstruct(no).Roi = setstruct(no).Roi(ind);
+            setstruct(no).RoiN = sum(ind(:));
+            setstruct(no).RoiCurrent = setstruct(no).RoiN;
+          end
+        end
+      end
     end
   end
 end
 %RoiCurrent field check
-for no = 1:length(setstruct)
+for no = 1:numnos
   if isequal(setstruct(no).RoiCurrent,0) || isequal(setstruct(no).RoiN,0)
     setstruct(no).RoiCurrent = [];
   end
-  if setstruct(no).RoiN>0 && isempty(setstruct(no).RoiCurrent)
+  if isempty(setstruct(no).RoiCurrent) && setstruct(no).RoiN>0
     setstruct(no).RoiCurrent = 1;
   end
 end
 
 %Respiratory
 if not(isfield(setstruct,'Respiratory'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).Respiratory = [];
   end
 end
 
-%New General Pen
-if not(isfield(setstruct,'GeneralPenX'))
-  for no = 1:length(setstruct)
-    setstruct(no).GeneralPenX = [];
-    setstruct(no).GeneralPenY = [];
+%4D Flow background correction
+if ~isfield(setstruct,'Background4D')
+  setstruct(1).Background4D = [];
+end
+%4D flow
+if not(isfield(setstruct,'Flow4D'))
+  setstruct(1).Flow4D = [];
+else
+  % check flow 4D
+  for no = 1:numnos
+    if isfield(setstruct(no),'Flow4D') && ~isempty(setstruct(no).Flow4D)
+      if isa(setstruct(no).Flow4D,'flow4d.clflow4dobjects')
+        setstruct(no).Flow4D.updateflowinterpolation();
+      end
+
+      if isprop(setstruct(no).Flow4D,'BackgroundSettings') && ~isempty(setstruct(no).Flow4D.BackgroundSettings)
+        % move background settings in its own field
+        if ~isfield(setstruct(no),'Background4D') || isempty(setstruct(no).Background4D)
+          % No previous background correction
+          setstruct(no).Background4D = struct;
+          nbg = 0;
+        else
+          % Background correction performed before, save to end of list
+          nbg = length(setstruct(no).Background4D);
+        end
+        setstruct(no).Background4D(nbg+1).Settings = setstruct(no).Flow4D.BackgroundSettings;
+        setstruct(no).Flow4D.BackgroundSettings = [];
+      end
+    end
   end
 end
 
-%New General Pen Interp
-if not(isfield(setstruct,'GeneralPenInterpX'))
-  for no = 1:length(setstruct)
-    setstruct(no).GeneralPenInterpX = [];
-    setstruct(no).GeneralPenInterpY = [];
+%LA
+if not(isfield(setstruct,'LA'))
+  for no = 1:numnos
+    setstruct(no).LA = [];
+  end
+end
+
+%RA
+if not(isfield(setstruct,'RA'))
+  for no = 1:numnos
+    setstruct(no).RA = [];
+  end
+end
+
+%General Pen
+if not(isfield(setstruct,'GeneralPenObjects'))
+  for no = 1:numnos
+    setstruct(no).GeneralPenObjects = [];
   end
 end
 
 %Start analysis field check
 if not(isfield(setstruct,'StartAnalysis'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).StartAnalysis = 1;
     setstruct(no).EndAnalysis = setstruct(no).TSize;
   end
 end
-for no = 1:length(setstruct)
+for no = 1:numnos
   if isempty(setstruct(no).StartAnalysis)
     setstruct(no).StartAnalysis = 1;
-    setstruct(no).EndAnalysis = setstruct(no).TSize;    
+    setstruct(no).EndAnalysis = setstruct(no).TSize;
   end
 end
 
 %Resolution field check
 if not(isfield(setstruct,'ResolutionX'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).ResolutionX = setstruct(no).Resolution;
     setstruct(no).ResolutionY = setstruct(no).Resolution;
   end
 end
-for no = 1:length(setstruct)
+for no = 1:numnos
   if isempty(setstruct(no).ResolutionX) && isfield(setstruct(no),'Resolution')
     setstruct(no).ResolutionX = setstruct(no).Resolution;
-    setstruct(no).ResolutionY = setstruct(no).Resolution;    
-  end  
+    setstruct(no).ResolutionY = setstruct(no).Resolution;
+  end
 end
 
 %Endocenter field check
 if not(isfield(setstruct,'EndoCenter'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).EndoCenter = DATA.Pref.EndoCenter;
   end
 end
-for no = 1:length(setstruct)
+for no = 1:numnos
   if isempty(setstruct(no).EndoCenter)
     setstruct(no).EndoCenter = DATA.Pref.EndoCenter;
   end
 end
 
 if not(isfield(setstruct,'NormalZoomState'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).NormalZoomState = [];
-  end   
+  end
 end
 
 if not(isfield(setstruct,'MontageZoomState'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).MontageZoomState = [];
   end
 end
 
 if not(isfield(setstruct,'MontageRowZoomState'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).MontageRowZoomState = [];
   end
 end
 
 if not(isfield(setstruct,'MontageFitZoomState'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).MontageFitZoomState = [];
   end
 end
 
 if not(isfield(setstruct,'Rotated'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).Rotated = false;
   end
 end
 
 if not(isfield(setstruct,'Flow'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).Flow = [];
   end
 end
 
-for no = 1:length(setstruct)
+for no = 1:numnos
   if not(isempty(setstruct(no).Flow))
-    if not(isfield(setstruct(no).Flow,'PhaseCorrTimeResolved'))    
+    if not(isfield(setstruct(no).Flow,'PhaseCorrTimeResolved'))
       setstruct(no).Flow.PhaseCorrTimeResolved = false;
     end
   end
 end
 % check if number of ROIs corresponds to the length of ROI stuct
-for no = 1:length(setstruct)
+for no = 1:numnos
   numrois = length(setstruct(no).Roi);
   if setstruct(no).RoiN ~= 0 && setstruct(no).RoiN ~= numrois
     for roiloop = 1:numrois
@@ -287,92 +484,97 @@ for no = 1:length(setstruct)
 end
 
 %This addition Writes the flow area if it exists over the area parameter
-for no = 1:length(setstruct)
+for no = 1:numnos
   if not(isempty(setstruct(no).Flow))
     if isfield(setstruct(no).Flow,'Result')
-        for roiloop = 1:length(setstruct(no).Flow.Result)
-          if roiloop <= setstruct(no).RoiN
-            if isfield(setstruct(no).Flow.Result(roiloop),'area')
-              lengthflowresult = nnz(setstruct(no).Flow.Result(roiloop).area);
-              if lengthflowresult ~= setstruct(no).TSize
-                % correct results if their length without zero values is not the same as TSize                
-                numtimeframes = setstruct(no).TSize;
-                setstruct(no).Flow.Result(roiloop).area = rebuildflowresults(setstruct(no).Flow.Result(roiloop).area,numtimeframes);
-                setstruct(no).Flow.Result(roiloop).velmean = rebuildflowresults(setstruct(no).Flow.Result(roiloop).velmean,numtimeframes);
-                setstruct(no).Flow.Result(roiloop).velstd = rebuildflowresults(setstruct(no).Flow.Result(roiloop).velstd,numtimeframes);
-                setstruct(no).Flow.Result(roiloop).velmax = rebuildflowresults(setstruct(no).Flow.Result(roiloop).velmax,numtimeframes);
-                setstruct(no).Flow.Result(roiloop).velmin = rebuildflowresults(setstruct(no).Flow.Result(roiloop).velmin,numtimeframes);
-                setstruct(no).Flow.Result(roiloop).kenergy = rebuildflowresults(setstruct(no).Flow.Result(roiloop).kenergy,numtimeframes);
-                setstruct(no).Flow.Result(roiloop).netflow = rebuildflowresults(setstruct(no).Flow.Result(roiloop).netflow,numtimeframes);
-                setstruct(no).Flow.Result(roiloop).posflow = rebuildflowresults(setstruct(no).Flow.Result(roiloop).posflow,numtimeframes);
-                setstruct(no).Flow.Result(roiloop).negflow = rebuildflowresults(setstruct(no).Flow.Result(roiloop).negflow,numtimeframes);
-              end
-              setstruct(no).Roi(roiloop).Area = setstruct(no).Flow.Result(roiloop).area;
+      indextodelete = [];
+      for roiloop = 1:length(setstruct(no).Flow.Result)
+        if roiloop <= setstruct(no).RoiN
+          if isfield(setstruct(no).Flow.Result(roiloop),'area')
+            lengthflowresult = nnz(setstruct(no).Flow.Result(roiloop).area);
+            if lengthflowresult ~= setstruct(no).TSize
+              % correct results if their length without zero values is not the same as TSize
+              numtimeframes = setstruct(no).TSize;
+              setstruct(no).Flow.Result(roiloop).area = rebuildflowresults(setstruct(no).Flow.Result(roiloop).area,numtimeframes);
+              setstruct(no).Flow.Result(roiloop).velmean = rebuildflowresults(setstruct(no).Flow.Result(roiloop).velmean,numtimeframes);
+              setstruct(no).Flow.Result(roiloop).velstd = rebuildflowresults(setstruct(no).Flow.Result(roiloop).velstd,numtimeframes);
+              setstruct(no).Flow.Result(roiloop).velmax = rebuildflowresults(setstruct(no).Flow.Result(roiloop).velmax,numtimeframes);
+              setstruct(no).Flow.Result(roiloop).velmin = rebuildflowresults(setstruct(no).Flow.Result(roiloop).velmin,numtimeframes);
+              setstruct(no).Flow.Result(roiloop).kenergy = rebuildflowresults(setstruct(no).Flow.Result(roiloop).kenergy,numtimeframes);
+              setstruct(no).Flow.Result(roiloop).netflow = rebuildflowresults(setstruct(no).Flow.Result(roiloop).netflow,numtimeframes);
+              setstruct(no).Flow.Result(roiloop).posflow = rebuildflowresults(setstruct(no).Flow.Result(roiloop).posflow,numtimeframes);
+              setstruct(no).Flow.Result(roiloop).negflow = rebuildflowresults(setstruct(no).Flow.Result(roiloop).negflow,numtimeframes);
             end
-          else
-            % there is no corresponding ROI for the result -> delete result
-            setstruct(no).Flow.Result(roiloop) = [];
+            setstruct(no).Roi(roiloop).Area = setstruct(no).Flow.Result(roiloop).area;
           end
+        else
+          % there is no corresponding ROI for the result -> delete result
+          indextodelete = [indextodelete roiloop]; %#ok<AGROW>
         end
+      end
+      setstruct(no).Flow.Result(indextodelete) = []; %delete results
     end
   end
 end
 
 if not(isfield(setstruct,'VENC'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).VENC = 0;
   end
 end
 
 if not(isfield(setstruct,'OrigFileName'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).OrigFileName = setstruct(no).FileName;
   end
 end
 
 % JU Measure now time dependent
 if not(isfield(setstruct,'Measure'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).Measure = [];
   end
 else
-  for no = 1:length(setstruct)
-      if (isfield(setstruct(no).Measure,'X')&&not(isfield(setstruct(no).Measure,'T')))
-          for loop=1:length(setstruct(no).Measure)
-            setstruct(no).Measure(loop).T = NaN;
-          end
+  for no = 1:numnos
+    if (isfield(setstruct(no).Measure,'X')&&not(isfield(setstruct(no).Measure,'T')))
+      for loop=1:length(setstruct(no).Measure)
+        setstruct(no).Measure(loop).T = NaN;
       end
-      if isfield(setstruct(no).Measure,'Z') 
-        for loop=1:length(setstruct(no).Measure)
-          if numel(setstruct(no).Measure(loop).Z) == 1
-            setstruct(no).Measure(loop).Z = setstruct(no).Measure(loop).Z*[1;1];
-          end
+    end
+    if isfield(setstruct(no).Measure,'Z')
+      for loop=1:length(setstruct(no).Measure)
+        if numel(setstruct(no).Measure(loop).Z) == 1
+          setstruct(no).Measure(loop).Z = setstruct(no).Measure(loop).Z*[1;1];
         end
       end
+    end
   end
 end
 
 if not(isfield(setstruct,'Report'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).Report = [];
   end
 end
 
-for no = 1:length(setstruct)
+for no = 1:numnos
   if ~isfield(setstruct(no),'RV')
     setstruct(no).RV = [];
   end
 end
 
 if not(isfield(setstruct,'LevelSet'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).LevelSet = [];
   end
 end
 
+%Backwards compability of levelset sparse storage. Completely removed
+%support for this.
+
 %Orgsize field check
 if not(isfield(setstruct,'OrgXSize'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).OrgXSize = 256;
     setstruct(no).OrgYSize = 256;
     setstruct(no).OrgTSize = setstruct(no).TSize;
@@ -382,22 +584,22 @@ end
 
 %Orgresolution field check
 if not(isfield(setstruct,'OrgRes'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).OrgRes = [setstruct(no).ResolutionX,...
-        setstruct(no).ResolutionY,setstruct(no).SliceThickness + ...
-        setstruct(no).SliceGap,setstruct(no).TIncr];
+      setstruct(no).ResolutionY,setstruct(no).SliceThickness + ...
+      setstruct(no).SliceGap,setstruct(no).TIncr];
   end
 end
 
-for no = 1:length(setstruct)
-    if isempty(setstruct(no).OrgRes)
-        setstruct(no).OrgRes = [setstruct(no).ResolutionX,...
-            setstruct(no).ResolutionY,setstruct(no).SliceThickness + ...
-            setstruct(no).SliceGap,setstruct(no).TIncr];
-    end
+for no = 1:numnos
+  if isempty(setstruct(no).OrgRes)
+    setstruct(no).OrgRes = [setstruct(no).ResolutionX,...
+      setstruct(no).ResolutionY,setstruct(no).SliceThickness + ...
+      setstruct(no).SliceGap,setstruct(no).TIncr];
+  end
 end
 
-for no = 1:length(setstruct)
+for no = 1:numnos
   if isempty(setstruct(no).OrgXSize)
     setstruct(no).OrgXSize = 256;
     setstruct(no).OrgYSize = 256;
@@ -407,23 +609,23 @@ for no = 1:length(setstruct)
 end
 
 if not(isfield(setstruct,'GEVENCSCALE'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).GEVENCSCALE = 0;
   end
 end
 
 %Check if there are any autolongaxis, and ask to reset
-for no = 1:length(setstruct)
-  if ~isfield(setstruct(no), 'AutoLongaxis') || isempty(setstruct(no).AutoLongaxis) 
+for no = 1:numnos
+  if ~isfield(setstruct(no), 'AutoLongaxis') || isempty(setstruct(no).AutoLongaxis)
     setstruct(no).AutoLongaxis = false;
   end
 end
-  
+
 autolongaxis = cat(1,setstruct.AutoLongaxis) & (cat(1,setstruct.TSize)>1);
 autolongaxis = sum(autolongaxis);
 if autolongaxis
   if true %yesno('Old longaxis compensation is active in the loaded file. This may compromise quantified values unless you know exactly what you are doing. Do you want to disable this? (Yes=recommended)');
-    for no = 1:length(setstruct)
+    for no = 1:numnos
       setstruct(no).AutoLongaxis = false;
       setstruct(no).Longaxis = 1;
     end
@@ -431,23 +633,23 @@ if autolongaxis
 end
 
 if not(isfield(setstruct,'Longaxis'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).Longaxis = 1; %Remove this from default, EH: 2017-06-19, 1=>first choice in listbox => 0. Was 1 before as well...
   end
 end
 
-for no = 1:length(setstruct)
+for no = 1:numnos
   if isempty(setstruct(no).Longaxis)
     setstruct(no).Longaxis = 1; %Remove this from default, EH: 2017-06-19, 1=>first choice in listbox => 0. Was 1 before as well...
   end
 end
 
 if not(isfield(setstruct,'AutoLongaxis'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).AutoLongaxis = false; %Remove this from default, EH: 2017-06-19
   end
 else
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     if isempty(setstruct(no).AutoLongaxis)
       setstruct(no).AutoLongaxis = false; %Remove this from default, EH: 2017-06-19
     end
@@ -456,14 +658,50 @@ end
 
 
 if not(isfield(setstruct,'Strain'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).Strain = [];
   end
 end
 
 if not(isfield(setstruct,'StrainTagging'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).StrainTagging = [];
+  end
+end
+
+if not(isfield(setstruct,'StrainMitt'))
+  for no = 1:numnos
+    setstruct(no).StrainMitt = [];
+  end
+else
+  % check if classes are complete
+  for no = 1:numnos
+    if ~isempty(setstruct(no).StrainMitt)
+      if isa(setstruct(no).StrainMitt,'strainmitt.clstrain')
+        %Remove obsolete strain rate peak (was never actually used)
+        setstruct(no).StrainMitt.removeobsoletestrainratepeak();
+        %Init all missing peaks
+        setstruct(no).StrainMitt.initmissingstrainpeaks();
+      else
+        setstruct(no).StrainMitt = [];
+      end
+    else
+      setstruct(no).StrainMitt = [];
+    end
+  end
+end
+
+% data type to be used by Strain Mitt (mr,ct,fetus, rodent etc.)
+if ~isfield(setstruct,'DataType')
+  for no = 1:numnos
+    setstruct(no).DataType = openfile('setdatatype',setstruct(no).Modality);
+  end
+else
+  %check that this field is not empty
+  for no = 1:numnos
+    if isempty(setstruct(no).DataType)
+      setstruct(no).DataType = openfile('setdatatype',setstruct(no).Modality);
+    end
   end
 end
 
@@ -492,11 +730,11 @@ if not(isfield(setstruct,'RVEndoPinX'))
     setstruct(no).RVEndoPinX = [];
     setstruct(no).RVEndoPinY = [];
     setstruct(no).RVEndoPinXView = [];
-    setstruct(no).RVEndoPinYView = [];    
+    setstruct(no).RVEndoPinYView = [];
     setstruct(no).RVEpiPinX = [];
     setstruct(no).RVEpiPinY = [];
     setstruct(no).RVEpiPinXView = [];
-    setstruct(no).RVEpiPinYView = [];        
+    setstruct(no).RVEpiPinYView = [];
   end
 end
 
@@ -514,40 +752,48 @@ if not(isfield(setstruct,'EndoInterpX'))
 end
 
 if not(isfield(setstruct,'RVV'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).RVV = zeros(1,setstruct(no).TSize);
     setstruct(no).RVEPV = zeros(1,setstruct(no).TSize);
-    setstruct(no).RVM = 0;    
+    setstruct(no).RVM = 0;
     setstruct(no).RVEDV = 0;
     setstruct(no).RVESV = 0;
     setstruct(no).RVSV = 0;
-    setstruct(no).RVEF = 0;    
+    setstruct(no).RVEF = 0;
   end
 end
 
 %--- Point check
 if not(isfield(setstruct,'Point'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).Point.X = [];
     setstruct(no).Point.Y = [];
     setstruct(no).Point.T = [];
-    setstruct(no).Point.Z = [];    
+    setstruct(no).Point.Z = [];
     setstruct(no).Point.Label = {};
   end
 end
-for no=1:length(setstruct)
+for no = 1:length(setstruct)
   if isempty(setstruct(no).Point)
     setstruct(no).Point.X = [];
     setstruct(no).Point.Y = [];
     setstruct(no).Point.T = [];
-    setstruct(no).Point.Z = [];    
+    setstruct(no).Point.Z = [];
     setstruct(no).Point.Label = {};
+  end
+  for loop = 1:numel(setstruct(no).Point.Z)
+    %backward compatibility for a bug in annotationpoint('importpointhelper')
+    z = round(setstruct(no).Point.Z(loop)); % make slice position an integer
+    if z > setstruct(no).ZSize
+      z = setstruct(no).ZSize;
+    end
+    setstruct(no).Point.Z(loop) = z;
   end
 end
 
 %--- 3D Point check
 if not(isfield(setstruct,'Point3D'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).Point3D.X = [];
     setstruct(no).Point3D.Y = [];
   end
@@ -561,7 +807,7 @@ end
 
 %--- IntensityMapping
 if not(isfield(setstruct,'IntensityMapping'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).IntensityMapping.Brightness = 0.5;
     setstruct(no).IntensityMapping.Contrast = 1;
     setstruct(no).IntensityMapping.Compression = [];
@@ -575,14 +821,6 @@ for no=1:length(setstruct)
   end
 end
 
-for no=1:length(setstruct)
-  if ~isfield(setstruct(no),'Colormap') %||isempty(setstruct(no).Colormap)
-    %remove the empty condition once [] defaults to gray.
-%    setstruct(no).Colormap = gray(256);
-    setstruct(no).Colormap = [];
-  end
-end
-
 for loop = 1:length(setstruct)
   if isempty(setstruct(no).PatientInfo)
     setstruct(no).PatientInfo.Name = setstruct(no).FileName;
@@ -591,18 +829,25 @@ for loop = 1:length(setstruct)
     setstruct(no).PatientInfo.Age = '';
     setstruct(no).PatientInfo.AcquisitionDate = '';
     setstruct(no).PatientInfo.BSA = 0;
+    setstruct(no).PatientInfo.BMI = 0;
     setstruct(no).PatientInfo.Weight = 0;
     setstruct(no).PatientInfo.Length = 0;
   end
 end
 
-for no = 1:length(setstruct)
+for no = 1:numnos
   if ~isfield(setstruct(no).PatientInfo,'BSA')
     setstruct(no).PatientInfo.BSA = 0;
   end
 end
 
-for no = 1:length(setstruct)
+for no = 1:numnos
+  if ~isfield(setstruct(no).PatientInfo,'BMI')
+    setstruct(no).PatientInfo.BMI = 0;
+  end
+end
+
+for no = 1:numnos
   if setstruct(no).PatientInfo.BSA==0
     setstruct(no).PatientInfo.BSA = calcfunctions('calcbsa',...
       setstruct(no).PatientInfo.Weight,...
@@ -610,7 +855,15 @@ for no = 1:length(setstruct)
   end
 end
 
-for no = 1:length(setstruct)
+for no = 1:numnos
+  if setstruct(no).PatientInfo.BMI==0
+    setstruct(no).PatientInfo.BMI = calcfunctions('calcbmi',...
+      setstruct(no).PatientInfo.Weight,...
+      setstruct(no).PatientInfo.Length);
+  end
+end
+
+for no = 1:numnos
   if isequal(setstruct(no).Flow,0)
     setstruct(no).Flow = [];
   end
@@ -625,7 +878,7 @@ for no = 1:length(setstruct)
     end
     if not(isfield(setstruct(no).Flow,'PhaseNo'))
       setstruct(no).Flow.PhaseNo = [];
-    end   
+    end
     if not(isfield(setstruct(no).Flow,'Result'))
       if isfield(setstruct(no).Flow,'nettotvol')
         try
@@ -649,10 +902,10 @@ for no = 1:length(setstruct)
       else
         setstruct(no).Flow.Result = [];
       end
-    end        
+    end
     if isfield(setstruct(no).Flow,'parameter')
       if not(isfield(setstruct(no).Flow.parameter,'expandoutward'))
-        setstruct(no).Flow.parameter.expandoutward = 0; %mm 
+        setstruct(no).Flow.parameter.expandoutward = 0; %mm
         %This will probably be changed when we know that this is a good idea.
       end
     end
@@ -661,7 +914,7 @@ end
 
 %--- ImagePosition
 if not(isfield(setstruct,'ImagePosition'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).ImagePosition = [0 0 0];
   end
 end
@@ -673,7 +926,7 @@ end
 
 %--- ImageOrientation
 if not(isfield(setstruct,'ImageOrientation'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).ImageOrientation = [1 0 0 0 1 0];
   end
 end
@@ -685,7 +938,7 @@ end
 
 %--- RotatedImagePosition
 if not(isfield(setstruct,'RotatedImagePosition'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).RotatedImagePosition = setstruct(no).ImagePosition;
   end
 end
@@ -697,7 +950,7 @@ end
 
 %--- RotatedImageOrientation
 if not(isfield(setstruct,'RotatedImageOrientation'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).RotatedImageOrientation = setstruct(no).ImageOrientation;
   end
 end
@@ -709,7 +962,7 @@ end
 
 %--- EchoTime
 if not(isfield(setstruct,'EchoTime'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).EchoTime = 0;
   end
 end
@@ -721,7 +974,7 @@ end
 
 %--- RepetitionTime
 if not(isfield(setstruct,'RepetitionTime'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).RepetitionTime = 0;
   end
 end
@@ -733,7 +986,7 @@ end
 
 %--- InversionTime
 if not(isfield(setstruct,'InversionTime'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).InversionTime = 0;
   end
 end
@@ -745,7 +998,7 @@ end
 
 %--- FlipAngle
 if not(isfield(setstruct,'FlipAngle'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).FlipAngle = 0;
   end
 end
@@ -757,7 +1010,7 @@ end
 
 %--- NumberOfAverages
 if not(isfield(setstruct,'NumberOfAverages'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).NumberOfAverages = 0;
   end
 end
@@ -769,7 +1022,7 @@ end
 
 %--- Scanner
 if not(isfield(setstruct,'Scanner'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).Scanner = '';
   end
 end
@@ -779,12 +1032,19 @@ for no=1:length(setstruct)
   end
 end
 
+%--- Field strength
+if not(isfield(setstruct,'FieldStrength'))
+  for no = 1:numnos
+    setstruct(no).FieldStrength = [];
+  end
+end
+
 %--- View
 if not(isfield(setstruct,'View'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).View = [];
   end
-%--- ViewPanelsMatrix subfield
+  %--- ViewPanelsMatrix subfield
 elseif not(isempty(setstruct(1).View)) && not(isfield(setstruct(1).View,'ViewPanelsMatrix'))
   panels = setstruct(1).View.ViewPanels;
   setstruct(1).View.ViewPanelsMatrix = cell(1,numel(panels));
@@ -802,8 +1062,22 @@ elseif not(isempty(setstruct(1).View)) && not(isfield(setstruct(1).View,'LVNO'))
   setstruct(1).View.FlowNO = [];
   setstruct(1).View.FlowROI = [];
 end
-if not(isempty(setstruct(1).View)) && not(isfield(setstruct(1).View,'CurrentTheme'))
-  setstruct(1).View.CurrentTheme = 'lv';
+
+%--- Current Theme
+if strcmp(DATA.ProgramName,'Segment 3DPrint')
+  if ~isempty(setstruct(1).View) ...
+      && (~any(strcmp(setstruct(1).View.CurrentTheme,{'lv','3dpseg','3dppoints','3dpfile'})) ...
+      || ~isfield(setstruct(1).View,'CurrentTheme'))
+    if segment3dp.tools('valid3dpdata',true) %true is for silent
+      setstruct(1).View.CurrentTheme = '3dpseg';
+    else
+      setstruct(1).View.CurrentTheme = '3dpfile';
+    end
+  end
+else
+  if ~isempty(setstruct(1).View) && ~isfield(setstruct(1).View,'CurrentTheme')
+    setstruct(1).View.CurrentTheme = 'function';
+  end
 end
 
 %--- RotationCenter
@@ -835,6 +1109,14 @@ for loop = 1:length(setstruct)
     setstruct(loop).SeriesDescription = '';
   end
 end
+if not(isfield(setstruct,'ScanningSequence'))
+  setstruct(1).ScanningSequence = '';
+end
+for loop = 1:length(setstruct)
+  if isempty(setstruct(loop).ScanningSequence)
+    setstruct(loop).ScanningSequence = '';
+  end
+end
 
 if not(isfield(setstruct,'DICOMImageType'))
   setstruct(1).DICOMImageType = '';
@@ -858,45 +1140,59 @@ end
 
 % Backwards compability for old pin structs
 for loop=1:length(setstruct)
-    if not(isempty(setstruct(loop).EndoPinX)) && all(all(cellfun('isempty',setstruct(loop).EndoPinX)))
-        setstruct(loop).EndoPinX = [];
-        setstruct(loop).EndoPinY = [];
-    end
-    if not(isempty(setstruct(loop).EpiPinX)) && all(all(cellfun('isempty',setstruct(loop).EpiPinX)))
-        setstruct(loop).EpiPinX = [];
-        setstruct(loop).EpiPinY = [];
-    end
-    if not(isempty(setstruct(loop).RVEndoPinX)) && all(all(cellfun('isempty',setstruct(loop).RVEndoPinX)))
-        setstruct(loop).RVEndoPinX = [];
-        setstruct(loop).RVEndoPinY = [];
-    end
-    if not(isempty(setstruct(loop).RVEpiPinX)) && all(all(cellfun('isempty',setstruct(loop).RVEpiPinX)))
-        setstruct(loop).RVEpiPinX = [];
-        setstruct(loop).RVEpiPinY = [];
-    end
+  if not(isempty(setstruct(loop).EndoPinX)) && all(all(cellfun('isempty',setstruct(loop).EndoPinX)))
+    setstruct(loop).EndoPinX = [];
+    setstruct(loop).EndoPinY = [];
+  end
+  if not(isempty(setstruct(loop).EpiPinX)) && all(all(cellfun('isempty',setstruct(loop).EpiPinX)))
+    setstruct(loop).EpiPinX = [];
+    setstruct(loop).EpiPinY = [];
+  end
+  if not(isempty(setstruct(loop).RVEndoPinX)) && all(all(cellfun('isempty',setstruct(loop).RVEndoPinX)))
+    setstruct(loop).RVEndoPinX = [];
+    setstruct(loop).RVEndoPinY = [];
+  end
+  if not(isempty(setstruct(loop).RVEpiPinX)) && all(all(cellfun('isempty',setstruct(loop).RVEpiPinX)))
+    setstruct(loop).RVEpiPinX = [];
+    setstruct(loop).RVEpiPinY = [];
+  end
 end
 
 if not(isfield(setstruct,'AcquisitionTime'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).AcquisitionTime = 0;
   end
 end
 
 if not(isfield(setstruct,'SeriesNumber'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).SeriesNumber = '';
   end
 end
 
-if not(isfield(setstruct,'PapillaryIM'))
-  for no=1:length(setstruct)
-    setstruct(no).PapillaryIM=[];
+if isfield(setstruct,'PapillaryIM')
+  % check papillary image dimensions
+  for no = 1:length(setstruct)
+    if ~isempty(setstruct(no).PapillaryIM)
+      szpapim = size(setstruct(no).PapillaryIM);
+      szim = size(setstruct(no).IM);
+      if ~isequal(szpapim,szim)
+        logdisp('Clearing papillary image due to mismatch in image dimensions.')
+        setstruct(no).PapillaryIM = [];
+        setstruct(no).PV(:) = 0;
+        setstruct(no).PapillaryThreshold = 0;
+      end
+    end 
   end
 end
 
-if isfield(setstruct,'StudyUid')
-  setstruct = rmfield(setstruct,'StudyUid');
+if not(isfield(setstruct,'PapillaryIM'))
+  for no = 1:length(setstruct)
+    setstruct(no).PapillaryIM = [];
+  end
 end
+
+
 %Found case where Endo interp isn't full cell make sure that if there is
 %some segmentation the cell is (Tsize,Zsize) i.e pad
 %Found case where Endo interp is cell with empty matrix in it performing safety check for this.
@@ -925,7 +1221,7 @@ for no=1:length(setstruct)
       end
     end
   end
-  
+
   if iscell(setstruct(no).EpiInterpX)
     if all(cellfun(@isempty,setstruct(no).EpiInterpX))
       setstruct(no).EpiInterpX=[];
@@ -950,7 +1246,7 @@ for no=1:length(setstruct)
       end
     end
   end
-  
+
   if iscell(setstruct(no).RVEndoInterpX)
     if all(cellfun(@isempty,setstruct(no).RVEndoInterpX))
       setstruct(no).RVEndoInterpX=[];
@@ -975,7 +1271,7 @@ for no=1:length(setstruct)
       end
     end
   end
-  
+
   if iscell(setstruct(no).RVEpiInterpX)
     if all(cellfun(@isempty,setstruct(no).RVEpiInterpX))
       setstruct(no).RVEpiInterpX=[];
@@ -1003,56 +1299,56 @@ for no=1:length(setstruct)
 end
 
 %Check if valid interpx
-for no = 1:length(setstruct)
+for no = 1:numnos
   if ~isempty(setstruct(no).EndoInterpX)
     for tloop=1:setstruct(no).TSize
       for sloop=1:setstruct(no).ZSize
         if size(setstruct(no).EndoInterpX{tloop,sloop},2)>size(setstruct(no).EndoInterpX{tloop,sloop},1)
           setstruct(no).EndoInterpX{tloop,sloop} = setstruct(no).EndoInterpX{tloop,sloop}(:);
-          setstruct(no).EndoInterpY{tloop,sloop} = setstruct(no).EndoInterpY{tloop,sloop}(:);          
-          disp('Warning interpolation point size error. Now fixed.');          
+          setstruct(no).EndoInterpY{tloop,sloop} = setstruct(no).EndoInterpY{tloop,sloop}(:);
+          disp('Warning interpolation point size error. Now fixed.');
         end
       end
     end
   end
 end
 
-for no = 1:length(setstruct)
+for no = 1:numnos
   if ~isempty(setstruct(no).EpiInterpX)
     for tloop=1:setstruct(no).TSize
       for sloop=1:setstruct(no).ZSize
         if size(setstruct(no).EpiInterpX{tloop,sloop},2)>size(setstruct(no).EpiInterpX{tloop,sloop},1)
           setstruct(no).EpiInterpX{tloop,sloop} = setstruct(no).EpiInterpX{tloop,sloop}(:);
-          setstruct(no).EpiInterpY{tloop,sloop} = setstruct(no).EpiInterpY{tloop,sloop}(:);          
-          disp('Warning interpolation point size error. Now fixed.');          
+          setstruct(no).EpiInterpY{tloop,sloop} = setstruct(no).EpiInterpY{tloop,sloop}(:);
+          disp('Warning interpolation point size error. Now fixed.');
         end
       end
     end
   end
 end
 
-for no = 1:length(setstruct)
+for no = 1:numnos
   if ~isempty(setstruct(no).RVEndoInterpX)
     for tloop=1:setstruct(no).TSize
       for sloop=1:setstruct(no).ZSize
         if size(setstruct(no).RVEndoInterpX{tloop,sloop},2)>size(setstruct(no).RVEndoInterpX{tloop,sloop},1)
           setstruct(no).RVEndoInterpX{tloop,sloop} = setstruct(no).RVEndoInterpX{tloop,sloop}(:);
-          setstruct(no).RVEndoInterpY{tloop,sloop} = setstruct(no).RVEndoInterpY{tloop,sloop}(:);          
-          disp('Warning interpolation point size error. Now fixed.');          
+          setstruct(no).RVEndoInterpY{tloop,sloop} = setstruct(no).RVEndoInterpY{tloop,sloop}(:);
+          disp('Warning interpolation point size error. Now fixed.');
         end
       end
     end
   end
 end
 
-for no = 1:length(setstruct)
+for no = 1:numnos
   if ~isempty(setstruct(no).RVEpiInterpX)
     for tloop=1:setstruct(no).TSize
       for sloop=1:setstruct(no).ZSize
         if size(setstruct(no).RVEpiInterpX{tloop,sloop},2)>size(setstruct(no).RVEpiInterpX{tloop,sloop},1)
           setstruct(no).RVEpiInterpX{tloop,sloop} = setstruct(no).RVEpiInterpX{tloop,sloop}(:);
-          setstruct(no).RVEpiInterpY{tloop,sloop} = setstruct(no).RVEpiInterpY{tloop,sloop}(:);          
-          disp('Warning interpolation point size error. Now fixed.');          
+          setstruct(no).RVEpiInterpY{tloop,sloop} = setstruct(no).RVEpiInterpY{tloop,sloop}(:);
+          disp('Warning interpolation point size error. Now fixed.');
         end
       end
     end
@@ -1061,7 +1357,7 @@ end
 
 %set image view plane based on old image type definition
 if ~isfield(setstruct,'ImageViewPlane')
-  for no = 1:length(setstruct) 
+  for no = 1:numnos
     oldImageType = setstruct(no).ImageType;
     [type,viewplane] = segment('imagedescription');
     settype = 0;
@@ -1073,7 +1369,7 @@ if ~isfield(setstruct,'ImageViewPlane')
           settype = 1;
         end
       end
-      %First use Einars auto detect algoritm to see if it finds the viewplane 
+      %First use Einars auto detect algoritm to see if it finds the viewplane
       outlabel=openfile('autodetectviewplane',setstruct(no).ImageOrientation);
       if isempty(outlabel)
         for viewplaneloop = 1:length(viewplane)
@@ -1149,40 +1445,61 @@ end
 
 %Perfusion
 if not(isfield(setstruct,'Perfusion'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).Perfusion = [];
-%     perfusion('initdefault',no);
-%     perfusion('createmyocardmask',no);
+    %     perfusion('initdefault',no);
+    %     perfusion('createmyocardmask',no);
   end
 end
 
 %Perfusion scoring
 if not(isfield(setstruct,'PerfusionScoring'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).PerfusionScoring = [];
+  end
+end
+
+%Gadgetron scoring
+if not(isfield(setstruct,'GadgetronScoring'))
+  for no = 1:numnos
+    setstruct(no).GadgetronScoring = [];
   end
 end
 
 %T2*
 if not(isfield(setstruct,'T2'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).T2 = [];
-%     perfusion('initdefault',no);
-%     perfusion('createmyocardmask',no);
+    %     perfusion('initdefault',no);
+    %     perfusion('createmyocardmask',no);
+  end
+end
+
+%T2preptime
+if isfield(setstruct,'T2preptime')
+  %T2 prep time exist. If the two first preptimes are the same, then set
+  %the first one to zero. This is as there is a bug in some of the used
+  %sequences. See documentation from the Toronto group on GitHub
+  for no = 1:numnos
+    if length(setstruct(no).T2preptime)>1
+      if isequal(setstruct(no).T2preptime(1),setstruct(no).T2preptime(2))
+        setstruct(no).T2preptime(1) = 0;
+      end
+    end
   end
 end
 
 %check to remove zeros that could have been inserted instead of NaNs when
 %resampling in versions prior to r1021
 if not(isempty(setstruct(no).EndoX))
-  removezeros = (setstruct(no).EndoX==0) & (setstruct(no).EndoY==0);
-  setstruct(no).EndoX(removezeros)=NaN;
-  setstruct(no).EndoY(removezeros)=NaN;
+  [cleanx, cleany] = cleancontour(setstruct, no, 'EndoX', 'EndoY');
+  setstruct(no).EndoX = cleanx;
+  setstruct(no).EndoY = cleany;
 end
 if not(isempty(setstruct(no).EpiX))
-  removezeros = (setstruct(no).EpiX==0) & (setstruct(no).EpiY==0);
-  setstruct(no).EpiX(removezeros)=NaN;
-  setstruct(no).EpiY(removezeros)=NaN;
+  [cleanx, cleany] = cleancontour(setstruct, no, 'EpiX', 'EpiY');  
+  setstruct(no).EpiX = cleanx;
+  setstruct(no).EpiY = cleany;
 end
 if not(isempty(setstruct(no).RVEndoX))
   removezeros = (setstruct(no).RVEndoX==0) & (setstruct(no).RVEndoY==0);
@@ -1195,17 +1512,24 @@ if not(isempty(setstruct(no).RVEpiX))
   setstruct(no).RVEpiY(removezeros)=NaN;
 end
 
-%check if field LongName used for measure report tables is present
-for no = 1:length(setstruct)
-  if not(isempty(setstruct(no).Measure)) && not(isfield(setstruct(no).Measure,'LongName'))
+% Check additional fields in Measure
+for no = 1:numnos
+  if not(isempty(setstruct(no).Measure))
     for sloop = 1:length(setstruct(no).Measure)
-      setstruct(no).Measure(sloop).LongName = setstruct(no).Measure(sloop).Name;
+      % Check 'LongName' field
+      if not(isfield(setstruct(no).Measure(sloop), 'LongName'))
+        setstruct(no).Measure(sloop).LongName = setstruct(no).Measure(sloop).Name;
+      end
+      % Check 'Offset' field
+      if not(isfield(setstruct(no).Measure(sloop), 'Offset'))
+        setstruct(no).Measure(sloop).Offset = [10 0];
+      end
     end
   end
 end
 
 %check if linking structure is present
-for no = 1:length(setstruct)
+for no = 1:numnos
   didnotlink = false;
   if not(isfield(setstruct(no),'Linked'))
     didnotlink = true;
@@ -1215,6 +1539,14 @@ for no = 1:length(setstruct)
   elseif isempty(setstruct(no).Linked)
     didnotlink = true;
     setstruct(no).Linked = no;
+  elseif ~isempty(setstruct(no).Linked) && isfield(setstruct(no),'Children') &&  ~isempty(setstruct(no).Children)
+    % check if linked and children have the same value
+    kids = setstruct(no).Children;
+    indkid = find(kids == no, 1);
+    if ~isempty(indkid)
+      kids(indkid) = [];
+      setstruct(no).Children = kids;
+    end
   end
   if ~isempty(setstruct(no).Flow) && didnotlink
     if no == setstruct(no).Flow.MagnitudeNo
@@ -1252,47 +1584,47 @@ end
 
 %--- AccessionNumber
 if not(isfield(setstruct,'AccessionNumber'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).AccessionNumber = '';
   end
 end
 
 %--- StudyID
 if not(isfield(setstruct,'StudyID'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).StudyID = '';
   end
 end
 
 %--- StudyUID
 if not(isfield(setstruct,'StudyUID'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).StudyUID = '';
   end
 end
 
 %--- Intersection
 if not(isfield(setstruct,'Intersection'))
-  for no = 1:length(setstruct)
+  for no = 1:numnos
     setstruct(no).Intersection = [];
   end
 end
 
 %Bug check for EST and EDT if its zero
-for no = 1:length(setstruct)
+for no = 1:numnos
   if setstruct(no).EST==0
     setstruct(no).EST=1;
   end
   if setstruct(no).EDT==0
-    setstruct(no).EDT=1;  
+    setstruct(no).EDT=1;
   end
 end
 
 %--- TimeVector
-for no = 1:length(setstruct) 
-  if not(isfield(setstruct,'TimeVector')) || isempty(setstruct(no).TimeVector) || all(setstruct(no).TimeVector==0) 
+for no = 1:numnos
+  if not(isfield(setstruct,'TimeVector')) || isempty(setstruct(no).TimeVector) || all(setstruct(no).TimeVector==0)
     if isnan(setstruct(no).TIncr)
-      setstruct(no).TIncr=1/(SET(no).TSize-1); %Normalised time
+      setstruct(no).TIncr = 1/(setstruct(no).TSize-1); %Normalised time
     end
     tvec = 0:setstruct(no).TIncr:(setstruct(no).TSize-1) * setstruct(no).TIncr;
     if isempty(tvec)
@@ -1302,11 +1634,18 @@ for no = 1:length(setstruct)
   end
 end
 
-for no = 1:length(setstruct) 
+for no = 1:numnos
   if (isempty(setstruct(no).CurrentSlice))
     setstruct(no).CurrentSlice = 1;
     setstruct(no).EndSlice = 1;
     setstruct(no).StartSlice = 1;
+  else
+    if (isempty(setstruct(no).EndSlice))
+      setstruct(no).EndSlice = setstruct(no).ZSize;
+    end
+    if(isempty(setstruct(no).StartSlice))
+      setstruct(no).StartSlice = 1;
+    end
   end
 end
 
@@ -1321,27 +1660,26 @@ if not(isfield(setstruct,'AtrialScar'))
 end
 
 %--- PatientInfo -> Institution
-for no = 1:length(setstruct)
+for no = 1:numnos
   if ~isfield(setstruct(no).PatientInfo,'Institution')
     setstruct(no).PatientInfo.Institution = '';
   end
 end
 
 %--- PatientInfo -> Remove obsolete HeartRate field (later)
-% for no = 1:length(setstruct)
+% for no = 1:numnos
 %   if isfield(setstruct(no).PatientInfo,'HeartRate')
 %     hr = setstruct(no).PatientInfo.HeartRate; %#ok<NASGU>
 %     setstruct(no).PatientInfo = rmfield(setstruct(no).PatientInfo,'HeartRate');
 %   end;
 % end
 
-%--- LastUserInfo 
-for no = 1:length(setstruct)
+%--- LastUserInfo
+for no = 1:numnos
   if ~isfield(setstruct(no),'LastUserInfo')
     setstruct(no).LastUserInfo = '';
   end
 end
-
 
 %--- Extra views for SPECT
 if ~isfield(setstruct,'HLA')
@@ -1395,19 +1733,6 @@ if ~isfield(setstruct,'Developer')
   [setstruct.Developer] = deal([]);
 end
 
-if ~isfield(setstruct,'Line3D')
-  %Used for 3D lines in Segment 3DP
-  for loop = 1:length(setstruct)
-    setstruct(loop).Line3D = [];
-    setstruct(loop).Line3D.X = {};
-    setstruct(loop).Line3D.Y = {};
-    setstruct(loop).Line3D.Z = {};
-    setstruct(loop).Line3D.Points = {};
-    setstruct(loop).Line3D.Closed = [];
-    setstruct(loop).Line3D.Sigma = [];
-  end
-end
-
 if ~isfield(setstruct,'PVLoop')
   %Used for the PV-loop module
   setstruct(1).PVLoop = []; %empty is enough to initialise as
@@ -1418,116 +1743,116 @@ end
 %%%%%%%%%%%%%
 
 %Check if valid interpx
-for no = 1:length(setstruct)
-    if ~isempty(setstruct(no).EndoInterpX) && not(isempty(setstruct(no).EndoX))
-        for tloop=1:setstruct(no).TSize
-            for sloop=1:setstruct(no).ZSize
-                if not(isempty(setstruct(no).EndoInterpX{tloop,sloop})) && not(isnan(setstruct(no).EndoX(1,tloop,sloop)))
-                    ipx=setstruct(no).EndoInterpX{tloop,sloop};
-                    ipy=setstruct(no).EndoInterpY{tloop,sloop};
-                    contx = setstruct(no).EndoX(:,tloop,sloop);
-                    conty = setstruct(no).EndoY(:,tloop,sloop);
-                    
-                    ipxrep=repmat(ipx',[length(contx) 1]);
-                    contxrep=repmat(contx,[1 length(ipx)]);
-                    ipyrep=repmat(ipy',[length(conty) 1]);
-                    contyrep=repmat(conty,[1 length(ipy)]);
-                    pindist2cont = (ipxrep-contxrep).^2+(ipyrep-contyrep).^2;
-                    [~,mindistindex] = min(pindist2cont);
-                    [~,sortindex] = sort(mindistindex);
-                    ipx=ipx(sortindex);
-                    ipy=ipy(sortindex);
-                    
-                    setstruct(no).EndoInterpX{tloop,sloop}=ipx;
-                    setstruct(no).EndoInterpY{tloop,sloop}=ipy;
-                end
-            end
+for no = 1:numnos
+  if ~isempty(setstruct(no).EndoInterpX) && not(isempty(setstruct(no).EndoX))
+    for tloop=1:setstruct(no).TSize
+      for sloop=1:setstruct(no).ZSize
+        if not(isempty(setstruct(no).EndoInterpX{tloop,sloop})) && not(isnan(setstruct(no).EndoX(1,tloop,sloop)))
+          ipx=setstruct(no).EndoInterpX{tloop,sloop};
+          ipy=setstruct(no).EndoInterpY{tloop,sloop};
+          contx = setstruct(no).EndoX(:,tloop,sloop);
+          conty = setstruct(no).EndoY(:,tloop,sloop);
+
+          ipxrep=repmat(ipx',[length(contx) 1]);
+          contxrep=repmat(contx,[1 length(ipx)]);
+          ipyrep=repmat(ipy',[length(conty) 1]);
+          contyrep=repmat(conty,[1 length(ipy)]);
+          pindist2cont = (ipxrep-contxrep).^2+(ipyrep-contyrep).^2;
+          [~,mindistindex] = min(pindist2cont);
+          [~,sortindex] = sort(mindistindex);
+          ipx=ipx(sortindex);
+          ipy=ipy(sortindex);
+
+          setstruct(no).EndoInterpX{tloop,sloop}=ipx;
+          setstruct(no).EndoInterpY{tloop,sloop}=ipy;
         end
+      end
     end
+  end
 end
 
-for no = 1:length(setstruct)
-    if ~isempty(setstruct(no).EpiInterpX)  && not(isempty(setstruct(no).EpiX))
-        for tloop=1:setstruct(no).TSize
-            for sloop=1:setstruct(no).ZSize
-                if not(isempty(setstruct(no).EpiInterpX{tloop,sloop})) && not(isnan(setstruct(no).EpiX(1,tloop,sloop)))
-                    ipx=setstruct(no).EpiInterpX{tloop,sloop};
-                    ipy=setstruct(no).EpiInterpY{tloop,sloop};
-                    contx = setstruct(no).EpiX(:,tloop,sloop);
-                    conty = setstruct(no).EpiY(:,tloop,sloop);
-                    
-                    ipxrep=repmat(ipx',[length(contx) 1]);
-                    contxrep=repmat(contx,[1 length(ipx)]);
-                    ipyrep=repmat(ipy',[length(conty) 1]);
-                    contyrep=repmat(conty,[1 length(ipy)]);
-                    pindist2cont = (ipxrep-contxrep).^2+(ipyrep-contyrep).^2;
-                    [~,mindistindex] = min(pindist2cont);
-                    [~,sortindex] = sort(mindistindex);
-                    ipx=ipx(sortindex);
-                    ipy=ipy(sortindex);
-                    
-                    setstruct(no).EpiInterpX{tloop,sloop}=ipx;
-                    setstruct(no).EpiInterpY{tloop,sloop}=ipy;
-                end
-            end
+for no = 1:numnos
+  if ~isempty(setstruct(no).EpiInterpX)  && not(isempty(setstruct(no).EpiX))
+    for tloop=1:setstruct(no).TSize
+      for sloop=1:setstruct(no).ZSize
+        if not(isempty(setstruct(no).EpiInterpX{tloop,sloop})) && not(isnan(setstruct(no).EpiX(1,tloop,sloop)))
+          ipx=setstruct(no).EpiInterpX{tloop,sloop};
+          ipy=setstruct(no).EpiInterpY{tloop,sloop};
+          contx = setstruct(no).EpiX(:,tloop,sloop);
+          conty = setstruct(no).EpiY(:,tloop,sloop);
+
+          ipxrep=repmat(ipx',[length(contx) 1]);
+          contxrep=repmat(contx,[1 length(ipx)]);
+          ipyrep=repmat(ipy',[length(conty) 1]);
+          contyrep=repmat(conty,[1 length(ipy)]);
+          pindist2cont = (ipxrep-contxrep).^2+(ipyrep-contyrep).^2;
+          [~,mindistindex] = min(pindist2cont);
+          [~,sortindex] = sort(mindistindex);
+          ipx=ipx(sortindex);
+          ipy=ipy(sortindex);
+
+          setstruct(no).EpiInterpX{tloop,sloop}=ipx;
+          setstruct(no).EpiInterpY{tloop,sloop}=ipy;
         end
+      end
     end
+  end
 end
 
-for no = 1:length(setstruct)
-    if ~isempty(setstruct(no).RVEndoInterpX)  && not(isempty(setstruct(no).RVEndoX))
-        for tloop=1:setstruct(no).TSize
-            for sloop=1:setstruct(no).ZSize
-                if not(isempty(setstruct(no).RVEndoInterpX{tloop,sloop})) && not(isnan(setstruct(no).RVEndoX(1,tloop,sloop)))
-                    ipx=setstruct(no).RVEndoInterpX{tloop,sloop};
-                    ipy=setstruct(no).RVEndoInterpY{tloop,sloop};
-                    contx = setstruct(no).RVEndoX(:,tloop,sloop);
-                    conty = setstruct(no).RVEndoY(:,tloop,sloop);
-                    
-                    ipxrep=repmat(ipx',[length(contx) 1]);
-                    contxrep=repmat(contx,[1 length(ipx)]);
-                    ipyrep=repmat(ipy',[length(conty) 1]);
-                    contyrep=repmat(conty,[1 length(ipy)]);
-                    pindist2cont = (ipxrep-contxrep).^2+(ipyrep-contyrep).^2;
-                    [~,mindistindex] = min(pindist2cont);
-                    [~,sortindex] = sort(mindistindex);
-                    ipx=ipx(sortindex);
-                    ipy=ipy(sortindex);
-                    
-                    setstruct(no).RVEndoInterpX{tloop,sloop}=ipx;
-                    setstruct(no).RVEndoInterpY{tloop,sloop}=ipy;
-                end
-            end
+for no = 1:numnos
+  if ~isempty(setstruct(no).RVEndoInterpX)  && not(isempty(setstruct(no).RVEndoX))
+    for tloop=1:setstruct(no).TSize
+      for sloop=1:setstruct(no).ZSize
+        if not(isempty(setstruct(no).RVEndoInterpX{tloop,sloop})) && not(isnan(setstruct(no).RVEndoX(1,tloop,sloop)))
+          ipx=setstruct(no).RVEndoInterpX{tloop,sloop};
+          ipy=setstruct(no).RVEndoInterpY{tloop,sloop};
+          contx = setstruct(no).RVEndoX(:,tloop,sloop);
+          conty = setstruct(no).RVEndoY(:,tloop,sloop);
+
+          ipxrep=repmat(ipx',[length(contx) 1]);
+          contxrep=repmat(contx,[1 length(ipx)]);
+          ipyrep=repmat(ipy',[length(conty) 1]);
+          contyrep=repmat(conty,[1 length(ipy)]);
+          pindist2cont = (ipxrep-contxrep).^2+(ipyrep-contyrep).^2;
+          [~,mindistindex] = min(pindist2cont);
+          [~,sortindex] = sort(mindistindex);
+          ipx=ipx(sortindex);
+          ipy=ipy(sortindex);
+
+          setstruct(no).RVEndoInterpX{tloop,sloop}=ipx;
+          setstruct(no).RVEndoInterpY{tloop,sloop}=ipy;
         end
+      end
     end
+  end
 end
 
-for no = 1:length(setstruct)
-    if ~isempty(setstruct(no).RVEpiInterpX)  && not(isempty(setstruct(no).RVEpiX))
-        for tloop=1:setstruct(no).TSize
-            for sloop=1:setstruct(no).ZSize
-                if not(isempty(setstruct(no).RVEpiInterpX{tloop,sloop})) && not(isnan(setstruct(no).RVEpiX(1,tloop,sloop)))
-                    ipx=setstruct(no).RVEpiInterpX{tloop,sloop};
-                    ipy=setstruct(no).RVEpiInterpY{tloop,sloop};
-                    contx = setstruct(no).RVEpiX(:,tloop,sloop);
-                    conty = setstruct(no).RVEpiY(:,tloop,sloop);
-                    
-                    ipxrep=repmat(ipx',[length(contx) 1]);
-                    contxrep=repmat(contx,[1 length(ipx)]);
-                    ipyrep=repmat(ipy',[length(conty) 1]);
-                    contyrep=repmat(conty,[1 length(ipy)]);
-                    pindist2cont = (ipxrep-contxrep).^2+(ipyrep-contyrep).^2;
-                    [~,mindistindex] =min(pindist2cont);
-                    [~,sortindex] =sort(mindistindex);
-                    ipx=ipx(sortindex);
-                    ipy=ipy(sortindex);
-                    
-                    setstruct(no).RVEpiInterpX{tloop,sloop}=ipx;
-                    setstruct(no).RVEpiInterpY{tloop,sloop}=ipy;
-                end
-            end
+for no = 1:numnos
+  if ~isempty(setstruct(no).RVEpiInterpX)  && not(isempty(setstruct(no).RVEpiX))
+    for tloop=1:setstruct(no).TSize
+      for sloop=1:setstruct(no).ZSize
+        if not(isempty(setstruct(no).RVEpiInterpX{tloop,sloop})) && not(isnan(setstruct(no).RVEpiX(1,tloop,sloop)))
+          ipx=setstruct(no).RVEpiInterpX{tloop,sloop};
+          ipy=setstruct(no).RVEpiInterpY{tloop,sloop};
+          contx = setstruct(no).RVEpiX(:,tloop,sloop);
+          conty = setstruct(no).RVEpiY(:,tloop,sloop);
+
+          ipxrep=repmat(ipx',[length(contx) 1]);
+          contxrep=repmat(contx,[1 length(ipx)]);
+          ipyrep=repmat(ipy',[length(conty) 1]);
+          contyrep=repmat(conty,[1 length(ipy)]);
+          pindist2cont = (ipxrep-contxrep).^2+(ipyrep-contyrep).^2;
+          [~,mindistindex] =min(pindist2cont);
+          [~,sortindex] =sort(mindistindex);
+          ipx=ipx(sortindex);
+          ipy=ipy(sortindex);
+
+          setstruct(no).RVEpiInterpX{tloop,sloop}=ipx;
+          setstruct(no).RVEpiInterpY{tloop,sloop}=ipy;
         end
+      end
     end
+  end
 end
 
 %%%%%%%%%%%%%
@@ -1537,6 +1862,10 @@ end
 %if isfield(setstruct,'Colormap')
 %  setstruct = rmfield(setstruct,'Colormap');
 %end;
+
+if isfield(setstruct,'Line3D')
+  setstruct = rmfield(setstruct,'Line3D');
+end
 
 if isfield(setstruct,'CurrentTool')
   setstruct = rmfield(setstruct,'CurrentTool');
@@ -1558,6 +1887,24 @@ if isfield(setstruct,'RoiArea')
   setstruct = rmfield(setstruct,'RoiArea');
 end
 
+if isfield(setstruct,'StudyUid')
+  setstruct = rmfield(setstruct,'StudyUid');
+end
+
+%Old General Pen
+if isfield(setstruct,'GeneralPenX')
+  setstruct = rmfield(setstruct,'GeneralPenX');
+  setstruct = rmfield(setstruct,'GeneralPenY');
+end
+if isfield(setstruct,'GeneralPenInterpX')
+  setstruct = rmfield(setstruct,'GeneralPenInterpX');
+  setstruct = rmfield(setstruct,'GeneralPenInterpY');
+end
+
+if isfield(setstruct,'StrainMITT')
+  setstruct = rmfield(setstruct,'StrainMITT');
+end
+
 if nargin < 1
   SET = setstruct;
 end
@@ -1573,3 +1920,29 @@ function fieldvalues = rebuildflowresults(fieldvalues,numtimeframes)
 newvalues = nan(1,numtimeframes);
 newvalues(ind) = fieldvalues(ind);
 fieldvalues = newvalues;
+%-------------------------------------------------------------------
+function [newx, newy] = cleancontour(setstruct, no, xname, yname)
+%-------------------------------------------------------------------
+% Original data
+origx = setstruct(no).(xname);
+origy = setstruct(no).(yname);
+% Get current sizes
+[szx1, szx2, szx3] = size(origx);
+[szy1, szy2, szy3] = size(origy);
+% Expected sizes
+tsize = setstruct(no).TSize;
+zsize = setstruct(no).ZSize;
+
+% Determine maximum length along first dimension
+maxlen = max(szx1, szy1);
+
+% Preallocate arrays with NaN
+newx = nan(maxlen, tsize, zsize);
+newy = nan(maxlen, tsize, zsize);
+% Copy original data into padded arrays (for existing slices/time frames)
+newx(1:szx1, 1:szx2, 1:szx3) = origx;
+newy(1:szy1, 1:szy2, 1:szy3) = origy;
+% Now remove zeros
+removezeros = (newx == 0) & (newy == 0);
+newx(removezeros) = NaN;
+newy(removezeros) = NaN;

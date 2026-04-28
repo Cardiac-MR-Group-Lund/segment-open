@@ -1,4 +1,5 @@
 classdef segdicomfile
+  %Class to create a DICOM file from Segment file
   
   %Need to write:
   %0008,0020 = StudyDate 
@@ -10,7 +11,7 @@ classdef segdicomfile
   
   methods(Static) % Public
     function create(filename, data, study_uid, pat_name, pat_id, ...
-                    pat_birth, pat_sex, switchtags)
+                    pat_birth, pat_sex, switchtags,devicename,seriesdesc)
       % Creats a dicom file. Serialize data arg and
       % store it in special segment tag.
 
@@ -38,15 +39,16 @@ classdef segdicomfile
       mem.add(mh);
 
       % Write other tags
+      [studydate, studytime] = helperfunctions('getmostrecentstudydate');
       segdicomfile.write_tag(mem, ...
         'SOPClassUID', 'UI', uint8('1.2.840.10008.5.1.4.1.1.7'));
       segdicomfile.write_tag(mem, 'SOPInstanceUID', 'UI', instance_uid);
-      segdicomfile.write_tag(mem, 'StudyDate', 'DA', uint8(data(1).PatientInfo.AcquisitionDate));
+      segdicomfile.write_tag(mem, 'StudyDate', 'DA', uint8(studydate));
       segdicomfile.write_tag(mem, 'SeriesDate', 'DA', uint8(datestr(now,'yyyymmdd')));% Jelena: added for OPenApps to distinguish
-      segdicomfile.write_tag(mem, 'ContentDate', 'DA', uint8(data(1).PatientInfo.AcquisitionDate));
-      segdicomfile.write_tag(mem, 'StudyTime', 'TM', uint8(segdicomfile.secondtostring(data(1).AcquisitionTime)));
+      segdicomfile.write_tag(mem, 'ContentDate', 'DA', uint8(studydate));
+      segdicomfile.write_tag(mem, 'StudyTime', 'TM', uint8(segdicomfile.secondtostring(studytime)));
       segdicomfile.write_tag(mem, 'SeriesTime', 'TM', uint8(datestr(now,'hhMMss.FFF000')));
-      segdicomfile.write_tag(mem, 'ContentTime', 'TM', uint8(segdicomfile.secondtostring(data(1).AcquisitionTime)));
+      segdicomfile.write_tag(mem, 'ContentTime', 'TM', uint8(segdicomfile.secondtostring(studytime)));
       if switchtags
         segdicomfile.write_tag(mem, 'AccessionNumber', 'SH', uint8(data(1).StudyID)); %StudyID and AccessionNumber are switched in Sectra PACS
       else
@@ -64,7 +66,7 @@ classdef segdicomfile
       segdicomfile.write_tag(mem, ...
         'SecondaryCaptureDeviceManufacturer', 'LO', uint8('Medviso '));
       segdicomfile.write_tag(mem, ...
-        'SecondaryCaptureDeviceModelName', 'LO', uint8('Segment '));
+        'SecondaryCaptureDeviceModelName', 'LO', uint8(devicename));
       segdicomfile.write_tag(mem, 'StudyInstanceUID', 'UI', study_uid);
       segdicomfile.write_tag(mem, 'SeriesInstanceUID', 'UI', series_uid);
       if switchtags
@@ -99,7 +101,7 @@ classdef segdicomfile
         segdicomfile.serialize(data));
       segdicomfile.write_tag(mem, ...
         'PixelData', 'OW', image);
-      segdicomfile.write_tag(mem, 'SeriesDescription', 'LO', uint8('SegmCMR_analysis'));
+      segdicomfile.write_tag(mem, 'SeriesDescription', 'LO', uint8(seriesdesc));
     end
     
     function r = serialize( data )
@@ -115,7 +117,8 @@ classdef segdicomfile
       data_size = typecast(uint32(size(data)), 'uint8');
 
       % Create data_content
-      switch class(data)
+      dataclass = class(data);
+      switch dataclass
         case {'double', 'single', 'int8', 'uint8', ...
             'int16', 'uint16', 'int32', 'uint32', ...
             'int64', 'uint64'}
@@ -123,9 +126,17 @@ classdef segdicomfile
             error('SEGMENT:PANIC', 'Serialize doesn''t support complex data');
           end
           data_content = typecast(data(:), 'uint8');
-        case {'logical', 'char', 'cell', 'struct'}
+        case {'logical', 'char', 'cell', 'struct','string'}
           data_content = eval(...
-            ['segdicomfile.serialize_' class(data) '(data)']);
+            ['segdicomfile.serialize_' dataclass '(data)']);
+        case {'strainmitt.clstrain','strainmitt.clstrainresult',...
+            'strainmitt.clpeak','strainmitt.clstrainatrialpeak',...
+            'strainmitt.clstrainratepeak','strainmitt.clstrainrateatrialpeak','strainmitt.clstrainratervpeak',...
+            'segment3dp.objectstorage',...
+            'flow4d.clflow4dobjects','flow4d.clobj4disosurface','flow4d.clobj4dflowplane','flow4d.clobj4dstreamlines',...
+            'flow4d.clobj4danatomicalplane','flow4d.clobj4dvelocityplane',...
+            'generalpen.clgeneralpen','generalpen.clatriumpen'}
+          data_content = segdicomfile.serialize_class(data);
         otherwise
           error('SEGMENT:PANIC', 'Unknown class');
       end
@@ -133,7 +144,7 @@ classdef segdicomfile
       % Pack it all togheter
       r = segdicomfile.create_chunk_va(...
         data_size, ...
-        segdicomfile.serialize_char(class(data)), ...
+        segdicomfile.serialize_char(dataclass), ...
         data_content);
     end
 
@@ -154,9 +165,17 @@ classdef segdicomfile
             'int16', 'uint16', 'int32', 'uint32', ...
             'int64', 'uint64'}
           data = typecast(data_content, data_class);
-        case {'logical', 'char', 'cell', 'struct'}
+        case {'logical', 'char', 'cell', 'struct','string'}
           data = eval(...
-            ['segdicomfile.unserialize_' data_class '(data_content)']);
+            ['segdicomfile.unserialize_' data_class '(data_content)']); %#ok<EVLDOT>
+        case {'strainmitt.clstrain','strainmitt.clstrainresult',...
+            'strainmitt.clpeak','strainmitt.clstrainatrialpeak',...
+            'strainmitt.clstrainratepeak','strainmitt.clstrainrateatrialpeak','strainmitt.clstrainratervpeak',...
+            'segment3dp.objectstorage',...
+            'flow4d.clflow4dobjects','flow4d.clobj4disosurface','flow4d.clobj4dflowplane','flow4d.clobj4dstreamlines',...
+            'flow4d.clobj4danatomicalplane','flow4d.clobj4dvelocityplane',...
+            'generalpen.clgeneralpen','generalpen.clatriumpen'}
+          data = segdicomfile.unserialize_class(data_content,data_class);
         otherwise
           error('SEGMENT:ERROR', ...
             'Invalid serialization stream: Unknown class');
@@ -301,6 +320,26 @@ classdef segdicomfile
       data = logical(r);
     end
 
+    function r = serialize_string(data)
+      % Serialize string array, doesn't mind shape
+      if isempty(data)
+        data = '';
+      else
+        data = char(data);
+      end
+      r = typecast(uint16(data), 'uint8');
+    end
+
+    function data = unserialize_string(r)
+      % Unserialize a string array, doesn't mind shape
+      if isempty(r)
+        data = strings(0,0);
+      else
+        data = char(typecast(r, 'uint16'));
+      end      
+      data = string(data);
+    end
+
     function r = serialize_char(data)
       % Serialize a char array, doesn't mind shape
 
@@ -334,7 +373,174 @@ classdef segdicomfile
       end
     end
 
+    %----------------------------------------------
+    function r = serialize_class(data)
+      %----------------------------------------------
+      % Serialize a struct array, doesn't mind shape
+
+      % Get fieldnames
+      fnames = properties(data);
+      numprop = length(fnames);
+
+      % Serialize content
+      content = {};
+      for dataloop = 1:numel(data)
+        element = cell(0);
+        for proploop = 1:numprop
+          element{end+1} = segdicomfile.serialize(data(dataloop).(fnames{proploop}));
+        end
+        content{dataloop} = segdicomfile.create_chunk(element);
+      end
+
+      % Serialize property names and pack it all in r
+      fnames_ser = repmat({''},numprop,1);
+      for n = 1:numprop
+        fnames_ser{n} = segdicomfile.serialize_char(fnames{n});
+      end
+
+      r = segdicomfile.create_chunk_va(...
+        segdicomfile.create_chunk(fnames_ser), ...
+        segdicomfile.create_chunk(content));
+    end
+
+     %----------------------------------------------
+    function data = unserialize_class(r,dataclass)
+      %----------------------------------------------
+      % Unserialize struct array, doesn't mind shape
+
+      % Read fnames and content
+      [fnames_raw, content] = segdicomfile.parse_chunk_va(r);
+      fnames_raw = segdicomfile.parse_chunk(fnames_raw);
+      content = segdicomfile.parse_chunk(content);
+      numcontent = numel(content);
+
+      % Parse fnames_raw
+      fnames = {};
+      for n=1:length(fnames_raw)
+        fnames{n} = segdicomfile.unserialize_char(fnames_raw{n});
+      end
+
+      % generate empty struct
+      switch dataclass
+        case 'strainmitt.clstrain'
+          data = strainmitt.clstrain;
+          metaprop = ?strainmitt.clstrain;
+        case 'strainmitt.clstrainratepeak'
+          parent = strainmitt.clstrainresult;
+          numpeaklabels = numel(parent.PeakLabels);
+          numstraintypes = numel(parent.StrainTypes);
+          data = repmat(strainmitt.clstrainratepeak,numstraintypes,numpeaklabels);
+          for st = 1:numstraintypes
+            for pl = 1:numpeaklabels
+              csrp = strainmitt.clstrainratepeak(parent.StrainTypes{st},parent.PeakLabels{pl});
+              data(st,pl) = csrp;
+            end
+          end
+          metaprop = ?strainmitt.clstrainratepeak;
+        case 'strainmitt.clstrainatrialpeak'
+          parent = strainmitt.clstrainresult;
+          numpeaklabels = numel(parent.AtrialPeakLabels);
+          numstraintypes = numel(parent.StrainTypes);
+          data = repmat(strainmitt.clstrainatrialpeak,numstraintypes,numpeaklabels);
+          for st = 1:numstraintypes
+            for pl = 1:numpeaklabels
+              csrp = strainmitt.clstrainatrialpeak(parent.StrainTypes{st},parent.AtrialPeakLabels{pl});
+              data(st,pl) = csrp;
+            end
+          end
+          metaprop = ?strainmitt.clstrainatrialpeak;
+        case 'strainmitt.clstrainrateatrialpeak'
+          parent = strainmitt.clstrainresult;
+          numpeaklabels = numel(parent.AtrialSRPeakLabels);
+          numstraintypes = numel(parent.StrainTypes);
+          data = repmat(strainmitt.clstrainrateatrialpeak,numstraintypes,numpeaklabels);
+          for st = 1:numstraintypes
+            for pl = 1:numpeaklabels
+              csrp = strainmitt.clstrainrateatrialpeak(parent.StrainTypes{st},parent.AtrialSRPeakLabels{pl});
+              data(st,pl) = csrp;
+            end
+          end
+          metaprop = ?strainmitt.clstrainrateatrialpeak;
+        case 'strainmitt.clstrainratervpeak'
+          parent = strainmitt.clstrainresult;
+          numpeaklabels = numel(parent.PeakLabels);
+          numstraintypes = numel(parent.StrainTypes);
+          data = repmat(strainmitt.clstrainratervpeak,numstraintypes,numpeaklabels);
+          for st = 1:numstraintypes
+            for pl = 1:numpeaklabels
+              csrp = strainmitt.clstrainratervpeak(parent.StrainTypes{st},parent.PeakLabels{pl});
+              data(st,pl) = csrp;
+            end
+          end
+          metaprop = ?strainmitt.clstrainratervpeak;
+        case'strainmitt.clstrainresult'
+          data = strainmitt.clstrainresult;
+          metaprop = ?strainmitt.clstrainresult;
+        case 'segment3dp.objectstorage'
+          data = segment3dp.objectstorage;
+          metaprop = ?segment3dp.objectstorage;
+        case 'generalpen.clgeneralpen'
+          data = generalpen.clgeneralpen;
+          metaprop = ?generalpen.clgeneralpen;
+        case 'generalpen.clatriumpen'
+          data = generalpen.clatriumpen;
+          metaprop = ?generalpen.clatriumpen;
+        case 'flow4d.clobj4disosurface'
+          data = flow4d.clobj4disosurface;
+          metaprop = ?flow4d.clobj4disosurface;
+        case 'flow4d.clobj4dflowplane'
+          data = flow4d.clobj4dflowplane;
+          metaprop = ?flow4d.clobj4dflowplane;
+        case 'flow4d.clobj4dstreamlines'
+          data = flow4d.clobj4dstreamlines;
+          metaprop = ?flow4d.clobj4dstreamlines;
+        case 'flow4d.clflow4dobjects'
+          data = flow4d.clflow4dobjects;
+          metaprop = ?flow4d.clflow4dobjects;
+        case 'flow4d.clobj4danatomicalplane'
+          data = flow4d.clobj4danatomicalplane;
+          metaprop = ?flow4d.clobj4danatomicalplane;
+        case 'flow4d.clobj4dvelocityplane'
+          data = flow4d.clobj4dvelocityplane;
+          metaprop = ?flow4d.clobj4dvelocityplane;
+      end
+      proplist = {metaprop.PropertyList.Name};
+      constind = [metaprop.PropertyList.Constant];
+      constprop = proplist(constind);
+      readonlyprop = {metaprop.PropertyList.SetAccess};
+
+      % parse content
+      for loop = 1:numcontent
+        field_content = segdicomfile.parse_chunk(content{loop});
+        for j = 1:length(field_content)          
+          curprop = fnames{j};
+          if any(matches(constprop,curprop))
+            % skip over constant values
+            continue
+          end
+          if strcmpi(readonlyprop{j},'protected')
+            % handle read only properties
+            propvalue = segdicomfile.unserialize(field_content{j});
+            switch dataclass
+              case 'generalpen.clatriumpen'
+                switch curprop
+                  case 'Color'
+                    data.setcolor(propvalue)
+                  case 'Label'
+                    data.setlabel(propvalue)
+                end
+            end            
+          else
+            data(loop).(curprop) = segdicomfile.unserialize(field_content{j}) ;
+          end
+          
+        end
+      end
+    end
+
+    %----------------------------------------------
     function r = serialize_struct(data)
+      %----------------------------------------------
       % Serialize a struct array, doesn't mind shape
 
       % Get fieldnames
@@ -359,8 +565,11 @@ classdef segdicomfile
         segdicomfile.create_chunk(fnames_ser), ...
         segdicomfile.create_chunk(content));
     end
+    
 
+    %----------------------------------------------
     function data = unserialize_struct(r)
+      %----------------------------------------------
       % Unserialize struct array, doesn't mind shape
 
       % Read fnames and content

@@ -6,9 +6,19 @@ classdef filebasket < handle
   
   methods
     function self = filebasket(filename, mode)
+      % append  '\\?\' to avoid MAX_PATH_LENGTH problem
+      %first check that it is Windows, long filepath and that the
+      %files is local (does not start with \\)
+      if iscell(filename)
+        filename = char(filename);
+      end
+       if ispc && length(filename) > 250 && ~strcmp(filename(1:2), '\\')
+         filename = append('\\?\',filename);
+       end
       self.fid = fopen(filename, mode);
       if self.fid == -1
-        error('SEGMENT:ERROR', 'Couldn''t open file');
+        errorstr = dprintf('Could not open file.');
+        error('SEGMENT:ERROR', errorstr);
       end
       fseek(self.fid, 0, 'eof');
       self.len = ftell(self.fid);

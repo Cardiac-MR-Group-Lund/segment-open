@@ -10,14 +10,31 @@ function mywarning(stri,fighandle)
 
 %%%% If changing this file, please also change mywarning no block, since
 %%%% they should be identical except for the uiwait(h); line.
-global DATA
+global DATA %#ok<*GVMIS> 
 
 %Einar Heiberg
+% make sure that the string we display is in English to be able to read and
+% understand our log file
+try
+  logstr = translation.dictionary(stri,'English',DATA.Pref.Language);
+catch
+  logstr = stri;
+end
 
+%For autoloader, add warning to warninglist instead of showing it
+try
+  if ~isempty(DATA) && DATA.Autoloader
+    fprintf('Error: %s\n',logstr);
+    warningfunctions('addwarning', logstr); 
+    return;
+  end
+catch
+  %Do nothing as if error then depends on DATA not initialised
+end
 %If silent then just write to log and return
 try
-  if DATA.Silent
-    disp(sprintf('Warning: %s',stri)); %#ok<DSPS>
+  if ~isempty(DATA) && DATA.Silent
+    fprintf('Attention: %s\n',logstr); 
     return;
   end
 catch
@@ -27,9 +44,9 @@ end
 stri = translation.dictionary(stri);
 
 try
-  if DATA.Pref.DoNotAsk
+  if ~isempty(DATA) && DATA.Pref.DoNotAsk
     %Just print warning message in window if DoNotAsk mode.
-    mydisp(dprintf('Warning:%s\n',stri));
+    fprintf('%s Attention: %s\n\n',datestr(now,'yyyy-mm-dd HH:MM:SS'),logstr);
     return;
   end
 catch %#ok<CTCH>
@@ -38,20 +55,23 @@ end
 keystroke = popfrombuffer('KeyStroke');
 
 if isempty(keystroke)
-  disp(dprintf('Warning:%s\n',stri));
-  h = warndlg(stri,dprintf('Warning:'),'invisible');
+  fprintf('%s Attention: %s\n\n',datestr(now,'yyyy-mm-dd HH:MM:SS'),logstr);
+  h = warndlg(stri,dprintf('Attention'),'invisible');
   
   %set color
-  try
-    htext = findobj(h, 'Type', 'Text');  %find text control in dialog
-    set(htext,'Color',DATA.GUISettings.ForegroundColor,'FontSize',9,'Units','normalized');
-  catch me
-    mydispexception(me)
+  if ~isempty(DATA)
+    try
+      htext = findobj(h, 'Type', 'Text');  %find text control in dialog
+      set(htext,'Color',DATA.GUISettings.ForegroundColor,'FontSize',9,'Units','normalized');
+    catch me
+      mydispexception(me)
+    end
   end
-  
+
   %set icon
   setupicon(h);
   
+  if ~isempty(DATA)
   try
     set(h,'Color',DATA.GUISettings.BackgroundColor);
     kids = h.Children;
@@ -70,6 +90,7 @@ if isempty(keystroke)
     end
   catch me
     mydispexception(me)
+  end
   end
   if length(stri) > 40
     ps = get(h,'Position');
@@ -91,7 +112,7 @@ if isempty(keystroke)
     %Ignore if failed, likely due to DATA is cleared or not present
   end
 else
-  disp(dprintf('Warning:%s\n',stri));  
+  fprintf('Attention: %s\n\n',logstr);  
   if isequal(lower(keystroke),'ok')
     pushtobuffer('Warnings',stri);
     macro_helper('put','pushtobuffer(''KeyStroke'',''ok''); %ok from mywarning');

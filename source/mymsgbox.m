@@ -1,20 +1,27 @@
-function h = mymsgbox(stri,title,fighandle)
+function h = mymsgbox(stri,title,fighandle,force)
 %MYMSGBOX Helper function, works as MSGBOX
 %
-%MYMSGBOX(STRI,TITLE,[ALIGNMENT])
+%MYMSGBOX(STRI,TITLE,[ALIGNMENT],[FORCE])
 %  STRI String to display
 %  TITLE Title of messagebox
 %  FIGHANDLE Optional figure handle indicating alignment
+%  FORCE Optional if true, then display regardless of DoNotAsk status in preferences
 %
 %See also MYWARNING, MYMSGBOX, MYADJUST, MYWAITBARSTART.
 
 %Einar Heiberg
 
-global DATA
-if nargin<3
+global DATA %#ok<*GVMIS> 
+
+if nargin < 4
+  force = false;
+end
+
+if nargin < 3
   fighandle=[];
 end
-if nargin<2
+
+if nargin < 2
   title = '';
   fighandle=[];
 end
@@ -22,16 +29,16 @@ end
 stri = translation.dictionary(stri);
 title = translation.dictionary(title);
 try 
-  if DATA.Pref.DoNotAsk
+  if (not(force) && DATA.Pref.DoNotAsk) || DATA.Autoloader
     %If do not ask then also do not display
-    mydisp(dprintf('Message: %s\n',stri));
+    logdisp(dprintf('Message: %s',stri),false); %false = mask patient string
     return;
   end
 catch %#ok<CTCH>
 end
 
 try
-  mydisp(dprintf('Message: %s\n',stri));
+  logdisp(dprintf('Message: %s',stri),false); %false = mask patient string
 catch %#ok<CTCH>
   dispstri = tools('maskpatientstrings',stri);
   fprintf('Message: %s\n\n',dispstri);
@@ -47,35 +54,39 @@ if isempty(keystroke)
     createmode = struct('WindowStyle','modal','Interpreter', 'none');
   end
   h = msgbox(stri,title,createmode);
-  try
-    htext = findobj(h, 'Type', 'Text');  %find text control in dialog
-    set(htext,'Color',DATA.GUISettings.ForegroundColor,'FontSize',9,'Units','normalized');
-  catch me
-    mydispexception(me)
-  end
-  
-   try
-    set(h,'Color',DATA.GUISettings.BackgroundColor);
-    kids = h.Children;
-    for i=1:length(kids)
-      try set(kids(i),'BackgroundColor',DATA.GUISettings.BackgroundColor);catch, end
-      try set(kids(i),'Color',DATA.GUISettings.BackgroundColor);catch, end
-      try set(kids(i),'ForegroundColor',DATA.GUISettings.ForegroundColor);catch, end
-      try set(kids(i),'FontSize',12);catch, end
-      try
-        kidstyle = kids(i).Style;
-        if strcmp(kidstyle,'pushbutton')
-          set(kids(i),'Units','normalized','FontSize',9)
-        end
-      catch
-      end
+  if ~isempty(DATA)
+    try
+      htext = findobj(h, 'Type', 'Text');  %find text control in dialog
+      set(htext,'Color',DATA.GUISettings.ForegroundColor,'FontSize',9,'Units','normalized');
+    catch me
+      mydispexception(me)
     end
-  catch me
-    mydispexception(me)
+
+     try
+      set(h,'Color',DATA.GUISettings.BackgroundColor);
+      kids = h.Children;
+
+      try set(kids,'BackgroundColor',DATA.GUISettings.BackgroundColor);catch, end
+        try set(kids,'Color',DATA.GUISettings.BackgroundColor);catch, end
+        try set(kids,'ForegroundColor',DATA.GUISettings.ForegroundColor);catch, end
+        try set(kids,'FontSize',9);catch, end
+        try
+          for ind = 1:length(kids)
+            kidstyle = {kids.Style};
+            if strcmp(kidstyle,'pushbutton')
+              set(kids(ind),'Units','normalized','FontSize',9)
+            end
+          end
+        catch
+        end
+      
+    catch me
+      mydispexception(me)
+     end
   end
-  if length(stri) > 40
+  if length(stri) > 35
     ps = get(h,'Position');
-    set(h,'Position',[ps(1) ps(2) ps(3)*1.2 ps(4)])
+    set(h,'Position',[ps(1) ps(2) ps(3)*1.1 ps(4)])
   end
   
   myadjust(h,fighandle);

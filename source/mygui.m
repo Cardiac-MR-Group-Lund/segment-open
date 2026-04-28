@@ -1,4 +1,6 @@
-%MYGUI Class for handeling GUI's in a efficeint manner
+classdef mygui < handle 
+  %Inherits from handles to get persistent objects.
+  %MYGUI Class for handeling GUI's in a efficeint manner
 %
 %G = MYGUI(FIGFILENAME,<'BLOCKING'>);
 %
@@ -12,11 +14,11 @@
 %be saved later and to be able to set position of messageboxes, 
 %called with for example mywarning, mymsgbox and yesno when 
 %calling with last input argument as the mygui object.
-%
+
 %Example:
 % First, reserve space for it in DATA Structure:
 %
-%  DATA.GUI.MyGUIExample = []; %in segment.m
+%  DATA.GUI.MyGUIExample = []; %in maingui.m
 %
 %In your code to initialize:
 %  gui = mygui('myguiexample.fig');
@@ -51,29 +53,41 @@
 % 
 %See also SUBSREF, SUBSASGN.
 
-%Jane Sj?gren
+%Jane Sjogren
 
-classdef mygui < handle %Inherits from handles to get persistent objects.
+%#ok<*GVMIS> 
 
-  properties (SetAccess = 'private',Hidden)
-    filename = '';
-    blocking = false;
-    handles = [];
-    fig = [];
-  end
+properties (SetAccess = 'private', Hidden)
+  filename = '';
+  blocking = false;
+  handles = [];
+  fig = [];
+  ispseudomaximized = false;
+  isWindows11 = false;
+end
+properties (Hidden, Constant)
+  mainfignames = {...
+    'segment.fig',...
+    ['+segmentct' filesep 'segmentct.fig'],...
+    ['+segmentmr' filesep 'segmentmr.fig'],...
+    };
+    %Segment 3DPrint does not need it  ['+segment3dp' filesep 'segment3dp.fig'],...
+end
 
-  methods
+methods
 
     %--------------
     function g = mygui(filename,blocking)
-    global DATA
+
+      global DATA 
+      
       %Constructor
-      isinvisble = false;
+      isinvisible = false;
       if nargin>1
         if isequal(blocking,'blocking')
           blocking = true;
         elseif isequal(blocking,'invisible')
-          isinvisble = true;
+          isinvisible = true;
         else
           error('Expected ''blocking''');
         end
@@ -99,22 +113,32 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
       
       setupicon(g.fig); %set up Segment icon
       
-      %set(g.fig,'renderer','opengl');
-
       %subsasgn(g,'handles',guihandles(g.fig)); %Store handles as application data
-      subsasgn(g,'fig',g.fig);
+      g = subsasgn(g,'fig',g.fig);
       %g.handles.fig = g.fig;
+      g.checkwindowsversion;
 
-      setguiposition(g);%set saved position must be set after handles have been set
+      set(g.fig, 'SizeChangedFcn', @g.sizechanged);
+
+      if ~isempty(DATA)
+        if ~DATA.issegment3dp
+          setguiposition(g);%set saved position must be set after handles have been set
+        end
+      end
+      
       g.handles = guihandles(g.fig); %Store handles as application data %Moved this line down. JS, EH:
-      translation.translatealllabels(g.fig); %Translate labels into preferred language
-      if not(isempty(DATA)) && ~isempty(DATA.Pref) % if non-existent then the default color is use anyway
+      if ~strcmpi(g.fig.Name,'PACS preferences')
+        translation.translatealllabels(g.fig); %Translate labels into preferred language
+      end
+      if not(isempty(DATA)) && ~isempty(DATA.Pref) && ~strcmpi(g.fig.Name,'preffig') % if non-existent then the default color is use anyway
+        %don't use background color for preffig. 
         setinterfacecolor(g.fig); %set background color and text color for all objects in alla interfaces
       end
-      lgcolor = [0.94 0.94 0.94];
-      try set(DATA.Handles.iconuipanel,'BackgroundColor',lgcolor); catch, end
+%       lgcolor = [0.94 0.94 0.94];
+%       try set(DATA.Handles.iconuipanel,'BackgroundColor',lgcolor); catch, end
+%       try set(DATA.Handles.ribbonuipanel,'BackgroundColor',[0.94 0.94 0.94]); catch, end
             
-      if ~isinvisble
+      if ~isinvisible
         set(g.fig,'visible','on');%set visble off until position is set and handles are stored
       end
       flushlog;
@@ -123,13 +147,18 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
     %------------------
     function display(g)
       %DISPLAY method
-      disp(sprintf('MYGUI object %s',g.filename));
-      c = fieldnames(getappdata(g.fig));
+      fprintf('MYGUI object %s\n',g.filename);
+      try
+        c = fieldnames(getappdata(g.fig));
+      catch
+        fprintf('Deleted object\n')
+        return
+      end
 
-      for loop=1:length(c)
+      for loop = 1:length(c)
         if ~ismember(c{loop},{'GUIDEOptions','lastValidTag','Listeners','SavedVisible'})
           type = class(getappdata(g.fig,c{loop}));
-          disp(sprintf('  %s: %s',c{loop},type));
+          fprintf('  %s: %s\n',c{loop},type);
         end
       end
     end
@@ -210,6 +239,9 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
         otherwise
           if isstruct(s)
             %struct
+            if ~ishandle(g.fig)
+              return
+            end
 
             if length(s)==1
               %Only one => has to be gui.field
@@ -294,33 +326,159 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
 
     %--------------------------------------------
     function mymaximise(g)
+      %--------------------------------------------
+      % Maximise GUI
+      g.fig.WindowState = 'maximized';
+%       saveguiposition(g);
+    end
+    
+    %--------------------------------------------
+    function sizechanged(g,~,~)
+      %--------------------------------------------
+      % adjust figure size to pseudomaximized for Windows 11 
+     
+      if g.isWindows11
 
-      mymaximize(g.fig);
-      saveguipositions(g);
+        if ~strcmp(version('-release'),'2022a')
+          return
+        end
+
+        warning off MATLAB:ui:javaframe:PropertyToBeRemoved
+        jFrame = get(handle(g.fig), 'JavaFrame'); %#ok<JAVFM>
+        javafig = jFrame.getFigurePanelContainer;
+        if ~javafig.isShowing
+          return % do not do settings when not visible on screen
+        end
+
+        origresizefunc = g.fig.SizeChangedFcn;
+
+        % Check if the figure is maximized
+        ismaximized = jFrame.isMaximized;
+
+        startpos = javafig.getLocationOnScreen;
+        x = startpos.getX + 1;
+        y = startpos.getY;
+        figwidth = javafig.getWidth;
+        figheight = javafig.getHeight;
+
+        currentscreensize = g.getcurrentscreensize(x,y,figwidth,figheight);
+
+        % Define the new size for the figure when maximized
+        if ~g.ispseudomaximized &&  ismaximized 
+          drawnow limitrate;
+          guipos = get(g.fig,'position');
+          set(g.fig,'SizeChangedFcn',[]);
+          g.ispseudomaximized = true;        
+          set(g.fig,'position',[guipos(1) guipos(2) guipos(3)-1 guipos(4)-1]);
+          drawnow;
+          set(g.fig,'SizeChangedFcn',origresizefunc);
+        elseif g.ispseudomaximized &&  ismaximized
+          drawnow limitrate;
+          set(g.fig,'SizeChangedFcn',[]);
+          g.ispseudomaximized = false;
+
+          guipos = g.getsavedguipositions;
+          
+          newx = currentscreensize(1)+guipos(1)*currentscreensize(3);
+          newy = currentscreensize(2)+guipos(2)*currentscreensize(4);
+          newwidth = guipos(3)*currentscreensize(3);
+          newheight = guipos(4)*currentscreensize(4);
+          set(g.fig,'position',[newx newy newwidth newheight]);
+          drawnow;
+          set(g.fig,'SizeChangedFcn',origresizefunc);
+        else
+          g.saveguiposition;
+        end
+        if ismember(g.filename,g.mainfignames)
+          segment_main('rendericonholders');
+          drawnow limitrate; 
+        end
+        warning on MATLAB:ui:javaframe:PropertyToBeRemoved
+
+      end %End of Windows 11
+
+    end
+
+    %----------------------------------
+    function screensize = getcurrentscreensize(~,x,y,figwidth,figheight) %#ok<INUSL> 
+      %----------------------------------
+      % get screensize of the current monitor
+      
+      monitorPositions = get(0, 'MonitorPositions'); %positions of all monitors
+      y = figheight-y; % figheight - y is conversion from java coordinates into matlab's
+
+      % Check which monitor contains the figure
+      screennum = [];
+      for snum = 1:size(monitorPositions, 1)
+        screenpos = monitorPositions(snum, :);
+        if x >= screenpos(1) && ...
+            y >= screenpos(2) && ... 
+            x  <= screenpos(1) + screenpos(3) && ...
+            y  <= screenpos(2) + screenpos(4)
+          screennum = snum;
+          break;
+        end
+      end
+
+      if ~isempty(screennum)
+        screensize = monitorPositions(screennum, :);
+      else
+        screensize = get(0, 'ScreenSize');
+      end
+    end
+
+    %----------------------------------
+    function guipos = getsavedguipositions(g)
+      %----------------------------------
+      % get positions saved for the current figure
+
+      global DATA
+      guipos = [];
+      fname = g.filename;
+      for loop = 1:length(DATA.GUIPositions)
+        if isequal(DATA.GUIPositions(loop).FileName,fname)
+          guipos = DATA.GUIPositions(loop).Position;
+          break
+        end        
+      end
+      maxpos = 0.95;
+      minpos = 0.05;
+      if ~isempty(guipos)
+        tcypos = guipos(2)+guipos(4);
+        tcxpos = guipos(1)+guipos(3);
+        if guipos(2) > maxpos || tcypos > maxpos || guipos(2) < minpos || tcypos < minpos || ...
+            guipos(1) > maxpos || tcxpos > maxpos || guipos(1) < minpos || tcxpos < minpos
+          guipos = [0.1 0.1 0.8 0.7];
+        end
+      else
+        guipos = [0.1 0.1 0.8 0.7];
+      end
     end
     
     %----------------------------------
     function saveguiposition(g)
       global DATA
+      if g.ispseudomaximized || isempty(DATA)
+        return
+      end
 
-      units=get(g.fig,'units');
+      units = get(g.fig,'units');
       set(g.fig,'units','normalized');
 
-      filename=g.filename;
-      guipos=get(g.fig,'position');
+      guipos = get(g.fig,'position');
 
       %search for gui and save Position
       found=0;
       for loop=1:length(DATA.GUIPositions)
-        if isequal(DATA.GUIPositions(loop).FileName,filename)
-          DATA.GUIPositions(loop).Position=guipos;
+        if isequal(DATA.GUIPositions(loop).FileName,g.filename)
+          DATA.GUIPositions(loop).Position = guipos;
           found=1;
         end
       end
       if not(found)
         numberguis=length(DATA.GUIPositions);
-        DATA.GUIPositions(numberguis+1).FileName=filename;
-        DATA.GUIPositions(numberguis+1).Position=guipos;
+        DATA.GUIPositions(numberguis+1).FileName = g.filename;
+        DATA.GUIPositions(numberguis+1).Position = guipos;
       end
 
       set(g.fig,'position',guipos);
@@ -337,40 +495,51 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
         return;
       end
       
-      filename = g.filename;
+      fname = g.filename;
 
       %search for saved position
-      guipos=[];
-      segmentpos=[];
+      guipos = [];
+      segmentpos = [];
+            
       for loop=1:length(DATA.GUIPositions)
-        if isequal(DATA.GUIPositions(loop).FileName,filename)
-          guipos=DATA.GUIPositions(loop).Position;
+        if isequal(DATA.GUIPositions(loop).FileName,fname)
+          guipos = DATA.GUIPositions(loop).Position;
         end
-        if isequal(DATA.GUIPositions(loop).FileName,'segment.fig')||...          
-          isequal(DATA.GUIPositions(loop).FileName,['+segmentct' filesep 'segmentct.fig']) ||...
-          isequal(DATA.GUIPositions(loop).FileName,['+segmentmr' filesep 'segmentmr.fig'])
-          segmentpos=DATA.GUIPositions(loop).Position;
+        if ismember(DATA.GUIPositions(loop).FileName,g.mainfignames)
+          segmentpos = DATA.GUIPositions(loop).Position;
         end
       end
       
+      if isempty(guipos) && ~isempty(segmentpos)
+        guipos = get(g.fig,'position');
+        guipos(1:2) = segmentpos(1:2)+(segmentpos(3:4)-guipos(3:4))/2;
+      end
+      
       if isempty(guipos)
-        guipos=get(g.fig,'position');
-        guipos(1:2)=segmentpos(1:2)+(segmentpos(3:4)-guipos(3:4))/2;
+        g.saveguiposition();
+        set(g.fig,'units','pixels');
+        return
       end
       
       %Make sure the GUI do not end up off screen
       tcypos = guipos(2)+guipos(4);
       tcxpos = guipos(1)+guipos(3);
-      if guipos(2) > 0.8 || tcypos > 0.8 || guipos(2) < 0.1 || tcypos < 0.1 || ...
-          guipos(1) > 0.9 || tcxpos > 0.9 || guipos(1) < 0.1 || tcxpos < 0.1
-        if isequal(DATA.GUIPositions(loop).FileName,'segment.fig')||...
-          isequal(DATA.GUIPositions(loop).FileName,['+segmentct' filesep 'segmentct.fig']) ||...
-          isequal(DATA.GUIPositions(loop).FileName,['+segmentmr' filesep 'segmentmr.fig'])
+      maxvalue = 0.95;
+      minvalue = 0.05;
+
+      if guipos(2) > maxvalue || tcypos > maxvalue || guipos(2) < minvalue || tcypos < minvalue || ...
+          guipos(1) > maxvalue || tcxpos > maxvalue || guipos(1) < minvalue || tcxpos < minvalue
+        if ismember(DATA.GUIPositions(loop).FileName,g.mainfignames) || isempty(segmentpos)
           guipos = [0.1 0.1 0.8 0.7];
           set(g.fig,'position',guipos);
         else
-          guipos=get(g.fig,'position');
-          guipos(1:2)=segmentpos(1:2)+(segmentpos(3:4)-guipos(3:4))/2;
+          guipos = get(g.fig,'position');
+          guipos(1:2) = segmentpos(1:2)+(segmentpos(3:4)-guipos(3:4))/2;
+          % ensure new figure coordinates inside main segment figure
+          guipos(1) = max([guipos(1), segmentpos(1)]); % maximal x pos
+          guipos(2) = max([guipos(2), segmentpos(2)]); % maximal y pos
+          guipos(3) = min([guipos(3), segmentpos(3)]); % minimal height
+          guipos(4) = min([guipos(4), segmentpos(4)]); % minimal width
           set(g.fig,'position',guipos);
         end
       else
@@ -380,24 +549,41 @@ classdef mygui < handle %Inherits from handles to get persistent objects.
 
       saveguiposition(g);
     end
-    
+
+    %-------------------------------------
+    function checkwindowsversion(g)
+      %-------------------------------------
+      g.isWindows11 = helperfunctions('iswindows11');
+    end
+
+    %-----------------------
+    function requestfocus(g)
+      %---------------------
+      % request focus for figure, useful when using arrows that they do not
+      % trigger callback all the time
+      warning off
+      javafig = get(g.fig,'JavaFrame'); %#ok<JAVFM>
+      javafig.requestFocus;
+      warning on
+    end
+
     %-------------------------------------
     function didclose = closeifhasno(g,no)
-    %-------------------------------------
-    %Close GUI if it is associated with image stack no
-    didclose = false;
-    p = getappdata(g.fig);
-    props = fieldnames(p);
-    for i = 1:numel(props)
-      if length(props{i}) >= 2 && ...
-          (strcmpi(props{i}(end-1:end),'no') || ...
-          strcmpi(props{i}(1:2),'no') && length(props{i}) == 3) ...
-          && isequal(p.(props{i}),no) || ~isempty(regexp(props{i},'taggroup'))
-        close(g);
-        didclose = true;
-        return
+      %-------------------------------------
+      %Close GUI if it is associated with image stack no
+      didclose = false;
+      p = getappdata(g.fig);
+      props = fieldnames(p);
+      for i = 1:numel(props)
+        if length(props{i}) >= 2 && ...
+            (strcmpi(props{i}(end-1:end),'no') || ...
+            strcmpi(props{i}(1:2),'no') && length(props{i}) == 3) ...
+            && isequal(p.(props{i}),no) || ~isempty(regexp(props{i},'taggroup'))
+          close(g);
+          didclose = true;
+          return
+        end
       end
-    end
     end
 
   end%end of methods

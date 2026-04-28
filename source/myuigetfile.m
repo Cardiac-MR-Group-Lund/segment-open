@@ -3,9 +3,11 @@ function [filename,pathname,filterindex,ok] = myuigetfile(varargin)
 %Corresponding to uigetfile, but also fixes macro recording and test
 %scripts.
 
+%See also MYGUIGETDIR, MYUIPUTFILE.
+
 %Nils Lundahl
 
-global DATA
+global DATA %#ok<*GVMIS> 
 
 if isa(DATA,'maingui')
   if DATA.Testing

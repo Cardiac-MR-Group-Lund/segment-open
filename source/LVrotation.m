@@ -1,20 +1,18 @@
 function [varargout] = LVrotation(varargin)
 %function to define the LV rotation
 
-
-macro_helper(varargin{:});
+%#ok<*GVMIS> 
 if nargin == 0 || isempty(varargin{1})
   varargin{1} = 'init';
 end
 
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 
-
 %------------
-function init %#ok<DEFNU>
+function init
 %------------
 %open the gui to define LV rotation
-global DATA NO SET
+global DATA NO SET 
 
 gui = mygui('LVrotation.fig');
 DATA.GUI.LVrotation = gui;
@@ -22,12 +20,15 @@ gui.no = NO;
 gui.slice = round(0.5*(SET(gui.no).StartSlice+SET(gui.no).EndSlice)); 
 
 %set rotation and slice
-set(gui.handles.rotationslider,'value',SET(gui.no).SectorRotation);
-set(gui.handles.slicetext,'String',dprintf('Slice %d',gui.slice));
+rotationangle = setrotationangle_helper;
+set(gui.handles.rotationslider,'value',rotationangle);
+addlistener(gui.handles.rotationslider, 'Value', 'PreSet', @slidermotion_Callback);
+set(gui.handles.slicetext,'String',sprintf('%s %d',dprintf('Slice'),gui.slice));
 if SET(NO).ZSize > 1
   set(gui.handles.sliceslider,'Min',1,'Max',...
     SET(NO).ZSize,'Value',SET(NO).ZSize-gui.slice+1,'SliderStep',...
     [1 3]/(SET(NO).ZSize));
+  addlistener(gui.handles.sliceslider, 'Value', 'PreSet', @slidermotion_Callback);
 else
   set(gui.handles.sliceslider,'Visible','off');
   set(gui.handles.slicetext,'Visible','off');
@@ -43,18 +44,30 @@ else
   ok_Callback;
 end
 
+%--------------------
+function slidermotion_Callback(~,obj)
+%--------------------
+% update image when slider was dragged
+
+objtag = obj.AffectedObject.Tag;
+switch objtag
+  case 'sliceslider'
+    sliceslider_Callback;
+  case 'rotationslider'
+    rotationslider_Callback;
+end
+
 %--------------------------
 function requestfocus 
 %--------------------------
 global DATA
+
 gui = DATA.GUI.LVrotation;
-warning off
-jFig = get(gui.fig,'JavaFrame'); 
-jFig.requestFocus; 
-warning on;
+
+myrequestfocus(gui.fig); %Request focus to avoid problem with sliders
 
 %-------------------------
-function keypressed(evt) %#ok<DEFNU>
+function keypressed(evt)
 %-------------------------
 %%Keypress function
 global DATA
@@ -185,15 +198,11 @@ else
 end
 hold off
 
-
-
 %-------------------------------
-function rotationslider_Callback %#ok<DEFNU>
+function rotationslider_Callback 
 %-------------------------------
 %Callback for rotation slider. Update slice image.
 plotimage;
-
-
 
 %----------------------------
 function sliceslider_Callback 
@@ -205,16 +214,15 @@ requestfocus;
 
 gui.slice = SET(gui.no).ZSize-round(mygetvalue(gui.handles.sliceslider))+1;
 set(gui.handles.sliceslider,'Value',round(mygetvalue(gui.handles.sliceslider)));
-set(gui.handles.slicetext,'String',dprintf('Slice %d',gui.slice));
+set(gui.handles.slicetext,'String',sprintf('%s %d',dprintf('Slice'),gui.slice));
 plotimage;
 
-
 %---------------------------------------
-function rotationfromannotation_Callback %#ok<DEFNU>
+function rotationfromannotation_Callback
 %---------------------------------------
 %Finds rotation by looking at RV insertion points.
 
-global DATA SET
+global DATA
 gui = DATA.GUI.LVrotation;
 requestfocus;
 
@@ -227,7 +235,8 @@ if v
 end
 
 %update slider
-set(gui.handles.rotationslider,'value',SET(gui.no).SectorRotation);
+rotationangle = setrotationangle_helper;
+set(gui.handles.rotationslider,'value',rotationangle);
 %call to graphically update rotation & bullseye
 plotimage;
 
@@ -254,6 +263,24 @@ if isempty(pos)
 end
 pos = reportbullseye('sectorrotationhelper',no);
 
+%--------------------------------------
+function angle = setrotationangle_helper(no)
+%--------------------------------------
+%Limit the rotation angle to the slider range ]-180;+180[
+global SET NO
+if nargin < 1
+  no = NO;
+end
+
+angle = SET(no).SectorRotation;
+min = -180;
+max = 180;
+
+if angle > max
+  angle = angle - 360;
+elseif angle < min
+  angle = 360 + angle;
+end
 
 %-------------------
 function ok_Callback
@@ -270,26 +297,22 @@ if SET(gui.no).SectorRotation == 0
 end
 
 close_Callback;
-reportbullseye('startbullseye');
 
 %------------------------
-function cancel_Callback %#ok<DEFNU>
+function cancel_Callback
 %-----------------------
 %cancel the analysis and close the LV rotation interface
 close_Callback;
 
-
 %----------------------
 function close_Callback 
 %----------------------
-%Properly close the GUI.
-
+%Close the GUI.
 global DATA
 
 try
-  DATA.GUI.LVrotation = close(DATA.GUI.LVrotation);  %close the gui
-catch %#ok<CTCH>
-  delete(gcbf)
+  close(DATA.GUI.LVrotation);
+catch
+  close(gcbf);
 end
-
-DATA.GUI.LVrotation= [];
+DATA.GUI.LVrotation = [];

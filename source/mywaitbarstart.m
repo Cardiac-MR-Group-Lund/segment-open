@@ -11,11 +11,14 @@ function h = mywaitbarstart(varargin)
 %minimize CPU consumption. Function returns a handle to a 
 %MYWAITBAROBJECT. FIGHANDLE is optional and indicates alignment
 %
+%NOTE: MYWAITBARSTART is obsoleted and recommended is to replace with
+%MYWAITBAR instead.
+%
 %See also MYWAITBARUPDATE, MYWAITBARSET, MYWAITBARCLOSE.
 
 %Einar Heiberg
 
-global DATA
+global DATA %#ok<*GVMIS> 
 
 if ismethod(DATA,'mywaitbarmainstart')
   h = DATA.mywaitbarstart(varargin{:}); %Call the potentially overloaded method.

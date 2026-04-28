@@ -569,7 +569,7 @@ classdef axestable < handle % inherrit from handle to have persistant objects
 
       for loop=1:length(obj.Key)
         if ~isempty(obj.Key{loop}.Unit)
-          stri=sprintf('%s (%s)',obj.Key{loop}.Name,obj.Key{loop}.Unit);
+          stri=sprintf('%s [%s]',obj.Key{loop}.Name,obj.Key{loop}.Unit);
         else
           stri=obj.Key{loop}.Name;
         end

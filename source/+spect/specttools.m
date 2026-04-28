@@ -4,7 +4,6 @@ function [varargout] = specttools(varargin)
 %
 %written by Helen Soneson 2010-01-26
 
-macro_helper(varargin{:});
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 
 %------------------------------------------------------

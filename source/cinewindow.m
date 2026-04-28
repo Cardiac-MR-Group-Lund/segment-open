@@ -6,7 +6,6 @@ function cinewindow(varargin)
 if nargin==0
   init;
 else
-  macro_helper(varargin{:});
   feval(varargin{:});
 end
 
@@ -26,6 +25,7 @@ else
     'Period',0.05,...
     'StartDelay',0.05,...
     'executionmode','fixeddelay',...
+    'Name','CineWindowTimer',...
     'TimerFcn',@update);
 
   update; %Call to initiate.

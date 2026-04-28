@@ -6,7 +6,7 @@ function z = myrequirepc
 %  than PC.
 
 %Einar Heiberg
-global DATA
+global DATA %#ok<*GVMIS> 
 
 if ispc
   z = true;
@@ -15,4 +15,4 @@ else
   z = false;
   myfailed('This functionality is not yet implemented for Linux/Mac OS.',DATA.GUI.Segment);
   return;
-end;
+end

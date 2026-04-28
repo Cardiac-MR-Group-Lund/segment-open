@@ -1,20 +1,16 @@
 function clockstr = segtime2clock()
 %Returns acquisition time as a string
 
-%Likely this could rewritten to a single line code...
+%Sebastian Bidhult, updated 2023-09-19 by Jelena
 
-%Sebastian Bidhult
-
-global SET NO
+global SET NO %#ok<*GVMIS> 
 
 sectotal = SET(NO).AcquisitionTime;
 
-hour = sectotal/3600;
-minutes = 60*(hour-floor(hour));
-sec = 60*(minutes-floor(minutes));
+% Calculate hours, minutes, and seconds from sectotal
+hour = floor(sectotal / 3600);
+minutes = floor(mod(sectotal, 3600) / 60);
+sec = floor(mod(sectotal, 60));
 
-hour = floor(hour);
-minutes = floor(minutes);
-sec = floor(sec);
-
-clockstr = [num2str(hour) ':' num2str(minutes) ':' num2str(sec)];
+% Create the clock string
+clockstr = sprintf('%02d:%02d:%02d', hour, minutes, sec);

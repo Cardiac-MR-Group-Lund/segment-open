@@ -5,7 +5,7 @@ function f = mydir(pathname,checkfilter)
 % folders comes first
 
 %Einar Heiberg
-global DATA
+global DATA %#ok<*GVMIS> 
 
 filter = false; %Assume without filter
 
@@ -38,15 +38,15 @@ else
   filtersstri = mygetedit(DATA.Preview.Handles.filteredit);
   
   %Extract filters
-  numfilters = sum(filtersstri==';')+1;
+  numfilters = sum(filtersstri==',')+1;
   filters = cell(1,numfilters+1);
   filters{1} = '*.'; %This takes directories
   loop = 2;
-  while sum(filtersstri==';')>0
-    pos = find(filtersstri==';');
+  while sum(filtersstri==',')>0
+    pos = find(filtersstri==',');
     pos = pos(1);
-    filters{loop} = filtersstri(1:(pos-1));
-    filtersstri = filtersstri((pos+1):end);
+    filters{loop} = strtrim(filtersstri(1:(pos-1)));
+    filtersstri = strtrim(filtersstri((pos+1):end));
     loop = loop+1;
   end
   filters{loop} = filtersstri;

@@ -5,7 +5,12 @@ global DATA
 % get current screensize in pixels
 set(0,'units','pixels')
 screensizeinpix = get(0,'screensize');
-usersanswer = false;
+if DATA.Autoloader
+  usersanswer = true;
+  return;
+else
+  usersanswer = false;
+end
 % calculate figure position
 figwidth = 300;
 figheight = 500;
@@ -26,11 +31,7 @@ fig = figure(...
 % load in image ad crop
 offset = 20;
 if ~exist('imagedata','var')|| isempty(imagedata)
-  if isdeployed
-    tmpimg = imread('drawing_guidance.png');
-  else
-    tmpimg = imread(['+straintagging' filesep 'drawing_guidance.png']);
-  end
+  tmpimg = imread(['+straintagging' filesep 'drawing_guidance.png']);
   imwidth = floor(size(tmpimg,2)/4);
   imheight = size(tmpimg,1)- 50;
   img = imcrop(tmpimg,[2*imwidth 0 imwidth imheight]);

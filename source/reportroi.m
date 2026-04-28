@@ -2,7 +2,8 @@ function [varargout] = reportroi(varargin)
 %GUI for ROI analysis.
 %Adapted for use with mygui class by Nils Lundahl
 
-macro_helper(varargin{:});
+%#ok<*GVMIS>
+
 if nargin == 0 || isempty(varargin{1})
   varargin{1} = 'init';
 end
@@ -11,7 +12,7 @@ end
 %------------
 function init
 %------------
-global DATA SET NO
+global DATA SET NO  
 
 if SET(NO).RoiN<1
   myfailed('No ROIs available. Use blue pen to draw ROIs.',DATA.GUI.Segment);
@@ -123,7 +124,7 @@ set(gui.handles.sigmaedit,'string',sprintf('%0.5g',gui.sigma));
 doplot;
     
 %------------------
-function offsetedit %#ok<DEFNU>
+function offsetedit 
 %------------------
 %Get offset value from user defined value in editbox
 global DATA
@@ -153,7 +154,7 @@ end
 doplot;
     
 %--------------------
-function offsetslider %#ok<DEFNU>
+function offsetslider 
 %--------------------
 %Get offset value from user defined value in slider
 global DATA
@@ -169,7 +170,7 @@ set(gui.handles.offsetedit,'string',sprintf('%0.5g',gui.offset));
 doplot;
 
 %---------------------------
-function setdetrend_Callback %#ok<DEFNU>
+function setdetrend_Callback 
 %---------------------------
 %User sets detrend information
 
@@ -191,58 +192,64 @@ gui.detrendendvalue = s.DetrendEndValue;
 doplot;
 
 %---------------------------------
-function parameterlistbox_Callback %#ok<DEFNU>
+function parameterlistbox_Callback 
 %---------------------------------
 %Callback from parameter listbox
 doplot;
 
 %---------------------------
-function showminmax_Callback %#ok<DEFNU>
+function showminmax_Callback 
 %---------------------------
 %Callback for show min/max checkbox
 doplot;
 
 %---------------------------
-function showslopes_Callback %#ok<DEFNU>
+function showslopes_Callback 
+%---------------------------
+%Callback for show min/max slopes checkbox
+doplot;
+
+%---------------------------
+function showslope_Callback 
 %---------------------------
 %Callback for show min/max slopes checkbox
 doplot;
 
 %-------------------------
-function showfwhm_Callback %#ok<DEFNU>
+function showfwhm_Callback 
 %-------------------------
 %Callback for show FWHM checkbox
 doplot;
 
 %----------------------------------
-function showcentergravity_Callback %#ok<DEFNU>
+function showcentergravity_Callback 
 %----------------------------------
 %Callback for show min/max checkbox
 doplot;
 
 %-----------------------
-function smooth_Callback %#ok<DEFNU>
+function smooth_Callback 
 %-----------------------
 %Callback for smooth checkbox
 doplot;
 
 
 %-------------------------
-function cropzero_Callback %#ok<DEFNU>
+function cropzero_Callback 
 %-------------------------
 %Callback for crop at zero checkbox
 doplot;
 
 
 %------------------------
-function detrend_Callback %#ok<DEFNU>
+function detrend_Callback 
 %------------------------
 %Callback for detrend checkbox
 doplot;
 
 
 %-------------------------------
-function roibar_Buttondown(type) %#ok<DEFNU>
+function roibar_Buttondown(type) 
 %-------------------------------
 %Button down function for pressing timebar in plot flow gui. Sets button 
 %motion and button up function for changing start time and end time for 
@@ -255,7 +262,7 @@ set(gcf,'WindowButtonUpFcn',sprintf(...
   'reportroi(''roibar_Buttonup'',''%s'')',type));
 
 %-----------------------------
-function roibar_Buttonup(type) %#ok<DEFNU>
+function roibar_Buttonup(type) 
 %-----------------------------
 %Button up function called after moving timebar in plot flow gui. 
 %Changes start time and end time for calculation of flow.
@@ -286,13 +293,13 @@ end
 doplot;
 
 %---------------------
-function roibar_Motion %#ok<DEFNU>
+function roibar_Motion 
 %---------------------
 %Button motion function called when moving timebar in plot flow gui. 
 %Changes start time and end time for calculation of flow.
 global SET NO
 
-[x,y] = mygetcurrentpoint(gca);
+[x,~] = mygetcurrentpoint(gca);
 
 %Convert to timeframes and round
 x = round(1+x/(1000*SET(NO).TIncr));
@@ -305,7 +312,7 @@ x = (x-1)*SET(NO).TIncr*1000;
 set(SET(NO).Stress.temphandle,'xdata',[x x]);
 
 %------------------
-function plotfilter %#ok<DEFNU>
+function plotfilter 
 %------------------
 %get sigma from slider
 global DATA
@@ -318,7 +325,7 @@ x = linspace(-60,60,121);
 f = exp(-x.^2/gui.sigma.^2);
 figure(22);
 line('XData',x,'YData',f);
-xlabel(dprintf('Timeframes'));
+xlabel(dprintf('Time frames'));
 title(dprintf('Smoothing applicability.'));
 
 %--------------
@@ -387,6 +394,7 @@ global DATA SET
 gui = DATA.GUI.ROI;
 
 %--- Check what to plot
+aucstring = [];
 switch mygetlistbox(gui.handles.parameterlistbox)
   case 1
     gui.outdata = gui.roiint;
@@ -405,7 +413,7 @@ switch mygetlistbox(gui.handles.parameterlistbox)
     set(gui.handles.offsetedit,'Enable','on');
     set(gui.handles.offsetedit,'string',sprintf('%0.5g',gui.offset));
     set(gui.handles.auctext,'Visible','on');
-    aucstring = dprintf('Area under curve:\n');
+    aucstring = sprintf('%s:\n',dprintf('Area under curve'));
     for lloop=1:length(gui.rois)
       aucstring = [aucstring sprintf('%s:  %0.2f\n',SET(gui.no).Roi(gui.rois(lloop)).Name,auc(lloop))];
     end
@@ -417,12 +425,14 @@ switch mygetlistbox(gui.handles.parameterlistbox)
     disableoffset;
   case 3
     gui.outdata = gui.roisize;
-    gui.outname = dprintf('Area [cm^2]');
+    paramstr = dprintf('Area');
+    gui.outname = makeunitstring(paramstr,'cm^2');
     set(gui.handles.auctext,'Visible','off');
     disableoffset;
   case 4
     gui.outdata = gui.roisizepix;
-    gui.outname = dprintf('Area based on pixels [cm^2] ');
+    paramstr = dprintf('Area based on pixels');
+    gui.outname = makeunitstring(paramstr,'cm^2');
     set(gui.handles.auctext,'Visible','off');
     disableoffset;
   case 5
@@ -589,7 +599,7 @@ if SET(gui.no).TSize>1
     %Plot min/max slopes
     if mygetvalue(gui.handles.showslopescheckbox)
       temp = gui.smoothoutdata(:,rloop);
-      if any(gui.maxindd == 0)
+      if any(gui.maxindd(rloop) == 0)
         myfailed('Need to smooth data first.',DATA.GUI.ROI);
         set(gui.handles.showslopescheckbox,'Value',0)
       else
@@ -624,8 +634,24 @@ if SET(gui.no).TSize>1
       pos = (gui.centergravity(rloop)-1)*SET(gui.no).TIncr*1000;
       plot(gui.handles.plotaxes,[pos pos],ylim,'k:');
     end
+
+    %Plot slope between red lines
+    if mygetvalue(gui.handles.showslopecheckbox)
+      if rloop == 1
+        aucstring = [aucstring newline dprintf('Slope') newline];
+      end
+      yval = [gui.smoothoutdata(SET(gui.no).StartAnalysis,rloop) gui.smoothoutdata(SET(gui.no).EndAnalysis,rloop)];
+      plot(gui.handles.plotaxes,[gui.t(SET(gui.no).StartAnalysis) gui.t(SET(gui.no).EndAnalysis)],yval,'k:');
+      %calculate slope
+      slopecalc = (yval(2)-yval(1))/(gui.t(SET(gui.no).EndAnalysis)-gui.t(SET(gui.no).StartAnalysis));
+      aucstring = [aucstring sprintf('%s:  %0.2g\n',SET(gui.no).Roi(gui.rois(rloop)).Name,slopecalc)];
+    end
     
   end %rloop
+  if not(isempty(aucstring))
+    set(gui.handles.auctext,'Visible','on');
+    set(gui.handles.auctext,'String',aucstring);
+  end
   
   %Plot smoothed curves
   if dosmooth
@@ -637,9 +663,9 @@ if SET(gui.no).TSize>1
   
   %Add red bars
   ylim = get(gui.handles.plotaxes,'ylim');  
-  h = plot([gui.t(SET(gui.no).StartAnalysis) gui.t(SET(gui.no).StartAnalysis)],ylim,'r-');
+  h = plot(gui.handles.plotaxes,[gui.t(SET(gui.no).StartAnalysis) gui.t(SET(gui.no).StartAnalysis)],ylim,'r-');
   set(h,'linewidth',2,'ButtonDownFcn','reportroi(''roibar_Buttondown'',''startbar'')');
-  h = plot([gui.t(SET(gui.no).EndAnalysis)   gui.t(SET(gui.no).EndAnalysis)],ylim,'r-');  
+  h = plot(gui.handles.plotaxes,[gui.t(SET(gui.no).EndAnalysis)   gui.t(SET(gui.no).EndAnalysis)],ylim,'r-');  
   set(h,'linewidth',2,'ButtonDownFcn','reportroi(''roibar_Buttondown'',''endbar'')');
   hold(gui.handles.plotaxes,'off');
   
@@ -650,7 +676,8 @@ if SET(gui.no).TSize>1
     legendstring{lloop}=SET(gui.no).Roi(gui.rois(lloop)).Name;
   end
   legend(gui.handles.plotaxes,legendstring);
-  xlabel(gui.handles.plotaxes,dprintf('Time [ms]'),'Color',DATA.GUISettings.ForegroundColor);
+  timestr = makeunitstring(dprintf('Time'),'ms');
+  xlabel(gui.handles.plotaxes,timestr,'Color',DATA.GUISettings.ForegroundColor);
   ylabel(gui.handles.plotaxes,gui.outname,'Color',DATA.GUISettings.ForegroundColor);
   
 else %not time resolved
@@ -713,7 +740,7 @@ set(gui.handles.offsetslider,'Max',gui.offsetrange);
 set(gui.handles.offsetslider,'value',gui.offset);
 
 %--------------
-function export %#ok<DEFNU>
+function export 
 %--------------
 global DATA SET
 gui = DATA.GUI.ROI;
@@ -868,7 +895,7 @@ else
 end
 
 %---------------------------
-function datacursor_Callback %#ok<DEFNU>
+function datacursor_Callback 
 %---------------------------
 %Function which enables datacursor probing on roi-analysis plots.
 %/SB

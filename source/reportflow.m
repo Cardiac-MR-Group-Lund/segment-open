@@ -1,23 +1,26 @@
 function [varargout] = reportflow(varargin)
-%GUI for flow analysis.
+%GUI for 2D flow analysis
+
 %Adapted for use with mygui class by Nils Lundahl
 
-macro_helper(varargin{:});
+%#ok<*GVMIS>
+
 if nargin == 0 || isempty(varargin{1})
   varargin{1} = 'init';
 elseif strncmp(varargin{1},'get',3)
-  [varargout{1:nargout}] = feval('getdata',varargin{:});
+  [varargout{1:nargout}] = getdata(varargin{:});
   return
 end
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 
-%-------------------------
+%---------------------------
 function resampedit_Callback
-%-------------------------
-global DATA
+%---------------------------
+global DATA  
+
 gui = DATA.GUI.Flow;
 
-[temp,ok] = str2num(mygetedit(gui.handles.resampedit)); %#ok<ST2NM>
+[temp,ok] = str2num(mygetedit(gui.handles.resampedit));
 if not(ok)
 	disp('Illegal value');
 else
@@ -25,16 +28,15 @@ else
 end
 
 %----------------------------
-function resampreset_Callback %#ok<DEFNU>
+function resampreset_Callback 
 %----------------------------
 global NO
 
 %Recalculate to get correct flow
 init(NO);
 
-
 %-------------------------
-function resamp_Callback %#ok<DEFNU>
+function resamp_Callback 
 %-------------------------
 global DATA SET NO
 no = NO;
@@ -122,11 +124,12 @@ segment('updateflow'); %DATA.updateaxestables('flow',nom,nop); %maybe unnecessar
 function ok = init(no,eddycheck, invisible)
 %---------------------------------
 %Init flow report GUI
+
 global DATA SET NO
 
 ok = false; %inform if unable to launch GUI
 if nargin<1
-  no=NO;
+  no = NO;
 end
 
 if nargin<2
@@ -165,7 +168,7 @@ if not(imissingle)
 end
 
 if ~DATA.Silent
-    viewfunctions('switchimagestack',nom)
+  viewfunctions('switchimagestack',nom)
 end
 
 if isempty(SET(nom).EndAnalysis)
@@ -187,165 +190,233 @@ if (SET(nom).EndAnalysis-SET(nom).StartAnalysis) ==0
   else
     gui = DATA.GUI.Flow;
   end
-  
-  %Calculate number of ROI's
-rois2take = [];
 
-for loop=1:SET(nom).RoiN
-%   if sum(~isnan(SET(nom).Roi(loop).X(1,:)))>1
+  %Calculate number of ROI's
+  rois2take = [];
+
+  for loop=1:SET(nom).RoiN
+    %   if sum(~isnan(SET(nom).Roi(loop).X(1,:)))>1
     %More than one timeframe
     rois2take = [rois2take loop]; %#ok<AGROW>
-%   end;
-end
-gui.rois2take = rois2take;
-gui.numrois = length(rois2take);
-gui.nom = nom;
-%gui.nop = nop;
+    %   end;
+  end
+  gui.rois2take = rois2take;
+  gui.numrois = length(rois2take);
+  gui.nom = nom;
+  %gui.nop = nop;
 
-showflowroidata(no,0);
+  showflowroidata(no,0);
 elseif (SET(nom).EndAnalysis-SET(nom).StartAnalysis)<0 %1
   myfailed('No timespan, adjust Start/End analysis time (under stress menu or drag red bar).',DATA.GUI.Segment);
   return;
-else   
-nop = SET(nom).Flow.PhaseNo;
-if not(isrectilinear(SET(nom).TimeVector))
-  switch mymenu(['Non uniform time steps detected. This is not '...
-    'supported for flow calculations. Will use mean time step.'],...
-    'Accept for now',...
-    'Accept and apply to stack',...
-    'Cancel')
-    case 2
-      SET(nom).TimeVector = SET(nom).TIncr*(0:SET(nom).TSize-1);
-      SET(nop).TimeVector = SET(nom).TimeVector;
-    case 3
-      return
+else
+  nop = SET(nom).Flow.PhaseNo;
+  if not(isrectilinear(SET(nom).TimeVector))
+    switch mymenu(['Non uniform time steps detected. This is not '...
+        'supported for flow calculations. Will use mean time step.'],...
+        'Accept for now',...
+        'Accept and apply to stack',...
+        'Cancel')
+      case 2
+        SET(nom).TimeVector = SET(nom).TIncr*(0:SET(nom).TSize-1);
+        SET(nop).TimeVector = SET(nom).TimeVector;
+      case 3
+        return
+    end
   end
-end
 
-%Automatically perform Eddy current. Added Einar Heiberg
-if eddycheck
-  if isfield(SET(nom).Flow,'PhaseCorrAsk') && SET(nom).Flow.PhaseCorrAsk == false
-  %do not ask if perform eddy current
-  else
-    if ~isequal(SET(nom).Scanner,'Philips')
-      %Only perform for other scanners than Philips
-      try
-        if isempty(SET(nop).Flow.PhaseCorr)
-          plotonok = true;
-          floweddycurrent('initsmall',plotonok); %When specifying plotonok, then this function is called again when user press ok.
-          return;
+  %Automatically perform Eddy current. Added Einar Heiberg
+  if eddycheck
+    if isfield(SET(nom).Flow,'PhaseCorrAsk') && SET(nom).Flow.PhaseCorrAsk == false
+      %do not ask if perform eddy current
+    else
+      if ~isequal(SET(nom).Scanner,'Philips')
+        %Only perform for other scanners than Philips
+        try
+          if isempty(SET(nop).Flow.PhaseCorr)
+            plotonok = true;
+            floweddycurrent('initsmall',plotonok); %When specifying plotonok, then this function is called again when user press ok.
+            return;
+          end
+        catch %Do point of crasch if we can't perform
         end
-      catch %Do point of crasch if we can't perform
       end
     end
   end
-end
 
-%Calculate number of ROI's
-rois2take = [];
-for loop=1:SET(nom).RoiN
-  if sum(~isnan(SET(nom).Roi(loop).X(1,:)))>1
-    %More than one timeframe
-    rois2take = [rois2take loop]; %#ok<AGROW>
+  %Calculate number of ROI's
+  rois2take = [];
+  for loop=1:SET(nom).RoiN
+    if sum(~isnan(SET(nom).Roi(loop).X(1,:)))>1
+      %More than one timeframe
+      rois2take = [rois2take loop]; %#ok<AGROW>
+    else
+      if matches(SET(nom).Roi(loop).Name,'Static tissue')
+        % ensure time resolved static tissue
+        roi('copyrpoi_helper',nom,loop);
+        rois2take = [rois2take loop]; %#ok<AGROW>
+      end
+    end
   end
-end
-if isempty(rois2take)
-  return
-end
-
-%Open GUI
-if ~isopengui('flow.fig')
-  if invisible
-    gui = mygui('flow.fig','invisible');
-  else
-    gui = mygui('flow.fig');
+  if isempty(rois2take)
+    return
   end
-  DATA.GUI.Flow = gui;
-else
-  gui = DATA.GUI.Flow;
-end
-set(gui.fig,'Name',dprintf('Flow report'));
 
-gui.outsize = [SET(nom).XSize SET(nom).YSize];
-if not(isfield(SET(nom).Flow,'HeartRate')) || isempty(SET(nom).Flow.HeartRate)
-  temphr = (60/(SET(nom).TSize*SET(nom).TIncr));
-  if temphr < 35
-    defineheartrate(nom);
+  %Open GUI
+  if ~isopengui('flow.fig')
+    if invisible
+      gui = mygui('flow.fig','invisible');
+    else
+      gui = mygui('flow.fig');
+    end
+    DATA.GUI.Flow = gui;
   else
+    gui = DATA.GUI.Flow;
+  end
+  set(gui.fig,'Name',dprintf('Flow report'));
+  if ~invisible
+
+    if ~isfield(gui.handles,'settingsmenu')
+      % add menu if there is no menu
+      gui.handles.settingsmenu = uimenu(...
+        'Label', dprintf('Settings'), ...
+        'Tag','settingsmenu');
+      g.Handles.manualheartbeatsmenu = uimenu(gui.handles.settingsmenu,...
+        'Label',dprintf('Manually Define Number of Heart Beats (for real time flow)'), ...
+        'Tag','manualheartbeatsmenu',...
+        'Callback','reportflow(''defineheartrateingui'')');
+    end
+  end
+
+  gui.outsize = [SET(nom).XSize SET(nom).YSize];
+  if not(isfield(SET(nom).Flow,'HeartRate')) || isempty(SET(nom).Flow.HeartRate)
+    temphr = (60/(SET(nom).TSize*SET(nom).TIncr));
     SET(nom).Flow.HeartRate = temphr;
+    segment('updateflow');  %update result panel
   end
-  segment('updateflow');  %update result panel
+
+  gui.hr = SET(nom).Flow.HeartRate;
+  txtstr = sprintf('%s: %0.3g bpm\n%s: %d cm/s',dprintf('Heart rate'),gui.hr,'VENC',SET(nom).VENC);
+  set(gui.handles.heartratetext,'String',txtstr);
+
+  if not(isfield(SET(nop).Flow,'PhaseCorr'))
+    SET(nop).Flow.PhaseCorr = [];
+  end
+
+  gui.t = SET(nom).TIncr*(-1+(1:SET(nom).TSize));
+  gui.d = '.';
+  gui.dt = 9;
+
+  gui.nom = nom;
+  gui.nop = nop;
+
+  gui.rois2take = rois2take;
+  gui.numrois = length(rois2take);
+
+  %Add instance regarding flow
+  gui.show = true(1,gui.numrois);
+
+  %new variables for internal sampling of data: only for use in resampling
+  gui.TIncr = [];
+  gui.tsize = [];
+  gui.resamped = 0;
+  resampedit_Callback;
+  recalculate(no);
+  ok = true;
+
+  set(gui.fig,'pointer','arrow');
+
+  if SET(nom).Flow.HeartRate < 35
+    force = false;
+    defineheartrate(gui.nom,force);
+  end
+
 end
-gui.hr = SET(nom).Flow.HeartRate;
-set(gui.handles.heartratetext,'String',dprintf('Heart rate: %0.3g [bpm]',gui.hr));
 
-if not(isfield(SET(nop).Flow,'PhaseCorr'))
-  SET(nop).Flow.PhaseCorr = [];
-end
+%----------------------------
+function defineheartrateingui
+%----------------------------
+%Define heartrate called from gui
 
+global NO
 
-gui.t = SET(nom).TIncr*(-1+(1:SET(nom).TSize));
-gui.d = '.';
-gui.dt = 9;
+% update heart rate
+force = true;
+defineheartrate(NO,force);
 
-gui.nom = nom;
-gui.nop = nop;
+% update all graphicals elements based on the new heart rate
+init(NO);
 
-% % % %Calculate number of ROI's
-% % % rois2take = [];
-% % % for loop=1:SET(nom).RoiN
-% % %   if sum(~isnan(SET(nom).Roi(loop).X(1,:)))>1
-% % %     %More than one timeframe
-% % %     rois2take = [rois2take loop]; %#ok<AGROW>
-% % %   end
-% % % end
-% % % if isempty(rois2take)
-% % %   return
-% % % end
-gui.rois2take = rois2take;
-gui.numrois = length(rois2take);
-
-%new variables for internal sampling of data: only for use in resampling
-gui.TIncr = [];
-gui.tsize = [];
-gui.resamped = 0;
-resampedit_Callback;
-recalculate(no);
-ok = true;
-
-set(gui.fig,'pointer','arrow');
-end 
-
-
-%---------------------------
-function defineheartrate(no)
-%---------------------------
+%---------------------------------
+function defineheartrate(no,force)
+%---------------------------------
 %Ask user to manually define the heart reate by giving the number of heart
 %beats
-global SET DATA NO
+
+% persistent asked 
+
+global SET DATA NO  
+
+% if isempty(asked)
+%   asked = false;
+% end
+
+if nargin < 2
+  force = false; 
+end
+
+% %Check if we should ignore
+% if asked && ~force
+%   return
+% end
+
+logdisp('defineheartrate')
 
 if nargin < 1
   no = NO;
 end
 
-temphr = (60/(SET(no).TSize*SET(no).TIncr));
-%assume real time flow, aks user to define number of hearts beat
+if isempty(SET(no).Flow)
+  myfailed(dprintf('No flow data in current image stack.'));
+  return
+end
+
+% asked = true;
+
+if isfield(SET(no), 'OrigHeartRate') && ~isempty(SET(no).OrigHeartRate) && (SET(no).OrigHeartRate > 0)
+  if SET(no).Flow.HeartRate < SET(no).OrigHeartRate
+    SET(no).OrigHeartRate = SET(no).Flow.HeartRate;
+  end
+  temphr = SET(no).OrigHeartRate;
+else
+  temphr = (60/(SET(no).TSize*SET(no).TIncr));
+end
+
+if ~force
+  yes = yesno('Low heart rate detected, possible real time images. Do you want to set number of heart beats?');
+  if ~yes
+    return
+  end
+end
+
+%assume real time flow, ask user to define number of hearts beat
 [nbrheartbeats,ok] = mygetnumber('Enter number of heart beats (decimal with .)', 'Heart beats',1.0,0,[]);
 if not(ok)
-  myfailed('Invalid number of heart beats or aborted.');
   return;
 end
+
 if ~isempty(nbrheartbeats) && nbrheartbeats > 0 && isnumeric(nbrheartbeats)
-  SET(no).Flow.HeartRate = nbrheartbeats*temphr;
+  newheartrate = nbrheartbeats*temphr;
 else
   myfailed('Incorrect input value for number of heart beats, using 1',DATA.GUI.Segment);
-  SET(no).Flow.HeartRate = temphr;
+  newheartrate = temphr;
 end
-mymsgbox(dprintf('The heart rate is now set to %0.3g',SET(no).Flow.HeartRate),'Heart rate',DATA.GUI.Segment);
 
-if nargin < 1
-  segment('updateflow');  %update result panel
-end
+%Store it
+tools('sethearrateok_Callback',newheartrate, no);
+
+%Notify
+mymsgbox(dprintf('The heart rate is now set to %0.3g',newheartrate),'Heart rate',DATA.GUI.Segment);
 
 %-----------------------
 function showflowroidata(no,flag)
@@ -379,7 +450,7 @@ if flag == 0
   gui.roinbr = zeros(1,numrois);
   gui.kenergy=0;
   gui.area=zeros(1,numrois);
-  gui.volstri = dprintf('Roi-Name\tTotal vol\tForward vol\tBackward vol\n');
+  gui.volstri = sprintf('%s\t%s\t%s\t%s\n',dprintf('ROI Name'),dprintf('Total vol'),dprintf('Forward vol'),dprintf('Backward vol'));
 
   line = 3;
   for rloop=1:numrois
@@ -409,15 +480,15 @@ if flag == 0
   % 		gui.netforwardvol(rloop),...
   % 		gui.netbackwardvol(rloop),...
   %     abs(100*gui.netbackwardvol(rloop)/gui.netforwardvol(rloop)))];
-    gui.voltext{line} = dprintf('ROI: %s:',SET(nom).Roi(rois2take(rloop)).Name);
-    gui.voltext{line+1} = dprintf('Net Flow: %0.3g ml/s',gui.netflow(rloop));
-    gui.voltext{line+2} = dprintf('Pos Flow: %0.3g ml/s',gui.posflow(rloop));
-    gui.voltext{line+3} = dprintf('Neg Flow: %0.3g ml/s',gui.negflow(rloop));
-    gui.voltext{line+4} = dprintf('Mean Vel: %0.3g cm/s',gui.velmean(rloop));
-    gui.voltext{line+5} = dprintf('Std Vel: %0.3g cm/s',gui.velstd(rloop));
-    gui.voltext{line+6} = dprintf('Max Vel: %0.3g cm/s',gui.velmax(rloop));
-    gui.voltext{line+7} = dprintf('Min Vel: %0.3g cm/s',gui.velmin(rloop));
-  gui.voltext{line+8} = dprintf('ROI Area: %0.3g cm^2',gui.area(rloop));
+    gui.voltext{line} = sprintf('%s: %s:',dprintf('ROI'),SET(nom).Roi(rois2take(rloop)).Name);
+    gui.voltext{line+1} = sprintf('%s: %0.3g ml/s',dprintf('Net flow'),gui.netflow(rloop));
+    gui.voltext{line+2} = sprintf('%s: %0.3g ml/s',dprintf('Pos Flow'),gui.posflow(rloop));
+    gui.voltext{line+3} = sprintf('%s: %0.3g ml/s',dprintf('Neg Flow'),gui.negflow(rloop));
+    gui.voltext{line+4} = sprintf('%s: %0.3g cm/s',dprintf('Mean Vel'),gui.velmean(rloop));
+    gui.voltext{line+5} = sprintf('%s: %0.3g cm/s',dprintf('Std Vel'),gui.velstd(rloop));
+    gui.voltext{line+6} = sprintf('%s: %0.3g cm/s',dprintf('Max Vel'),gui.velmax(rloop));
+    gui.voltext{line+7} = sprintf('%s: %0.3g cm/s',dprintf('Min Vel'),gui.velmin(rloop));
+    gui.voltext{line+8} = sprintf('%s: %0.3g cm^2',dprintf('ROI Area'),gui.area(rloop));
     line = line+10;
   end
 else
@@ -439,15 +510,15 @@ else
 % 		gui.netforwardvol(rloop),...
 % 		gui.netbackwardvol(rloop),...
 %     abs(100*gui.netbackwardvol(rloop)/gui.netforwardvol(rloop)))];
-  gui.voltext{line} = dprintf('ROI: %s:',SET(nom).Roi(rois2take(rloop)).Name);
-  gui.voltext{line+1} = dprintf('Net Flow: %0.3g cm/s',gui.netflow(rloop));
-	gui.voltext{line+2} = dprintf('Pos Flow: %0.3g cm/s',gui.posflow(rloop));
-	gui.voltext{line+3} = dprintf('Neg Flow: %0.3g cm/s',gui.negflow(rloop));
-  gui.voltext{line+4} = dprintf('Mean Vel: %0.3g cm/s',gui.velmean(rloop));
-  gui.voltext{line+5} = dprintf('Std Vel: %0.3g cm/s',gui.velstd(rloop));
-  gui.voltext{line+6} = dprintf('Max Vel: %0.3g cm/s',gui.velmax(rloop));
-  gui.voltext{line+7} = dprintf('Min Vel: %0.3g cm/s',gui.velmin(rloop));
-  gui.voltext{line+8} = dprintf('ROI Area: %0.3g cm2',gui.area(rloop));
+  gui.voltext{line} = sprintf('%s: %s:',dprintf('ROI'),SET(nom).Roi(rois2take(rloop)).Name);
+  gui.voltext{line+1} = sprintf('%s: %0.3g cm/s',dprintf('Net flow'),gui.netflow(rloop));
+	gui.voltext{line+2} = sprintf('%s: %0.3g cm/s',dprintf('Pos Flow'),gui.posflow(rloop));
+	gui.voltext{line+3} = sprintf('%s: %0.3g cm/s',dprintf('Neg Flow'),gui.negflow(rloop));
+  gui.voltext{line+4} = sprintf('%s: %0.3g cm/s',dprintf('Mean Vel'),gui.velmean(rloop));
+  gui.voltext{line+5} = sprintf('%s: %0.3g cm/s',dprintf('Std Vel'),gui.velstd(rloop));
+  gui.voltext{line+6} = sprintf('%s: %0.3g cm/s',dprintf('Max Vel'),gui.velmax(rloop));
+  gui.voltext{line+7} = sprintf('%s: %0.3g cm/s',dprintf('Min Vel'),gui.velmin(rloop));
+  gui.voltext{line+8} = sprintf('%s: %0.3g cm^2',dprintf('ROI Area'),gui.area(rloop));
 
   line = line+10;
   end
@@ -511,7 +582,12 @@ if (~gui.resamped)
     end
   end
   warnedempty = false;
-  h = mywaitbarstart(numrois,'Please wait, calculating flow.');
+  if DATA.Silent
+    numiter = numrois+1;
+  else
+    numiter = 1;
+  end
+  h = mywaitbarstart(numrois,'Please wait, calculating flow.',numiter);
   for rloop = 1:numrois
     for tloop = SET(nom).Roi(rois2take(rloop)).T
       %Create mask
@@ -586,7 +662,7 @@ if (isempty(TIncr) || isempty(TSize))
   disp('TIncr or TSize structures are empty due to resampling error or bad SET!');
 end
 
-gui.volstri = dprintf('Roi-Name\tTotal vol\tForward vol\tBackward vol\n');
+gui.volstri = sprintf('%s\t%s\t%s\t%s\n',dprintf('ROI Name'),dprintf('Total vol'),dprintf('Forward vol'),dprintf('Backward vol'));
 gui.voltext{1} = dprintf('Time between green bars:%d ms\n\n',...
   round(1000*TIncr*(length(timeframes)-1)));
 %--------------------------------------------------------------------------
@@ -609,17 +685,17 @@ for rloop=1:numrois
 	%--- Interpolate up
 		
 	%Sum
-	gui.nettotvol(rloop) = nansum(gui.netflow(timeframes,rloop))*TIncr;
-	gui.nettotposvol(rloop) = nansum(gui.posflow(timeframes,rloop))*TIncr;
-	gui.nettotnegvol(rloop) = nansum(gui.negflow(timeframes,rloop))*TIncr;
-	gui.netforwardvol(rloop) = nansum(...
-		gui.netflow(timeframes,rloop).*(gui.netflow(timeframes,rloop)>0))*TIncr;
-	gui.netbackwardvol(rloop) = nansum(...
-		gui.netflow(timeframes,rloop).*(gui.netflow(timeframes,rloop)<0))*TIncr;
+	gui.nettotvol(rloop) = sum(gui.netflow(timeframes,rloop), 'omitnan')*TIncr;
+	gui.nettotposvol(rloop) = sum(gui.posflow(timeframes,rloop), 'omitnan')*TIncr;
+	gui.nettotnegvol(rloop) = sum(gui.negflow(timeframes,rloop), 'omitnan')*TIncr;
+	gui.netforwardvol(rloop) = sum(...
+		gui.netflow(timeframes,rloop).*(gui.netflow(timeframes,rloop)>0), 'omitnan')*TIncr;
+	gui.netbackwardvol(rloop) = sum(...
+		gui.netflow(timeframes,rloop).*(gui.netflow(timeframes,rloop)<0), 'omitnan')*TIncr;
 	gui.roiname{rloop}=SET(nom).Roi(rois2take(rloop)).Name;
 	gui.roinbr(rloop)=rois2take(rloop);
 	gui.sv(rloop)=gui.nettotvol(rloop)/gui.hr*60;
-	gui.meanflow(rloop)=nansum(gui.netflow(timeframes,rloop))/length(timeframes)*60/1000;
+	gui.meanflow(rloop)=sum(gui.netflow(timeframes,rloop), 'omitnan')/length(timeframes)*60/1000;
 	gui.maxflow(rloop)=max(gui.netflow(:,rloop))*60/1000;
 	gui.maxmaxvel(rloop)=max(gui.velmax(:,rloop));
 	gui.meanmeanvel(rloop)=mynanmean(gui.velmean(:,rloop));
@@ -636,12 +712,12 @@ for rloop=1:numrois
   % 		gui.netforwardvol(rloop),...
   % 		gui.netbackwardvol(rloop),...
   %     abs(100*gui.netbackwardvol(rloop)/gui.netforwardvol(rloop)))];
-  gui.voltext{line} = dprintf('ROI: %s:',SET(nom).Roi(rois2take(rloop)).Name);
-  gui.voltext{line+1} = dprintf('Net vol: %0.3g ml',gui.nettotvol(rloop));
-  gui.voltext{line+2} = dprintf('Forward: %0.3g ml',gui.netforwardvol(rloop));
-  gui.voltext{line+3} = dprintf('Backward: %0.3g ml',gui.netbackwardvol(rloop));
-  gui.voltext{line+4} = dprintf('Regurgitant fraction: %0.3g%%',abs(100*gui.netbackwardvol(rloop)/gui.netforwardvol(rloop)));
-  gui.voltext{line+5} = dprintf('FlowCO: %0.3g l/min',gui.nettotvol(rloop)*gui.hr/1000);
+  gui.voltext{line} = sprintf('%s: %s:',dprintf('ROI'),SET(nom).Roi(rois2take(rloop)).Name);
+  gui.voltext{line+1} = sprintf('%s: %0.3g ml',dprintf('Net vol'),gui.nettotvol(rloop)); 
+  gui.voltext{line+2} = sprintf('%s: %0.3g ml',dprintf('Forward vol'),gui.netforwardvol(rloop));
+  gui.voltext{line+3} = sprintf('%s: %0.3g ml',dprintf('Backward vol'),gui.netbackwardvol(rloop)); 
+  gui.voltext{line+4} = sprintf('%s: %0.3g%%',dprintf('Regurgitant fraction'),abs(100*gui.netbackwardvol(rloop)/gui.netforwardvol(rloop)));
+  gui.voltext{line+5} = sprintf('%s: %0.3g L/min',dprintf('FlowCO'),gui.nettotvol(rloop)*gui.hr/1000);
   
   line = line+7;
 end
@@ -662,7 +738,7 @@ gui.handles.plotaxes.GridColor = 'k';
 set(gui.handles.plotaxes,'Color',[0.94 0.94 0.94]);
 
 %---------------------
-function zoom_Callback %#ok<DEFNU>
+function zoom_Callback 
 %---------------------
 %Callback for checkbox toggling zoom on/off
 global DATA
@@ -673,6 +749,22 @@ if isequal(get(gui.handles.zoomcheckbox,'value'),1)
 else
 	h=zoom(gui.fig);
 	set(h,'enable','off');
+end
+
+%-------------------------------
+function s = getvisiblestring(n)
+%-------------------------------
+%Get if a ROI is visible or not
+
+global DATA
+
+gui = DATA.GUI.Flow;
+
+v = gui.show(n); %Get if it is shown or not
+if v %return as a string suitable for visible
+  s = 'on';
+else
+  s = 'off';
 end
 
 %--------------------------------
@@ -751,43 +843,85 @@ for roinbr = 1:gui.numrois%gui.rois2take
   SET(no).Roi(gui.rois2take(roinbr)).Flow = flowdata;
 end 
 
-return
-%Save plot for later use in report. Not working yet.
-fnames = fieldnames(gui.handles);
-for i = 1:numel(fnames)
-  h = gui.handles.(fnames{i});
-  if ~ismember(get(h,'Type'),{'figure','axes'})
-    set(h,'Visible','off')
-  end
-end
-set(gui.handles.figure1,'Color',[1 1 1]);
-f = mygetframe(gui.handles.figure1);
-im = imresize(frame2im(f), [NaN 512]);
-
-if ~isfield(SET(1).Report,'Name') || isempty(SET(1).Report.Name)
-  name = removeforbiddenchars(SET(1).PatientInfo.Name);
-  if isempty(name)
-    name = 'Hidden';
-  end
-else
-  name = SET(1).Report.Name;
-end
-imwrite(im,fullfile(DATA.Pref.Pacs.ReportsheetPath,name,sprintf('flowaxes_%d.png',no)));
-
 %----------------------
 function close_Callback 
 %-----------------------
 %Close flow report GUI
+
 global DATA
+
 datacursormode off;
+
 try
-  DATA.GUI.Flow=close(DATA.GUI.Flow);  %close the flow gui
+  DATA.GUI.Flow = close(DATA.GUI.Flow);  %close the flow gui
 catch %#ok<CTCH>
   delete(gcbf)
 end
 
 DATA.GUI.Flow = [];
 segment('updateflow'); %DATA.updateaxestables('flow');
+
+%---------------------------
+function hidestatic_Callback
+%---------------------------
+%Hides / shows static ROIs
+
+global DATA
+
+gui = DATA.GUI.Flow;
+
+v = get(gui.handles.hidestaticcheckbox,'Value');
+
+%Set all to true (i.e visible)
+gui.show = true(1,gui.numrois);
+
+if v
+  %Show static
+  for loop = 1:gui.numrois
+    if contains(lower(gui.roiname{loop}),'static')
+      gui.show(loop) = false;
+    end
+  end
+end
+
+update();
+
+%---------------------------
+function selectrois_Callback
+%---------------------------
+%Select what ROIs to plot
+
+global DATA
+
+gui = DATA.GUI.Flow;
+
+s = [];
+s(1).Field = 'Text';
+s(1).Label = dprintf('Select ROIs to show');
+s(1).Default = dprintf('Select ROIs to show');
+s(1).Type = 'text';
+
+for loop = 1:gui.numrois
+  s(loop+1).Field = sprintf('Field%d',loop); %#ok<AGROW> 
+  s(loop+1).Label = gui.roiname{loop}; %#ok<AGROW> 
+  s(loop+1).Default = gui.show(loop); %#ok<AGROW>
+end
+
+[outs,ok] = myinputstruct(s,dprintf('Select ROIs'));
+if ~ok
+  return
+end
+
+%Here we go
+gui.show = true(1,gui.numrois); %Set all to true (i.e visible)
+for loop = 1:gui.numrois
+  if ~outs.(sprintf('Field%d',loop))
+    gui.show(loop) = false;
+  end
+end
+
+set(gui.handles.hidestaticcheckbox,'Value',false); %Turn it off
+update();
 
 %--------------
 function update(no)
@@ -814,187 +948,199 @@ elseif ~(numrois==length(SET(no).Roi))
 end
 
 v = mygetlistbox(gui.handles.parameterlistbox);
+timestr = makeunitstring(dprintf('Time'),'ms');
 switch v
   case 1 %'Flow'
     %--- Plot flow
-    h = plot(gui.handles.plotaxes,t*1000,gui.netflow(:,1),[d SET(nom).Roi(rois2take(1)).LineSpec]);
-    set(h,'linewidth',2);
+    h = plot(gui.handles.plotaxes,t*1000,gui.netflow(:,1),[d SET(nom).Roi(rois2take(1)).LineSpec]);    
+    set(h,'linewidth',2,'Visible',getvisiblestring(1));
     hold(gui.handles.plotaxes,'on')
     for loop=2:size(gui.netflow,2)
       h = plot(gui.handles.plotaxes,t*1000,gui.netflow(:,loop),[d SET(nom).Roi(rois2take(loop)).LineSpec]);
-      set(h,'linewidth',2);
+      set(h,'linewidth',2,'Visible',getvisiblestring(loop));
     end
     set(gui.handles.plotaxes,'XColor',DATA.GUISettings.ForegroundColor,'YColor',DATA.GUISettings.ForegroundColor);
     hold(gui.handles.plotaxes,'off');
     set(gui.handles.plotaxes,'xlim',[0 (SET(nom).TSize-1)*1000*SET(nom).TIncr]);
-    title(gui.handles.plotaxes,dprintf('Net flow. %s',gui.phasecorrstring),'FontSize',12,'Color',DATA.GUISettings.ForegroundColor);
-    xlabel(gui.handles.plotaxes,dprintf('Time [ms]'),'Color',DATA.GUISettings.ForegroundColor);
-    ylabel(gui.handles.plotaxes,dprintf('Flow [ml/s]'),'Color',DATA.GUISettings.ForegroundColor);
+    ttlstr = sprintf('%s. %s',dprintf('Net flow'),gui.phasecorrstring);
+    title(gui.handles.plotaxes,ttlstr,'FontSize',12,'Color',DATA.GUISettings.ForegroundColor);
+    xlabel(gui.handles.plotaxes,timestr,'Color',DATA.GUISettings.ForegroundColor);
+    ylabel(gui.handles.plotaxes,makeunitstring(dprintf('Flow'),'ml/s'),'Color',DATA.GUISettings.ForegroundColor);
     grid(gui.handles.plotaxes,'on');
         
   case 2 %'Positive/Negative Flow'
     %--- plot forward/backward flow
     h = plot(gui.handles.plotaxes,t*1000,gui.posflow(:,1),[d SET(nom).Roi(rois2take(1)).LineSpec]);
-    set(h,'linewidth',2);
+    set(h,'linewidth',2,'Visible',getvisiblestring(1));
     hold(gui.handles.plotaxes,'on');
     for loop=2:size(gui.netflow,2)
       h = plot(gui.handles.plotaxes,t*1000,gui.posflow(:,loop),[d SET(nom).Roi(rois2take(loop)).LineSpec]);
-      set(h,'linewidth',2);
+      set(h,'linewidth',2,'Visible',getvisiblestring(loop));
     end
     for loop=1:size(gui.negflow,2)
       h = plot(gui.handles.plotaxes,t*1000,gui.negflow(:,loop),[d SET(nom).Roi(rois2take(loop)).LineSpec]);
-      set(h,'linewidth',2,'linestyle',':');
+      set(h,'linewidth',2,'linestyle',':','Visible',getvisiblestring(loop));
     end
     set(gui.handles.plotaxes,'XColor',DATA.GUISettings.ForegroundColor,'YColor',DATA.GUISettings.ForegroundColor);
     hold(gui.handles.plotaxes,'off');
     set(gui.handles.plotaxes,'xlim',[0 (SET(nom).TSize-1)*1000*SET(nom).TIncr]);
     title(gui.handles.plotaxes,dprintf('Positive (-) / Negative (:) flow. %s',gui.phasecorrstring),'FontSize',12,'Color',DATA.GUISettings.ForegroundColor);
-    xlabel(gui.handles.plotaxes,dprintf('Time [ms]'),'Color',DATA.GUISettings.ForegroundColor);
-    ylabel(gui.handles.plotaxes,dprintf('Flow [ml/s]'),'Color',DATA.GUISettings.ForegroundColor);
+    xlabel(gui.handles.plotaxes,timestr,'Color',DATA.GUISettings.ForegroundColor);
+    ylabel(gui.handles.plotaxes,makeunitstring(dprintf('Flow'),'ml/s'),'Color',DATA.GUISettings.ForegroundColor);
     grid(gui.handles.plotaxes,'on');
   case 3 %'Velocity'
     %--- Plot velocity
     h = plot(gui.handles.plotaxes,t*1000,gui.velmean(:,1),[d SET(nom).Roi(rois2take(1)).LineSpec]);
-    set(h,'linewidth',2);
+    set(h,'linewidth',2,'Visible',getvisiblestring(1));
     hold(gui.handles.plotaxes,'on')
     for loop=2:size(gui.velmean,2)
       h = plot(gui.handles.plotaxes,t*1000,gui.velmean(:,loop),[d SET(nom).Roi(rois2take(loop)).LineSpec]);
-      set(h,'linewidth',2);
+      set(h,'linewidth',2,'Visible',getvisiblestring(loop));
     end
     
     %--- Plot std bars
-    plot(...
+    h1 = plot(...
       gui.handles.plotaxes,...
       [t'*1000 t'*1000]',...
       [gui.velmean(:,1)-gui.velstd(:,1) gui.velmean(:,1)+gui.velstd(:,1)]',...
       SET(nom).Roi(1).LineSpec);
-    plot(...
+    h2 = plot(...
       gui.handles.plotaxes,...
       [t'*1000-dt t'*1000+dt]',...
       [gui.velmean(:,1)-gui.velstd(:,1) gui.velmean(:,1)-gui.velstd(:,1)]',...
       SET(nom).Roi(1).LineSpec);
-    plot(...
+    h3 = plot(...
       gui.handles.plotaxes,...
       [t'*1000-dt t'*1000+dt]',...
       [gui.velmean(:,1)-gui.velstd(:,1) gui.velmean(:,1)-gui.velstd(:,1)]',...
       SET(nom).Roi(1).LineSpec);
-    plot(...
+    h4 = plot(...
       gui.handles.plotaxes,...
       [t'*1000-dt t'*1000+dt]',...
       [gui.velmean(:,1)+gui.velstd(:,1) gui.velmean(:,1)+gui.velstd(:,1)]',...
       SET(nom).Roi(1).LineSpec);
+    set([h1 h2 h3 h4],'Visible',getvisiblestring(1));
+
     for loop=2:size(gui.velmean,2)
-      plot(...
+      h1 = plot(...
         gui.handles.plotaxes,...
         [t'*1000 t'*1000]',...
         [gui.velmean(:,loop)-gui.velstd(:,loop) gui.velmean(:,loop)+gui.velstd(:,loop)]',...
         SET(nom).Roi(loop).LineSpec);
-      plot(...
+      h2 = plot(...
         gui.handles.plotaxes,...
         [t'*1000-dt t'*1000+dt]',...
         [gui.velmean(:,loop)-gui.velstd(:,loop) gui.velmean(:,loop)-gui.velstd(:,loop)]',...
         SET(nom).Roi(loop).LineSpec);
-      plot(...
+      h3 = plot(...
         gui.handles.plotaxes,...
         [t'*1000-dt t'*1000+dt]',...
         [gui.velmean(:,loop)-gui.velstd(:,loop) gui.velmean(:,loop)-gui.velstd(:,loop)]',...
         SET(nom).Roi(loop).LineSpec);
-      plot(...
+      h4 = plot(...
         gui.handles.plotaxes,...
         [t'*1000-dt t'*1000+dt]',...
         [gui.velmean(:,loop)+gui.velstd(:,loop) gui.velmean(:,loop)+gui.velstd(:,loop)]',...
         SET(nom).Roi(1).LineSpec);
+      set([h1 h2 h3 h4],'Visible',getvisiblestring(loop));
     end
+
     set(gui.handles.plotaxes,'XColor',DATA.GUISettings.ForegroundColor,'YColor',DATA.GUISettings.ForegroundColor);
     hold(gui.handles.plotaxes,'off');
     set(gui.handles.plotaxes,'xlim',[0 (SET(nom).TSize-1)*1000*SET(nom).TIncr]);
-    title(gui.handles.plotaxes,dprintf('Mean velocity. %s',gui.phasecorrstring),'FontSize',12,'Color',DATA.GUISettings.ForegroundColor);
-    xlabel(gui.handles.plotaxes,dprintf('Time [ms]'),'Color',DATA.GUISettings.ForegroundColor);
-    ylabel(gui.handles.plotaxes,dprintf('Mean velocity [cm/s]'),'Color',DATA.GUISettings.ForegroundColor);
+    paramstr = dprintf('Mean velocity');
+    title(gui.handles.plotaxes,sprintf('%s. %s',paramstr,gui.phasecorrstring),'FontSize',12,'Color',DATA.GUISettings.ForegroundColor);
+    xlabel(gui.handles.plotaxes,timestr,'Color',DATA.GUISettings.ForegroundColor);
+    ylabel(gui.handles.plotaxes,makeunitstring(paramstr,'cm/s'),'Color',DATA.GUISettings.ForegroundColor);
     grid(gui.handles.plotaxes,'on');
   case 4 %'Max Velocity'
     %--- Plot max
     h = plot(gui.handles.plotaxes,t*1000,gui.velmax(:,1),[d SET(nom).Roi(rois2take(1)).LineSpec]);
-    set(h,'linewidth',2);
+    set(h,'linewidth',2,'Visible',getvisiblestring(1));
     hold(gui.handles.plotaxes,'on');
     for loop=2:size(gui.area,2)
       h = plot(gui.handles.plotaxes,t*1000,gui.velmax(:,loop),[d SET(nom).Roi(rois2take(loop)).LineSpec]);
-      set(h,'linewidth',2);
+      set(h,'linewidth',2,'Visible',getvisiblestring(loop));
     end
     set(gui.handles.plotaxes,'XColor',DATA.GUISettings.ForegroundColor,'YColor',DATA.GUISettings.ForegroundColor);
     hold(gui.handles.plotaxes,'off');
     set(gui.handles.plotaxes,'xlim',[0 (SET(nom).TSize-1)*1000*SET(nom).TIncr]);
-    title(gui.handles.plotaxes,dprintf('Max velocity. %s',gui.phasecorrstring),'FontSize',12,'Color',DATA.GUISettings.ForegroundColor);
-    xlabel(gui.handles.plotaxes,dprintf('Time [ms]'),'Color',DATA.GUISettings.ForegroundColor);
-    ylabel(gui.handles.plotaxes,dprintf('Max velocity [cm/s]'),'Color',DATA.GUISettings.ForegroundColor);
+    paramstr = dprintf('Max velocity');
+    title(gui.handles.plotaxes,sprintf('%s. %s',paramstr,gui.phasecorrstring),'FontSize',12,'Color',DATA.GUISettings.ForegroundColor);
+    xlabel(gui.handles.plotaxes,timestr,'Color',DATA.GUISettings.ForegroundColor);
+    ylabel(gui.handles.plotaxes,makeunitstring(paramstr, 'cm/s'),'Color',DATA.GUISettings.ForegroundColor);
     grid(gui.handles.plotaxes,'on');
   case 5 %'Min Velocity'
     %--- Plot min
     h = plot(gui.handles.plotaxes,t*1000,gui.velmin(:,1),[d SET(nom).Roi(rois2take(1)).LineSpec]);
-    set(h,'linewidth',2);
+    set(h,'linewidth',2,'Visible',getvisiblestring(1));
     hold(gui.handles.plotaxes,'on');
     for loop=2:size(gui.area,2)
       h = plot(gui.handles.plotaxes,t*1000,gui.velmin(:,loop),[d SET(nom).Roi(rois2take(loop)).LineSpec]);
-      set(h,'linewidth',2);
+      set(h,'linewidth',2,'Visible',getvisiblestring(loop));
     end
     set(gui.handles.plotaxes,'XColor',DATA.GUISettings.ForegroundColor,'YColor',DATA.GUISettings.ForegroundColor);
     hold(gui.handles.plotaxes,'off');
     set(gui.handles.plotaxes,'xlim',[0 (SET(nom).TSize-1)*1000*SET(nom).TIncr]);
-    title(gui.handles.plotaxes,dprintf('Min velocity. %s',gui.phasecorrstring),'FontSize',12,'Color',DATA.GUISettings.ForegroundColor);
-    xlabel(gui.handles.plotaxes,dprintf('Time [ms]'),'Color',DATA.GUISettings.ForegroundColor);
-    ylabel(gui.handles.plotaxes,dprintf('Min velocity [cm/s]'),'Color',DATA.GUISettings.ForegroundColor);
+    paramstr = dprintf('Min velocity');
+    title(gui.handles.plotaxes,sprintf('%s. %s',paramstr,gui.phasecorrstring),'FontSize',12,'Color',DATA.GUISettings.ForegroundColor);
+    xlabel(gui.handles.plotaxes,timestr,'Color',DATA.GUISettings.ForegroundColor);
+    ylabel(gui.handles.plotaxes,makeunitstring(paramstr, 'cm/s'),'Color',DATA.GUISettings.ForegroundColor);
     grid(gui.handles.plotaxes,'on');
   case 6 %'Signed Kinetic Energy'
     %--- Plot KE
     h = plot(gui.handles.plotaxes,t*1000,gui.kenergy(:,1),[d SET(nom).Roi(rois2take(1)).LineSpec]);
-    set(h,'linewidth',2);
+    set(h,'linewidth',2,'Visible',getvisiblestring(1));
     hold(gui.handles.plotaxes,'on');
     for loop=2:size(gui.area,2)
       h = plot(gui.handles.plotaxes,t*1000,gui.kenergy(:,loop),[d SET(nom).Roi(rois2take(loop)).LineSpec]);
-      set(h,'linewidth',2);
+      set(h,'linewidth',2,'Visible',getvisiblestring(loop));
     end
     set(gui.handles.plotaxes,'XColor',DATA.GUISettings.ForegroundColor,'YColor',DATA.GUISettings.ForegroundColor);
     hold(gui.handles.plotaxes,'off');
     set(gui.handles.plotaxes,'xlim',[0 (SET(nom).TSize-1)*1000*SET(nom).TIncr]);
-    title(gui.handles.plotaxes,dprintf('Signed Kinetic Energy. %s',gui.phasecorrstring),'FontSize',12,'Color',DATA.GUISettings.ForegroundColor);
-    xlabel(gui.handles.plotaxes,dprintf('Time [ms]'),'Color',DATA.GUISettings.ForegroundColor);
-    ylabel(gui.handles.plotaxes,dprintf('Signed Kinetic Energy [Nm/s]'),'Color',DATA.GUISettings.ForegroundColor);
+    paramstr = dprintf('Signed Kinetic Energy');
+    title(gui.handles.plotaxes,sprintf('%s. %s',paramstr,gui.phasecorrstring),'FontSize',12,'Color',DATA.GUISettings.ForegroundColor);
+    xlabel(gui.handles.plotaxes,timestr,'Color',DATA.GUISettings.ForegroundColor);
+    ylabel(gui.handles.plotaxes,makeunitstring(paramstr,'Nm/s'),'Color',DATA.GUISettings.ForegroundColor);
     grid(gui.handles.plotaxes,'on');
   case 7 %'Area'
     %--- Plot area
     h = plot(gui.handles.plotaxes,t*1000,gui.area(:,1),[d SET(nom).Roi(rois2take(1)).LineSpec]);
-    set(h,'linewidth',2);
+    set(h,'linewidth',2,'Visible',getvisiblestring(1));
     hold(gui.handles.plotaxes,'on');
     for loop=2:size(gui.area,2)
       h = plot(gui.handles.plotaxes,t*1000,gui.area(:,loop),[d SET(nom).Roi(rois2take(loop)).LineSpec]);
-      set(h,'linewidth',2);
+      set(h,'linewidth',2,'Visible',getvisiblestring(loop));
     end
     set(gui.handles.plotaxes,'XColor',DATA.GUISettings.ForegroundColor,'YColor',DATA.GUISettings.ForegroundColor);
     hold(gui.handles.plotaxes,'off');
     set(gui.handles.plotaxes,'xlim',[0 (SET(nom).TSize-1)*1000*SET(nom).TIncr]);
     set(gui.handles.plotaxes,'ylim',[0 1.2*max(max(gui.area))]);
-    title(gui.handles.plotaxes,dprintf('Area. %s',gui.phasecorrstring),'FontSize',12,'Color',DATA.GUISettings.ForegroundColor);
-    xlabel(gui.handles.plotaxes,dprintf('Time [ms]'),'Color',DATA.GUISettings.ForegroundColor);
-    ylabel(gui.handles.plotaxes,dprintf('Area [cm^2]'),'Color',DATA.GUISettings.ForegroundColor);
+    paramstr = dprintf('Area');    
+    title(gui.handles.plotaxes,sprintf('%s. %s',paramstr,gui.phasecorrstring),'FontSize',12,'Color',DATA.GUISettings.ForegroundColor);
+    xlabel(gui.handles.plotaxes,timestr,'Color',DATA.GUISettings.ForegroundColor);
+    ylabel(gui.handles.plotaxes,makeunitstring(paramstr,'cm^2'),'Color',DATA.GUISettings.ForegroundColor);
     grid(gui.handles.plotaxes,'on');
   case 8 %'Diameter'
     %--- Plot diameter
     h = plot(gui.handles.plotaxes,t*1000,gui.diameter(:,1),[d SET(nom).Roi(rois2take(1)).LineSpec]);
-    set(h,'linewidth',2);
+    set(h,'linewidth',2,'Visible',getvisiblestring(1));
     hold(gui.handles.plotaxes,'on');
     for loop=2:size(gui.diameter,2)
       h = plot(gui.handles.plotaxes,t*1000,gui.diameter(:,loop),[d SET(nom).Roi(rois2take(loop)).LineSpec]);
-      set(h,'linewidth',2);
+      set(h,'linewidth',2,'Visible',getvisiblestring(loop));
     end
     set(gui.handles.plotaxes,'XColor',DATA.GUISettings.ForegroundColor,'YColor',DATA.GUISettings.ForegroundColor);
     hold(gui.handles.plotaxes,'off');
     set(gui.handles.plotaxes,'xlim',[0 (SET(nom).TSize-1)*1000*SET(nom).TIncr]);
     set(gui.handles.plotaxes,'ylim',[0 1.2*max(max(gui.diameter))]);
-    title(gui.handles.plotaxes,dprintf('Diameter. %s',gui.phasecorrstring),'FontSize',12,'Color',DATA.GUISettings.ForegroundColor);
-    xlabel(gui.handles.plotaxes,dprintf('Time [ms]'),'Color',DATA.GUISettings.ForegroundColor);
-    ylabel(gui.handles.plotaxes,dprintf('Diameter [mm]'),'Color',DATA.GUISettings.ForegroundColor);
+    paramstr = dprintf('Diameter');
+    title(gui.handles.plotaxes,sprintf('%s. %s',paramstr,gui.phasecorrstring),'FontSize',12,'Color',DATA.GUISettings.ForegroundColor);
+    xlabel(gui.handles.plotaxes,timestr,'Color',DATA.GUISettings.ForegroundColor);
+    ylabel(gui.handles.plotaxes,makeunitstring(paramstr,'mm'),'Color',DATA.GUISettings.ForegroundColor);
     grid(gui.handles.plotaxes,'on');
-  case {9,10,11} %{'3D plot','3D plot one frame','Pixel Export'}
+  case {9,10,11,12} %{'3D plot','3D plot one frame','Pixel Export'}
     %--- 3D plot
     if v == 10 %strcmp(s{v},'3D plot one frame')
       rois=SET(nom).RoiCurrent;
@@ -1190,27 +1336,47 @@ switch v
           outdata{rowoffset+(tloop-1)*(ysize+2),2} = (tloop-1)*SET(nom).TIncr*1000;
         end
         segment('cell2clipboard',outdata);
-      end
+      end %v=11
       
     end
 end %Case clause
 
-%Add the red bars, legend, not 3D
+%Add the gren side bars and the red baseline bar, legend, not 3D
 xstart = SET(nom).TIncr*(SET(nom).StartAnalysis-1)*1000;
 xend = SET(nom).TIncr*(SET(nom).EndAnalysis-1)*1000;
 if mygetlistbox(gui.handles.parameterlistbox)<=(length(get(gui.handles.parameterlistbox,'String'))-2)
+
+  displaybaselinebar = get(gui.handles.baselinebarcheckbox,'Value');
+
+  %Add zero line
+  hzeroline = yline(0, 'k-', 'LineWidth', 2,'parent',gui.handles.plotaxes); % Horizontal zero line
+  set(hzeroline, 'HandleVisibility', 'off'); % Exclude from legend
+  if displaybaselinebar
+    set(hzeroline, 'ButtonDownFcn','reportflow(''baselinebar_Buttondown'')');
+  end
+  gui.handles.hzeroline = hzeroline;
+
   ylim = get(gui.handles.plotaxes,'ylim');
+  
   hold(gui.handles.plotaxes,'on');
   h = plot(gui.handles.plotaxes,[xstart xstart],ylim,'g-');
-  set(h,'linewidth',2,'ButtonDownFcn','reportflow(''flowbar_Buttondown'',''startbar'')');
+  set(h,'linewidth',2,'ButtonDownFcn','reportflow(''sidelinebar_Buttondown'',''startbar'')');
+  gui.handles.startbar = h;
   h = plot(gui.handles.plotaxes,[xend xend],ylim,'g-');
-  set(h,'linewidth',2,'ButtonDownFcn','reportflow(''flowbar_Buttondown'',''endbar'')');
-  %JB: Reverting change 8241
-% % % %   y = median(gui.netflow(:));
-% % % %   if isequal(mygetlistbox(gui.handles.parameterlistbox),1)
-% % % %     h = plot(gui.handles.plotaxes,1000*[t(1) t(end)],[y y],'r:');
-% % % %     set(h,'linewidth',2,'ButtonDownFcn','reportflow(''baselinebar_Buttondown'')');
-% % % %   end
+  set(h,'linewidth',2,'ButtonDownFcn','reportflow(''sidelinebar_Buttondown'',''endbar'')');
+  gui.handles.endbar = h;
+
+  if displaybaselinebar
+    %--- Code for baselinebar
+    baselinelevel = computebaselinelevel(gui.netflow); %Compute baselinelevel
+
+    if isequal(mygetlistbox(gui.handles.parameterlistbox),1)
+      h = plot(gui.handles.plotaxes,1000*[t(1) t(end)],[baselinelevel baselinelevel],'r-');
+      set(h,'linewidth',2,'ButtonDownFcn','reportflow(''baselinebar_Buttondown'')');
+      gui.handles.baselinebar = h;
+    end
+  end
+
   hold(gui.handles.plotaxes,'off');
   
   %--- Legend
@@ -1228,8 +1394,11 @@ end
 gui.handles.plotaxes.GridColor = 'k';
 set(gui.handles.plotaxes,'Color',[0.94 0.94 0.94]);
 
+%Work around to change yellow lines to orange
+helperfunctions('changelinecolorfromyellowtoorange',gui.handles.plotaxes);
+
 %--------------
-function export %#ok<DEFNU>
+function export 
 %--------------
 %Export flow data to clipboard
 global DATA SET
@@ -1345,29 +1514,35 @@ end
 end
 segment('cell2clipboard',outdata);
 
-%--------------------------------
-function flowbar_Buttondown(type) %#ok<DEFNU>
-%--------------------------------
-%Button down function for flow bar in flow report GUI.
-global SET NO
+%------------------------------------
+function sidelinebar_Buttondown(type) 
+%------------------------------------
+%Button down function for baselinebar in flow report GUI.
 
-SET(NO).Flow.temphandle = gcbo;
-set(gcf,'WindowButtonMotionFcn','reportflow(''flowbar_Motion'')');
-set(gcf,'WindowButtonUpFcn',sprintf(...
-  'reportflow(''flowbar_Buttonup'',''%s'')',type));
+set(gcf,'WindowButtonMotionFcn',sprintf('reportflow(''sidelinebar_Motion'',''%s'')',type));
+set(gcf,'WindowButtonUpFcn',sprintf('reportflow(''sidelinebar_Buttonup'',''%s'')',type));
 
-%------------------------------
-function flowbar_Buttonup(type) %#ok<DEFNU>
-%------------------------------
-%Button up function for flow bar in flow report GUI.
-global SET DATA NO
+%----------------------------------
+function sidelinebar_Buttonup(type) 
+%----------------------------------
+%Button up function for baselinebar in flow report GUI.
+
+global SET DATA
+
 gui = DATA.GUI.Flow;
 nom = gui.nom;
 set(gcf,'WindowButtonMotionFcn','');
 set(gcf,'WindowButtonUpFcn','');
 
 %Get Convert to timeframe
-x = get(SET(NO).Flow.temphandle,'xdata');
+switch type
+  case 'startbar'
+    h = gui.handles.startbar;
+  case 'endbar'
+    h = gui.handles.endbar;
+end
+
+x = get(h,'xdata');
 x = x(1);
 x = round(1+x/(1000*SET(nom).TIncr));
 x = max(min(x,SET(nom).TSize),1);
@@ -1388,13 +1563,16 @@ end
 %Recalculate to get correct flow
 recalculate(nom);
 
-%----------------------
-function flowbar_Motion %#ok<DEFNU>
-%----------------------
-%Motion function for flowbar.
-global SET NO
+%--------------------------------
+function sidelinebar_Motion(type)
+%--------------------------------
+%Motion function for sidelinebar.
+
+global DATA SET NO
 
 [x,~] = mygetcurrentpoint(gca);
+
+gui = DATA.GUI.Flow;
 
 %Convert to timeframes and round
 x = round(1+x/(1000*SET(NO).TIncr));
@@ -1404,31 +1582,53 @@ x = min(max(0,x),SET(NO).TSize);
 x = (x-1)*SET(NO).TIncr*1000;
 
 %Update display
-set(SET(NO).Flow.temphandle,'xdata',[x x]);
+switch type
+  case 'startbar'
+    set(gui.handles.startbar,'xdata',[x x]);
+  case 'endbar'
+    set(gui.handles.endbar,'xdata',[x x]);
+end
 
-%-------------------------------
-function baselinebar_Buttondown %#ok<DEFNU>
-%-------------------------------
-%Button down function for flow bar in flow report GUI.
-global SET NO
+%------------------------------
+function baselinebar_Buttondown 
+%------------------------------
+%Button down function for baselinebar in flow report GUI.
 
-SET(NO).Flow.temphandle = gcbo;
 set(gcf,'WindowButtonMotionFcn','reportflow(''baselinebar_Motion'')');
 set(gcf,'WindowButtonUpFcn','reportflow(''baselinebar_Buttonup'')');
 
 %--------------------------
-function baselinebar_Motion %#ok<DEFNU>
+function baselinebar_Motion 
 %--------------------------
-%Motion function for flowbar.
-global SET NO
+%Motion function for baselinebar.
+
+global DATA
 
 [~,y] = mygetcurrentpoint(gca);
 
 %Update display
-set(SET(NO).Flow.temphandle,'ydata',[y y]);
+gui = DATA.GUI.Flow;
+x = get(gui.handles.baselinebar,'XData');
+set(gui.handles.baselinebar,'XData',[x(1) x(end)],'YData',[y y]);
+
+%-----------------------------------------
+function y = computebaselinelevel(netflow)
+%-----------------------------------------
+%Compute baseline level
+
+extractedflow = netflow(:);
+sortedflow = sort(abs(extractedflow));
+
+%Take the threshold as the 2/3 largest flow
+flowthreshold = sortedflow(round(0.67*length(extractedflow))); 
+ind = abs(extractedflow) < flowthreshold;
+
+%Take the mean of those
+lowflow = extractedflow(ind);
+y = mean(lowflow);
 
 %----------------------------
-function baselinebar_Buttonup %#ok<DEFNU>
+function baselinebar_Buttonup 
 %----------------------------
 %Button up function for flow bar in flow report GUI.
 
@@ -1441,14 +1641,16 @@ gui = DATA.GUI.Flow;
 
 phno = SET(NO).Flow.PhaseNo;
 
-%Compute median and difference
-m = median(gui.netflow(:));
-y = get(SET(NO).Flow.temphandle,'ydata');
+%Compute baselinelevel
+oldbaselinelevel = computebaselinelevel(gui.netflow);
+y = get(gui.handles.baselinebar,'ydata');
 y = y(1);
-d = m-y; %ml/s
+d = oldbaselinelevel-y; %ml/s
+
 area = sum(mean(gui.area)); %sum of the mean area
 dvel = d/area;
 dvel = dvel/SET(phno).VENC/2;
+
 %Check if no phase correction computed
 if isempty(SET(phno).Flow.PhaseCorr)
   SET(phno).Flow.PhaseCorr = zeros(SET(phno).XSize,SET(phno).YSize,SET(phno).ZSize);
@@ -1460,7 +1662,7 @@ SET(phno).Flow.PhaseCorr = SET(phno).Flow.PhaseCorr+dvel;
 recalculate(NO);
 
 %---------------------------
-function datacursor_Callback %#ok<DEFNU>
+function datacursor_Callback 
 %---------------------------
 %Function which enables datacursor probing on roi-analysis plots.
 %/SB
@@ -1471,7 +1673,7 @@ datacursormode(gui.fig);
 
 
 %---------------------------
-function switchsign_Callback %#ok<DEFNU>
+function switchsign_Callback 
 %---------------------------
 %switch flow sign of current roi and recalucate and update
 global NO DATA SET
@@ -1510,11 +1712,34 @@ else
   recalculate(NO);
 end
 
+%----------------------------------
+function clearcompensation_Callback 
+%----------------------------------
+%Clear eddycurrent compensation
+
+global SET NO 
+
+phno = SET(NO).Flow.PhaseNo;
+
+SET(phno).Flow.PhaseCorr = [];
+
+recalculate(NO);
+
+update;
 
 %-----------------------------
-function compensation_Callback %#ok<DEFNU>
+function compensation_Callback 
 %-----------------------------
 %open the eddy current compensation gui and recalculate and update
 
-floweddycurrent('initsmall');
+global SET NO 
+
+phno = SET(NO).Flow.PhaseNo;
+
+if isempty(SET(phno).Flow.PhaseCorr)
+  floweddycurrent('initsmall');
+else
+  floweddycurrent('init');
+end
+
 update;

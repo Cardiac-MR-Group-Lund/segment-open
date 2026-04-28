@@ -41,7 +41,7 @@ end
 
 f = dir(pathname);
 
-h = mywaitbarstart(length(f),'Please wait, processing files.');
+h = mywaitbarstart(length(f),'Please wait, processing files.',1,DATA.GUI.OpenFile);
 for loop = 1:length(f)
   if ~f(loop).isdir
     %Not a folder => filename

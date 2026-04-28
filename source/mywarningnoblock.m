@@ -7,21 +7,21 @@ function mywarningnoblock(stri,fighandle)
 %
 %See also  MYWARNING
 
-global DATA
+global DATA %#ok<*GVMIS> 
 
 %Einar Heiberg
 
 try
   if DATA.Pref.DoNotAsk || DATA.Silent
     %Just print warning message in window if DoNotAsk mode.
-    mydisp(dprintf('Warning:%s\n',stri));
+    mydisp(sprintf('Warning:%s\n',stri));
     return;
   end
 catch %#ok<CTCH>
 end
 
-mydisp(dprintf('Warning:%s\n',stri));
-h = warndlg(stri,'Warning:');
+mydisp(sprintf('Warning:%s\n',stri));
+h = warndlg(stri,'Warning');
 
 %Adjust horisontally
 if nargin>1

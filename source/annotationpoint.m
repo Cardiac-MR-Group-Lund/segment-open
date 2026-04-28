@@ -4,8 +4,9 @@ function varargout = annotationpoint(varargin)
 
 % Moved out from segment_main.m by Nisse Lundahl
 
+%#ok<*GVMIS>
+
 %Invoke subfunction
-macro_helper(varargin{:}); %future macro recording use
 if (nargout)
   [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 else
@@ -30,6 +31,7 @@ SET(no).Point.Label = {};
 function pointclearall
 %----------------------
 %Clear all points.
+
 global DATA SET NO
 
 %Use to point to mag data set
@@ -37,6 +39,7 @@ no = NO;
 if ~isempty(SET(NO).Parent)
   no = SET(NO).Parent;
 end
+
 tools('enableundo',no);
 
 %Update in 2D
@@ -47,7 +50,7 @@ end
 
 try
   if segment3dp.isviewportalive
-    DATA.LevelSet.ViewPort.setpoints([],[],[])
+    DATA.LevelSet.ViewPort.setpoints([],[],[],[])
   end
 catch
 end
@@ -55,7 +58,7 @@ end
 pointclearall_helper(no);
 
 %-------------------------------
-function pointexportall_Callback %#ok<DEFNU>
+function pointexportall_Callback
 %-------------------------------
 %Export all point data
 global DATA SET NO
@@ -142,7 +145,7 @@ end
 segment('cell2clipboard',outdata);
 
 %------------------------------------
-function pointcleartemplate_Callback %#ok<DEFNU>
+function pointcleartemplate_Callback
 %------------------------------------
 %Clear points using naming template.
 global DATA SET NO
@@ -158,7 +161,7 @@ if isempty(SET(no).Point)||isempty(SET(no).Point.X)
   return;
 end
 
-s = myinputdlg({'Delete points labeled as:'},'Template',1,{''});
+s = myinputdlg({'Clear points labeled as:'},'Template',1,{''});
 if isempty(s)
   myfailed('Invalid template.',DATA.GUI.Segment);
   return;
@@ -187,7 +190,7 @@ SET(no).Point.Label = SET(no).Point.Label(ind);
 viewfunctions('setview');  %drawfunctions('drawimageno');
 
 %------------------------------------
-function pointrenametemplate_Callback %#ok<DEFNU>
+function pointrenametemplate_Callback
 %------------------------------------
 %Rename points according to a renaming template.
 global DATA SET NO
@@ -206,7 +209,6 @@ end
 
 s = myinputdlg({'Rename points labeled as:'},'Template',1,{''});
 if isempty(s)
-  myfailed('Invalid template.',DATA.GUI.Segment);
   return;
 else
   s = s{1};
@@ -214,7 +216,6 @@ end
 
 stri = myinputdlg({'New name:'},'Newname',1,{''});
 if isempty(stri)
-  myfailed('Invalid new name.',DATA.GUI.Segment);
   return;
 else
   stri = stri{1};
@@ -223,7 +224,10 @@ end
 tools('enableundo',no);
 
 for loop=1:length(SET(no).Point.Z)
-  if isequal(SET(no).Point.Label{loop},s)
+  pointlabel = SET(no).Point.Label{loop};  
+  [~,logind] = removechars(pointlabel);
+  pointlabelwithoutnumbers = pointlabel(~logind);
+  if isequal(pointlabel,s) || isequal(pointlabelwithoutnumbers,s)
     SET(no).Point.Label{loop} = stri;
   end
 end
@@ -231,7 +235,7 @@ end
 viewfunctions('setview');  %drawfunctions('drawimageno');
 
 %----------------------------
-function filterpoints_Callback %#ok<DEFNU>
+function filterpoints_Callback
 %----------------------------
 %Filter point in time using a Kalman filter
 
@@ -302,7 +306,8 @@ hold on;
 plot(t,xnew,'b-');
 hold off;
 title(dprintf('X-coordinate.'));
-xlabel(dprintf('Time [s]'));
+timestr = makeunitstring(dprintf('Time'),'s');
+xlabel(timestr);
 ylabel(dprintf('Position (pixel)'));
 
 %X coordinate
@@ -312,7 +317,7 @@ hold on;
 plot(t,ynew,'b-');
 hold off;
 title(dprintf('Y-coordinate.'));
-xlabel(dprintf('Time [s]'));
+xlabel(timestr);
 ylabel(dprintf('Position (pixel)'));
 
 set(99,'numbertitle','off','name',dprintf('Position over time'));
@@ -334,9 +339,9 @@ end
 
 close(99);
 
-%----------------------------------------------
-function importpoint_Callback(no) %#ok<DEFNU>
-%----------------------------------------------
+%--------------------------------
+function importpoint_Callback(no) 
+%--------------------------------
 %Import point from another image stack.
 %Imports to current image stack NO from no or if called with no input
 %arguments user is asked.
@@ -407,7 +412,7 @@ pos = calcfunctions('rlapfh2xyz',tono,pos(:,1),pos(:,2),pos(:,3));
 for loop = 1:size(pos,2)  
   x = pos(1,loop);
   y = pos(2,loop);
-  z = pos(3,loop);
+  z = round(pos(3,loop));
   if ...
       (x>0) && (x<=SET(tono).XSize) && ...
       (y>0) && (y<=SET(tono).YSize) && ...
@@ -418,6 +423,21 @@ for loop = 1:size(pos,2)
     SET(tono).Point.T(end+1) = SET(fromno).Point.T(loop);
     SET(tono).Point.Label{end+1} = SET(fromno).Point.Label{loop};    
   end
- 
 end
 
+%----------------------------
+function pointind = findpoint_helper 
+%----------------------------
+%Helper function to find point to delete and provide it to the callback
+%function pointdeletethis_Callback (in callbackfunctions.m),
+%Used in Segment 3DPrint context menu.
+global DATA SET NO
+
+%Get clicked position
+[x,y,z] = segment3dp.tools('rgb2xyz',...
+  SET(NO).LevelSet.View.RSlice,...
+  SET(NO).LevelSet.View.GSlice,...
+  SET(NO).LevelSet.View.BSlice);
+
+%Find closest point
+[~,pointind] = findfunctions('closestpoint',DATA.CurrentPanel,x,y,z);

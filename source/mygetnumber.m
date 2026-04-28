@@ -12,7 +12,7 @@ function [z,ok] = mygetnumber(promptstri,titlestri,default,minval,maxval)
 
 %Einar Heiberg
 
-global DATA
+global DATA %#ok<*GVMIS> 
 
 if nargin<3
   error('Expected at least three input arguments (prompt,title,default).');
@@ -53,7 +53,7 @@ else
     ok = false;
     return;
   else
-    [z,ok] = str2num(s{1}); %#ok<ST2NM>
+    [z,ok] = str2num(s{1}); 
     if not(ok)
       return;
     end

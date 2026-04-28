@@ -2,10 +2,12 @@ function [filename,pathname,filterindex,ok] = myuiputfile(varargin)
 %[FILENAME, PATHNAME, FILTERINDEX,OK] = MYUIPUTFILE(FILTERSPEC, TITLE)
 %Corresponding to uiputfile, but also fixes macro recording and test
 %scripts.
+%
+%See also MYUIGETDIR, MYUIGETFILE
 
 %Nils Lundahl
 
-global DATA
+global DATA %#ok<*GVMIS> 
 
 if isa(DATA,'maingui')
   if DATA.Testing

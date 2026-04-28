@@ -4,7 +4,8 @@
 %extensive, partial or corrective pseudonymization, for a single file/folder or for
 %a whole working list.
 
-% Written by Jane Tufvesson
+% Written by Jane Tufvesson, addition by Fanny Månefjord
+%#ok<*GVMIS> 
 
 %Todo 
 %     :code to make partial/normal anonymization of dicom files
@@ -17,13 +18,15 @@
 %    :rewrite find patient details to be compatible with import to work
 %    list
 
-macro_helper(varargin{:});
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 
 %-----------------------------
 function initgui(filetype)
 %-----------------------------
-global SET DATA WL
+%Initialize GUI
+%Input filetype can be mat or dcm
+
+global SET DATA WL 
 
 if ~isempty(SET)
   myfailed('Please save and close your current analysis in order to pseudonymize multiple files.');
@@ -32,17 +35,138 @@ end
 
 %open figure
 if isequal(filetype,'mat')
-	DATA.GUI.Anonymization = mygui('anonymizationmat.fig');
+	gui = mygui('anonymizationmat.fig');
 	WL=[];
+  gui.ext = '.mat';
 elseif isequal(filetype,'dcm')
-	DATA.GUI.Anonymization = mygui('anonymizationdicom.fig');
+	gui = mygui('anonymizationdicom.fig');
 	WL=[];
+  gui.ext = '.dcm';
 end
-fig = DATA.GUI.Anonymization.fig;
+fig = gui.fig;
 
 set(fig,'DeleteFcn','anonymization(''deletegui_Callback'')');
-
+DATA.GUI.Anonymization = gui;
 updatelist;
+
+%--------------------------
+function copy = copieschecked
+%--------------------------
+%Function to see if checkbox for creating copies is checked
+%Returns 1 if copies should be creates, otherwise 0
+global DATA 
+
+gui = DATA.GUI.Anonymization;
+copy = get(gui.handles.copiescheckbox,'value'); %should we create copies (1) or not (0)
+
+%--------------------------
+function rename = renamechecked
+%--------------------------
+%Function to see if rename checkbox is checked or not
+%Returns 1 if the files should be renamed, otherwise 0
+global DATA 
+
+gui = DATA.GUI.Anonymization;
+rename = get(gui.handles.renamecheckbox,'value'); %should we create new names (1) or not (0)
+
+%--------------------------
+function rename_Callback
+%--------------------------
+%update worklist in GUI when rename is clicked
+
+updateoutput;
+updatelist;
+
+%--------------------------
+function copiescheckbox_Callback
+%--------------------------
+%Function to enable textbox and browse button when copies checkbox is
+% checked.
+global DATA 
+
+gui = DATA.GUI.Anonymization;
+saveascopies = copieschecked;
+bgrcolor = [1 1 1]; % white
+frgcolor = [0 0 0]; % black
+if (saveascopies)
+  enablestatus = 'on'; %Browse button enable
+else
+  enablestatus = 'off'; 
+end
+
+set(gui.handles.outputpathtext, 'BackgroundColor',bgrcolor,'ForegroundColor',frgcolor,'Enable',enablestatus);
+set(gui.handles.browsepushbutton,'Enable',enablestatus);
+updateoutput;
+
+%--------------------------
+function updateoutput
+%--------------------------
+%Update output dir in WL and update in GUI
+global WL DATA
+
+gui = DATA.GUI.Anonymization;
+ext = gui.ext;
+saveascopies = copieschecked;
+renameindex=2;
+
+if (strcmp(ext,'.mat')) %let's check if the files should be renamed in the mat case
+  rename = renamechecked;
+  if ~rename
+    renameindex=3;
+  end
+end
+
+outputdir = gui.handles.outputpathtext.String;
+if (strcmp(ext, '.mat'))
+  if (saveascopies  && ~isempty(outputdir))
+    outputdir = gui.handles.outputpathtext.String;
+    outputdir = strcat(outputdir, '\');
+    for loop = 1:size(WL,1)
+      outputpath = strcat(outputdir, WL{loop,renameindex}, ext);
+      WL{loop,5}=outputpath;
+    end
+  else
+    for loop = 1:size(WL,1)
+      filepath = fileparts(WL{loop,4});
+      outputpath = strcat(filepath, '\', WL{loop,renameindex}, ext);
+      WL{loop,5}=outputpath;
+    end
+  end
+
+else %dcm
+  if (saveascopies  && ~isempty(outputdir))
+    outputdir = gui.handles.outputpathtext.String;
+    %outputdir = strcat(outputdir, '\');
+    for loop = 1:size(WL,1)
+      %outputpath = strcat(outputdir, WL{loop,2}, ext);
+      WL{loop,5}=outputdir;
+    end
+  else
+    for loop = 1:size(WL,1)
+      WL{loop,5}=WL{loop,4};
+    end
+  end
+end
+updatelist;
+
+%--------------------------
+function browsebutton_Callback
+%--------------------------
+%User selects an output path
+
+global DATA
+
+%select folder
+pathname = DATA.Pref.datapath;
+pathname = myuigetdir(pathname,'Select a folder to put output files');
+
+if isequal(pathname,0)
+  return;
+end
+gui = DATA.GUI.Anonymization;
+gui.handles.outputpathtext.String = pathname;
+
+updateoutput;
 
 %--------------------------
 function deletegui_Callback
@@ -96,12 +220,19 @@ if isequal(pathname,0)
 	return;
 end
 
+%Add \ at the end of the path if it's not there
+if (pathname(length(pathname))~='\')
+  pathname = strcat(pathname, '\');
+end
+
 ext = '.mat';
 
 %find files in folder
 filelist = createtree(pathname,ext);
 numfiles = length(filelist);
-
+if numfiles == 0
+  return
+end
 for loop = 1:numfiles
   [filepath{loop},filename{loop}] = fileparts(filelist{loop});
 end
@@ -136,6 +267,7 @@ else
 	WL=[WL; WLfromfile]; %add to current WL
 end
 
+updateoutput;
 updatelist;
 
 %-------------------------------------
@@ -155,9 +287,9 @@ getlistfromgui;
 
 gui=DATA.GUI.Anonymization;
 titles=get(gui.handles.worklisttable,'ColumnName');
-WLtofile=[titles';WL];%add header row to file
+WLtofile=[titles';WL];  %add header row to file
 
-segment('cell2clipboard',WLtofile,true);%true in order to writetofile
+segment('cell2clipboard',WLtofile,true);  %true in order to writetofile
 
 %-------------------------------
 function adddicomfolder_Callback
@@ -192,13 +324,44 @@ function anonymizemat_Callback
 
 global DATA SET WL
 
+gui=DATA.GUI.Anonymization;
+
 if isempty(WL)
   myfailed('Worklist is empty. Please add files to pseudonymize.');
   return;
 end
 
-%get type of anonymization from radiobutton
-gui=DATA.GUI.Anonymization;
+s = gui.handles.outputpathtext.String;
+
+if copieschecked
+  if (isempty(s))
+    myfailed('Please choose a directory to put the files in if you wish to save the files as copies.');
+    return;
+  end
+  dup = findduplicates;
+  
+  if (sum(dup)>0 && strcmp(gui.ext, '.mat')) %There are duplicate names
+    
+    questn = sprintf('%s\n%s\n%s\n%s',...
+      dprintf('You have some files with the same name.'),...
+      dprintf('If you proceed the files will be overwritten.'),...
+      dprintf('You can cancel and change the duplicate names.'),...
+      dprintf('Do you wish to proceed?')...
+      );
+
+    answcancel = dprintf('Cancel');
+    answproceed = dprintf('Proceed');
+    answ = myquestdlg(questn,{answcancel,answproceed},answcancel);
+    
+    if strcmp(answ,answcancel)
+      return;
+    end
+  end
+end
+
+
+%---get type of anonymization from radiobutton
+
 if get(gui.handles.fullradiobutton,'value')
   anontype='full';
 elseif get(gui.handles.partialradiobutton,'value')
@@ -229,12 +392,15 @@ savekeyfile=get(gui.handles.savelistcheckbox,'value');
 %update list from gui
 getlistfromgui;
 
-%find which files to anonymize from worklist
+%---find which files to anonymize from worklist
 anonymize=zeros(size(WL,1),1);
 [anonymize(:)]=[WL{:,1}];
-indextoanonymize=find(anonymize);
-numfiles=length(indextoanonymize);
-
+indextoanonymize = find(anonymize == 1);
+numfiles = length(indextoanonymize);
+if numfiles == 0
+  myfailed('No valid data to pseudononymize')
+  return
+end
 %doublecheck with user if files shall not be renamed
 if not(saveasnewname)
 	if isequal(anontype,'full')
@@ -255,7 +421,7 @@ if not(savekeyfile)
 	end
 end
 
-%initialise output
+%---initialise output
 if savekeyfile
 	output{1,1}='New Name';
 	output{1,2}='New FileName';
@@ -274,38 +440,62 @@ if savekeyfile
 		output{1,14}='Institution';
 	end
 end
+silentstate = DATA.Silent;
 
 try
 	
 	%initialize for anonymization
 	setstruct = [];
 	info=[]; %#ok<NASGU>
-	h = mywaitbarstart(numfiles,'Pseudonymizing files. Please wait.',1);
-	corruptedfiles='';
+	h = mywaitbarstart(numfiles,'Pseudonymizing files. Please wait.');
+	corruptedfiles = strings(numfiles,1);
 	segment('filecloseall_Callback',true);
-	for fileloop=1:numfiles
+  
+  %If the copy box is checked, the files need to be copied to the output
+  %folder
+  if(copieschecked)
+    copytooutput(indextoanonymize);
+  end
+
+	for fileloop = 1:numfiles
 		%--- Load file
 		DATA.Silent = true; %Turn on "silent" mode to avoid to much update on screen when loading etc.
 		listindex=indextoanonymize(fileloop);
-		newname=WL{listindex,2};
-		filename=WL{listindex,3};
-		pathname=WL{listindex,4};
-		ext='.mat';
-		
-		disp(dprintf('Loading %s.',filename));
+		newname = WL{listindex,2};
+    if isnumeric(newname)
+      newname = num2str(newname);
+    end
+		filename = WL{listindex,3};
+		pathname = WL{listindex,5};
+    newdir = fileparts(pathname);
+    if (newdir(length(newdir))~='\')
+      newdir = strcat(newdir, '\');
+    end
+
+		ext ='.mat';
+    if ~ischar(newname) || ~ischar(filename) || ~ischar(pathname)
+      continue
+    end
+		fprintf('Loading %s\n.',filename);
 		%Make sure a fresh start
 		
 		%---- try
 		%Load
 		SET=[];
-		load([pathname filesep filename ext],'-mat','setstruct','info');
+    currentfile = [newdir filename ext]; 
+    try
+      load(currentfile,'-mat','setstruct','info');      
+    catch
+      corruptedfiles(fileloop) = string(filename);      
+      continue
+    end
 		
 		%Assign
-		if not(isempty(setstruct))
+		if exist('setstruct','var') && not(isempty(setstruct))
 			SET = setstruct;
 			clear setstruct;
 			
-			%Call to intialize all variables correcly after loaded data.
+			%---Call to intialize all variables correcly after loaded data.
 			openfile('setupstacksfrommat',1);
 			segment('renderstacksfrommat');
 			
@@ -355,32 +545,39 @@ try
 			
 			%Save the file.
 			disp('Saving...');
-			%segment('filesaveall_Callback');
-			corrupted=segment('checkcorrupteddataforautomaticsave');
-			if corrupted
-				corruptedfiles=sprintf('%s, %s',corruptedfiles,filename);
-				mywarning(dprintf('Image file %s seems to be corrupted from last save. Please load and pseudonymize manually to ensure that the image is not corrupted before saving.',filename));
-			else
-				if saveasnewname && not(isequal(filename,newname))
-					[sucess,m] = mymovefile([pathname filesep filename ext],[pathname filesep newname ext],'f'); %rename file
-					if not(sucess)
-						myfailed(dprintf('Failed to rename file %s',filename));
-					else
-						filemenu('saveallas_helper',pathname,newname);
-					end
-				else
-					filemenu('saveallas_helper',pathname,filename);
-				end
-			end
-			segment('filecloseall_Callback',true);
+			corrupted = segment('checkcorrupteddataforautomaticsave');
+      if corrupted
+        wrnstr = dprintf('Image file %s seems to be corrupted. Please check manually if successfully pseudonymized.',filename);
+        mywarning(wrnstr);
+      end
+      try
+        if saveasnewname && not(isequal(filename,newname))
+          [sucess,~] = mymovefile(currentfile, pathname, 'f');  %mymovefile([pathname filesep filename ext],[pathname filesep newname ext],'f'); %rename file
+
+          if not(sucess)
+            myfailed(dprintf('Failed to rename file %s',filename));
+          else
+            filemenu('saveallas_helper',newdir,newname);
+          end
+        else
+          filemenu('saveallas_helper',newdir,filename);
+        end
+      catch me
+        mydispexception(me)
+        corruptedfiles = sprintf('%s, %s',corruptedfiles,filename);
+      end
+      segment('filecloseall_Callback',true);
+    else
+      corruptedfiles(fileloop) = string(filename);      
 		end
-		setstruct=[];
-		info=[]; %#ok<NASGU>
+		setstruct = [];
+		info = []; %#ok<NASGU>
 		h = mywaitbarupdate(h);
   end
 	mywaitbarclose(h);
+	indcorfiles = (corruptedfiles == '');
 	
-	if isempty(corruptedfiles)
+	if all(indcorfiles) % all strings are empty
 		if isequal(anontype,'full')
 			donestri = 'Patient identity and info removed in the selected .mat files.';
 		elseif isequal(anontype,'partial')
@@ -389,21 +586,58 @@ try
 			donestri = 'Filename and pathname removed in the selected .mat files.';
 		end
 		mymsgbox(donestri,'Done!',DATA.GUI.Segment);
-	else
-		myfailed(dprintf('The following files have not been pseudonymized: %s',corruptedfiles),DATA.GUI.Segment);
+  else
+    DATA.Silent = false;
+    errstr = dprintf('The following files have not been pseudonymized:');
+		myfailed([errstr,corruptedfiles(~indcorfiles)'],DATA.GUI.Segment);
 	end
 	
 	segment('filecloseall_Callback',true);
 catch me
 	mydispexception(me);
-	myfailed('Error in pseudonymization process. The files are not correclty pseudonymized. Please review that all filepaths are correct.');
+	myfailed('Error in pseudonymization process. The files are not correctly pseudonymized. Please review that all filepaths are correct.');
 end
 
 if savekeyfile
 	segment('cell2clipboard',output,true);%true in order to writetofile
 end
 
-DATA.Silent=0;
+DATA.Silent = silentstate;
+
+%-------------------------------
+function copytooutput(indextoanonymize)
+%-------------------------------
+%Function to copy files to output directory
+
+global WL DATA
+
+gui = DATA.GUI.Anonymization;
+ext = gui.ext;
+outputpath = DATA.GUI.Anonymization.handles.outputpathtext.String;
+
+if (strcmp(ext, '.dcm'))
+  for loop=1:length(indextoanonymize)
+    inputpath = WL{indextoanonymize(loop),4};
+    output = strcat(outputpath, '\', WL{indextoanonymize(loop),2});
+    copyfile(inputpath, output);
+  end
+else %mat file
+
+  if ~isfolder(outputpath)
+    status = mkdir(outputpath);
+    if (status~=1)
+      str = dprintf('Could not create directory %s',outputpath);
+      myfailed(str);
+      return;
+    end
+  end
+
+
+  for loop=1:length(indextoanonymize)
+    path = WL{indextoanonymize(loop),4};
+    copyfile(path, outputpath);
+  end
+end
 
 %-------------------------------
 function anonymizedicom_Callback
@@ -418,21 +652,30 @@ if isempty(WL)
   return;
 end
 
-%get type of anonymization from radiobutton
 gui=DATA.GUI.Anonymization;
+
+s = gui.handles.outputpathtext.String;
+if copieschecked
+  if (isempty(s))
+    myfailed('Please choose a directory to put the files in if you wish to save the files as copies.');
+    return;
+  end
+end
+%---get type of anonymization from radiobutton
+gui = DATA.GUI.Anonymization;
 if get(gui.handles.fullradiobutton,'value')
-	anontype='full';
+  anontype = 'full';
 elseif get(gui.handles.partialradiobutton,'value')
-	anontype='partial';
+  anontype = 'partial';
 elseif get(gui.handles.correctiveradiobutton,'value')
-	anontype='corrective';
+  anontype = 'corrective';
 else
-	myfailed('Select which type of pseudonymization to perform.');
-	return;
+  myfailed('Select which type of pseudonymization to perform.');
+  return;
 end
 if isequal(anontype,'full')||isequal(anontype,'corrective')
-	myfailed('Only partial pseudonymization is implemented');
-	return;
+  myfailed('Only partial pseudonymization is implemented');
+  return;
 end
 
 if isequal(anontype,'full')
@@ -440,7 +683,7 @@ if isequal(anontype,'full')
 elseif isequal(anontype,'partial')
   stri = 'This feature will remove subject identity (patient ID, name and birth date) on the selected DICOM files. Are you sure?';
 else
-	stri = 'This feature will only remove obscure tags which might contain patient name/ID/birthdate without editing the original patient ID/name/birthdate on the selected DICOM files. Are you sure?';
+  stri = 'This feature will only remove obscure tags which might contain patient name/ID/birthdate without editing the original patient ID/name/birthdate on the selected DICOM files. Are you sure?';
 end
 
 if ~yesno(stri)
@@ -448,69 +691,152 @@ if ~yesno(stri)
   return;
 end
 
-savekeyfile=get(gui.handles.savelistcheckbox,'value');
+savekeyfile = get(gui.handles.savelistcheckbox,'value');
 
 %update list from gui
 getlistfromgui;
 
 %find which files to anonymize from worklist
-anonymize=zeros(size(WL,1),1);
-[anonymize(:)]=[WL{:,1}];
-indextoanonymize=find(anonymize);
-numfiles=length(indextoanonymize);
+anonymize = zeros(size(WL,1),1);
+[anonymize(:)] = [WL{:,1}];
+indextoanonymize = find(anonymize);
+numfiles = length(indextoanonymize);
+
+%If the copy box is checked, the files need to be copied to the output
+%folder
+copy=copieschecked;
+if(copy)
+  copytooutput(indextoanonymize);
+end
 
 %doublecheck with the user if worklist shall be saved
 if not(savekeyfile)
-	if ~yesno('You have chosen to not save the work list. This will be your only key to identify the subjects. Are you sure that you want to continue without saving the work list?')
-		return;
-	end
-end
-try
-	silent=true;
-	showwaitbar=true;
-	h = mywaitbarstart(numfiles,'Pseudonymizing files. Please wait.',1);
-	corruptedfiles='';
-	for fileloop=1:numfiles
-		%--- Load file
-		DATA.Silent = true; %Turn on "silent" mode to avoid to much update on screen when loading etc.
-		listindex=indextoanonymize(fileloop);
-		newname=WL{listindex,2};
-		foldername=WL{listindex,3};
-		pathname=WL{listindex,4};
-		
-		disp(dprintf('Loading %s.',foldername));
-		
-		%recursive anonymisation for current path to the current new name
-		dicomanonymize(pathname,newname,silent,showwaitbar);
-		h = mywaitbarupdate(h);
+  if ~yesno('You have chosen to not save the work list. This will be your only key to identify the subjects. Are you sure that you want to continue without saving the work list?')
+    return;
   end
-	mywaitbarclose(h);
-	
-	if isempty(corruptedfiles)
-		if isequal(anontype,'full')
-			donestri = 'Patient identity and info removed in the selected DICOM files.';
-		elseif isequal(anontype,'partial')
-			donestri = 'Patient identity removed in the selected DICOM files.';
-		else
-			donestri = 'Filename and pathname removed in the selected DICOM files.';
-		end
-		mymsgbox(donestri,'Done!',DATA.GUI.Segment);
-	else
-		myfailed(dprintf('The following files have not been pseudonymized: %s',corruptedfiles),DATA.GUI.Segment);
-	end
-
-	segment('filecloseall_Callback',true);
-	
-catch me
-	mydispexception(me);
-	mydisp('Error in pseudonymization process. The files are not correclty pseudonymized.');
 end
 
 if savekeyfile
-	savelist_Callback;
+  output{1,1}='New Name';
+  output{1,2}='New FolderName';
+  output{1,3}='Folder Name';
+  output{1,4}='Folder Path';
+  output{1,5}='Patient Name';
+  output{1,6}='Patient ID';
+  output{1,7}='Birth Date';
 end
 
-DATA.Silent=0;
+try
+  % start writing log file
+  logfilename = [getpreferencespath filesep sprintf('pseudonymization_errorlog_%s.log',datestr(now,'yyyymmddHHMMSS'))];
+  msg = sprintf('Pseudonymization started at %s',datestr(now,'yyyy-mm-dd HH:MM:SS'));
+  writelog(msg,logfilename);
+
+  corruptedfiles = strings(numfiles,1);
+  silentstate = DATA.Silent;
+  DATA.Silent = true; %Turn on "silent" mode to avoid to much update on screen when loading etc.
+
+  for fileloop = 1:numfiles
+    %--- Load file
+    writelog('-------------------');
+    listindex = indextoanonymize(fileloop);
+    newname = WL{listindex,2};
+    foldername = WL{listindex,3};
+    pathname = WL{listindex,5};
+    if (copy)
+      pathname = strcat(WL{listindex,5}, '\', newname);
+    end
+
+    fprintf('Loading %s.\n',foldername);
+
+    %recursive anonymisation for current path to the current new name
+    try
+      [name, id, date] = anonymizealldicomfiles(pathname, newname,logfilename,fileloop,numfiles);
+    catch me
+      mydispexception(me);
+      msg = sprintf('Failed for %s', pathname);
+      writelog(msg);
+      writelog(me.message);
+      corruptedfiles(fileloop) = string(pathname);
+    end
+
+    if savekeyfile %write the patient info in the excel file
+      output{fileloop+1,1}=newname;
+      output{fileloop+1,2}=newname;
+      output{fileloop+1,3}=foldername;
+      output{fileloop+1,4}=pathname;
+      output{fileloop+1,5}=name;
+      output{fileloop+1,6}=id;
+      output{fileloop+1,7}=date;
+    end
+
+
+  end
+
+  indcorfiles = (corruptedfiles == '');
+  donestri = '';
+  if all(indcorfiles) % all strings are empty
+    if isequal(anontype,'full')
+      donestri = 'Patient identity and info removed in the selected DICOM files.';
+    elseif isequal(anontype,'partial')
+      donestri = 'Patient identity removed in the selected DICOM files.';
+    else
+      donestri = 'Filename and pathname removed in the selected DICOM files.';
+    end
+  end
+
+  segment('filecloseall_Callback',true);
+
+catch me
+  mydispexception(me);
+  disp('Error in pseudonymization process. The files are not correctly pseudonymized.');
+end
+
+isopen = openerrorlogfile(logfilename);
+if ~isopen
+  % error log file was not opened
+  mymsgbox(donestri,'Done!',DATA.GUI.Segment);
+else
+  myfailed('Pseudonymization failed on one or several files. Please check the log-file for details',DATA.GUI.Segment)
+end
+
+if savekeyfile
+  %savelist_Callback;
+  segment('cell2clipboard',output,true); %true in order to writetofile
+end
+
+DATA.Silent = silentstate;
+
+%------------------------------------
+function shouldopen = openerrorlogfile(logfilename)
+%------------------------------------
+%Open log file for this session in browser.
+global DATA
+DATA.Silent = false;
+if ispc
+  if exist(logfilename,'file')
+    filetext = fileread(logfilename);
+    shouldopen = contains(filetext,["error","file"],'IgnoreCase',true);
+    if shouldopen
+      dos(sprintf('notepad.exe "%s" &',logfilename));
+    end
+  else  
+    myfailed('Error log file does not exist.')
+  end
+else
+  if exist(logfilename,'file')
+    filetext = fileread(logfilename);
+    errorexists = contains(filetext,["error","file"],'IgnoreCase',true);
+    if errorexists
+      msgstr = sprintf('Warning: There was an error. Error log file for this run is %s',logfilename);
+    else
+      msgstr = sprintf('Error log file for this run is %s',logfilename); 
+    end
+    mymsgbox(msgstr,'',DATA.GUI.Segment); 
+  else
+    myfailed('Error log file does not exist.')
+  end
+end
 
 
 %---------------------------------------------
@@ -525,7 +851,7 @@ end
 %initialize WL
 if isempty(WL)
 	numlines=0;
-	WL=cell(1,4);
+	WL=cell(1,5);
 else
 	numlines=size(WL,1);
 	getlistfromgui;
@@ -534,13 +860,18 @@ end
 %add data in WL
 numnewlines=length(filepath);
 for loop=1:numnewlines
+  %add a \ at the end of the path
+  if (filepath{loop}(length(filepath{loop}))~='\')
+    filepath{loop} = strcat(filepath{loop}, '\');
+  end
+  ipath = strcat(filepath{loop}, newname{loop}, '.mat'); 
+
 	WL{numlines+loop,1}=true;%anonymize
 	WL{numlines+loop,2}=newname{loop};%default:new name same as filename
-	WL{numlines+loop,3}=filename{loop};
-	WL{numlines+loop,4}=filepath{loop};%filepath in last column
+	WL{numlines+loop,3}= filename{loop}; 
+	WL{numlines+loop,4}=ipath; %filepath in last column
 end
-
-updatelist;
+updateoutput;
 
 %---------------------------------------------
 function subdirbatch_Callback %#ok<DEFNU>
@@ -559,7 +890,6 @@ end
 
 subdirbatch(pathname)
 
-
 %---------------------------------------------
 function subdirbatch(basefolder)
 %--------------------------------------------
@@ -569,7 +899,7 @@ global WL
 %initialize WL
 if isempty(WL)
   numlines=0;
-  WL = cell(1,4);
+  WL = cell(1,5);
 else
   numlines = size(WL,1);
   getlistfromgui;
@@ -598,9 +928,8 @@ for floop = 1:length(flist)
   WL{addtoline,3} = f.name;
   WL{addtoline,4} = fullfile(f.folder, f.name);
 end
-
+updateoutput;
 updatelist;
-
 
 %---------------------------------------------
 function addtolistdicom(filepath,foldername, newname)
@@ -615,7 +944,7 @@ end
 %initialize WL
 if isempty(WL)
 	numlines=0;
-	WL=cell(1,4);
+	WL=cell(1,5);
 else
 	numlines=size(WL,1);
 	getlistfromgui;
@@ -625,11 +954,12 @@ end
 numnewlines=length(filepath);
 for loop=1:numnewlines
 	WL{numlines+loop,1}=true;%anonymize
-	WL{numlines+loop,2}=newname{loop};%default:new name same as filename
+	WL{numlines+loop,2}=newname{loop};
 	WL{numlines+loop,3}=foldername{loop};
-	WL{numlines+loop,4}=filepath{loop};%filepath in last column
+	WL{numlines+loop,4}=filepath{loop};%filepath 
 end
 
+updateoutput;
 updatelist;
 
 %------------------
@@ -649,7 +979,6 @@ global DATA WL
 gui=DATA.GUI.Anonymization;
 WL=get(gui.handles.worklisttable,'Data');
 
-
 %-----------------------------
 function initguisubject
 %-----------------------------
@@ -663,9 +992,7 @@ end
 
 %open figure
 DATA.GUI.Anonymization = mygui('anonymizationsubject.fig');
-
 fig = DATA.GUI.Anonymization.fig;
-
 set(fig,'DeleteFcn','anonymization(''deleteguisubject_Callback'')');
 
 
@@ -701,4 +1028,61 @@ elseif get(handles.extensiveradiobutton,'value')
 end
 
 deleteguisubject_Callback;
+
+%-----------------------------------------------
+function dup = findduplicates
+%-----------------------------------------------
+%Function to see if they are duplicate new file names
+global WL
+
+%find which files to anonymize from worklist
+anonymize = zeros(size(WL,1),1);
+[anonymize(:)] = [WL{:,1}];
+indextoanonymize = find(anonymize);
+numfiles = length(indextoanonymize);
+names = strings(numfiles,1);
+
+for loop = 1 : numfiles
+  names(loop) = WL{indextoanonymize(loop),2};
+end
+
+% Unique values
+[~,idxu,idxc] = unique(names);
+% count unique values
+[count, ~, idxcount] = histcounts(idxc,numel(idxu));
+% Where is greater than 1 occurence
+dup = count(idxcount)>1;
+
+%-----------------------------------------------
+function worklist_Callback
+%-----------------------------------------------
+%Update WL when table is updated
+
+getlistfromgui;
+updateoutput;
+
+%-----------------------------------------------
+function generate_Callback
+%-----------------------------------------------
+
+global WL
+
+if isempty(WL)
+  myfailed('Worklist is empty. Please add files to pseudonymize.');
+  return;
+end
+
+%find which files to anonymize from worklist
+anonymize = zeros(size(WL,1),1);
+[anonymize(:)] = [WL{:,1}];
+indextoanonymize = find(anonymize == 1);
+numfiles = length(indextoanonymize);
+if numfiles == 0
+  myfailed('No files chosen.')
+  return
+end
+
+getlistfromgui;
+generatefilenames('init');
+updatelist;
 

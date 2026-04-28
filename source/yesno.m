@@ -1,7 +1,6 @@
 function result = yesno(s,arg,fighandle)
-%YESNO(STRI)
-%  Asks the user an yes/no question. STRI is the question
-%  string.
+%RESULT = YESNO(STRI)
+%  Asks the user an yes/no question. STRI is the question string.
 %
 %YESNO(STRI,[],FIGHANDLE)
 %  Same as above, but fighandle indicates alignment.
@@ -13,15 +12,17 @@ function result = yesno(s,arg,fighandle)
 
 %Einar Heiberg
 
-global DATA
+%#ok<*GVMIS>
+
+global DATA  
 
 persistent state
 
 %If DATA.Silent then we can assume that user answers yes, which is the
 %default.
 try
-  if DATA.Silent
-    disp(sprintf('Yesno: %s : Yes',s)); %#ok<DSPS>
+  if DATA.Silent || DATA.Autoloader
+    logdisp(sprintf('Yesno: %s : Yes',s));
     result = true;
     return;
   end
@@ -33,7 +34,7 @@ s = translation.dictionary(s);
 
 state = false;
 
-if (nargin==1)||(nargin==3)
+if (nargin==1) || (nargin==3)
   
   keystroke = popfrombuffer('KeyStroke');
   if ~isempty(keystroke)
@@ -79,14 +80,14 @@ else
         macro_helper('put','pushtobuffer(''KeyStroke'',''yes''); %yes in yesno');
         macro_helper('switchorder'); %We need to store data in buffer before the callback
       end
-      mydisp('yes');
+      logdisp('User pressed yes');
     case 'no'
       state = false;
       if recordmacro
         macro_helper('put','pushtobuffer(''KeyStroke'',''no''); %no in yesno');
         macro_helper('switchorder'); %We need to store data in buffer before the callback
       end
-      mydisp('no');
+      logdisp('User pressed no');
     case 'yeskeypressed'
       yeskeypressed(s,arg);
     case 'nokeypressed'
@@ -129,11 +130,10 @@ handles = guihandles(fig);
 handles.fig = fig;
 
 %Add text
-stri = textwrap({s},50); %was 70 changed to 50 for Mac
+stri = textwrap({s},45); %was 70 changed to 50 for Mac
 numlinestopad = round((5-size(stri,1))/2);
 if numlinestopad>0
   stri = [repmat({''},numlinestopad,1);s];
-else
 end
 
 try
@@ -143,7 +143,22 @@ catch
   set(handles.questiontext,'String',stri);
 end
 
-mydisp(s);
+%Make to one line again
+str = strrep(s, newline, ' ');
+messagestri = dprintf('Different patient names detected.');
+if contains(s,messagestri)  
+  % Find all matches of names inside double quotes
+  names = regexp(str, '"[^"]*"', 'match');
+  % Replace each name with name01, name02, ...
+  for n = 1:length(names)
+    newName = sprintf('patientname%02d', n);
+    str = regexprep(str, names{n}, ['"' newName '"'], 'once');
+  end
+  logdisp(['Yesno: ' str]);
+else
+  mydisp(['Yesno: ' str]);
+end
+
 
 try
   myalign(handles.fig,fighandle); %Align horisontally

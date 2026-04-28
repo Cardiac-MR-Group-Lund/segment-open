@@ -1,10 +1,10 @@
 function [varargout] = longaxistools(varargin)
 %Utility for functionality requested in Doppler-CIP project
 
+%#ok<*GVMIS> 
 if nargin == 0
   calcbiplanevolume
 else
-  macro_helper(varargin{:});
   [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 end
 
@@ -82,11 +82,17 @@ for segloop = 1:length(fields)
   nos = [ch4no ch3no ch2no];
   multisliceinds = [SET(nos).ZSize] > 1;
   for no = nos(multisliceinds)
-    fprintf(['%s image contains multiple slices. Remove slices to ' ...
-      'include in calculation\n'],SET(no).ImageViewPlane);
+    logdisp(sprintf(['%s image contains multiple slices. ' ...
+      'Remove slices to include in calculation'],SET(no).ImageViewPlane));
   end
   nos = nos(~multisliceinds);
   outnos = union(outnos,nos);
+
+  if numel(nos)<2 && ~isempty(nos) && ~contains(segfield,'RV')
+    % return if there not at least 2 stacks
+    logdisp('Only 1 LAX found or several multislice LAX stacks')
+    return
+  end
   
   if ~isempty(volfield)
     for i = 1:length(nos)
@@ -172,7 +178,8 @@ if length(nos) == 2
     inds = convhull(X');
     a1 = calcfunctions('stablepolyarea',X(1,:),X(2,:));
     a2 = calcfunctions('stablepolyarea',X(1,inds),X(2,inds));
-    if a2>a1*(1.5)
+    if a2>a1*(2)
+      % convex hull area is 2x larger than the original shape's area
       % jelena: skip calculation for now
       volume = nan; 
       stus = false;
@@ -264,9 +271,9 @@ end
 
 
 %--------------------------------------
-function showpointinallviews(clickedim) %#ok<DEFNU>
+function showpointinallviews(clickedim)
 %--------------------------------------
-global DATA SET NO
+global DATA SET NO 
 segment_main('normal_Buttondown',clickedim);
 switch DATA.ViewPanelsType{clickedim}
   case 'hla'

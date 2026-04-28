@@ -10,7 +10,7 @@ function [varargout] = mymenumultiplechoice(header,varargin)
 %- last optional argument is figure handle 
 
 %Einar Heiberg
-global DATA
+global DATA %#ok<*GVMIS> 
 
 persistent handles
 

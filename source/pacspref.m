@@ -1,7 +1,9 @@
-function varargout = pacspref(varargin)
+function varargout = pacspref(varargin) %skiptranslation
 %PACSPREF Helper function for SEGMENT, GUI for PACS preferences
 
 %Nils Lundahl
+
+%#ok<*GVMIS>
 
 if nargin == 0  % LAUNCH GUI
   
@@ -10,7 +12,6 @@ if nargin == 0  % LAUNCH GUI
 elseif ischar(varargin{1}) % INVOKE NAMED SUBFUNCTION OR CALLBACK
 
   try
-    macro_helper(varargin{:});
     if (nargout)
       [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
     else
@@ -46,6 +47,11 @@ set(handles.studyradio,'SelectionChangeFcn','pacspref(''queryconfig_Callback'','
 set(handles.seriesradio,'SelectionChangeFcn','pacspref(''queryconfig_Callback'',''series'')');
 set(handles.retrieveradio,'SelectionChangeFcn','pacspref(''retrieveradio_Callback'')');
 
+stri = sprintf('Switch tags %s and\n %s?','StudyID','AccessionNumber');
+set(handles.switchtagstext,'String',stri);
+
+set(handles.text36,'String','PACS in AI AutoMate:');
+
 update;
 
 %--------------
@@ -57,6 +63,7 @@ global DATA
 %General PACS and Database Settings
 set(DATA.PrefHandlesPacs.verboselogcheckbox,'Value',DATA.Pref.Pacs.VerboseLog);
 set(DATA.PrefHandlesPacs.debuglogcheckbox,'Value',DATA.Pref.Pacs.DebugLog);
+% set(DATA.PrefHandlesPacs.popupmenu4,'Value',DATA.Pref.Automate.PACS);
 
 %PACS Query Configurations
 %Patient Level
@@ -110,6 +117,8 @@ set(DATA.PrefHandlesPacs.ripsrradiobutton,'Value',DATA.Pref.Pacs.retrievemodel(3
 set(DATA.PrefHandlesPacs.retrievemodepopupmenu,'Value',DATA.Pref.Pacs.RetrieveMode);
 set(DATA.PrefHandlesPacs.retrieveoptionsedit,'String',DATA.Pref.Pacs.RetrieveOptions);
 
+set(DATA.PrefHandlesPacs.switchtagscheckbox, 'Value', DATA.Pref.Pacs.SwitchTags);
+
 % PACS connections
 updatepacscon;
 
@@ -143,6 +152,17 @@ set(DATA.PrefHandlesPacs.connecttolistbox, 'value', v);
 %update labels if in GUI that wants you to.
 DATA.updatepacslabels;
 
+%update list for AI AutoMate
+if ~isempty(DATA.Pref.Automate.PACS)
+  pacsvalue = DATA.Pref.Automate.PACS;
+else
+  pacsvalue = 1;
+end
+if isempty(li)
+  li = {''};
+end
+set(DATA.PrefHandlesPacs.popupmenu4, 'String', li, 'value', pacsvalue); 
+
 %-----------------------------
 function verboselog_Callback 
 %----------------------------
@@ -156,6 +176,13 @@ function debuglog_Callback
 global DATA
 
 DATA.Pref.Pacs.DebugLog=get(DATA.PrefHandlesPacs.debuglogcheckbox,'value');
+
+%-----------------------------
+function automatepacs_Callback 
+%----------------------------
+global DATA
+
+DATA.Pref.Automate.PACS=get(DATA.PrefHandlesPacs.popupmenu4,'value');
 
 %-----------------------------------
 function queryconfig_Callback(level)
@@ -236,25 +263,33 @@ DATA.Pref.Pacs.retrievemodel = cvec;
 %---------------------------------
 function queryoptionsedit_Callback 
 %---------------------------------
-global DATA
+global DATA  
 
 stri = mygetedit(DATA.PrefHandlesPacs.queryoptionsedit);
 DATA.Pref.Pacs.QueryOptions = stri;
 
-%---------------------------
-function addpacscon_Callback %#ok<*DEFNU>
-%---------------------------
+%-----------------------------------------------
+function ok = addpacscon_Callback(iswizardsetup) %#ok<*DEFNU>
+%-----------------------------------------------
 % Executes when user press add in advanced dicom pref.
 % Ask user for input, stores con file and call updatepacscon.
 
 global DATA
 
+if nargin == 0
+  iswizardsetup=false;
+end
+
 % Ask user for input
 s = [];
 s(1).Field = 'Descriptive_Name';
 s(1).Label = dprintf('Descriptive Name');
-s(1).Default = 'Name               ';
-n = 2;
+s(1).Default = 'Name';
+n = 2; 
+s(n).Field = 'Empty0';
+s(n).Label = char(0);
+s(n).Default = {}; % space
+n = n+1;
 s(n).Field = 'PACS_AE_Title';
 s(n).Label = dprintf('PACS AE Title');
 s(n).Default = 'HOSPITAL_PACS'; %Called_AE
@@ -266,28 +301,53 @@ n = n+1;
 s(n).Field = 'PACS_Port_Number';
 s(n).Label = dprintf('PACS Port Number');
 s(n).Default = '4006'; %Peer_Port
+n = n+1; 
+s(n).Field = 'Empty1';
+s(n).Label = char(0);
+s(n).Default = {}; % space
+n = n+1; 
+s(n).Field = 'Empty2';
+s(n).Label = char(0);
+s(n).Default = {}; % space
 n = n+1;
 s(n).Field = 'Segment_Port_Number';
 s(n).Label = dprintf('Segment Port Number');
 s(n).Default = '104'; %Port
 n = n+1;
 s(n).Field = 'Retrieve_AE_Title';
-s(n).Label = dprintf('Retrieve AE Title');
+s(n).Label = dprintf('Segment Retrieve AE Title');
 s(n).Default = DATA.Pref.Server.AETitle; %Take from Segment Server AE Title
 n = n+1;
 s(n).Field = 'Query_AE_Title';
-s(n).Label = dprintf('Query AE Title');
+s(n).Label = dprintf('Segment Query AE Title');
 s(n).Default = DATA.Pref.Server.AETitle; %Take from Segment Server AE Title
 n = n+1;
 s(n).Field = 'StoreSCU_AE_Title';
-s(n).Label = dprintf('StoreSCU AE Title');
+s(n).Label = dprintf('Segment StoreSCU AE Title');
 s(n).Default = DATA.Pref.Server.AETitle; %Take from Segment Server AE Title
+n = n+1; 
+s(n).Field = 'Empty3';
+s(n).Label = char(0);
+s(n).Default = {}; % space
+n = n+1; 
+s(n).Field = 'Empty4';
+s(n).Label = char(0);
+s(n).Default = {}; % space
+n = n+1;
+connectiontypes= {dprintf('Send to PACS'),dprintf('Retrieve from PACS')};
+s(n).Field = 'Connection_type';
+s(n).Label = dprintf('Connection Type');
+s(n).Default = connectiontypes;
+s(n).Value = 1;
+
+
 [res,ok] = myinputstruct(s,'',20); %20 = width of editbox
 if not(ok)
   return;
 end
 
-temp = res; 
+
+temp = res;
 s = [];
 s.DescriptiveName = temp.Descriptive_Name;
 s.Called_AE = temp.PACS_AE_Title;
@@ -297,31 +357,45 @@ s.Port = temp.Segment_Port_Number;
 s.Retrieve_AE_Title = temp.Retrieve_AE_Title;
 s.Query_AE_Title = temp.Query_AE_Title;
 s.StoreSCU_AE_Title = temp.StoreSCU_AE_Title;
+s.Connection_type = temp.Connection_type;
 clear temp;
 
-% Store the con file
-% [filename,pathname] = myuiputfile('*.con','Save Connection As: (place in Segment folder)');
-% if isequal(filename,0)||isequal(pathname,0)
-%   return;
-% end
+if isequal(s.Port,DATA.Pref.Server.DICOMPort)
+  mywarning('Same port as DICOM server. If DICOM server is running then it will be a conflict.');
+end
 
-%The .con file is saved in main software folder as DescriptiveName.con
-filename=[s.DescriptiveName '.con'];
-pathname=DATA.SegmentFolder;
+%Save to temporary file
+tempfilename = [getpreferencespath filesep 'temp.con'];
 res = s;
 res.Calling_AE = 'DEFAULT_CALLING_AE'; % Added for legacy reasons
-save(fullfile(pathname,filename),'res', DATA.Pref.SaveVersion);
+save(tempfilename,'res', DATA.Pref.SaveVersion);
+
+%Move to segment folder, this elevates to admin priviligies if required.
+%The .con file is move to main software folder as DescriptiveName.con
+ok = mymovetosegmentfolder(tempfilename,[s.DescriptiveName '.con']);
+if ~ok
+  myfailed('Could not store PACS settings.',DATA.PrefHandles.fig);
+  return
+else
+  disp(sprintf('PACS settings stored. %s',s.DescriptiveName)); %#ok<DSPS>
+end
+
+%Return to WizardSetup
+if iswizardsetup
+  return
+end
 
 % calls updatepacscon
 updatepacscon;
 
-%----------------------------
-function editpacscon_Callback
-%----------------------------
-% Executed when user press edit in advanced pref.
-% Displays and let user edit content of a .con file.
+%---------------------------
+function res = loadconhelper 
+%---------------------------
+%Helper file to load the currently selected con-file.
 
 global DATA
+
+res = [];
 
 % Load the file
 v = mygetlistbox(DATA.PrefHandlesPacs.connecttolistbox);
@@ -334,15 +408,34 @@ catch e
   return
 end
 
+%----------------------------
+function editpacscon_Callback
+%----------------------------
+% Executed when user press edit in advanced pref.
+% Displays and let user edit content of a .con file.
+
+global DATA
+
+%Load the currently sselected con-file
+res = loadconhelper;
+if isempty(res)
+  return
+end 
+
 %Remove non used field from display
 res = rmfield(res, 'Calling_AE'); 
 
 %Prepare variable with new fieldnames
 s = [];
 n = 1;
+
 s(n).Field = 'Descriptive_Name';
 s(n).Label = dprintf('Descriptive Name');
 s(n).Default = res.DescriptiveName;
+n = n+1;
+s(n).Field = 'Empty0';
+s(n).Label = char(0);
+s(n).Default = {}; % space
 n = n+1;
 s(n).Field = 'PACS_AE_Title';
 s(n).Label = dprintf('PACS AE Title');
@@ -355,6 +448,14 @@ n = n+1;
 s(n).Field = 'PACS_Port_Number';
 s(n).Label = dprintf('PACS Port Number');
 s(n).Default = res.Peer_Port;
+n = n+1;
+s(n).Field = 'Empty1';
+s(n).Label = char(0);
+s(n).Default = {}; % space
+n = n+1;
+s(n).Field = 'Empty2';
+s(n).Label = char(0);
+s(n).Default = {}; % space
 n = n+1;
 s(n).Field = 'Segment_Port_Number';
 s(n).Label = dprintf('Segment Port Number');
@@ -386,13 +487,39 @@ if isfield(res,'StoreSCU_AE_Title')
   s(n).Field = 'StoreSCU_AE_Title';
   s(n).Label = dprintf('StoreSCU AE Title');
   s(n).Default = res.StoreSCU_AE_Title;
-  n = n+1; %#ok<NASGU>
+  n = n+1; 
 else  
   s(n).Field = 'StoreSCU_AE_Title';
-  s(n).Label = dprintf('StoreSCU AE Title');
+  s(n).Label = dprintf('StoreSCU AE Title');Connection_type'
   s(n).Default = DATA.Pref.Server.AETitle; %Take from Segment Server AETitle
-  n = n+1; %#ok<NASGU>
+  n = n+1; 
 end
+s(n).Field = 'Empty4';
+s(n).Label = char(0);
+s(n).Default = {}; % space
+n = n+1;
+
+if isfield(res,'Connection_type')
+  s(n).Field = 'Connection_type';
+  s(n).Label = dprintf('Connection Type');
+  connectiontypes= {dprintf('Send to PACS'),dprintf('Retrieve from PACS')};
+  if res.Connection_type == 1
+    s(n).Default = connectiontypes';
+    s(n).Value = 1;
+  else
+    s(n).Default = connectiontypes;
+    s(n).Value = 2;
+  end
+  n = n+1; %#ok<NASGU> 
+else
+  connectiontypes= {dprintf('Send to PACS'),dprintf('Retrieve from PACS')};
+  s(n).Field = 'Connection_type';
+  s(n).Label = dprintf('Connection Type');
+  s(n).Default = connectiontypes;
+  s(n).Value = 1;
+  n = n+1; %#ok<NASGU> 
+end
+
 
 % Let user edit the file and save it
 [s,ok] = myinputstruct(s,'',20); %20 is width of editboxes
@@ -412,19 +539,71 @@ res.Port = temp.Segment_Port_Number;
 res.Retrieve_AE_Title = temp.Retrieve_AE_Title;
 res.Query_AE_Title = temp.Query_AE_Title;
 res.StoreSCU_AE_Title = temp.StoreSCU_AE_Title;
+res.Connection_type = temp.Connection_type;
 clear temp;
 
 res.Calling_AE = 'DEFAULT_CALLING_AE';
 
-
+tempfilename = [getpreferencespath filesep 'temp.con'];
 try
-  save(f(v).name, 'res', DATA.Pref.SaveVersion);
+  save(tempfilename, 'res', DATA.Pref.SaveVersion);
 catch
   myfailed('Could not save connection file. Disk write protected?');
+  
+  %Update the list
+  updatepacscon;
+  return;
+end
+
+%Move to segment folder, this elevates to admin priviligies if required.
+ok = mymovetosegmentfolder(tempfilename,[res.DescriptiveName,'.con']);
+if ~ok
+  myfailed('Could not save preferences. Write permission? Disk full?');  
+else
+  disp(sprintf('PACS preferences saved. %s',[res.DescriptiveName,'.con'])); %#ok<DSPS>
 end
 
 %Update the list
 updatepacscon;
+
+
+
+%----------------------------
+function testpacscon_Callback
+%----------------------------
+%Takes the current connection on
+
+%Load the currently sselected con-file
+res = loadconhelper;
+if isempty(res)
+  return
+end 
+
+%Extract from file
+peerport = res.Peer_Port;
+peerip = res.Peer_IP;
+options = '--timeout 3';
+
+%Generate string
+callstri = sprintf('echoscu.exe %s %s %s',options,peerip,peerport);
+logdisp(sprintf('Calling: "%s"',callstri));
+
+%Call
+myworkon;
+[s,w] = system(callstri);
+myworkoff;
+
+if isequal(s,0)
+  %Worked, we are happy!
+  mymsgbox(dprintf('Connection established'));
+else
+  message = dprintf('Connection failed');
+  message = [message newline newline];
+  message = [message w];
+  
+  myfailed(message);
+
+end
 
 %------------------------------
 function deletepacscon_Callback
@@ -443,13 +622,15 @@ if v>length(f)
   updatepacscon;
   return;
 end
-ok = mydel(f(v).name);
+ok = mydelfromsegmentfolder(f(v).name);
 if not(ok)
-  errormsg=sprintf(...
+  errormsg = sprintf(...
     'Could not remove the connection file %s.\n\n\Error message:\n\n%s\n',...
     f(v).name, w);
   myfailed(errormsg,DATA.GUI.PacsCon);
   return;
+else
+  disp(sprintf('Removed connection file. %s',f(v).name)); %#ok<DSPS>
 end
 
 % Update listbox value and updates pacscon

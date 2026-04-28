@@ -1,23 +1,23 @@
 function [varargout] = reportbullseye(varargin)
 %GUI for reporting bullseye
-%Adapted for use with mygui class by Nils Lundahl 
+
+%Adapted for use with mygui class by Nils Lundahl
 
 %Commented for technical manual by Einar Heiberg
-
-macro_helper(varargin{:});
+%#ok<*GVMIS>
 if nargin == 0 || isempty(varargin{1})
   varargin{1} = 'init';
 elseif strncmp(varargin{1},'get',3)
-  [varargout{1:nargout}] = feval('getdata',varargin{:});
+  [varargout{1:nargout}] = feval('getdata',varargin{:}); %#ok<FVAL>
   return
 elseif strncmp(varargin{1},'set',3)
-  [varargout{1:nargout}] = feval('setdata',varargin{:});
+  [varargout{1:nargout}] = feval('setdata',varargin{:}); %#ok<FVAL>
   return
 end
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 
 %------------
-function init %#ok<DEFNU>
+function init
 %------------
 %Initialize the GUI
 
@@ -36,13 +36,7 @@ imissingle = classcheckim(tempnos);%checks so that SET(tempnos).IM is single and
 if not(imissingle)
   return;
 end
-
-%ask for LV rotation if that is not defined
-if SET(NO).SectorRotation == 0
-  LVrotation;
-else
-  startbullseye;
-end
+startbullseye;
 
 %---------------------
 function startbullseye
@@ -50,6 +44,18 @@ function startbullseye
 %start up the bullseye analysis
 
 global DATA NO SET
+% 2025-10-01 check data and angle
+no = NO;
+segment('checkconsistency',1:SET(no).TSize,1:SET(no).ZSize);
+% Update SectorRotation if RV insertion points exist
+reportbullseye('sectorrotationhelper',NO);
+
+% Ask for LV rotation if that is not defined
+if SET(no).SectorRotation == 0
+  calcfunctions('autosectorrotation_Callback');
+  LVrotation;
+end
+
 
 %Find longaxis cine image. Order of preference is 4CH > 3CH > 2CH
 cineno = findfunctions('findno');
@@ -65,7 +71,7 @@ end
 DATA.initbullseyeslices; %Set start and end slice in GUI's with such fcnality
 if isempty(SET(NO).StartSlice)
   myfailed('No slices selected.',DATA.GUI.Segment);
-%   close_Callback;
+  %   close_Callback;
   return;
 end
 
@@ -86,7 +92,7 @@ end
 %Resample model to ensure distributed points.
 % for tloop=1:SET(NO).TSize
 %   for zloop=1:SET(NO).ZSize
-%     
+%
 %     %Check endo
 %     if not(isnan(SET(NO).EndoX(1,tloop,zloop)))
 %       %Calculate distances between points
@@ -99,14 +105,14 @@ end
 %       len = [0;len(:)]; %Add zero first
 %       len = cumsum(len);
 %       totallength = len(end);
-%       
+%
 %       if totallength>0
 %         %Resample
 %         SET(NO).EndoX(:,tloop,zloop) = interp1(len,SET(NO).EndoX(ind,tloop,zloop),linspace(0,totallength,DATA.NumPoints));
 %         SET(NO).EndoY(:,tloop,zloop) = interp1(len,SET(NO).EndoY(ind,tloop,zloop),linspace(0,totallength,DATA.NumPoints));
 %       end
 %     end
-%     
+%
 %     %Check epi
 %     if ~isempty(SET(NO).EpiX)
 %       if not(isnan(SET(NO).EpiX(1,tloop,zloop)))
@@ -119,7 +125,7 @@ end
 %          len = [0;len(:)]; %Add zero first
 %          len = cumsum(len);
 %          totallength = len(end);
-%         
+%
 %         if totallength>0
 %           %Resample
 %           SET(NO).EpiX(:,tloop,zloop) = interp1(len,SET(NO).EpiX(ind,tloop,zloop),linspace(0,totallength,DATA.NumPoints));
@@ -127,7 +133,7 @@ end
 %         end
 %       end
 %     end
-%     
+%
 %   end
 % end
 
@@ -135,11 +141,16 @@ gui = mygui('bullseye.fig');
 DATA.GUI.Bullseye = gui;
 gui.no = NO;
 set(gui.fig,'renderer','opengl');
+set(gui.handles.textimagestack,'String',sprintf('%s %d %s',dprintf('Image stack'),gui.no,SET(gui.no).ImageType));
 DATA.initbullseye;  %fix listbox for each software package
 gui.laxno = laxno;
+gui.Endocardium_percent = [];
+gui.Epicardium_percent = [];
 
 %Update
-set(gui.handles.rotationslider,'value',SET(NO).SectorRotation);
+rotationangle = LVrotation('setrotationangle_helper');
+set(gui.handles.rotationslider,'value',rotationangle);
+addlistener(gui.handles.rotationslider, 'Value', 'PreSet', @slidermotion_Callback);
 set(gui.handles.endocentercheckbox,'value',SET(NO).EndoCenter);
 set(gui.handles.volumeconsistentcheckbox,'value',1);
 gui.volumeconsistent = true;
@@ -147,21 +158,23 @@ temp = get(gui.handles.sectorslistbox,'String');
 gui.slice = round(0.5*(SET(NO).StartSlice+SET(NO).EndSlice)); %for which image with spoke wheel is plotted.
 
 numslices = SET(gui.no).StartSlice:SET(gui.no).EndSlice;
-if length(numslices) > 3
-  set(gui.handles.aharadiobutton,'Value',1);
+if length(numslices) >= 3
+  set(gui.handles.aharadiobutton,'Value',0);
+  set(gui.handles.aha16radiobutton,'Value',1);
   set(gui.handles.sectorradiobutton,'Value',0);
   set(gui.handles.smoothradiobutton,'Value',0);
   gui.numsectors = 24;
   set(gui.handles.sectorslistbox,'enable','off');
   set(gui.handles.volumeconsistentcheckbox,'enable','off');
 else
+  set(gui.handles.aha16radiobutton,'Value',0);
   set(gui.handles.aharadiobutton,'Value',0);
   set(gui.handles.sectorradiobutton,'Value',1);
   set(gui.handles.smoothradiobutton,'Value',0);
   gui.numsectors = str2num(temp{mygetlistbox(gui.handles.sectorslistbox)}); %#ok<ST2NM>
 end
-  
-set(gui.handles.slicetext,'String',dprintf('Slice %d',gui.slice));
+
+set(gui.handles.slicetext,'String',sprintf('%s %d',dprintf('Slice'),gui.slice));
 if SET(NO).ZSize > 1
   set(gui.handles.sliceslider,'Min',1,'Max',...
     SET(NO).ZSize,'Value',SET(NO).ZSize-gui.slice+1,'SliderStep',...
@@ -182,6 +195,17 @@ if ~DATA.GUISettings.PointsEnabled
   set(gui.handles.endocentercheckbox,'visible','off','value',0);
 end
 
+%init colormap listbox
+gui.colormaplist = {...
+  'Jet',...
+  'Hot',...
+  'HSV',...
+  'SPECT',...
+  dprintf('Gray'),...
+  'Gadgetron',...
+  };
+set(gui.handles.colormaplistbox,'string',gui.colormaplist);
+
 %initialize lonaxis image, true long-axis or reconstructed from short-axis
 initlaximage;
 
@@ -197,6 +221,12 @@ set(gui.handles.plotmethodpanel,'SelectionChangeFcn', ...
   'reportbullseye(''plotmethodpanel_SelectionChange'')');
 
 updateall;
+
+%--------------------
+function slidermotion_Callback(~,~)
+%--------------------
+% update image when slider was dragged
+updatesliceimage
 
 %--------------------
 function initlaximage
@@ -265,25 +295,25 @@ for loop = 1:zsz
 end
 % myset(gui.handles.intersectionlines,'Visible','off');
 
-
-
 %-------------------------------
-function defineslices(sign,part) %#ok<DEFNU>
+function defineslices(sign,part)
 %-------------------------------
 %manual define slices to include in the bullsye plot
 
 global DATA SET
 gui = DATA.GUI.Bullseye;
 
-indendo = findfunctions('findslicewithendoall',gui.no); 
-indepi = findfunctions('findslicewithepiall',gui.no); 
+indendo = findfunctions('findslicewithendo',gui.no);
+indepi = findfunctions('findslicewithepi',gui.no);
 indlv = min(1,indendo+indepi);
 switch part
   case 'basal'
     switch sign
       case 'plus'
         mostbasallv = find(indlv,1,'first');
-        SET(gui.no).StartSlice = max(mostbasallv,SET(gui.no).StartSlice-1);
+        if ~isempty(mostbasallv)
+          SET(gui.no).StartSlice = max(mostbasallv,SET(gui.no).StartSlice-1);
+        end
       case 'minus'
         SET(gui.no).StartSlice = min(SET(gui.no).StartSlice+1,SET(gui.no).EndSlice);
     end
@@ -291,7 +321,9 @@ switch part
     switch sign
       case 'plus'
         mostapicallv = find(indlv,1,'last');
-        SET(gui.no).EndSlice = min(mostapicallv,SET(gui.no).EndSlice+1);
+        if ~isempty(mostapicallv)
+          SET(gui.no).EndSlice = min(mostapicallv,SET(gui.no).EndSlice+1);
+        end
       case 'minus'
         SET(gui.no).EndSlice = max(SET(gui.no).StartSlice,SET(gui.no).EndSlice-1);
     end
@@ -299,13 +331,12 @@ end
 %check so gui.slice is inside selected slices
 gui.slice = min(max(gui.slice,SET(gui.no).StartSlice),SET(gui.no).EndSlice);
 set(gui.handles.sliceslider,'Value',SET(gui.no).ZSize-gui.slice+1);
-set(gui.handles.slicetext,'String',dprintf('Slice %d',gui.slice));
+set(gui.handles.slicetext,'String',sprintf('%s %d',dprintf('Slice'),gui.slice));
 updatesliceimage;
 
 %update all views
 updatelongaxisimage;
 updateall;
-
 
 %-----------------
 function updateall
@@ -314,31 +345,6 @@ function updateall
 
 updatesliceimage;
 updateplot;
-
-%-----------------------------
-function value = getdata(type)
-%-----------------------------
-%Helper function to extract data from the module. Used for instance
-%from reportsheet generator.
-
-global DATA
-gui = DATA.GUI.Bullseye;
-switch type
-  case 'getahadata'
-    value = gui.ahaoutdata;
-  case 'getmainframe'
-    im = frame2im(mygetframe(gui.fig));
-    value = im;
-  case 'getbullseyeframe'
-    im = frame2im(mygetframe(gui.handles.bullseyeaxes));
-    value = im;
-  case 'getimageframe'
-    im = frame2im(mygetframe(gui.handles.imageaxes));
-    value = im;
-  case 'getcolorbar'
-    im = frame2im(mygetframe(gui.handles.colorbar));
-    value = im;
-end
 
 %---------------------------------------
 function [stri,pos] = aha17nameandpos(i)
@@ -398,9 +404,9 @@ switch i
     stri = 'Apex';
     pos = 17;
 end
-    
+
 %--------------------------
-function varargout = export %#ok<DEFNU>
+function varargout = export
 %--------------------------
 %Export data to clipboard.
 
@@ -410,39 +416,52 @@ gui = DATA.GUI.Bullseye;
 %Do graphical update
 updateplot;
 
-if mygetvalue(gui.handles.sectorradiobutton)  %isempty(gui.ahaoutdata)
-  %--- Normal output
-  stri = sprintf('%s\t%s\t%d\t%d\n',gui.parameter,gui.outunit,SET(gui.no).StartSlice,SET(gui.no).EndSlice);
-  stri = [stri sprintf('\t')];
-  for sectorloop=size(gui.outdata,1):-1:1
-    stri = [stri sprintf('sector%d\t',sectorloop)]; %#ok<AGROW>
+%--- Normal output
+if mygetvalue(gui.handles.sectorradiobutton)
+  %init cell
+  nsectors = size(gui.outdata, 1);
+  nslices = size(gui.outdata, 2);
+  outcell = cell(nslices+1, nsectors+4);
+  %print general header
+  outcell{1, 1} = 'Parameter';
+  outcell{1, 2} = 'StartSlice';
+  outcell{1, 3} = 'EndSlice';
+  outcell{1, 4} = 'Slice';
+  %print general info
+  outcell{2, 1} = gui.parameter;
+  outcell{2, 2} = sprintf('%d',SET(gui.no).StartSlice);
+  outcell{2, 3} = sprintf('%d',SET(gui.no).EndSlice);
+  %print sector header
+  for sectorloop = 1:nsectors
+    outcell{1, nsectors+4-sectorloop+1} = sprintf('Sector%d',sectorloop);
   end
-  stri = [stri newline];
-  for sliceloop=1:size(gui.outdata,2)
-    if sliceloop==1
-      stri = [stri sprintf('Slice%d (basal)\t',sliceloop)]; %#ok<AGROW>
+  %print sector data
+  for sliceloop = 1:nslices
+    if sliceloop == 1
+      outcell{sliceloop+1, 4} = sprintf('%d (basal)',sliceloop);
     else
-      if sliceloop==size(gui.outdata,2)
-        stri = [stri sprintf('Slice%d (apical)\t',sliceloop)]; %#ok<AGROW>
+      if sliceloop == nslices
+        outcell{sliceloop+1, 4} = sprintf('%d (apical)',sliceloop);
       else
-        stri = [stri sprintf('Slice%d\t',sliceloop)]; %#ok<AGROW>
+        outcell{sliceloop+1, 4} = sprintf('%d',sliceloop);
       end
     end
-    for sectorloop=1:size(gui.outdata,1)
-      stri = [stri sprintf('%0.5g\t',gui.outdata(sectorloop,sliceloop))]; %#ok<AGROW>
+    for sectorloop = 1:nsectors
+      outcell{sliceloop+1, sectorloop+4} = ...
+        sprintf('%0.5g',gui.outdata(sectorloop,sliceloop));
     end
-    stri = [stri newline]; %#ok<AGROW>
   end
-  if nargout==0
-    clipboard('copy',stri);
-    mymsgbox('Data copied to clipboard.','Done!',DATA.GUI.Segment);
+  %send to clipboard
+  if nargout == 0
+    segment('cell2clipboard',outcell);
   else
-    varargout{1} = stri;
+    varargout{1} = outcell;
   end
-elseif mygetvalue(gui.handles.smoothradiobutton)
+
   %--- Smooth output to .bin file
+elseif mygetvalue(gui.handles.smoothradiobutton)
   tempim = get(get(gui.handles.bullseyeaxes,'children'),'cdata');
-  
+
   if nargout==0
     filename = myinputdlg({'Enter file name'},'File name',1,{sprintf('%s_%s',SET(gui.no).PatientInfo.ID,gui.parameter)});
     fid = fopen([filename{1},'.bin'],'w');
@@ -465,45 +484,48 @@ elseif mygetvalue(gui.handles.smoothradiobutton)
     end
     varargout{1} = stri;
   end
-elseif mygetvalue(gui.handles.aharadiobutton)
-  %--- AHA output
-  outcell = cell(3,17);
-  for loop=1:17
 
+  %--- AHA output
+elseif mygetvalue(gui.handles.aharadiobutton) || mygetvalue(gui.handles.aha16radiobutton)
+  nsegments = 17;
+  outcell = cell(2,nsegments+3);
+  outcell{1, 1} = 'Parameter';
+  outcell{1, 2} = 'StartSlice';
+  outcell{1, 3} = 'EndSlice';
+  outcell{2, 1} = gui.parameter;
+  outcell{2, 2} = sprintf('%d',SET(gui.no).StartSlice);
+  outcell{2, 3} = sprintf('%d',SET(gui.no).EndSlice);
+  for loop = 1:nsegments
     [stri,pos] = aha17nameandpos(loop); %Get name and position of export
-    
-    outcell{2,pos} = sprintf('%s [%s]',...
-      stri,...
-      gui.outunit);
-    outcell{3,pos} = gui.ahaoutdata(loop);
+    outcell{1,pos+3} = sprintf('%s [%s]',stri,gui.outunit);
+    outcell{2,pos+3} = gui.ahaoutdata(loop);
   end
-  outcell{1,1} = gui.parameter;
-  if nargout==0
+  if nargout == 0
     segment('cell2clipboard',outcell);
   else
-    varargout{1} = segment('cell2clipboard',outcell);
+    varargout{1} = outcell;
   end
 end
 
 %---------------------------------------
-function plotmethodpanel_SelectionChange %#ok<DEFNU>
+function plotmethodpanel_SelectionChange
 %---------------------------------------
 %Callback for changing type of plot (sector, smooth or AHA model)
 global DATA SET
 gui = DATA.GUI.Bullseye;
 
 %If AHA model then use 24 sectors 4*6
-if mygetvalue(gui.handles.aharadiobutton)
+if mygetvalue(gui.handles.aharadiobutton) || mygetvalue(gui.handles.aha16radiobutton)
   tempslices = SET(gui.no).StartSlice:SET(gui.no).EndSlice;
   if length(tempslices)<3 %|| mygetvalue(gui.handles.thissliceonlycheckbox)
-    myfailed('Expected at least three slices for 17 segment model.');
+    myfailed('Expected at least three slices for AHA segment model.');
     set(gui.handles.sectorradiobutton,'Value',1);
   else
     gui.numsectors = 24;
     set(gui.handles.sectorslistbox,'enable','off');
     set(gui.handles.volumeconsistentcheckbox,'enable','off');
   end
-  
+
 else
   set(gui.handles.sectorslistbox,'enable','on');
   temp = get(gui.handles.sectorslistbox,'String');
@@ -514,7 +536,7 @@ end
 updateall;
 
 %---------------
-function sectors %#ok<DEFNU>
+function sectors
 %---------------
 %called when number of sectors is updated.
 global DATA
@@ -525,7 +547,7 @@ gui.numsectors = str2num(temp{mygetlistbox(gui.handles.sectorslistbox)}); %#ok<S
 updateall;
 
 %------------------
-function endocenter %#ok<DEFNU>
+function endocenter
 %------------------
 %Called when the endocenter checkbox is clicked. Updates SET.EndoCenter.
 global DATA SET
@@ -535,7 +557,7 @@ SET(gui.no).EndoCenter = get(gui.handles.endocentercheckbox,'value');
 updateall;
 
 %------------------------
-function volumeconsistent %#ok<DEFNU>
+function volumeconsistent
 %------------------------
 %Called when volumeconsistent checkbox is called.
 global DATA
@@ -562,7 +584,7 @@ end
 %Find slices
 pos = find(slices);
 if isempty(pos)
-  disp(sprintf('No RV points found. Current sector rotation is %0.5g',SET(no).SectorRotation)); 
+  logdisp(sprintf('No RV points found. Current sector rotation is %0.5g',SET(no).SectorRotation));
   return
 end
 
@@ -575,19 +597,7 @@ end
 %Find sector rotation
 sectorrot = 0; %mean sector rotation
 for loop = 1:length(pos)
-  
-  %Extract contour and find centre
-  if doepi
-    x = SET(no).EpiX(:,SET(no).EDT,pos(loop));
-    y = SET(no).EpiY(:,SET(no).EDT,pos(loop));
-  else
-    x = SET(no).EndoX(:,SET(no).EDT,pos(loop));
-    y = SET(no).EndoY(:,SET(no).EDT,pos(loop));
-  end
-  
-  mx = mean(x);
-  my = mean(y);
-  
+
   %Find RV insertion points for this contour
   ind = [];
   for rloop = 1:length(SET(no).Point.Z)
@@ -595,17 +605,50 @@ for loop = 1:length(pos)
       ind = [ind rloop]; %#ok<AGROW>
     end
   end
-  
+  % check time frames where both points and contours exist
+  if doepi
+    lvtf = find(~isnan(mynanmean(SET(no).EpiX(1,:,pos(loop)),3)));
+  else
+    lvtf = find(~isnan(mynanmean(SET(no).EndoX(1,:,pos(loop)),3)));
+  end
+
+  pnttf = SET(no).Point.T(ind);
+  if any(isnan(pnttf))
+    pnttf = 1:SET(no).TSize;
+    istimeresolved = true;
+  else
+    istimeresolved = false;
+  end
+  tf = intersect(lvtf,pnttf);
+
+  numtf = length(tf);
+  if numtf == 0
+    fprintf('No RV insertion points and segmentation in one and the same time frame in slice %d\n',pos(loop));
+    continue
+  elseif numtf > 1
+    edt = SET(no).EDT;
+    if ismember(edt,tf)
+      % take edt
+      tf = edt;
+    else
+      [~,indmin] = min(abs(tf-edt));
+      tf = tf(indmin(1));
+    end
+    fprintf('RV insertion points and segmentation are taken from time frame %d\n',tf);
+    if ~istimeresolved
+      ind = ind(pnttf == tf);
+    end
+  end
+
   if length(ind) < 2
     message = dprintf('Expected two insertion points, found %d.',length(ind));
     disp(message)
     myfailed(message);
     return;
   end
+
   if ~isequal(length(ind),2)
-    message = dprintf('Expected two insertion points, found %d. Taking the two points with largest distance between.',length(ind));
-    disp(message);
-    %     mywarning(message);
+    fprintf('Expected two insertion points, found %d. Taking the two points with largest distance between.\n',length(ind));
     dist = nan(length(ind),length(ind));
     for indloop = 1:length(ind)
       dist(:,indloop) = sqrt((SET(no).Point.X(ind(indloop))-SET(no).Point.X(ind)).^2+ ...
@@ -614,27 +657,38 @@ for loop = 1:length(pos)
     [~,largestdist] = max(dist(:));
     [ind1,ind2] = ind2sub([length(ind) length(ind)],largestdist);
     ind = sort([ind(ind1) ind(ind2)]);
-    %     return;
   end
-  
+
   p1x = SET(no).Point.X(ind(1));
   p1y = SET(no).Point.Y(ind(1));
   p2x = SET(no).Point.X(ind(2));
   p2y = SET(no).Point.Y(ind(2));
-  
+
+  %Extract contour and find centre
+  if doepi
+    x = SET(no).EpiX(:,tf,pos(loop));
+    y = SET(no).EpiY(:,tf,pos(loop));
+  else
+    x = SET(no).EndoX(:,tf,pos(loop));
+    y = SET(no).EndoY(:,tf,pos(loop));
+  end
+
+  mx = mean(x);
+  my = mean(y);
+
   %Find points on contour that are closest
   dist1 = sqrt((p1x-x).^2+(p1y-y).^2);
   dist2 = sqrt((p2x-x).^2+(p2y-y).^2);
-  
+
   [~,indp1] = min(dist1(:));
   [~,indp2] = min(dist2(:));
-  
+
   %Sort them in order
   temp = sort([indp1 indp2]);
   indp1 = temp(1);
   indp2 = temp(2);
   clear temp;
-  
+
   %Extract contour
   if length(indp1:indp2)/length(x)<0.5
     xr = x(indp1:indp2); %this is then the closest
@@ -643,11 +697,11 @@ for loop = 1:length(pos)
     xr = [x(indp2:end);x(1:indp1)];
     yr = [y(indp2:end);y(1:indp1)];
   end
-  
+
   %Extract point
   x = xr(round(length(xr)/2));
   y = yr(round(length(yr)/2));
-  
+
   %figure(23);
   %imagesc(SET(no).IM(:,:,SET(no).CurrentTimeFrame,SET(no).Point.Z(ind(1))));
   %hold on;
@@ -658,7 +712,7 @@ for loop = 1:length(pos)
   %hold off;
   %colormap(gray);
   %axis image off;
-  
+
   %Calculate angle to contour
   alpha = atan2(y-my,x-mx);
   alpha = alpha*180/pi;
@@ -666,15 +720,21 @@ for loop = 1:length(pos)
 end
 
 sectorrot = sectorrot/length(pos);
-disp(sprintf('LV rotated %d degrees',round(sectorrot)));
+if isnan(sectorrot)
+  sectorrot = 0;
+  disp('Failed on rotation calculation');
+else
+  fprintf('LV rotated %d degrees\n',round(sectorrot));
+end
+
 SET(no).SectorRotation = sectorrot;
 
 %---------------------------------------
-function rotationfromannotation_Callback %#ok<DEFNU>
+function rotationfromannotation_Callback
 %---------------------------------------
 %Finds rotation by looking at RV insertion points.
 
-global DATA SET
+global DATA
 
 gui = DATA.GUI.Bullseye;
 
@@ -683,24 +743,27 @@ if isempty(pos) %No points for rotation found
   return;
 end
 %update slider
-set(gui.handles.rotationslider,'value',SET(gui.no).SectorRotation);
+rotationangle = LVrotation('setrotationangle_helper');
+set(gui.handles.rotationslider,'value',rotationangle);
 
 %call to graphically update rotation & bullseye
 updatesliceimage;
 updateplot;
 
 %-------------------------------
-function rotationslider_Callback %#ok<DEFNU>
+function rotationslider_Callback
 %-------------------------------
 %Callback for rotation slider. Update slice image.
-global DATA SET
+global DATA
 gui = DATA.GUI.Bullseye;
 
 updatesliceimage;
 
 %Enable update button
-set(gui.handles.updatepushbutton,'enable','on','BackgroundColor',[0.929 0.694 0.125],'ForegroundColor',[0 0 0]);
-
+set(gui.handles.updatepushbutton,...
+  'enable','on',...
+  'BackgroundColor',DATA.GUISettings.HighlightedButtonColor,...
+  'ForegroundColor',DATA.GUISettings.HighlightedButtonText);
 
 %---------------------------
 function updatelongaxisimage
@@ -710,20 +773,20 @@ global DATA SET
 gui = DATA.GUI.Bullseye;
 
 if true || ~isempty(gui.laxno)
-%   myset(gui.handles.intersectionlines,'visible','off','color','w');
-%   if 0 %mygetvalue(gui.handles.thissliceonlycheckbox)
-%     slicecolor = 'r';
-%     %If this slice only then set as current slice
-%     if gui.slice >= SET(gui.no).StartSlice && gui.slice <= SET(gui.no).EndSlice
-%       SET(gui.no).CurrentSlice = gui.slice;
-%     end
-%   else
-%     slicecolor = 'c';
-%   end
+  %   myset(gui.handles.intersectionlines,'visible','off','color','w');
+  %   if 0 %mygetvalue(gui.handles.thissliceonlycheckbox)
+  %     slicecolor = 'r';
+  %     %If this slice only then set as current slice
+  %     if gui.slice >= SET(gui.no).StartSlice && gui.slice <= SET(gui.no).EndSlice
+  %       SET(gui.no).CurrentSlice = gui.slice;
+  %     end
+  %   else
+  %     slicecolor = 'c';
+  %   end
   myset(gui.handles.intersectionlines(:),'color','w');
   myset(gui.handles.intersectionlines(SET(gui.no).StartSlice:SET(gui.no).EndSlice),'color','y');
   myset(gui.handles.intersectionlines(gui.slice),'color','c');
-%   myset(gui.handles.intersectionlines(SET(gui.no).StartSlice:SET(gui.no).EndSlice),'Visible','on');
+  %   myset(gui.handles.intersectionlines(SET(gui.no).StartSlice:SET(gui.no).EndSlice),'Visible','on');
 end
 
 %------------------------
@@ -775,13 +838,13 @@ if plotseperate == 0
       end
     end
   end
-  
+
   %force true color
   image(calcfunctions('remapuint8',temp,gui.no,calcfunctions('returnmapping',gui.no,true)),...
     'parent',gui.handles.imageaxes);
   axis(gui.handles.imageaxes,'image','off');
-  
-else  %plot in seperate window  
+
+else  %plot in seperate window
   figure(23);
   set(23,'Name','LV rotation','numbertitle','off');
   ax = gca;
@@ -832,7 +895,7 @@ if ~plotseperate
       set(gui.handles.epicontour,'linewidth',DATA.Pref.LineWidth);
     end
   end
-  
+
 else %plot in seperate window
   hold(ax,'on');
   endocontour = plot(ax,endoy,endox,'r-');
@@ -845,6 +908,7 @@ end
 
 
 %Plot sectors
+isahaplot = (get(gui.handles.aharadiobutton,'value') || mygetvalue(gui.handles.aha16radiobutton));
 hold(gui.handles.imageaxes,'on');
 if isnan(epix(1))
   %--- Only endo exist => draw only endo
@@ -860,12 +924,16 @@ if isnan(epix(1))
     yposm = ...
       0.5*endox(gui.sectors(loop))+...
       0.5*endox(gui.sectors(loop+1));
-    
+
     if ~plotseperate
       if (loop==1)
         %Draw an extra long line
         h = plot(gui.handles.imageaxes,[min(imsize(2),max(1,gui.meany)) min(imsize(2),max(1,1.5*xpos-0.5*gui.meany))], ...
           [min(imsize(1),max(1,gui.meanx)) min(imsize(1),max(1,1.5*ypos-0.5*gui.meany))],'y-');
+        if isahaplot
+          % stop drawing sectors
+          break;
+        end
       else
         h = plot(gui.handles.imageaxes,[min(imsize(2),max(1,gui.meany)) min(imsize(2),max(1,xpos))], ...
           [min(imsize(1),max(1,gui.meanx)) min(imsize(1),max(1,ypos))],'w-');
@@ -875,7 +943,7 @@ if isnan(epix(1))
         set(gui.handles.numtext{loop},'color','y','fontsize',12);
       end
       if DATA.Pref.LineWidth==0
-        set(h,'linewidth','visible','off');
+        set(h,'visible','off');
       else
         set(h,'linewidth',DATA.Pref.LineWidth);
       end
@@ -887,53 +955,57 @@ if isnan(epix(1))
         set(h,'linewidth',DATA.Pref.LineWidth);
       end
     end
-  end    
-    
-  else
-    %--- Epi exists => draw both
-    %get positions.
-    [gui.meanx,gui.meany,gui.sectors] = calcfunctions('findmeaninsectorslice','epi',DATA.Pref.RadialProfiles,...
-      tf,gui.slice,gui.numsectors,gui.no);
-    for loop=1:gui.numsectors
-      xpos = epiy(gui.sectors(loop));
-      
-      ypos = epix(gui.sectors(loop));
-      xposm = ...
-        0.5*epiy(gui.sectors(loop))+...
-        0.5*epiy(gui.sectors(loop+1));
-      yposm = ...
-        0.5*epix(gui.sectors(loop))+...
-        0.5*epix(gui.sectors(loop+1));
-      
-      if ~plotseperate
-        if (loop==1)
-          %Draw an extra long line
-          gui.handles.line{loop} = plot(gui.handles.imageaxes,[min(imsize(2),max(1,gui.meany)) min(imsize(2),max(1,1.5*xpos-0.5*gui.meany))], ...
-            [min(imsize(1),max(1,gui.meanx)) min(imsize(1),max(1,1.5*ypos-0.5*gui.meanx))],'y-');
-        else
-          gui.handles.line{loop} = plot(gui.handles.imageaxes,[min(imsize(2),max(1,gui.meany)) min(imsize(2),max(1,xpos))], ...
-            [min(imsize(1),max(1,gui.meanx)) min(imsize(1),max(1,ypos))],'w-');
+  end
+
+else
+  %--- Epi exists => draw both
+  %get positions.
+  [gui.meanx,gui.meany,gui.sectors] = calcfunctions('findmeaninsectorslice','epi',DATA.Pref.RadialProfiles,...
+    tf,gui.slice,gui.numsectors,gui.no);
+  for loop=1:gui.numsectors
+    xpos = epiy(gui.sectors(loop));
+
+    ypos = epix(gui.sectors(loop));
+    xposm = ...
+      0.5*epiy(gui.sectors(loop))+...
+      0.5*epiy(gui.sectors(loop+1));
+    yposm = ...
+      0.5*epix(gui.sectors(loop))+...
+      0.5*epix(gui.sectors(loop+1));
+
+    if ~plotseperate
+      if (loop==1)
+        %Draw an extra long line
+        gui.handles.line{loop} = plot(gui.handles.imageaxes,[min(imsize(2),max(1,gui.meany)) min(imsize(2),max(1,1.5*xpos-0.5*gui.meany))], ...
+          [min(imsize(1),max(1,gui.meanx)) min(imsize(1),max(1,1.5*ypos-0.5*gui.meanx))],'y-');
+        if isahaplot
+          % stop drawing sectors
+          break;
         end
-        if gui.numsectors>1 && gui.numsectors<=20
-          gui.handles.numtext{loop} = text(xposm,yposm,sprintf('%d',gui.numsectors+1-loop),'parent',gui.handles.imageaxes);
-          set(gui.handles.numtext{loop},'color','y','fontsize',12);
-        end
-        if DATA.Pref.LineWidth==0
-          set(gui.handles.line{loop},'linewidth','visible','off');
-        else
-          set(gui.handles.line{loop},'linewidth',DATA.Pref.LineWidth);
-        end
-        
-      else %plot in seperate window
-        if (loop==1)
-          %Draw an extra long line
-          line = plot(ax,[min(imsize(2),max(1,gui.meany)) min(imsize(2),max(1,1.5*xpos-0.5*gui.meany))], ...
-            [min(imsize(1),max(1,gui.meanx)) min(imsize(1),max(1,1.5*ypos-0.5*gui.meanx))],'y-');
-          set(line,'linewidth',DATA.Pref.LineWidth);
-        end
+      else
+        gui.handles.line{loop} = plot(gui.handles.imageaxes,[min(imsize(2),max(1,gui.meany)) min(imsize(2),max(1,xpos))], ...
+          [min(imsize(1),max(1,gui.meanx)) min(imsize(1),max(1,ypos))],'w-');
       end
-      
+      if gui.numsectors>1 && gui.numsectors<=20
+        gui.handles.numtext{loop} = text(xposm,yposm,sprintf('%d',gui.numsectors+1-loop),'parent',gui.handles.imageaxes);
+        set(gui.handles.numtext{loop},'color','y','fontsize',12);
+      end
+      if DATA.Pref.LineWidth==0
+        set(gui.handles.line{loop},'visible','off');
+      else
+        set(gui.handles.line{loop},'linewidth',DATA.Pref.LineWidth);
+      end
+
+    else %plot in seperate window
+      if (loop==1)
+        %Draw an extra long line
+        line = plot(ax,[min(imsize(2),max(1,gui.meany)) min(imsize(2),max(1,1.5*xpos-0.5*gui.meany))], ...
+          [min(imsize(1),max(1,gui.meanx)) min(imsize(1),max(1,1.5*ypos-0.5*gui.meanx))],'y-');
+        set(line,'linewidth',DATA.Pref.LineWidth);
+      end
     end
+
+  end
 end
 if ~plotseperate
   hold(gui.handles.imageaxes,'off');
@@ -942,7 +1014,7 @@ else
 end
 
 %----------------------
-function close_Callback 
+function close_Callback
 %----------------------
 %Properly close the GUI.
 
@@ -955,7 +1027,7 @@ end
 DATA.GUI.Bullseye= [];
 
 %-----------------------
-function drawsectorimage %#ok<DEFNU>
+function drawsectorimage
 %-----------------------
 %Draw image of sector division in new figure.
 
@@ -1043,7 +1115,7 @@ if isnan(epix(1))
       set(h,'color','y','fontsize',12);
     end
   end
-  
+
 else
   %--- Epi exists => draw both
   %get positions.
@@ -1076,95 +1148,74 @@ else
 end
 hold off;
 
-%----------------------------
-function setdata(type,datain)
-%----------------------------
-%interface function to gui to set data from code, for instance
-%reportsheet generator.
-
-global DATA
-gui = DATA.GUI.Bullseye;
-
-switch type
-  case 'setlistbox'
-    set(gui.handles.bullseyelistbox,'value',datain);
-  case 'setseparate'
-    set(gui.handles.separatewindowcheckbox,'value',datain);
-  case 'setnormal'
-    set(gui.handles.sectorradiobutton,'value',1);
-  case 'setsmooth'
-    set(gui.handles.smoothradiobutton,'value',1);
-  case 'setaha'
-    set(gui.handles.aharadiobutton,'value',1);    
-  case 'setsectors'
-    set(gui.handles.sectorslistbox,'value',datain);
-    temp = get(gui.handles.sectorslistbox,'String');
-    gui.numsectors = str2num(temp{mygetlistbox(gui.handles.sectorslistbox)});     %#ok<ST2NM>
-end
-
 %------------------------------
-function thissliceonly_Callback %#ok<DEFNU>
+function thissliceonly_Callback
 %------------------------------
 %Callback for this slice only checkbox
 updatelongaxisimage;
 updateplot;
 
 %--------------------------------
-function bullseyelistbox_Callback %#ok<DEFNU>
+function bullseyelistbox_Callback
 %--------------------------------
 %Callback for bullseye listbox. Updates plot
-updateplot;
+fromlistbox = true;
+updateplot(fromlistbox);
 
 %--------------------------------
-function colormaplistbox_Callback %#ok<DEFNU>
+function colormaplistbox_Callback
 %--------------------------------
 %Callback for colormap listbox. Updates plot
 updateplot;
 
 %-----------------------------
-function invertcolors_Callback %#ok<DEFNU>
+function invertcolors_Callback
 %-----------------------------
 %Callback for invert colors checkbox. Updates plot
 updateplot;
 
 %----------------------
-function nedit_Callback %#ok<DEFNU>
+function nedit_Callback
 %----------------------
 %Callback for edit to change value of n. Updates plot
 updateplot;
 
 %------------------------
-function minedit_Callback %#ok<DEFNU>
+function minedit_Callback
 %------------------------
 %Callback for edit to change min value. Updates plot
 updateplot;
 
 %------------------------
-function maxedit_Callback %#ok<DEFNU>
+function maxedit_Callback
 %------------------------
 %Callback for edit to change max value. Updates plot
 updateplot;
 
 %-------------------------------
-function separatewindow_Callback %#ok<DEFNU>
+function separatewindow_Callback
 %-------------------------------
 %Callback for separate window checkbox. Updates plot
 updateplot;
 
 %---------------------------------
-function updatepushbutton_Callback %#ok<DEFNU>
+function updatepushbutton_Callback
 %---------------------------------
 %Callback for update pushbutton. Updates plot
 updateplot;
 
 %------------------
-function updateplot
+function updateplot(fromlistbox)
 %------------------
 %Plot different type of data. Calculate / retrieve
 %data, and perform graphical update. This is a main workhorse.
 
 global DATA SET
 gui = DATA.GUI.Bullseye;
+
+if nargin == 0
+  fromlistbox = false;
+end
 
 %Grey out update button
 set(gui.handles.updatepushbutton,'enable','off',...
@@ -1182,12 +1233,14 @@ else
   ind(gui.slice) = true;
 end
 if sum(ind) < 3
-  set(gui.handles.aharadiobutton,'enable','off');
-  if mygetvalue(gui.handles.aharadiobutton)
+  set([gui.handles.aharadiobutton, gui.handles.aha16radiobutton],'enable','off');
+  if mygetvalue(gui.handles.aharadiobutton) || mygetvalue(gui.handles.aha16radiobutton)
     set(gui.handles.sectorradiobutton,'value',1);
+    plotmethodpanel_SelectionChange
+    return % returning since the method above includes the whole update
   end
 else
-  set(gui.handles.aharadiobutton,'enable','on');
+  set([gui.handles.aharadiobutton, gui.handles.aha16radiobutton],'enable','on');
 end
 
 flipx = false;
@@ -1220,14 +1273,14 @@ switch lower(engparameter)
     outdata = -meanradvel(:,:,SET(gui.no).PFRT);
     tf = SET(gui.no).PFRT;
     outunit = 'cm/s';
-    outtf = tf;
+    if SET(gui.no).TSize > 1, outtf = tf; end
   case 'contraction velocity at per'
     radvel = calcfunctions('calcendoradius',gui.no);
     meanradvel = calcfunctions('findmeaninsector','endo',radvel,find(ind),gui.numsectors,gui.no);
     outdata = meanradvel(:,:,SET(gui.no).PERT);
     tf = SET(gui.no).PERT;
     outunit = 'cm/s';
-    outtf = tf;
+    if SET(gui.no).TSize > 1, outtf = tf; end
   case 'maximal wallthickness (temporal max)'
     wallthickness = calcfunctions('calcwallthickness',gui.numsectors,gui.no);
     outdata = squeeze(max(wallthickness(:,ind,:),[],3));
@@ -1263,7 +1316,7 @@ switch lower(engparameter)
     outdata = calcfunctions('calcmyocardvolume',gui.numsectors,gui.no);
     outdata = outdata(:,ind);
     outunit = 'ml';
-    outtf = tf;
+    if SET(gui.no).TSize > 1, outtf = tf; end
   case 'myocard intensity'
     tf = SET(gui.no).CurrentTimeFrame;
     outdata = calcfunctions('calcintensityanddefect',SET(gui.no).IM,tf,DATA.Pref.RadialProfiles,gui.numsectors,DATA.Pref.RadialProfiles, ...
@@ -1272,7 +1325,7 @@ switch lower(engparameter)
       [SET(gui.no).XSize SET(gui.no).YSize],[SET(gui.no).ResolutionX SET(gui.no).ResolutionY]);
 
     outunit = '';
-    outtf = tf;
+    if SET(gui.no).TSize > 1, outtf = tf; end
   case 'myocard intensity (unnormalized values)'
     tf = SET(gui.no).CurrentTimeFrame;
     outdata = calcfunctions('calcintensityanddefect',SET(gui.no).IM,tf,DATA.Pref.RadialProfiles,gui.numsectors,DATA.Pref.RadialProfiles, ...
@@ -1282,8 +1335,8 @@ switch lower(engparameter)
 
     outdata = calcfunctions('calctruedata',outdata,gui.no);
     outunit = '';
-    outtf = tf;
-    
+    if SET(gui.no).TSize > 1, outtf = tf; end
+
   case 'mapping values'
     %- numsectors:                   number of sectors
     %- nprofiles:                         number of profiles
@@ -1294,20 +1347,28 @@ switch lower(engparameter)
     %defect:                                (EH: I do not know what it is, works if empty)
     %numwidth:                        specify if it should calculate several sectors across wallthickness.
     %timeresolved:                   true if timeresolvde
-    
-    s = [];
-    s.Endocardium_percent = 20;
-    s.Epicardium_percent = 20;
-    [s,ok] = inputstruct(s,'Selected coverage.');
-    if ~ok
-%       myfailed('Aborted.');
-      return;
+
+    if isempty(gui.Endocardium_percent) || fromlistbox
+      s = [];
+      s.Endocardium_percent = 20;
+      s.Epicardium_percent = 20;
+      [s,ok] = inputstruct(s,'Selected coverage.');
+      if ~ok
+        %       myfailed('Aborted.');
+        return;
+      end
+      gui.Endocardium_percent = s.Endocardium_percent;
+      gui.Epicardium_percent = s.Epicardium_percent;
+    else
+      s.Endocardium_percent = gui.Endocardium_percent;
+      s.Epicardium_percent = gui.Epicardium_percent;
     end
-    
+
+
     endo = s.Endocardium_percent/100;
     epi = s.Epicardium_percent/100;
-    
-     tf = SET(gui.no).CurrentTimeFrame;
+
+    tf = SET(gui.no).CurrentTimeFrame;
     outdata = calcfunctions('calcintensityanddefect',...
       SET(gui.no).IM,...
       tf,...
@@ -1320,13 +1381,13 @@ switch lower(engparameter)
       [SET(gui.no).XSize SET(gui.no).YSize],...
       [SET(gui.no).ResolutionX SET(gui.no).ResolutionY],...
       [],...
-      [endo 1-epi],... 
+      [endo 1-epi],...
       false);
-    
+
     outdata = calcfunctions('calctruedata',outdata,gui.no);
     outunit = '';
-    outtf = tf;
-    
+    if SET(gui.no).TSize > 1, outtf = tf; end
+
   case 'scar transmurality area based'
     if isempty(SET(gui.no).Scar)
       myfailed('No infarct data available, use report myocardial intensity before.',DATA.GUI.Segment);
@@ -1363,23 +1424,23 @@ switch lower(engparameter)
     tf = SET(gui.no).CurrentTimeFrame;
     outdata = calcfunctions('calcintensityanddefect',SET(gui.no).IM,tf,DATA.Pref.RadialProfiles,gui.numsectors,DATA.Pref.RadialProfiles, ...
       find(ind),gui.no,SET(gui.no).EndoX,SET(gui.no).EndoY,SET(gui.no).EpiX,SET(gui.no).EpiY, ...
-      [SET(gui.no).XSize SET(gui.no).YSize],[SET(gui.no).ResolutionX SET(gui.no).ResolutionY],SET(gui.no).Scar.Result);    
+      [SET(gui.no).XSize SET(gui.no).YSize],[SET(gui.no).ResolutionX SET(gui.no).ResolutionY],SET(gui.no).Scar.Result);
     [~,defect] = calcfunctions('calcintensityanddefect',SET(gui.no).IM,tf,DATA.Pref.RadialProfiles,gui.numsectors,DATA.Pref.RadialProfiles, ...
       find(ind),gui.no,SET(gui.no).EndoX,SET(gui.no).EndoY,SET(gui.no).EpiX,SET(gui.no).EpiY, ...
       [SET(gui.no).XSize SET(gui.no).YSize],[SET(gui.no).ResolutionX SET(gui.no).ResolutionY],SET(gui.no).Scar.Result,1,false);
-%     %fill out the nan values in the outflow tract region by smoothing
-%     [filloutrow,filloutcol] = find(isnan(outdata));
-%     for filloop = 1:length(filloutrow)
-%       [row,col] = find(~isnan(outdata(filloutrow(filloop),filloutcol(filloop):end)),1,'first');
-%       if isempty(row)
-%         [~,col] = find(~isnan(outdata(filloutrow(filloop),1:filloutcol(filloop))),1,'last');
-%         if ~isempty(col)
-%           outdata(filloutrow(filloop),filloutcol(filloop)) = outdata(filloutrow(filloop),col);
-%         end
-%       else
-%         outdata(filloutrow(filloop),filloutcol(filloop)) = outdata(filloutrow(filloop),col+filloutcol(filloop)-1);
-%       end
-%     end
+    %     %fill out the nan values in the outflow tract region by smoothing
+    %     [filloutrow,filloutcol] = find(isnan(outdata));
+    %     for filloop = 1:length(filloutrow)
+    %       [row,col] = find(~isnan(outdata(filloutrow(filloop),filloutcol(filloop):end)),1,'first');
+    %       if isempty(row)
+    %         [~,col] = find(~isnan(outdata(filloutrow(filloop),1:filloutcol(filloop))),1,'last');
+    %         if ~isempty(col)
+    %           outdata(filloutrow(filloop),filloutcol(filloop)) = outdata(filloutrow(filloop),col);
+    %         end
+    %       else
+    %         outdata(filloutrow(filloop),filloutcol(filloop)) = outdata(filloutrow(filloop),col+filloutcol(filloop)-1);
+    %       end
+    %     end
     defect(defect < 20) = 1;
     defect(defect > 50) = 0;
     defect(defect > 1) = 0.5;
@@ -1395,14 +1456,14 @@ switch lower(engparameter)
     [~,infarctweightmap] = viability('viabilityweight',gui.no);
     if isempty(infarctweightmap)
       infarctweightmap = ones(size(SET(gui.no).Scar.Result));
-    end 
+    end
     meaninfarctweight = calcfunctions('calcintensityanddefect', ...
       infarctweightmap.*SET(gui.no).Scar.Result,tf,DATA.Pref.RadialProfiles, ...
       gui.numsectors,DATA.Pref.RadialProfiles,find(ind),gui.no, ...
       SET(gui.no).EndoX,SET(gui.no).EndoY,SET(gui.no).EpiX,SET(gui.no).EpiY, ...
       [SET(gui.no).XSize SET(gui.no).YSize], ...
       [SET(gui.no).ResolutionX SET(gui.no).ResolutionY],[],1,false);
-    outdata = 100*meaninfarctweight;    
+    outdata = 100*meaninfarctweight;
     outunit = '%';
   case 'grayzone transmurality area based'
     if isempty(SET(gui.no).Scar)
@@ -1417,7 +1478,7 @@ switch lower(engparameter)
       find(ind),gui.no, ...
       rescale(SET(gui.no).EndoX),rescale(SET(gui.no).EndoY), ...
       rescale(SET(gui.no).EpiX),rescale(SET(gui.no).EpiY), ...
-      mapsz(1:2),[SET(gui.no).ResolutionX SET(gui.no).ResolutionY],SET(gui.no).Scar.GreyZone.map==1);
+      mapsz(1:2),[SET(gui.no).ResolutionX SET(gui.no).ResolutionY],SET(gui.no).Scar.GreyZone.map==1,1,false);
     outunit = '%';
   case 'core transmurality area based'
     if isempty(SET(gui.no).Scar)
@@ -1432,7 +1493,7 @@ switch lower(engparameter)
       find(ind),gui.no, ...
       rescale(SET(gui.no).EndoX),rescale(SET(gui.no).EndoY), ...
       rescale(SET(gui.no).EpiX),rescale(SET(gui.no).EpiY), ...
-      mapsz(1:2),[SET(gui.no).ResolutionX SET(gui.no).ResolutionY],SET(gui.no).Scar.GreyZone.map==2);
+      mapsz(1:2),[SET(gui.no).ResolutionX SET(gui.no).ResolutionY],SET(gui.no).Scar.GreyZone.map==2,1,false);
     outunit = '%';
   case 'mar transmurality area based'
     if isempty(SET(gui.no).MaR)
@@ -1445,7 +1506,7 @@ switch lower(engparameter)
       SET(gui.no).EndoX,SET(gui.no).EndoY,SET(gui.no).EpiX,SET(gui.no).EpiY, ...
       [SET(gui.no).XSize SET(gui.no).YSize],[SET(gui.no).ResolutionX SET(gui.no).ResolutionY],SET(gui.no).MaR.Result);
     outunit = '%';
-    outtf = tf;
+    if SET(gui.no).TSize > 1, outtf = tf; end
   case 'mar transmurality line based'
     if isempty(SET(gui.no).MaR)
       myfailed('No MaR data available.',DATA.GUI.Segment);
@@ -1454,7 +1515,7 @@ switch lower(engparameter)
     tf = SET(gui.no).CurrentTimeFrame;
     outdata = mar('calctransmuralityline',gui.numsectors,gui.no);
     outunit = '%';
-    outtf = tf;
+    if SET(gui.no).TSize > 1, outtf = tf; end
   case 'max mar transmurality (spatial max)'
     if isempty(SET(gui.no).MaR)
       myfailed('No MaR data available.',DATA.GUI.Segment);
@@ -1464,7 +1525,7 @@ switch lower(engparameter)
     tf = SET(gui.no).CurrentTimeFrame;
     [~,outdata] = mar('calctransmuralityline',gui.numsectors,gui.no);
     outunit = '%';
-    outtf = tf;
+    if SET(gui.no).TSize > 1, outtf = tf; end
   case 'mar transmurality area based and myocardial intensity'
     if isempty(SET(gui.no).MaR)
       myfailed('No MaR data available.',DATA.GUI.Segment);
@@ -1475,28 +1536,28 @@ switch lower(engparameter)
       find(ind),gui.no, ...
       SET(gui.no).EndoX,SET(gui.no).EndoY,SET(gui.no).EpiX,SET(gui.no).EpiY, ...
       [SET(gui.no).XSize SET(gui.no).YSize],[SET(gui.no).ResolutionX SET(gui.no).ResolutionY],SET(gui.no).MaR.Result);
-%     %fill out the nan values in the outflow tract region by smoothing
-%     [filloutrow,filloutcol] = find(isnan(outdata));
-%     for filloop = 1:length(filloutrow)
-%       [row,col] = find(~isnan(outdata(filloutrow(filloop),filloutcol(filloop):end)),1,'first');
-%       if isempty(row)
-%         [~,col] = find(~isnan(outdata(filloutrow(filloop),1:filloutcol(filloop))),1,'last');
-%         if ~isempty(col)
-%           outdata(filloutrow(filloop),filloutcol(filloop)) = outdata(filloutrow(filloop),col);
-%         end
-%       else
-%         outdata(filloutrow(filloop),filloutcol(filloop)) = outdata(filloutrow(filloop),col+filloutcol(filloop)-1);
-%       end
-%     end
+    %     %fill out the nan values in the outflow tract region by smoothing
+    %     [filloutrow,filloutcol] = find(isnan(outdata));
+    %     for filloop = 1:length(filloutrow)
+    %       [row,col] = find(~isnan(outdata(filloutrow(filloop),filloutcol(filloop):end)),1,'first');
+    %       if isempty(row)
+    %         [~,col] = find(~isnan(outdata(filloutrow(filloop),1:filloutcol(filloop))),1,'last');
+    %         if ~isempty(col)
+    %           outdata(filloutrow(filloop),filloutcol(filloop)) = outdata(filloutrow(filloop),col);
+    %         end
+    %       else
+    %         outdata(filloutrow(filloop),filloutcol(filloop)) = outdata(filloutrow(filloop),col+filloutcol(filloop)-1);
+    %       end
+    %     end
     defect(defect < 20) = 1;
     defect(defect > 50) = 0;
     defect(defect > 1) = 0.5;
     outdata = outdata.*defect;
     outunit = '';
-    outtf = tf;
+    if SET(gui.no).TSize > 1, outtf = tf; end
   case 'clipboard data'
     outdata = clipboard('paste');
-    [outdata,ok] = str2num(outdata); %#ok<ST2NM>
+    [outdata,ok] = str2num(outdata);
     outdata = outdata';
     flipx = true;
     if not(ok)
@@ -1511,11 +1572,11 @@ switch lower(engparameter)
 end
 
 %Determine max and min value
-[maxv,ok] = str2num(mygetedit(gui.handles.maxedit)); %#ok<ST2NM>
+[maxv,ok] = str2num(mygetedit(gui.handles.maxedit));
 if not(ok) || isempty(maxv)
   maxv = max(outdata(:));
 end
-[minv,ok] = str2num(mygetedit(gui.handles.minedit)); %#ok<ST2NM>
+[minv,ok] = str2num(mygetedit(gui.handles.minedit));
 if not(ok) || isempty(minv)
   minv = min(outdata(:));
 end
@@ -1538,83 +1599,103 @@ else
   tempax = gui.handles.bullseyeaxes;
 end
 
-%get number of points in image
-[n,ok] = str2num(mygetedit(gui.handles.nedit)); %#ok<ST2NM>
-if not(ok)
-  mywarning('Not a valid number for n.',DATA.GUI.Segment);
-  n = 200;
-end
-
-%Determine if smooth bulleye version or not.
-gui.ahaoutdata = [];
-if mygetvalue(gui.handles.sectorradiobutton)
-  bullseye(gui.outdata,tempax,n,gui.volumeconsistent,gui.no,tf);
-elseif mygetvalue(gui.handles.smoothradiobutton)
-  bullseye2(gui.outdata,tempax,n,flipx,gui.volumeconsistent,gui.no);
-elseif mygetvalue(gui.handles.aharadiobutton)
-  gui.ahaoutdata = bullseyeaha(gui.outdata,tempax,n,valuetype);
-  %Determine max and min value
-  [maxv,ok] = str2num(mygetedit(gui.handles.maxedit)); %#ok<ST2NM>
-  if not(ok)
-    maxv = max(gui.ahaoutdata(:));
-  end
-  [minv,ok] = str2num(mygetedit(gui.handles.minedit)); %#ok<ST2NM>
-  if not(ok)
-    minv = min(gui.ahaoutdata(:));
-  end
-end
-
-%Adjust max/min
-if ~isempty(minv) && ~isempty(maxv) && not(isnan(minv)) && not(isnan(maxv)) && (maxv>minv)
-  set(tempax,'clim',[minv maxv]);
-end
-
-%Add title
-if isempty(gui.outunit) && isempty(gui.outtf)
-  title(tempax,sprintf('%s',gui.parameter),'Color',DATA.GUISettings.ForegroundColor);
-elseif isempty(gui.outunit) && ~isempty(gui.outtf)
-  title(tempax,dprintf('%s in time frame %d',gui.parameter,gui.outtf),'Color',DATA.GUISettings.ForegroundColor); 
-elseif ~isempty(gui.outunit) && isempty(gui.outtf)
-  title(tempax,sprintf('%s [%s]',gui.parameter,gui.outunit),'Color',DATA.GUISettings.ForegroundColor);
-else
-  title(tempax,dprintf('%s [%s] in time frame %d',gui.parameter,gui.outunit,gui.outtf),'Color',DATA.GUISettings.ForegroundColor);  
-end
-if isseparetewindow
-  tempax.Title.FontSize = 14;
-end
-
 %Colormap
-v = mygetlistbox(gui.handles.colormaplistbox);
-switch v
-  case 1
-    cmap = jet(256);
-  case 2
-    cmap = hot(256);
-  case 3
-    cmap = hsv(256);
-  case 4
-    cmap = spect(256);
-  case 5
-    cmap = gray(256);
+n = 256;
+selectedcolormap = gui.colormaplist{mygetlistbox(gui.handles.colormaplistbox)};
+switch selectedcolormap
+  case 'Jet'
+    cmap = jet(n);
+  case 'Hot'
+    cmap = hot(n);
+  case 'HSV'
+    cmap = hsv(n);
+  case 'SPECT'
+    cmap = spect(n);
+  case dprintf('Gray')
+    cmap = gray(n);
+  case 'Gadgetron'
+    temp = load('colormapgadgetron');
+    cmapgt = temp.colormapgadgetron;
+    cmap = zeros(n,3);
+    cmap(:,1) = interp1(1:length(cmapgt),cmapgt(:,1),linspace(1,length(cmapgt),n))';
+    cmap(:,2) = interp1(1:length(cmapgt),cmapgt(:,2),linspace(1,length(cmapgt),n))';
+    cmap(:,3) = interp1(1:length(cmapgt),cmapgt(:,3),linspace(1,length(cmapgt),n))';
 end
 
 if get(gui.handles.invertcolorscheckbox,'value')
   cmap = flipud(cmap);
 end
-
 colormap(tempax,cmap);
+
+%get number of points in image
+[res,ok] = str2num(mygetedit(gui.handles.nedit));
+if not(ok)
+  mywarning('Not a valid number for n.',DATA.GUI.Segment);
+  res = 200;
+end
+
+%Determine if smooth bulleye version or not.
+gui.ahaoutdata = [];
+if mygetvalue(gui.handles.sectorradiobutton)
+  bullseye(gui.outdata,tempax,res,gui.volumeconsistent,gui.no,tf);
+elseif mygetvalue(gui.handles.smoothradiobutton)
+  % check if data is double, scatteredInterpolant expects double
+  if ~isa(gui.outdata,'double')
+    gui.outdata = double(gui.outdata);
+  end
+  bullseye2(gui.outdata,tempax,res,flipx,gui.volumeconsistent,gui.no);
+elseif mygetvalue(gui.handles.aharadiobutton) || mygetvalue(gui.handles.aha16radiobutton)
+  gui.ahaoutdata = bullseyeaha(gui.outdata,tempax,res,valuetype);
+  %Determine max and min value
+  [maxv,ok] = str2num(mygetedit(gui.handles.maxedit));
+  if not(ok) || max(gui.ahaoutdata(:)) > maxv
+    maxv = round(max(gui.ahaoutdata(:)),4);
+  end
+  [minv,ok] = str2num(mygetedit(gui.handles.minedit));
+  if not(ok) || min(gui.ahaoutdata(:)) < minv
+    minv = round(min(gui.ahaoutdata(:)),4);
+  end
+end
+colormap(tempax,cmap);
+
+%Adjust max/min
+if ~isempty(minv) && ~isempty(maxv) && not(isnan(minv)) && not(isnan(maxv)) && (maxv>minv)
+  set(tempax,'clim',[minv maxv]);
+%   set(gui.handles.maxedit,'String',maxv);
+%   set(gui.handles.minedit,'String',minv);
+end
+
+%Add title
+if isempty(gui.outunit) && isempty(gui.outtf)
+  titlestr = sprintf('%s',gui.parameter);
+elseif isempty(gui.outunit) && ~isempty(gui.outtf)
+  titlestr = sprintf('%s %s',gui.parameter,dprintf('in time frame %d',gui.outtf));
+elseif ~isempty(gui.outunit) && isempty(gui.outtf)
+  titlestr = sprintf('%s [%s]',gui.parameter,gui.outunit);
+else
+  titlestr = sprintf('%s [%s] %s',gui.parameter,gui.outunit,dprintf('in time frame %d',gui.outtf));
+end
+title(tempax,titlestr,'Color',DATA.GUISettings.ForegroundColor);
+if isseparetewindow
+  tempax.Title.FontSize = 14;
+end
 
 %Add colorbar
 gui.handles.colorbar = colorbar('peer',tempax);
 if isseparetewindow
-  gui.handles.colorbar.LineWidth = 1.0;
-  gui.handles.colorbar.FontSize = 12;
+  fontweight = 'normal';
+  fontsize = 12;
+  linewidth = 1;
+else
+  fontweight = 'bold';
+  fontsize = 10;
+  linewidth = 1.5;
 end
-set(gui.handles.colorbar,'Color',DATA.GUISettings.ForegroundColor);
+set(gui.handles.colorbar,'Color',DATA.GUISettings.ForegroundColor, ...
+  'LineWidth',linewidth,'FontSize',fontsize,'FontWeight',fontweight);
 
-  
 %----------------------------
-function sliceslider_Callback %#ok<DEFNU>
+function sliceslider_Callback
 %----------------------------
 %Callback for slider to toggle slice
 global DATA SET
@@ -1622,7 +1703,7 @@ gui = DATA.GUI.Bullseye;
 
 gui.slice = SET(gui.no).ZSize-round(mygetvalue(gui.handles.sliceslider))+1;
 set(gui.handles.sliceslider,'Value',round(mygetvalue(gui.handles.sliceslider)));
-set(gui.handles.slicetext,'String',dprintf('Slice %d',gui.slice));
+set(gui.handles.slicetext,'String',sprintf('%s %d',dprintf('Slice'),gui.slice));
 updatesliceimage;
 updatelongaxisimage
 if 0%mygetvalue(gui.handles.thissliceonlycheckbox)
@@ -1630,7 +1711,7 @@ if 0%mygetvalue(gui.handles.thissliceonlycheckbox)
 end
 
 %---------------------------------------------------
-function [varargout] = bullseyeaha(m,ax,n,valuetype,linetype)
+function [varargout] = bullseyeaha(m,ax,n,valuetype,linecolor,includingvalues)
 %---------------------------------------------------
 %Calculate and/or plot AHA 17 segment model.
 %- m is a matrix in polar coordinates. It could also be a vector of 17
@@ -1644,16 +1725,26 @@ function [varargout] = bullseyeaha(m,ax,n,valuetype,linetype)
 %  max.
 
 global DATA
+gui = DATA.GUI.Bullseye;
 
 if nargin<4
   valuetype = 'mean'; %default;
 end
 
 if nargin<5
-  linetype='w-';
+  linecolor = DATA.GUISettings.ForegroundColor;
+end
+
+if nargin<6
+  includingvalues=true;
 end
 
 varargout = cell(1,nargout);
+if ~isempty(gui)
+  is16segments = mygetvalue(gui.handles.aha16radiobutton);
+else
+  is16segments = false; %17-segment model by default, for report for example
+end
 
 if numel(m)==17
   %This must be just the 17 segments. Added this EH:
@@ -1666,23 +1757,38 @@ else
     return;
   end
 
-  %Reshape the transmurality by replicating each slice into three
   numslices = size(m,2);
   m = fliplr(m); %Basal slice is first column
+  %Reshape the transmurality by replicating each slice into three
   newind = 1:numslices;
   newind = repmat(newind,3,1);
   newind = newind(:)';
   m = m(:,newind);
 
+  if numslices == 3 || is16segments
+    firstslice = 1;
+    ratios = [1/3, 2/3];
+    mlength=size(m,2);
+  else
+    firstslice = 4;
+    ratios = [1/3, 2/3];
+    mlength=size(m,2)-firstslice+1;
+  end
+
   %Calculate mean
   switch valuetype
     case 'mean'
       tempm = zeros(size(m,1),4);
-      tempm(:,1) = mean(m(:,1:round(size(m,2)*0.15)),2);  %apex
-      tempm(:,2) = mean(m(:,round(size(m,2)*0.15)+1:round(size(m,2)*0.4333)),2);  %apical part
-      tempm(:,3) = mean(m(:,round(size(m,2)*0.4333)+1:round(size(m,2)*0.7166)),2);  %mid-ventricular part
-      tempm(:,4) = mean(m(:,round(size(m,2)*0.7166)+1:end),2);  %basal part
+      if numslices == 3 || is16segments
+        tempm(:,1) = NaN;  %apex
+      else
+        tempm(:,1) = mean(m(:,1:3),2);  %apex %for 17-segment model, apex is always the most apical slice
+      end
+      tempm(:,2) = mean(m(:,firstslice:round(mlength*ratios(1))+firstslice-1),2);  %apical part
+      tempm(:,3) = mean(m(:,firstslice-1+round(mlength*ratios(1))+1:firstslice-1+round(mlength*ratios(2))),2);  %mid-ventricular part
+      tempm(:,4) = mean(m(:,firstslice-1+round(mlength*ratios(2))+1:end),2);  %basal part
       m = tempm;
+
       %Make AHA
       v = [];
       temp = m(:,4);
@@ -1700,17 +1806,23 @@ else
     case 'sum'
       %Calculate sum
       tempm = zeros(size(m,1),4);
-      tempm(:,1) = sum(m(:,1:round(size(m,2)*0.15)),2);  %apex
-      tempm(:,2) = sum(m(:,round(size(m,2)*0.15)+1:round(size(m,2)*0.4333)),2);  %apical part
-      tempm(:,3) = sum(m(:,round(size(m,2)*0.4333)+1:round(size(m,2)*0.7166)),2);  %mid-ventricular part
-      tempm(:,4) = sum(m(:,round(size(m,2)*0.7166)+1:end),2);  %basal part
+      if numslices == 3 || is16segments
+        tempm(:,1) = NaN;  %apex
+      else
+        tempm(:,1) = sum(m(:,1:3),2);  %apex %for 17-segment model, apex is always the most apical slice
+      end
+      tempm(:,2) = sum(m(:,firstslice:round(size(m,2)*ratios(1))),2);  %apical part
+      tempm(:,3) = sum(m(:,round(size(m,2)*ratios(1))+1:round(size(m,2)*ratios(2))),2);  %mid-ventricular part
+      tempm(:,4) = sum(m(:,round(size(m,2)*ratios(2))+1:end),2);  %basal part
       m = tempm;
       m = m/3; %since we copied each slice 3 times
       %Make AHA
       v = [];
-      temp = m(:,4); temp=sum(reshape(temp(:),[4 6]));
+      temp = m(:,4);
+      temp=sum(reshape(temp(:),[4 6]));
       v = [v;temp(:)]; %Add basal slices
-      temp = m(:,3); temp=sum(reshape(temp(:),[4 6]));
+      temp = m(:,3);
+      temp=sum(reshape(temp(:),[4 6]));
       v = [v;temp(:)]; %Add mid slices
       temp = m(:,2);
       %shift it
@@ -1720,16 +1832,22 @@ else
       v = [v;sum(m(:,1))];
     case 'max'
       tempm = zeros(size(m,1),4);
-      tempm(:,1) = squeeze(max(m(:,1:round(size(m,2)*0.15)),[],2));  %apex
-      tempm(:,2) = squeeze(max(m(:,round(size(m,2)*0.15)+1:round(size(m,2)*0.4333)),[],2));  %apical part
-      tempm(:,3) = squeeze(max(m(:,round(size(m,2)*0.4333)+1:round(size(m,2)*0.7166)),[],2));  %mid-ventricular part
-      tempm(:,4) = squeeze(max(m(:,round(size(m,2)*0.7166)+1:end),[],2));  %basal part
+      if numslices == 3 || is16segments
+        tempm(:,1) = NaN;  %apex
+      else
+        tempm(:,1) = squeeze(max(m(:,1:round(size(m,2)*0.15)),[],2));  %apex
+      end
+      tempm(:,2) = squeeze(max(m(:,firstslice:round(size(m,2)*ratios(1))),[],2));  %apical part
+      tempm(:,3) = squeeze(max(m(:,round(size(m,2)*ratios(1))+1:round(size(m,2)*ratios(2))),[],2));  %mid-ventricular part
+      tempm(:,4) = squeeze(max(m(:,round(size(m,2)*ratios(2))+1:end),[],2));  %basal part
       m = tempm;
       %Make AHA
       v = [];
-      temp = m(:,4); temp=max(reshape(temp(:),[4 6]),[],1);
+      temp = m(:,4);
+      temp=max(reshape(temp(:),[4 6]),[],1);
       v = [v;temp(:)]; %Add basal slices
-      temp = m(:,3); temp=max(reshape(temp(:),[4 6]),[],1);
+      temp = m(:,3);
+      temp=max(reshape(temp(:),[4 6]),[],1);
       v = [v;temp(:)]; %Add mid slices
       temp = m(:,2);
       %shift it
@@ -1765,25 +1883,25 @@ numslices = size(m,2)-1;
 numsectors = 12;
 
 if doplot || (nargout>1)
-  
+
   [x,y] = ndgrid(...
     linspace(-numslices-1,numslices+1,2*n+1),...
     linspace(-numslices-1,numslices+1,2*n+1));
   rad = sqrt(x.*x+y.*y);
-  
+
   %Createidx outer
   ang = angle(complex(y,x))+pi;
   ang = numsectors*ang/(2*pi);
   idxouter = 1+min(floor(ang),(numsectors-1))+(numsectors)*min(floor(rad),numslices);
-  
+
   %Createidx inner
   ang = mod(angle(complex(y,x))+pi+pi/4,2*pi);
   ang = numsectors*ang/(2*pi);
   idxinner = 1+min(floor(ang),(numsectors-1))+(numsectors)*min(floor(rad),numslices);
-  
+
   idx = idxouter;
   idx(rad<2) = idxinner(rad<2);
-  
+
   im = m(idx);
   im(rad>(numslices+1)) = NaN;
   %im = rad;
@@ -1791,10 +1909,11 @@ end
 
 if doplot
   scale = n/(numslices+1);
-  
+
   %View data
   alpha = double(not(isnan(im)));
   im(isnan(im)) = 0;
+  cmap = ax.Colormap;
   h = imagesc(im,'parent',ax);
   set(h,'alphadata',alpha,'AlphaDataMapping','scaled');
   axis(ax,'image','off');
@@ -1805,8 +1924,7 @@ if doplot
   yc = cos(om);
   hold(ax,'on');
   for loop=1:(numslices+1)
-    h = plot(ax,n+1+scale*loop*xc,n+1+scale*loop*yc,linetype);
-    set(h,'linewidth',2);
+    h = plot(ax,n+1+scale*loop*xc,n+1+scale*loop*yc,'color',linecolor,'linewidth',2);
   end
   hold(ax,'off');
 
@@ -1815,18 +1933,56 @@ if doplot
   b = sqrt(0.75);
   a = 0.5;
   c = 1/sqrt(2);
-  h = plot(ax,scale*[0 2],scale*[4 4],linetype); set(h,'linewidth',2);
-  h = plot(ax,scale*[6 8],scale*[4 4],linetype); set(h,'linewidth',2);
+  h = plot(ax,scale*[0 2],scale*[4 4],'color',linecolor,'linewidth',2);
+  h = plot(ax,scale*[6 8],scale*[4 4],'color',linecolor,'linewidth',2);
   %h = plot(scale*[4 4],scale*[5 6],'w-'); set(h,'linewidth',2);
   %h = plot(scale*[4 4],scale*[2 3],'w-'); set(h,'linewidth',2);
-  h = plot(ax,scale*[4-c 4-2*c],scale*[4-c 4-2*c],linetype); set(h,'linewidth',2);
-  h = plot(ax,scale*[4+c 4+2*c],scale*[4+c 4+2*c],linetype); set(h,'linewidth',2);
-  h = plot(ax,scale*[4-c 4-2*c],scale*[4+c 4+2*c],linetype); set(h,'linewidth',2);
-  h = plot(ax,scale*[4+c 4+2*c],scale*[4-c 4-2*c],linetype); set(h,'linewidth',2);
-  h = plot(ax,scale*[4-4*a 4-2*a],scale*[4-4*b 4-2*b],linetype); set(h,'linewidth',2);
-  h = plot(ax,scale*[4-4*a 4-2*a],scale*[4+4*b 4+2*b],linetype); set(h,'linewidth',2);
-  h = plot(ax,scale*[4+4*a 4+2*a],scale*[4+4*b 4+2*b],linetype); set(h,'linewidth',2);
-  h = plot(ax,scale*[4+4*a 4+2*a],scale*[4-4*b 4-2*b],linetype); set(h,'linewidth',2);
+  h = plot(ax,scale*[4-c 4-2*c],scale*[4-c 4-2*c],'color',linecolor,'linewidth',2);
+  h = plot(ax,scale*[4+c 4+2*c],scale*[4+c 4+2*c],'color',linecolor,'linewidth',2);
+  h = plot(ax,scale*[4-c 4-2*c],scale*[4+c 4+2*c],'color',linecolor,'linewidth',2);
+  h = plot(ax,scale*[4+c 4+2*c],scale*[4-c 4-2*c],'color',linecolor,'linewidth',2);
+  h = plot(ax,scale*[4-4*a 4-2*a],scale*[4-4*b 4-2*b],'color',linecolor,'linewidth',2);
+  h = plot(ax,scale*[4-4*a 4-2*a],scale*[4+4*b 4+2*b],'color',linecolor,'linewidth',2);
+  h = plot(ax,scale*[4+4*a 4+2*a],scale*[4+4*b 4+2*b],'color',linecolor,'linewidth',2);
+  h = plot(ax,scale*[4+4*a 4+2*a],scale*[4-4*b 4-2*b],'color',linecolor,'linewidth',2);
+
+  if includingvalues
+    %define segment positions in im and corresponding indices in matrice
+    segmentpositions = [...
+      4,   4,   1, 1; ... % Apex
+      2.5, 4,   1, 2; ... % Apical 1
+      4,   2.5, 4, 2; ... % Apical 2
+      5.5, 4,   7, 2; ... % Apical 3
+      4,   5.5, 10,2; ... % Apical 4
+      1.75,3,   1, 3; ... % Mid 1
+      4,   1.5, 3, 3; ... % Mid 2
+      6.25,3,   5, 3; ... % Mid 3
+      6.25,5.25,7, 3; ... % Mid 4
+      4,   6.5, 9, 3; ... % Mid 5
+      1.75,5.25,11,3; ... % Mid 6
+      1,   2,   1, 4; ... % Basal 1
+      4,   0.5, 3, 4; ... % Basal 2
+      7,   2,   5, 4; ... % Basal 3
+      7,   6,   7, 4; ... % Basal 4
+      4,   7.5, 9, 4; ... % Basal 5
+      1,   6,   11,4  ... % Basal 6
+      ];
+
+    %loop over segments
+    for loop = 1:length(segmentpositions)
+      row = segmentpositions(loop,3);
+      col = segmentpositions(loop,4);
+      valuestr = getplotstring(m(row,col));
+      if ~strcmp(valuestr,'NaN')
+        x = scale*segmentpositions(loop,1);
+        y = scale*segmentpositions(loop,2);
+        textcolor = gettextcolor_helper(str2double(valuestr),cmap,v);
+        %display segment value in bullseye plot
+        text(x,y,valuestr,'parent',ax,'HorizontalAlignment','center','Color',textcolor,'FontWeight','bold');
+      end
+    end
+  end
+
   hold(ax,'off');
 end
 
@@ -1838,6 +1994,82 @@ end
 if nargout>1
   varargout{2} = im;
 end
+
+%---------------------------------------------------
+function textcolor = gettextcolor_helper(value,cmap,data)
+%---------------------------------------------------
+arguments
+  value     %value of the segment to display in bullseye plot
+  cmap      %bullseye's colormap
+  data = [] %bullseyes's data
+end
+global DATA
+gui = DATA.GUI.Bullseye;
+
+if isempty(data)
+  data = gui.outdata(:);
+end
+
+% get max/min values in bullseye plot
+if ~isempty(gui)
+  maxvalue = str2double(mygetedit(gui.handles.maxedit));
+  minvalue = str2double(mygetedit(gui.handles.minedit));
+else
+  maxvalue = NaN;
+  minvalue = NaN;
+end
+if isnan(maxvalue) || value > maxvalue
+  maxvalue = ceil(max(data));
+end
+if isnan(minvalue) || value < minvalue
+  minvalue = floor(min(data));
+end
+if maxvalue == 0 %avoid division by zero
+  maxvalue = 1;
+end
+
+%normalize the segment value
+segmentvalue = (value - minvalue) / (maxvalue - minvalue);
+
+%get segment color and corresponding text color
+segmentcolorRGB = getsegmentcolor(cmap,segmentvalue);
+textcolor = gettextcolor(segmentcolorRGB);
+
+%---------------------------------------------------
+function segmentcolorRGB = getsegmentcolor(cmap,segmentvalue)
+%---------------------------------------------------
+%Return segment color based on segment's value and plot's colormap, used in bullseye plot.
+n = size(cmap,1) - 1;
+%scale the value to the index in the colormap
+valueind = round(segmentvalue*n) + 1;
+%retrieve RGB color from colormap
+segmentcolorRGB = cmap(valueind,:);
+
+%---------------------------------------------------
+function textcolor = gettextcolor(backgroundcolorRGB)
+%---------------------------------------------------
+%Return text color based on brightness of background color, used in bullseye plot.
+
+%calculate brightness of background color
+brightness = colorfunctions.getbrightness(backgroundcolorRGB);
+
+%return text color based on brightness
+if brightness < 0.5
+  textcolor = [1 1 1]; %white for dark background
+else
+  textcolor = [0 0 0]; %black for light background
+end
+
+%---------------------------------------------------
+function plotstring = getplotstring(value)
+%---------------------------------------------------
+% get plot string with correct formatting depending on the value
+if value >= 1000
+  formatstring = '%0.4g';
+else
+  formatstring = '%0.3g';
+end
+plotstring = sprintf(formatstring,value);
 
 %---------------------------------------------------
 function [varargout] = bullseye2(m,ax,n,flipx,vc,no)
@@ -1892,7 +2124,7 @@ if vc
   myocardvolume = calcfunctions('calcmyocardvolume',sectors,no);
   myocardvolume = myocardvolume(:,ind);
   myocardvolume = fliplr(myocardvolume);  %flip to have apex first
-  myocardvolumeslice = sum(myocardvolume);
+  myocardvolumeslice = sum(myocardvolume,'omitnan');
   myocardvolumesliceper = myocardvolumeslice./(sum(myocardvolumeslice(:)));
   %calculate the radius in the bullseye for each slice
   rtotal = slices;
@@ -1938,7 +2170,7 @@ end
 %im = griddata(x,y,m,xi,yi,'linear');
 %Avoid sharp edge caused by duplicate values very near angle 0
 im = griddata([zeros(slices,1) x(:,2:end-1)], ...
-    y(:,1:end-1),[(m(:,1)+m(:,end))/2 m(:,2:end-1)],xi,yi,'linear');
+  y(:,1:end-1),[(m(:,1)+m(:,end))/2 m(:,2:end-1)],xi,yi,'linear');
 
 alpha = double(not(isnan(im)));
 
@@ -1970,7 +2202,7 @@ global SET NO;
 %Set constants
 if nargin < 6
   tf = SET(NO).CurrentTimeFrame;
-  if nargin < 5  
+  if nargin < 5
     no = NO;
     if nargin < 4
       vc = false;
@@ -2011,7 +2243,7 @@ myocardvolumeslice(myocardvolumeslice==0) = totalmyocardvolume/length(myocardvol
 myocardvolumesliceper = myocardvolumeslice./(nansum(myocardvolumeslice(:))+1^2*pi);
 myocardvolumesliceper = myocardvolumesliceper/sum(myocardvolumesliceper);
 
-if vc  
+if vc
   %calculate the radius in the bullseye for each slice
   rtotal = slices+1;
   r = ones(1,slices+1);
@@ -2037,11 +2269,11 @@ if vc
   %Create idx
   idx = 1+min(floor(ang),(sectors-1))+(sectors)*min(floor(rad),slices);
   im = m(idx);
-  im(isnan(rad)) = NaN;  
+  im(isnan(rad)) = NaN;
   scale = n/(slices+1);
-  
+
 else
-  
+
   scale = n/(slices+1);
   [x,y] = ndgrid(...
     linspace(-slices-1,slices+1,2*n+1),...
@@ -2061,36 +2293,104 @@ if (nargin<2)||isempty(ax)
 end
 
 if doplot
+  global DATA %#ok<TLEV> call DATA only if doplot because we need to know which freground color to use
   %View data
   alpha = double(not(isnan(im)));
   im(isnan(im)) = 0;
+  cmap = ax.Colormap;
   h = imagesc(im,'parent',ax);
   set(h,'alphadata',alpha,'AlphaDataMapping','scaled');
   axis(ax,'image','off');
-  
+
   %Draw circles
   om = linspace(0,2*pi,100);
   xc = sin(om);
   yc = cos(om);
   hold(ax,'on');
+  linecolor = DATA.GUISettings.ForegroundColor;
   for loop=1:(slices+1)
     if vc
-      h = plot(ax,n+1+n*rcumsum(loop)*xc,n+1+n*rcumsum(loop)*yc,'w-');
+      h = plot(ax,n+1+n*rcumsum(loop)*xc,n+1+n*rcumsum(loop)*yc,'color',linecolor);
     else
-      h = plot(ax,n+1+scale*loop*xc,n+1+scale*loop*yc,'w-');
+      h = plot(ax,n+1+scale*loop*xc,n+1+scale*loop*yc,'color',linecolor);
     end
     set(h,'linewidth',2);
   end
   hold(ax,'off');
-  
+
   %Label sectors
   hold(ax,'on');
   omega = 2*pi*(0:(sectors-1))/sectors+pi;
   omega = omega+0.5*(2*pi/sectors); %omega(2)-omega(1)
-  for loop=1:sectors
-    h = text(n+1+scale*1.5*cos(omega(loop)),...
-      n+1+scale*1.5*sin(omega(loop)),sprintf('%d',sectors+1-loop),'parent',ax);
-    set(h,'color',[1 1 1])
+
+  if sectors < 21
+    for sliceloop=1:(slices)
+      if vc
+        slicescale = n*mean([rcumsum(sliceloop) rcumsum(sliceloop+1)]);
+      else
+        slicescale = scale*mean([sliceloop sliceloop+1]);
+      end
+      for loop=1:sectors
+        valuestr = getplotstring(m(loop,1+sliceloop));
+        x = n+1+slicescale*1*cos(omega(loop));
+        y = n+1+slicescale*1*sin(omega(loop));
+        textcolor = gettextcolor_helper(str2double(valuestr),cmap);
+        text(x,y,valuestr, ...
+          'HorizontalAlignment','center', ...
+          'parent',ax,'color',textcolor,'FontWeight','bold');
+      end
+    end
   end
   hold(ax,'off');
+end
+
+%-----------------------------
+function value = getdata(type)
+%-----------------------------
+%Helper function to extract data from the module. Used for instance
+%from reportsheet generator.
+
+global DATA
+gui = DATA.GUI.Bullseye;
+switch type
+  case 'getahadata'
+    value = gui.ahaoutdata;
+  case 'getmainframe'
+    im = frame2im(mygetframe(gui.fig));
+    value = im;
+  case 'getbullseyeframe'
+    im = frame2im(mygetframe(gui.handles.bullseyeaxes));
+    value = im;
+  case 'getimageframe'
+    im = frame2im(mygetframe(gui.handles.imageaxes));
+    value = im;
+  case 'getcolorbar'
+    im = frame2im(mygetframe(gui.handles.colorbar));
+    value = im;
+end
+
+%----------------------------
+function setdata(type,datain)
+%----------------------------
+%interface function to gui to set data from code, for instance
+%reportsheet generator.
+
+global DATA
+gui = DATA.GUI.Bullseye;
+
+switch type
+  case 'setlistbox'
+    set(gui.handles.bullseyelistbox,'value',datain);
+  case 'setseparate'
+    set(gui.handles.separatewindowcheckbox,'value',datain);
+  case 'setnormal'
+    set(gui.handles.sectorradiobutton,'value',1);
+  case 'setsmooth'
+    set(gui.handles.smoothradiobutton,'value',1);
+  case 'setaha'
+    set(gui.handles.aharadiobutton,'value',1);
+  case 'setsectors'
+    set(gui.handles.sectorslistbox,'value',datain);
+    temp = get(gui.handles.sectorslistbox,'String');
+    gui.numsectors = str2num(temp{mygetlistbox(gui.handles.sectorslistbox)});     %#ok<ST2NM>
 end

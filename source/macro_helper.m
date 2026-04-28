@@ -1,4 +1,4 @@
-function macro_helper(varargin)
+function macro_helper(varargin) %skiptranslation
 %Helper function to track function history and to generate macros
 %
 %A dream would be to make this function actually really record macros.
@@ -13,9 +13,9 @@ function macro_helper(varargin)
 
 %Einar Heiberg
 
-global DATA
+return; %After discussion using test script education we decided to turn this off.
 
-%return; %temporarily disable
+global DATA %#ok<GVMIS> 
 
 %--- Check if start/stop
 if nargin>0
@@ -29,7 +29,7 @@ if nargin>0
     DATA.Macro{DATA.MacroN} = dprintf('%% Starting on %s',datestr(now));
     DATA.MacroN = DATA.MacroN+1;
     
-    mydisp('--- Starting macro recording ---');
+    logdisp('--- Starting macro recording ---');
     return;
   end
   
@@ -48,7 +48,7 @@ if nargin>0
     fprintf(outfid,'%% Ending\n');
     fclose(outfid);
     
-    mydisp('--- Stop macro recording ---');        
+    disp('--- Stop macro recording ---');        
     DATA.RecordMacro = false;
     DATA.Macro = [];
     DATA.MacroN = 0;

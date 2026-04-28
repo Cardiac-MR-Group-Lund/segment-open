@@ -4,6 +4,7 @@ classdef presetview
     
     name
     hotkey
+    applyautozoom
     
     nbrofims = [];
     matrix = [];
@@ -31,7 +32,7 @@ classdef presetview
   methods
     
     %-----------------------------------
-    function v = presetview(nmin,hkeyin)
+    function v = presetview(nmin,hkeyin,applyautozoom)
     %-----------------------------------
     % Constructor
     global DATA SET
@@ -42,12 +43,13 @@ classdef presetview
     
     v.name = nmin;
     v.hotkey = hkeyin;
+    v.applyautozoom = applyautozoom;
     v.matrix = DATA.ViewMatrix;
     v.panelstype = DATA.ViewPanelsType;
     nbrofims = prod(v.matrix); %#ok<*PROP>
     v.nbrofims = nbrofims;
     
-    prp = setdiff(properties(v),{'name','hotkey','nbrofims','matrix','panelstype'});
+    prp = setdiff(properties(v),{'name','hotkey','applyautozoom','nbrofims','matrix','panelstype'});
     isprp = prp(strncmp('Is',prp,2));
     fdprp = setdiff(prp,isprp); %properties directly taken from fields of SET struct
     [cineno,scarno,flowno,~,marno] = findfunctions('findno');
@@ -88,7 +90,7 @@ classdef presetview
     % Find nos that best match stored view
     global SET
     nos = zeros(1,v.nbrofims);
-    prp = setdiff(properties(v),{'name';'hotkey';'nbrofims';'matrix';'panelstype'});
+    prp = setdiff(properties(v),{'name';'hotkey';'applyautozoom';'nbrofims';'matrix';'panelstype'});
     isprp = prp(strncmp('Is',prp,2));
     fdprp = setdiff(prp,isprp); %properties directly taken from fields of SET struct
     w3prp = {'ImageType',...

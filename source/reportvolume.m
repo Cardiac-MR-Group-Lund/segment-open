@@ -2,13 +2,12 @@ function reportvolume(varargin)
 % Volume reporting tools
 % Moved out from segment_main by Nisse Lundahl
 
+%#ok<*GVMIS>
 %Invoke subfunction
-macro_helper(varargin{:}); %future macro recording use
 feval(varargin{:}); % FEVAL switchyard
 
-
 %--------------------------
-function curve_Callback(no,path,name) %#ok<DEFNU>
+function curve_Callback(no,path,name)
 %--------------------------
 %GUI for reporting the volume curve.
 global SET NO DATA
@@ -37,12 +36,17 @@ xlim([t(1) t(end)]);
 %   h = plot([t(1) t(end)],[mean(SET(no).EPV-SET(no).LVV) mean(SET(no).EPV-SET(no).LVV)],'g:');
 %   %set(h,'linewidth',2);
 % end;
-legend(dprintf('LV volume [ml]'),'location','SouthEast'); %'Myocard volume [ml]','Mean myocard volume [ml]',
+legendstr = makeunitstring(dprintf('LV volume'),'ml');
+legend(legendstr,'location','SouthEast'); %'Myocard volume [ml]','Mean myocard volume [ml]',
 hold off;
 grid on;
 % h = title('Volume versus time');set(h,'fontsize',14);
-h = xlabel(dprintf('Time [ms]')); set(h,'fontsize',14);
-h = ylabel(dprintf('Volume [ml]')); set(h,'fontsize',14);
+timestr = makeunitstring(dprintf('Time'),'ms');
+h = xlabel(timestr);
+set(h,'fontsize',14);
+volstr = makeunitstring(dprintf('Volume'),'ml');
+h = ylabel(volstr);
+set(h,'fontsize',14);
 set(0, 'currentfigure', fig);
 currentFolder = DATA.SegmentFolder;
 cd(path)
@@ -51,8 +55,10 @@ cd(currentFolder)
 delete(fig)
 
 %---------------------
-function loop_Callback %#ok<DEFNU>
+function loop_Callback
 %---------------------
-%Reporter for volume loop (not yet implemented)
+%Reporter for volume loop %
+ 
+% (not yet implemented)
 
 myfailed('Report volume loop is not yet implemented.');

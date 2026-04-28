@@ -134,9 +134,9 @@ function matlab2vtk(pathname, filename, datastruct)
             z = flip(z, 3);
         end
         
-        length = sqrt(x.*x+y.*y+z.*z);
-        length = permute(length,[2 1 3]);
-        fprintf(geofilefid, '% f ', length);
+        lengthmagnitude = sqrt(x.*x+y.*y+z.*z);
+        lengthmagnitude = permute(lengthmagnitude,[2 1 3]);
+        fprintf(geofilefid, '% f ', lengthmagnitude);
         fprintf(geofilefid, '</DataArray>\n');
     end
 
@@ -161,7 +161,7 @@ function matlab2vtk(pathname, filename, datastruct)
         x = datastruct(partno).Data(:, :, :, current_time, 1);
         y = datastruct(partno).Data(:, :, :, current_time, 2);
         z = datastruct(partno).Data(:, :, :, current_time, 3);
-        length = sqrt(x.*x+y.*y+z.*z);
+%         length = sqrt(x.*x+y.*y+z.*z);
         fprintf(geofilefid, '% f ', outValues);
         clear outValues;
         fprintf(geofilefid, '</DataArray>\n');                

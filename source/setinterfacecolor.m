@@ -1,14 +1,18 @@
 function setinterfacecolor(handle)
 %set background color and text color for all object in all interfaces according to selected background color
+
 global DATA
 
 if isa(DATA,'maingui')
   setcolorall(handle);
-%   setcolormaingui(handle);
 end
+
+%#ok<*GVMIS> 
+
 
 %------------------------
 function setcolorall(handle)
+%------------------------
 global DATA
 
 switch handle.Type
@@ -25,25 +29,27 @@ switch handle.Type
     end
     
   case {'uicontrol','uipanel','uibuttongroup'}
-    %this handle is specific to Segment 3DP, should have ligth gray background
-    if (strcmp(handle.Tag,'printuipanel'))
-      h = findall(handle.printuipanel);
-      for loop = 1:length(h)
-        if any(contains({'figure','panel','listbox','edit','text','button'},handle.Tag))
-          set(h(loop),'BackgroundColor',[0.94,0.94,0.94]);
-          set(h(loop),'ForegroundColor',[0, 0, 0]);
-        end
-      end
-      
-    %this handle is specific to Segment 3DP, should have ligth gray background
-    elseif (strcmp(handle.Tag,'ribbonuipanel'))
-      set(handle,'BackgroundColor',[0.94,0.94,0.94]);
-      set(handle,'ForegroundColor',[0, 0, 0]);
-      
     %other panels can have user defined background color
-    else
-      set(handle,'BackgroundColor',DATA.GUISettings.BackgroundColor,...
-        'ForegroundColor',DATA.GUISettings.ForegroundColor);
+    if ~strcmp(handle.Tag,'printuipanel') && ~strcmp(handle.Tag, 'viewportpanel')
+    set(handle,'BackgroundColor',DATA.GUISettings.BackgroundColor,...
+      'ForegroundColor',DATA.GUISettings.ForegroundColor);
+    end
+    if strcmp(DATA.ProgramName,'Segment 3DPrint')
+      %this handle is specific to Segment 3DP, should have ligth gray background
+      if (strcmp(handle.Tag,'printuipanel'))
+        h = findall(handle.printuipanel);
+        for loop = 1:length(h)
+          if any(contains({'figure','panel','listbox','edit','text','button'},handle.Tag))
+            set(h(loop),'BackgroundColor',[0.94,0.94,0.94]);
+            set(h(loop),'ForegroundColor',[0, 0, 0]);
+          end
+        end
+
+        %these handles should have ligth gray background in Segment 3DPrint
+      elseif (strcmp(handle.Tag,'ribbonuipanel'))
+        set(handle,'BackgroundColor',[0.94,0.94,0.94]);
+        set(handle,'ForegroundColor',[0, 0, 0]);
+      end
     end
 end
 
@@ -60,11 +66,9 @@ if any(contains({'figure','uipanel','uibuttongroup'},handle.Type))
 end
 
 %------------------------
-
-%------------------------
 function setcolor(handle)
 %------------------------
-global DATA
+global DATA 
 
 %find all objects in all interfaces
 hstruct = get(handle);
@@ -131,21 +135,3 @@ for i = 1:numel(kids)
   end
 end
 
-%change background color and text color for specific objects
-% lgcolor = [0.94 0.94 0.94];
-% try
-%    set(DATA.Handles.iconuipanel,'BackgroundColor',lgcolor);
-% catch
-% end
-% try
-%   set(DATA.Handles.permanentaxes,'Color',lgcolor);
-% catch
-% end
-% try
-%   set(DATA.Handles.ribbonaxes,'Color',lgcolor);
-% catch
-% end
-% try
-%   set(DATA.Handles.configaxes,'Color',lgcolor);
-% catch
-% end

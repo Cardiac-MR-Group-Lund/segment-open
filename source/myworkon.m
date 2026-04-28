@@ -4,16 +4,17 @@ function myworkon(fignr)
 %  busy by showing watch pointer.
 
 %Einar Heiberg
-global DATA
 
-if ~isempty(DATA)
-  temp = get(DATA.imagefig,'pointer');
-else
-  return;
-end
+global DATA %#ok<*GVMIS> 
 
 if nargin==0
   fignr = gcf;  
+end
+
+if ~isempty(DATA)
+  temp = get(fignr,'pointer'); %Was DATA.imagefig
+else
+  return;
 end
 
 if isequal(temp,'watch')
@@ -21,8 +22,8 @@ if isequal(temp,'watch')
 else
   if ~isempty(DATA)
     DATA.LastPointer = temp;
-    DATA.LastPointerShapeCData = get(DATA.imagefig,'pointershapecdata');
+    DATA.LastPointerShapeCData = get(fignr,'pointershapecdata');
   end
   set(fignr,'pointer','watch');
 end
-drawnow;
+drawnow limitrate;

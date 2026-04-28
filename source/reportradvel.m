@@ -1,6 +1,6 @@
 function reportradvel
 %--------------------
-%GUI for radial velocity.
+%Feature for radial velocity.
 global DATA SET NO
 
 if SET(NO).TSize < 2
@@ -10,6 +10,11 @@ end
 
 if isempty(SET(NO).EndoX)
   myfailed('No LV endocardium available.',DATA.GUI.Segment);
+  return;
+end
+
+if not(isequal(DATA.NumPoints,80))
+  myfailed('Number of points along contour needs to be 80. Set it in Preferences.',DATA.GUI.Segment);
   return;
 end
 
@@ -45,7 +50,8 @@ konst = 32/maxv;
 
 axes(handles.coloraxes); 
 h = imagesc([-maxv maxv]);
-colorbar;
+hcolorbar= colorbar;
+set(hcolorbar, 'color',DATA.GUISettings.ForegroundColor);
 set(h,'visible','off');
 axis off;
 

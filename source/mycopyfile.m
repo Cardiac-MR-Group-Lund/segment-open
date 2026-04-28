@@ -1,7 +1,7 @@
 function [varargout] = mycopyfile(source,dest)
 %MYCOPYFILE Copies a file from source to dest
 %
-%MYCOPYFILE(SOURCE,DEST)
+%[success,message] = MYCOPYFILE(SOURCE,DEST)
 %
 %Should be platform independent and faster than making a system
 %call. If really large files are used then do a system call instead.

@@ -6,6 +6,8 @@ function varargout = plugin_summarize(fcn,varargin)
 %%% This section is standard template %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%#ok<*GVMIS> 
+
 if nargin==0 
   myfailed('Requires more than one input argument.');
   return;
@@ -75,8 +77,8 @@ outdata{1,18} = 'ESVI[ml/m2]';
 outdata{1,19} = 'SV[ml]';
 outdata{1,20} = 'SVI[ml/m2]';
 outdata{1,21} = 'EF[%]';
-outdata{1,22} = 'CO[l/min]';
-outdata{1,23} = 'CI[l/min]';
+outdata{1,22} = 'CO[L/min]';
+outdata{1,23} = 'CI[L/min]';
 outdata{1,24} = 'PFR[ml/s]';
 outdata{1,25} = 'PER[ml/s]';
 outdata{1,26} = 'RVM[ml]';
@@ -104,18 +106,18 @@ outdata{1,46} = 'MO[%]';
 ind = [9 14 16 18 20 23 28 30 32 34];
 
 %----------------
-function multiple %#ok<DEFNU>
+function multiple
 %----------------
 %Example function to summarize many .mat files and export
 %to clipboard.
 
-global DATA SET NO
+global DATA SET NO 
 
 %Select path
 pathname = DATA.Pref.datapath;
 pathname = myuigetdir(pathname,'Select a folder with .mat files');
 if isequal(pathname,0)
-%   myfailed('Aborted.');
+   myfailed('Aborted.');
   return;
 end
 

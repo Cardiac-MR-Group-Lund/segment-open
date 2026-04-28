@@ -3,12 +3,14 @@ function varargout = floweddycurrent(varargin)
 
 %Original code by Einar Heiberg.
 %Refactured summer 2015 by Einar Heiberg
+
+%#ok<*GVMIS> 
+
 if nargin==0
   init;
   return;
 end
 
-macro_helper(varargin{:});
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 
 %----------------------
@@ -16,7 +18,7 @@ function init(plotonok)
 %----------------------
 %Initialize the main eddy current GUI
 
-global DATA
+global DATA 
 
 %Check for errors
 [ok,no] = safetychecks;
@@ -36,6 +38,7 @@ gui = DATA.GUI.EddyCurrent;
 initvariables(no);
 gui.plotonok = plotonok;
 set(gui.fig, 'Pointer','arrow')
+
 %Initialize graphics
 graphicalinit;
 
@@ -46,7 +49,7 @@ findstatic;
 recalculate_Callback;
 
 %---------------------------
-function initsmall(plotonok) %#ok<DEFNU>
+function initsmall(plotonok) 
 %---------------------------
 %Initialize the small automated eddy current GUI
 
@@ -64,31 +67,39 @@ if nargin<1
 end
 
 %Initalize
-DATA.GUI.EddyCurrent = mygui('floweddycurrentsmall.fig');
-gui = DATA.GUI.EddyCurrent;
+DATA.GUI.EddyCurrentSmall = mygui('floweddycurrentsmall.fig');
+gui = DATA.GUI.EddyCurrentSmall;
 
-%Hide gui
-%set(gui.fig,'visible','off');
+%Call to init variables
+small = true;
+initvariables(no,small);
 
-initvariables(no);
 gui.biggui = false; %Mark that the smaller GUI
 gui.plotonok = plotonok;
 
 %Find static tissue
-findstatic;
+findstatic(small);
 
 %Calculate
-recalculate_Callback; %This also calls update
+recalculate_Callback(small); %This also calls update
 
 %Show GUI
 set(gui.fig,'visible','on','Pointer','arrow');
 
-%-------------------------
-function initvariables(no)
-%-------------------------
+%-------------------------------
+function initvariables(no,small)
+%-------------------------------
 global DATA SET
 
-gui = DATA.GUI.EddyCurrent;
+if nargin < 2
+  small = false;
+end
+
+if small
+  gui = DATA.GUI.EddyCurrentSmall;
+else
+  gui = DATA.GUI.EddyCurrent;
+end
 
 gui.phaseno = no;
 gui.magno = SET(no).Flow.MagnitudeNo;
@@ -108,14 +119,22 @@ else
 end
 
 if ~isfield(SET(gui.phaseno).Flow,'PhaseCorr')
-  SET(gui.no).Flow.PhaseCorr = [];
+  SET(gui.phaseno).Flow.PhaseCorr = [];
 end
 
 if ~isfield(SET(gui.phaseno).Flow,'PhaseCorrPercentiles')
-  SET(gui.phaseno).Flow.PhaseCorrPercentiles = 0.6;
+  if ~isempty(DATA.Eddycurrentphase)
+    SET(gui.phaseno).Flow.PhaseCorrPercentiles = DATA.Eddycurrentphase/100;
+  else
+    SET(gui.phaseno).Flow.PhaseCorrPercentiles = 0.6;
+  end
 end
 if ~isfield(SET(gui.phaseno).Flow,'PhaseCorrMagnitudeThreshold')
-  SET(gui.phaseno).Flow.PhaseCorrMagnitudeThreshold = 0.1;
+  if ~isempty(DATA.Eddycurrentmagnitude)
+    SET(gui.phaseno).Flow.PhaseCorrMagnitudeThreshold = DATA.Eddycurrentmagnitude;
+  else
+    SET(gui.phaseno).Flow.PhaseCorrMagnitudeThreshold = 0.1;
+  end
 end
 if ~isfield(SET(gui.phaseno).Flow,'PhaseCorrMethod')
   SET(gui.phaseno).Flow.PhaseCorrMethod = 'linear';
@@ -124,13 +143,21 @@ if ~isfield(SET(gui.phaseno).Flow,'PhaseCorrTimeResolved')
   SET(gui.phaseno).Flow.PhaseCorrTimeResolved = false;
 end
 if ~isfield(SET(gui.phaseno).Flow,'PhaseCorrStaticTissueRois')
-  SET(gui.phaseno).Flow.PhaseCorrStaticTissueRois = false;
+  %Check if there are static rois 
+  rois = getstaticroishelper(gui.magno);
+  if isempty(rois)
+    SET(gui.phaseno).Flow.PhaseCorrStaticTissueRois = false;
+  else
+    SET(gui.phaseno).Flow.PhaseCorrStaticTissueRois = true;
+  end
+
 end
 
 %---------------------
 function graphicalinit
 %---------------------
 %Initialize graphics
+
 global DATA SET
 
 gui = DATA.GUI.EddyCurrent;
@@ -141,15 +168,29 @@ if ~gui.biggui
 end
 
 %Update boxes, sliders etc.
-set(gui.handles.phaseslider,'Value',100*SET(gui.phaseno).Flow.PhaseCorrPercentiles);
-set(gui.handles.phaseedit,'Value',100*SET(gui.phaseno).Flow.PhaseCorrPercentiles,'String',round(100*SET(gui.phaseno).Flow.PhaseCorrPercentiles));
+if ~isempty(DATA.Eddycurrentphase)
+  set(gui.handles.phaseslider,'Value',DATA.Eddycurrentphase);
+  set(gui.handles.phaseedit,'Value',DATA.Eddycurrentphase,'String',round(DATA.Eddycurrentphase));
+else
+  set(gui.handles.phaseslider,'Value',100*SET(gui.phaseno).Flow.PhaseCorrPercentiles);
+  set(gui.handles.phaseedit,'Value',100*SET(gui.phaseno).Flow.PhaseCorrPercentiles,'String',round(100*SET(gui.phaseno).Flow.PhaseCorrPercentiles));
+end
 imvals = SET(gui.magno).IM(:);
-set(gui.handles.magnitudeslider, ...
+if ~isempty(DATA.Eddycurrentmagnitude)
+ set(gui.handles.magnitudeslider, ...
+  'value',DATA.Eddycurrentmagnitude, ...
+  'min',min(imvals(imvals > 0)));
+ set(gui.handles.magnitudeedit, ...
+  'Value',DATA.Eddycurrentmagnitude, ...
+  'String',round(100*DATA.Eddycurrentmagnitude)/100);
+else
+  set(gui.handles.magnitudeslider, ...
   'value',SET(gui.phaseno).Flow.PhaseCorrMagnitudeThreshold, ...
   'min',min(imvals(imvals > 0)));
-set(gui.handles.magnitudeedit, ...
+  set(gui.handles.magnitudeedit, ...
   'Value',SET(gui.phaseno).Flow.PhaseCorrMagnitudeThreshold, ...
   'String',round(100*SET(gui.phaseno).Flow.PhaseCorrMagnitudeThreshold)/100);
+end
 
 switch SET(gui.phaseno).Flow.PhaseCorrMethod
   case 'linear'
@@ -218,22 +259,31 @@ end
 %If this statement is reached then ok.
 res = true;
 
-%---------------------------
-function ignorerois_Callback %#ok<DEFNU>
-%---------------------------
+%----------------------------------
+function ignorerois_Callback(small)
+%----------------------------------
 %Turn on ignore ROIs mode. This will disable adding static and non static
 %tissue ROIS
 
 global DATA
 
-gui = DATA.GUI.EddyCurrent;
+if nargin < 1
+  small = false;
+end
+
+if small
+  gui = DATA.GUI.EddyCurrentSmall;
+else
+  gui = DATA.GUI.EddyCurrent;
+end
+
 gui.ignorerois = true;
 
 %Find static tissue
-findstatic;
+findstatic(small);
 
 %Calculate
-recalculate_Callback;
+recalculate_Callback(small);
 
 %---------------------------
 function timeslider_Callback 
@@ -257,13 +307,22 @@ end
 
 update;
 
-%-----------------------
-function usebadfit_Callback %#ok<DEFNU>
-%-----------------------
+%---------------------------------
+function usebadfit_Callback(small)
+%---------------------------------
 % Remove bad fit pixels checkbox callback
 
 global DATA SET
-gui = DATA.GUI.EddyCurrent;
+
+if nargin < 1
+  small = false;
+end
+
+if small
+  gui = DATA.GUI.EddyCurrentSmall;
+else
+  gui = DATA.GUI.EddyCurrent;
+end
 
 chkboxvalue = get(gui.handles.usebadfitcheckbox, 'Value');
 gui.usebadfit = logical(chkboxvalue);
@@ -279,7 +338,7 @@ recalculate_Callback;
 update;
 
 %-----------------------
-function static_Callback %#ok<DEFNU>
+function static_Callback 
 %-----------------------
 %Static tissue checkbox callback
 
@@ -294,7 +353,7 @@ recalculate_Callback;
 update;
 
 %-----------------------------
-function sliceslider_Callback %#ok<DEFNU>
+function sliceslider_Callback 
 %-----------------------------
 %Slice slider callback
 
@@ -313,7 +372,7 @@ end
 update;
 
 %------------------------------
-function methodlistbox_Callback %#ok<DEFNU>
+function methodlistbox_Callback 
 %------------------------------
 %Update the method listbox
 
@@ -335,15 +394,17 @@ end
 recalculate_Callback;
 
 %----------------------------------
-function magnitudeslider_Callback %#ok<DEFNU>
+function magnitudeslider_Callback 
 %----------------------------------
 %Magnitude threshold slider
 
 global SET DATA
 
-gui = DATA.GUI.EddyCurrent;
 
-SET(gui.phaseno).Flow.PhaseCorrMagnitudeThreshold = mygetvalue(gui.handles.magnitudeslider);
+gui = DATA.GUI.EddyCurrent;
+magvalue = mygetvalue(gui.handles.magnitudeslider);
+SET(gui.phaseno).Flow.PhaseCorrMagnitudeThreshold = magvalue;
+DATA.Eddycurrentmagnitude = magvalue;
 
 %Update
 set(gui.handles.magnitudeslider,'value',SET(gui.phaseno).Flow.PhaseCorrMagnitudeThreshold);
@@ -354,7 +415,7 @@ recalculate_Callback;
 update;
 
 %------------------------------
-function magnitudeedit_Callback %#ok<DEFNU>
+function magnitudeedit_Callback 
 %------------------------------
 %Magnitude edit
 
@@ -362,15 +423,16 @@ global SET DATA
 
 gui = DATA.GUI.EddyCurrent;
 
-SET(gui.phaseno).Flow.PhaseCorrMagnitudeThreshold = max(min(str2num(get(gui.handles.magnitudeedit,'String')), ...
+SET(gui.phaseno).Flow.PhaseCorrMagnitudeThreshold = max(min(str2double(get(gui.handles.magnitudeedit,'String')), ...
   get(gui.handles.magnitudeslider,'max')),get(gui.handles.magnitudeslider,'min'));
 
 %Update
 set(gui.handles.magnitudeslider,'value',SET(gui.phaseno).Flow.PhaseCorrMagnitudeThreshold);
 set(gui.handles.magnitudeedit,'Value',SET(gui.phaseno).Flow.PhaseCorrMagnitudeThreshold,'String',round(100*SET(gui.phaseno).Flow.PhaseCorrMagnitudeThreshold)/100);
+DATA.Eddycurrent.Magnitudeslider = magvalue;
 
 %----------------------------
-function phaseslider_Callback %#ok<DEFNU>
+function phaseslider_Callback 
 %----------------------------
 %Phase threshold slider
 
@@ -379,6 +441,7 @@ global SET DATA
 gui = DATA.GUI.EddyCurrent;
 
 SET(gui.phaseno).Flow.PhaseCorrPercentiles = min(1,max(0,mygetvalue(gui.handles.phaseslider)/100));
+DATA.Eddycurrentphase = mygetvalue(gui.handles.phaseslider);
 
 %Update
 set(gui.handles.phaseslider,'value',100*SET(gui.phaseno).Flow.PhaseCorrPercentiles);
@@ -390,14 +453,14 @@ update;
 
 
 %--------------------------
-function phaseedit_Callback %#ok<DEFNU>
+function phaseedit_Callback 
 %--------------------------
 %Phase threshold editor
 
 global SET DATA
 gui = DATA.GUI.EddyCurrent;
 
-SET(gui.phaseno).Flow.PhaseCorrPercentiles = min(1,max(0,str2num(get(gui.handles.phaseedit,'String'))/100));
+SET(gui.phaseno).Flow.PhaseCorrPercentiles = min(1,max(0,str2double(get(gui.handles.phaseedit,'String'))/100));
 
 %Update
 set(gui.handles.phaseslider,'value',100*SET(gui.phaseno).Flow.PhaseCorrPercentiles);
@@ -409,7 +472,7 @@ update;
 
 
 %------------------------------
-function timedependent_Callback %#ok<DEFNU>
+function timedependent_Callback 
 %------------------------------
 %User clicks on checkbox time dependent 
 
@@ -418,14 +481,36 @@ timeslider_Callback;
 recalculate_Callback;
 update;
 
-%--------------------------------
-function [varargout] = findstatic
-%--------------------------------
+%-----------------------------------------
+function rois = getstaticroishelper(magno)
+%-----------------------------------------
+%Helper function to find static rois
+
+global SET
+
+rois = [];
+for rloop=1:SET(magno).RoiN
+  if isequal(SET(magno).Roi(rloop).Name,'Static tissue')
+    rois = [rois rloop]; %#ok<AGROW>
+  end
+end
+
+%---------------------------------------
+function [varargout] = findstatic(small)
+%---------------------------------------
 %Find static pixels store in gui variable
 
 global SET DATA
 
-gui = DATA.GUI.EddyCurrent;
+if nargin < 1
+  small = false;
+end
+
+if small
+  gui = DATA.GUI.EddyCurrentSmall;
+else
+  gui = DATA.GUI.EddyCurrent;
+end
 
 myworkon;
 
@@ -551,13 +636,8 @@ switch SET(no).Flow.PhaseCorrMethod
       
       if ~gui.ignorerois
         %--- Use static tissue ROI's
-        rois = [];
-        for rloop=1:SET(gui.magno).RoiN
-          if isequal(SET(gui.magno).Roi(rloop).Name,'Static tissue')
-            rois = [rois rloop]; %#ok<AGROW>
-          end
-        end
-      
+        rois = getstaticroishelper(gui.magno);
+        
         if isempty(rois)
           myfailed(dprintf('No static tissue regions marked.'));
           SET(gui.phaseno).Flow.PhaseCorrStaticTissueRois = false;
@@ -614,13 +694,13 @@ switch SET(no).Flow.PhaseCorrMethod
         excludeim = false([SET(no).XSize SET(no).YSize SET(no).ZSize]);
       
         for rloop=1:length(rois)
-          frames = rois(rloop).T(1); %handles.NO is the magnitude image stack
+          frames = rois(rloop).T; %handles.NO is the magnitude image stack
           slice = rois(rloop).Z(1);
           for tloop = 1:length(frames)
-            excludeim(:,:,slice) = segment('createmask',...
+            excludeim(:,:,slice) = or(excludeim,segment('createmask',...
               [SET(no).XSize SET(no).YSize],...
               rois(rloop).Y(:,frames(tloop)),...
-              rois(rloop).X(:,frames(tloop)));
+              rois(rloop).X(:,frames(tloop))));
           end
         end
       else
@@ -711,13 +791,8 @@ if ~gui.ignorerois
   %--- Include static tissue
   
   %Find ROI's
-  rois = [];
-  for rloop=1:SET(gui.magno).RoiN
-    if isequal(SET(gui.magno).Roi(rloop).Name,'Static tissue')
-      rois = [rois rloop]; %#ok<AGROW>
-    end
-  end
-  
+  rois = getstaticroishelper(gui.magno);
+    
   %Loop over ROI's and exclude them
   for rloop=1:length(rois)
     frames = SET(gui.magno).Roi(rois(rloop)).T(1);
@@ -747,25 +822,33 @@ end
 
 myworkoff;
 
-%----------------------------
-function recalculate_Callback 
-%----------------------------
+%-----------------------------------
+function recalculate_Callback(small)
+%-----------------------------------
 %Recalculate, called on top level
 
 global SET DATA
 
-gui = DATA.GUI.EddyCurrent;
+if nargin < 1
+  small = false;
+end
+
+if small
+  gui = DATA.GUI.EddyCurrentSmall;
+else
+  gui = DATA.GUI.EddyCurrent;
+end
 
 %Find method
 if isequal(SET(gui.phaseno).Flow.PhaseCorrMethod,'ge')
   %Just to recalculate as we assume no bad fit  
-  stop = recalculate;
+  stop = recalculate(small);
   if stop
     return;
   end
 else
   %First recalculation
-  stop = recalculate;
+  stop = recalculate(small);
   
   numtimes = 10;
   if SET(gui.phaseno).Flow.PhaseCorrTimeResolved
@@ -778,10 +861,10 @@ else
   if gui.usebadfit
     for loop = 1:numtimes
       %Find pixels with bad fit
-      findbadfit;
+      findbadfit(small);
       
       %Repeat recalculation with bad fit pixels removed
-      stop = recalculate;
+      stop = recalculate(small);
       if stop
         return
       end
@@ -791,17 +874,26 @@ else
 end
 
 %Graphical update
-update;
+update(small);
 
-%-------------------
-function stop = recalculate
-%-------------------
+%---------------------------------
+function stop = recalculate(small)
+%---------------------------------
 %Workhorse in recalculation
 
 global SET DATA
 
+if nargin < 1
+  small = false;
+end
+
 stop = false;
-gui = DATA.GUI.EddyCurrent;
+if small
+  gui = DATA.GUI.EddyCurrentSmall;
+else
+  gui = DATA.GUI.EddyCurrent;
+end
+
 no = gui.phaseno;
 
 myworkon;
@@ -901,7 +993,7 @@ else
 end
 
 %--- Loop over timeframes if timeresolved other wise loop just once.
-handles.maxvel = 0;
+handles.maxvel = 0; %#ok<STRNU> 
 h = mywaitbarstart(timeframes,'Please wait.',1);
 gui.maxvel = 0;
 for tloop=1:timeframes
@@ -943,15 +1035,23 @@ end %End of tloop
 mywaitbarclose(h);
 myworkoff;
 
-%--------------------------------
-function [varargout] = findbadfit
-%--------------------------------
+%---------------------------------------
+function [varargout] = findbadfit(small)
+%---------------------------------------
 %Find pixels with bad fit, optionally returns how many unconnected badfits
 %there were.
 
 global DATA SET
 
-gui = DATA.GUI.EddyCurrent;
+if nargin < 1
+  small = false;
+end
+
+if small
+  gui = DATA.GUI.EddyCurrentSmall;
+else
+  gui = DATA.GUI.EddyCurrent;
+end
 
 varargout = cell(1,nargout);
 
@@ -989,7 +1089,7 @@ if nargout>0
 end
 
 %----------------------
-function clear_Callback %#ok<DEFNU>
+function clear_Callback 
 %----------------------
 %Clear phase background data
 global SET DATA
@@ -1002,7 +1102,7 @@ SET(no).Flow.PhaseCorr = [];
 update;
 
 %----------------------
-function apply_Callback %#ok<DEFNU>
+function apply_Callback 
 %----------------------
 %Apply phase correction to data
 
@@ -1017,7 +1117,7 @@ SET(gui.phaseno).Flow.PhaseCorrRemoveBadFit = gui.usebadfit;
 update;
 
 %---------------------
-function done_Callback %#ok<DEFNU>
+function done_Callback 
 %---------------------
 %Done button
 
@@ -1045,13 +1145,13 @@ SET(magno).Flow.PhaseCorrAsk = false; %not ask this again for this stack
 segment('updateflow'); %update flow values in main result panel
 
 %----------------------------
-function smallcancel_Callback %#ok<DEFNU>
+function smallcancel_Callback 
 %----------------------------
 %Cancel button from small interface
 
 global SET DATA
 
-gui = DATA.GUI.EddyCurrent;
+gui = DATA.GUI.EddyCurrentSmall;
 
 magno = gui.magno;
 plotonok = gui.plotonok;
@@ -1075,7 +1175,7 @@ segment('updateflow'); %update flow values in main result panel
 
 
 %-----------------------
-function cancel_Callback %#ok<DEFNU>
+function cancel_Callback 
 %-----------------------
 %callback for cancel Eddy current compensation
  
@@ -1085,6 +1185,20 @@ if ~isopengui('flow.fig')
   drawfunctions('drawno',NO); %update in main GUI
 end
 close_Callback;
+
+%---------------------------
+function closesmall_Callback
+%---------------------------
+%Close the small eddy current compensation interface
+
+global DATA 
+
+try
+  DATA.GUI.EddyCurrent = close(DATA.GUI.EddyCurrentSmall);
+catch   %#ok<CTCH>
+  DATA.GUI.EddyCurrentSmall = [];
+  delete(gcbf);
+end
 
 %----------------------
 function close_Callback
@@ -1100,11 +1214,10 @@ SET(magno).Flow.PhaseCorrAsk = false; %do not ask anymore for Eddy current compa
 try
   DATA.GUI.EddyCurrent = close(DATA.GUI.EddyCurrent);
 catch   %#ok<CTCH>
-  DATA.GUI.EddyCurrent=[];
+  DATA.GUI.EddyCurrent = [];
   delete(gcbf);
 end
 
-  
 %--------------------------------
 function fixim = staticfix(logim)
 %-------------------------------
@@ -1150,13 +1263,13 @@ for slice = 1:numslices
 end
 
 %----------------------------
-function smalladjust_Callback %#ok<DEFNU>
+function smalladjust_Callback 
 %----------------------------
 %Adjust in the small GUI. Take small GUI away and show big gui.
 
 global DATA
 
-gui = DATA.GUI.EddyCurrent;
+gui = DATA.GUI.EddyCurrentSmall;
 
 plotonok = gui.plotonok;
 close(gui);
@@ -1165,13 +1278,13 @@ close(gui);
 init(plotonok);
 
 %------------------------
-function smallok_Callback %#ok<DEFNU>
+function smallok_Callback 
 %------------------------
 %Apply and close
 
 global DATA SET
 
-gui = DATA.GUI.EddyCurrent;
+gui = DATA.GUI.EddyCurrentSmall;
 
 %Apply
 SET(gui.phaseno).Flow.PhaseCorr = gui.phasecorr;
@@ -1198,15 +1311,22 @@ end
 SET(no).Flow.PhaseCorrAsk = false; %not ask this again for this stack
 segment('updateflow'); %update flow values in main result panel
 
-%--------------
-function update
-%--------------
+%---------------------
+function update(small)
+%---------------------
 %Graphical update
 
 global DATA SET
 
-gui = DATA.GUI.EddyCurrent;
+if nargin < 1
+  small = false;
+end
 
+if small
+  gui = DATA.GUI.EddyCurrentSmall;
+else
+  gui = DATA.GUI.EddyCurrent;
+end
 %If not big gui then call another function
 if ~gui.biggui
   updatesmall;
@@ -1253,7 +1373,6 @@ if isequal(clim(1),0)
   clim = [-1 1];
 end
 set(gui.handles.phaseaxes,'clim',clim);
-%colorbar('peer',handles.phaseaxes,'south');
 
 %--- Show calculated phaseerror
 if ~isempty(gui.phasecorr)
@@ -1267,13 +1386,19 @@ if ~isempty(gui.phasecorr)
   %clim = max(abs(clim));
   clim = 2*SET(gui.phaseno).VENC*[-gui.maxvel gui.maxvel];
   set(gui.handles.phaseerroraxes,'clim',clim);
-  colorbar('peer',gui.handles.phaseerroraxes,'East');
+  colorbarh = colorbar('peer',gui.handles.phaseerroraxes,'East');
 else
   imagesc(zeros(SET(gui.phaseno).XSize,SET(gui.phaseno).YSize),'parent',gui.handles.phaseerroraxes);
-  colorbar('peer',gui.handles.phaseerroraxes,'East');
+  colorbarh = colorbar('peer',gui.handles.phaseerroraxes,'East');
   axis(gui.handles.phaseerroraxes,'image','off');
 end
 
+%Store some information from colorbar and hide it 
+colorbarticks = get(colorbarh,'ticks');
+colorbarlimits = get(colorbarh,'limits');
+set(colorbarh,'Visible','off');
+
+%
 %--- Show magnitude image
 magno = SET(gui.phaseno).Flow.MagnitudeNo;
 graymap = (0:DATA.GUISettings.ColorMapSize-1)'/(DATA.GUISettings.ColorMapSize-1);
@@ -1319,7 +1444,7 @@ if ~exist('clim','var')
   clim = [-gui.maxvel gui.maxvel];
 end
 set(gui.handles.appliedphasecorraxes,'clim',clim);
-colorbar('peer',gui.handles.appliedphasecorraxes,'East');
+%colorbar('peer',gui.handles.appliedphasecorraxes,'East');
 
 %Find ROI's to graphically display
 nrois = [];
@@ -1383,6 +1508,15 @@ else
   set(h,'enable','on');
 end
 
+%Create colorbar
+im = uint8(255*jet(200));
+im = flipud(im);
+im = reshape(im,[size(im,1) 1 3]);
+ax = gui.handles.colorbaraxes;
+image([0 1],colorbarlimits,im,'parent',ax);
+set(ax,'xtick',[],'ytick',colorbarticks,'ycolor',DATA.GUISettings.ForegroundColor);
+h = title('cm/s');
+set(h,'color',DATA.GUISettings.ForegroundColor);
 
 %-------------------
 function updatesmall
@@ -1391,7 +1525,7 @@ function updatesmall
 
 global DATA SET
 
-gui = DATA.GUI.EddyCurrent;
+gui = DATA.GUI.EddyCurrentSmall;
 
 %Extract maximum velocity
 gui.maxvel = max(abs(gui.phasecorr(:)));
@@ -1439,7 +1573,7 @@ maskind = find(mask);
 cmap = jet(255);
 cmap = uint8(255*cmap);
 
-scale = 1/gui.maxvel;
+scale = 1/(2*gui.maxvel); %was not 2
 
 ind = max(1,min(255,round(128+vel(mask)*scale)));
 ind = ind(:);
@@ -1464,12 +1598,17 @@ if ~isempty(gui.phasecorr)
   axis(gui.handles.corraxes,'image','off');
   clim = 2*SET(gui.phaseno).VENC*[-gui.maxvel gui.maxvel];
   set(gui.handles.corraxes,'clim',clim);
-  colorbar('peer',gui.handles.corraxes,'East');
+  colorbarh = colorbar('peer',gui.handles.corraxes,'East');
 else
   imagesc(zeros(SET(gui.phaseno).XSize,SET(gui.phaseno).YSize),'parent',gui.handles.phaseerroraxes);
-  colorbar('peer',gui.handles.corraxes,'East');
+  colorbarh = colorbar('peer',gui.handles.corraxes,'East');
   axis(gui.handles.corraxes,'image','off');
 end
+
+%Store some information from colorbar and hide it 
+colorbarticks = get(colorbarh,'ticks');
+colorbarlimits = get(colorbarh,'limits');
+set(colorbarh,'Visible','off');
 
 %Find ROI's to graphically display
 nrois = [];
@@ -1508,3 +1647,12 @@ for rloop=1:length(srois)
   end  
 end
 
+%Create colorbar
+im = uint8(255*jet(200));
+im = flipud(im);
+im = reshape(im,[size(im,1) 1 3]);
+ax = gui.handles.colorbaraxes;
+image([0 1],colorbarlimits,im,'parent',ax);
+set(ax,'xtick',[],'ytick',colorbarticks,'ycolor',DATA.GUISettings.ForegroundColor);
+h = title('cm/s');
+set(h,'color',DATA.GUISettings.ForegroundColor);

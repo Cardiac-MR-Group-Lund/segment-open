@@ -6,7 +6,7 @@ global DATA
 
 if nargin==0
   use = false;
-end;
+end
 
 if use
   %Start and configure proxy server
@@ -21,9 +21,9 @@ if use
     com.mathworks.mlwidgets.html.HTMLPrefs.setUseProxyAuthentication(true)
     com.mathworks.mlwidgets.html.HTMLPrefs.setProxyUsername(DATA.Pref.ProxySettings.UserName)
     com.mathworks.mlwidgets.html.HTMLPrefs.setProxyPassword(DATA.Pref.ProxySettings.Password)      
-  end;
+  end
 else
   %End proxy server
   
   com.mathworks.mlwidgets.html.HTMLPrefs.setUseProxy(false);
-end;
+end

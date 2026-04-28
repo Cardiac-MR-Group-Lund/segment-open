@@ -7,7 +7,6 @@ if nargin == 0
   varargin{1} = 'init_Callback';
 end
 
-macro_helper(varargin{:});
 [varargout{1:nargout}] = feval(varargin{:});
 
 %----------------------------------------

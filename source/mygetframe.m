@@ -19,6 +19,7 @@ try
     set(h,'Units',oldunits);
     set(h,'Position',oldposition);
   end
-catch %#ok<CTCH>
+catch me
+  mydispexception(me)
   myfailed('Could not perform screen capture. Could be depending on two monitors. Please move main window to primary monitor and retry.');
 end

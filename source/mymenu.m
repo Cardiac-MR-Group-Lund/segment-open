@@ -7,16 +7,14 @@ function [varargout] = mymenu(header,varargin)
 %- more elegant! uses keyboard to select items.
 %- modal display
 %- can use default string
-%- last optional argument is figure handle 
+%- last optional argument is figure handle
 %
 %See also MYINPUTSTRUCT, YESNO
 
 %Einar Heiberg
-global DATA
+global DATA %#ok<*GVMIS>
 
-persistent handles
-
-if nargout>0
+if nargout > 0
   varargout = cell(1,1);
 end
 
@@ -32,286 +30,35 @@ if testing
   if isempty(v)
     myfailed('Menu buffer is empty.');
     return;
-  elseif isnan(v) 
+  elseif isnan(v)
     %Test of warning and nbr of options (one less than cell size)
     pushtobuffer('Warnings',sprintf('%d %s',numel(varargin{1})-1,header));
     v = 2;
   end
-  varargout{1}=v;
+  varargout{1} = v;
   return;
 end
 
-%Check if special commands
-switch header
-%   //case 'ok'
-%     print('ok pressed')
-  case '_close'
-    closehelper(handles);
-    if nargout>0
-      varargout{1} = handles.m; %return;
-    end
-    return
-  case {'_selection','ok'}
-    %--- User has pressed selection or has pressed OK button to confirm
-    %selection
-    handles = selectionhelper(handles);
-    if nargout>0
-      varargout{1} = handles.m; %return;
-    end
-    return;
-  case '_key'
-    handles = keyhelper(handles,varargin{1});
-    if nargout>0
-      varargout{1} = handles.m; %return;
-    end
-    return;
-end %End of case clause
+% rewrite of mymenu to use myinputstruct
+n = 1;
+fieldstr = 'Input';
+instruct(n).Field = fieldstr;
 
-%--- Init if got to here
-if nargin<2
-  myfailed('Too few input arguments.');
-  return;
+instruct(n).Label = dprintf('Select an option');
+
+inputargs = varargin{:};
+if ~iscell(inputargs)
+  % do not unpack, if is no longer a cell array after the unpacking
+  inputargs = varargin(:);
 end
+% check if all arguments are chars and translate only them
+charind = cell2mat(cellfun(@(x) ischar(x),inputargs ,'UniformOutput', false));
+defaultlabels = cellfun(@dprintf, inputargs(charind),'UniformOutput', false);
+instruct(n).Default = defaultlabels;
 
-if length(varargin)>1
-  %Last argument is handle to figure.
-  n = length(varargin);
-  if ishandle(varargin{n})
-    fighandle = varargin{n};
-    varargin = varargin(1:(n-1)); %Remove last...
-  else
-    fighandle =[];
-  end
+[outs,ok] = myinputstruct(instruct,dprintf(header),10);
+if ok
+  varargout{1} = outs.(fieldstr);
 else
-  if isa(varargin{1},'cell')
-    n = length(varargin{1});
-    if ishandle(varargin{1}{n})
-      fighandle = varargin{1}{n};
-      varargin = varargin{1}(1:(n-1)); %Remove last...
-    else
-      fighandle = [];
-    end
-  else
-  fighandle = [];
-  end
-end
-
-%Extract paramters
-if iscell(varargin{1})
-  options = varargin{1};
-  if length(varargin)==2
-    default = varargin{2};
-  else
-    default = '';
-  end
-else
-  options = cell(1,length(varargin));
-  [options{:}] = deal(varargin{:});
-  default = '';
-end
-
-% %translation
-% header = translation.dictionary(header);
-% for k=1:numel(options)
-%   options{k} = translation.dictionary(options{k});
-% end
-
-%Call initialization code.
-handles = init(header,fighandle,options,default);
-try
-  uiwait(handles.fig); %wait until terminates
-catch %#ok<CTCH>
-end
-
-if nargout>0
-  varargout{1} = handles.m; %return;
-  showout(handles.m);
-end
-flushlog;
-
-%------------------------------------------
-function handles = selectionhelper(handles)
-%------------------------------------------
-%Get selection
-handles.m = mygetlistbox(handles.menulistbox);
-closehelper(handles);
-
-%----------------------------------------
-function handles = keyhelper(handles,key)
-%----------------------------------------
-
-%--- If pressed return, then take currently selected.
-if isequal(key,'return')
-  handles = selectionhelper(handles);
-  return;
-end
-
-if isempty(key)
-  return;
-end
-
-%--- Check for special keys
-switch key
-  case 'uparrow'
-    v = mygetlistbox(handles.menulistbox);
-    v = max(v-1,1);
-    set(handles.menulistbox,'value',v);
-    return;
-  case 'downarrow'
-    v = mygetlistbox(handles.menulistbox);
-    v = min(v+1,length(handles.options));
-    set(handles.menulistbox,'value',v);
-    return;
-  case 'escape'
-    closehelper(handles);
-    handles.m = 0;
-    return;
-end
-
-%--- Find menu items beginning with the same letter.
-ind = [];
-for loop=(mygetlistbox(handles.menulistbox)+1):length(handles.options)
-  temp = handles.options{loop};
-  if (~isempty(temp))
-    if isequal(lower(temp(1)),key(1))
-      ind = [ind loop]; %#ok<AGROW>
-    end
-  end
-end
-
-if isempty(ind)
-  %Try to loop from begining
-  for loop=1:length(handles.options)
-    temp = handles.options{loop};
-    if (~isempty(temp))
-      if isequal(lower(temp(1)),key(1))
-        ind = [ind loop]; %#ok<AGROW>
-      end
-    end
-  end
-end
-
-if isempty(ind)
-  return;
-end
-
-set(handles.menulistbox,'value',ind(1));
-
-%----------------------------
-function closehelper(handles)
-%----------------------------
-%Close helper
-
-set(handles.fig,'closerequestfcn','');
-try
-  delete(handles.fig);
-catch %#ok<CTCH>
-end
-    
-%-------------------------------
-function keypressed(fignum,evnt) %#ok<INUSL>
-%-------------------------------
-key = getkey(evnt);
-mymenu('_key',key);
-
-%----------------------------------------------
-function handles = init(header,fighandle,options,default)
-%----------------------------------------------
-%Initialize
-
-fig = openfig('mymenu.fig','reuse','invisible');%menu not visble until it is horisontally aligned 
-setupicon(fig);
-setinterfacecolor(fig);
-if ~isempty(fighandle)
-  myadjust(fig,fighandle);
-end
-
-%Extract handles
-handles = guihandles(fig);
-handles.fig = fig;
-handles.header = header;
-handles.options = options;
-handles.default = default;
-handles.m = 0; %default...
-
-%Set handles.
-set(handles.fig,'name','');
-% set(handles.fig,'name','Select');
-% set(handles.titletext,'String',header);
-set(handles.menulistbox,'String',options,...
-  'Callback','mymenu(''_selection'','''')',...
-  'Fontsize',14);
-set(handles.menulistbox,'keypressfcn',@keypressed);
-set(handles.fig,'keypressfcn',@keypressed);
-
-translation.translatealllabels(fig);
-
-%Adjust size
-p = get(handles.fig,'position');
-yextrapixels = 0;
-
-if length(handles.options)>5
-  yextrapixels = 50;
-end
-if length(handles.options)>10
-  yextrapixels = 150;
-end
-if length(handles.options)>15
-  yextrapixels = 250;
-end
-if length(handles.options)>20
-  yextrapixels = 400;
-end
-p(4) = p(4)+yextrapixels;
-p(2) = p(2)-yextrapixels;
-
-
-set(handles.fig,'position',p);
-
-pmenu = get(handles.menulistbox,'position');
-ptitle = get(handles.titletext,'position');
-
-pmenu(4) = p(4)-ptitle(4)-pmenu(2)-20;
-pmenu(2) = pmenu(2);%+extrapixels;
-set(handles.menulistbox,'position',pmenu);
-
-ptitle(2) = p(4)-ptitle(4)-10;
-set(handles.titletext,'position',ptitle,'string',header);
-
-try
-  if ~isempty(fighandle)
-    myadjust(handles.fig,fighandle); %Horisontal alignment.
-  end
-catch %#ok<CTCH>
-end
-set(fig,'visible','on');%menu not visble until it is horisontally aligned 
-
-%Find default and mark it
-if ~isempty(default)
-  defaultpos = [];
-  for loop=1:length(options)
-    if isequal(options{loop},default)
-      defaultpos = loop;
-    end
-  end
-  
-  if ~isempty(defaultpos)
-    set(handles.menulistbox,'value',defaultpos);
-  end
-end
-
-%------------------
-function showout(d)
-%------------------
-global DATA
-
-if isa(DATA, 'maingui') && DATA.RecordMacro
-  recordmacro = DATA.RecordMacro;
-else
-  recordmacro = false;
-end
-
-if recordmacro
-  macro_helper('put',sprintf('pushtobuffer(''Mymenu'',%d); %%select menu item',d));
-  macro_helper('switchorder'); %We need to store data in buffer before the callback
+  varargout{1} = 0;
 end

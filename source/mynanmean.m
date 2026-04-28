@@ -1,30 +1,12 @@
 function m = mynanmean(x,dim)
-%NANMEAN Mean value, ignoring NaNs.
-%The same function as Matlabs inbuild function nanmean (duplicated to not
-%need statistical toolbox)
-%   M = NANMEAN(X) returns the sample mean of X, treating NaNs as missing
-%   values.  For vector input, M is the mean value of the non-NaN elements
-%   in X.  For matrix input, M is a row vector containing the mean value of
-%   non-NaN elements in each column.  For N-D arrays, NANMEAN operates
-%   along the first non-singleton dimension.
-%   NANMEAN(X,DIM) takes the mean along dimension DIM of X.
+% Mean value, ignoring NaNs.
 
+% new implemenation under #2726
 
-% Find NaNs and set them to zero
-nans = isnan(x);
-x(nans) = 0;
+% original implemenation can be found under internaltescripts/test_mynanmean_versions
 
-if nargin == 1 % let sum deal with figuring out which dimension to use
-    % Count up non-NaNs.
-    n = sum(~nans);
-    n(n==0) = NaN; % prevent divideByZero warnings
-    % Sum up non-NaNs, and divide by the number of non-NaNs.
-    m = sum(x) ./ n;
+if nargin == 1 || isempty(dim)
+  m = mean(x,"omitnan");
 else
-    % Count up non-NaNs.
-    n = sum(~nans,dim);
-    n(n==0) = NaN; % prevent divideByZero warnings
-    % Sum up non-NaNs, and divide by the number of non-NaNs.
-    m = sum(x,dim) ./ n;
+  m = mean(x,dim,"omitnan");
 end
-

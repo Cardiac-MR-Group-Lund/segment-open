@@ -21,8 +21,10 @@ stri = [stri1 ' ' stri2];
 
 h = msgbox(stri,'GPU error');
 
-mydisp(stri);
-
+disp(stri);
+disp('-----');
+mydispexception(e);
+disp('-----');
 try
   pause(2);
   delete(h);  

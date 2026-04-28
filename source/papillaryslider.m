@@ -1,7 +1,7 @@
 function papillaryslider(arg)
 %Adjust slider for papillary muscle detection threshold
 
-global DATA SET NO
+global DATA SET NO %#ok<GVMIS>
 
 if nargin == 0
   arg = 'init';
@@ -11,26 +11,28 @@ switch arg
   case 'init'
     %init
     DATA.GUI.PapillarySlider = mygui('papillaryslider.fig','blocking'); %Create object and store in global the variable DATA
+    gui = DATA.GUI.PapillarySlider;
+    % set maingui's keypressfcn for current figure as well
+    set(gui.fig,'keypressfcn',DATA.fig.KeyPressFcn)
+    if ~isempty(SET(NO).PapillaryThreshold)
+      threshold = SET(NO).PapillaryThreshold;
+    else
+      threshold = 0;
+    end
+    set(gui.handles.papillarythresholdslider,'value',threshold);
   case 'slider'
     try
       gui = DATA.GUI.PapillarySlider;
-      
-      %This solution does not seem to work
-      %warning off
-      %jFig = get(DATA.fig,'JavaFrame');
-      %jFig.requestFocus;
-      %warning on
 
-      v = get(gui.handles.papillarythresholdslider,'value');
-      if isapproxequal(abs(SET(NO).PapillaryThreshold-v),0.0082)
-        v = SET(NO).PapillaryThreshold;
-        set(gui.handles.papillarythresholdslider,'value',v);
-      else
-        SET(NO).PapillaryThreshold = v;
-      end
+      % Request focus for the whole papillary slider figure,
+      % resulting that key arrows cannot be used to move slider
+      myrequestfocus(gui.fig); %Request focus to avoid problem with sliders
       
+      v = get(gui.handles.papillarythresholdslider,'value');
+
+      SET(NO).PapillaryThreshold = v;
       if ~isempty(SET(NO).EndoX)
-        lvpeter('segmentestimatepapilaryvolume_Callback');
+        lvrvtools('segmentestimatepapilaryvolume_Callback');
         figure(gui.fig);
       end
     catch me
@@ -38,7 +40,7 @@ switch arg
     end
   case 'close'
     try
-    DATA.GUI.PapillarySlider = close(DATA.GUI.PapillarySlider);
+      DATA.GUI.PapillarySlider = close(DATA.GUI.PapillarySlider);
     catch
       delete(gcbf);
       DATA.GUI.PapillarySlider = [];

@@ -56,6 +56,17 @@ if isempty(localprefpath)
     %Add Segment to the path
     localprefpath = dirpath;
 
+  elseif isunix
+    % Put into user home directory on unix-based systems
+    homedir = getenv('HOME');
+    
+    cfgdir = fullfile(homedir, '.config'); % this is Ubuntu/Gnome standard
+    if isfolder(cfgdir)
+      localprefpath = cfgdir;
+    else
+      localprefpath = homedir; % $HOME is always set on unix systems
+    end
+    
   else
     localprefpath = pwd;
   end %is pc

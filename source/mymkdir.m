@@ -15,6 +15,22 @@ if ~exist(d,'dir')
   sucess = mkdir(d);
 end
 
+if ~sucess   %try to elevate in case no admin rights
+  commandstri = sprintf('cmd.exe /c mkdir "%s"',d);
+   [status,result] = mysystemadmin(commandstri);
+  
+    if isequal(status,0)
+      %Ok check that it is really there
+      if exist(d,'dir')
+        sucess = true;
+      else
+        sucess = false;
+      end
+    else
+      sucess = false;
+    end
+end
+
 varargout = cell(1,nargout);
 if nargout>0
   varargout{1} = sucess;

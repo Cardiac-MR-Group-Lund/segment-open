@@ -1,6 +1,8 @@
 function slicereport(type)
 %GUI for graphical display of slice based regional function.
+
 %Adapted for use with mygui class by Nils Lundahl
+
 if nargin == 0
   type = 'init';
 end
@@ -47,7 +49,7 @@ if SET(NO).ZSize > 1
     'max',SET(NO).ZSize,...
     'value',SET(NO).ZSize-SET(NO).CurrentSlice+1,...
     'SliderStep',1/(SET(NO).ZSize-1)*[1 1]);  
-  set(gui.handles.slicetext,'String',dprintf('Slice %d',gui.slice));
+  set(gui.handles.slicetext,'String',sprintf('%s %d',dprintf('Slice'),gui.slice));
 end
 set(gui.handles.rotationslider,...
   'value',SET(NO).SectorRotation,...
@@ -212,7 +214,7 @@ gui.slice = round(mygetvalue(gui.handles.sliceslider));
 gui.slice = SET(NO).ZSize-gui.slice+1;
 SET(NO).CurrentSlice = gui.slice;
 gui.slice = min(max(gui.slice,1),SET(NO).ZSize);
-set(gui.handles.slicetext,'String',dprintf('Slice %d',gui.slice));
+set(gui.handles.slicetext,'String',sprintf('%s %d',dprintf('Slice'),gui.slice));
 set(gui.handles.sliceslider,'value',SET(NO).ZSize-gui.slice+1);
 sector;
 parameter;

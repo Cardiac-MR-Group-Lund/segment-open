@@ -1,4 +1,5 @@
 classdef rotrawstack < segrawstack
+  %Class for getting DICOM files to Segment images
   
   properties (Access = private)
     lines %a rotrawstack has several lines
@@ -215,7 +216,7 @@ classdef rotrawstack < segrawstack
     % get nFrame using nSlices and nPhases
     if mod(numel(self.images), nSlices*nPhases) ~= 0
       error('SEGMENT:ERROR', ...
-        dprintf('nSlices*nPhases (%d*%d) don''t divide numel(images)=%d',nSlices,nPhases,numel(self.images))); %#ok<SPERR>
+        dprintf('nSlices*nPhases (%d*%d) don''t divide numel(images)=%d',nSlices,nPhases,numel(self.images))); 
     end
     nFrames = numel(self.images)/nSlices/nPhases;
     
@@ -252,10 +253,10 @@ classdef rotrawstack < segrawstack
         if ~yesno(['Error: ' stri ...
             dprintf('.\n\nReported slice thickness is %0.5g. ',self.getslicethickness) ...
             dprintf('Overriding will impact subsequent quantification by setting thickness to %0.5g. ',self.getslicethickness) ...
-            'Do you want to override? (not recommended unless you know exactly what you do)']);
+            'Do you want to override? (not recommended unless you know exactly what you do)'])
           error('SEGMENT:ERROR', hascollisionshelper(self,impos));
-        end;
-      end;
+        end
+      end
     end
     impos = round(impos);
     

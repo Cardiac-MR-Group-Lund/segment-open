@@ -1,20 +1,12 @@
 function [varargout] = segmentview(varargin)
 %GUI to select and store views
 
-%TODO
-%- rename
-%- double click to view
-%- store hotkeys 
-%- hotkeys in keypressed
-%- DONE extra GUI to select hotkey
-
 %Written by Einar and Nisse. Viewing class by Nisse.
 
 if nargin==0
   varargin = {'init'};
 end
 
-macro_helper(varargin{:});
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 
 %------------
@@ -127,7 +119,7 @@ gui.windowsarray = windowsarray;
 DATA.GUI.SegmentView = gui;
 
 %---------------------
-function view_Callback %#ok<DEFNU>
+function view_Callback
 %---------------------
 global DATA
 
@@ -168,8 +160,9 @@ end
 DATA.ViewIM{DATA.CurrentPanel} = [];
 drawfunctions('drawimages',DATA.CurrentPanel);
 
+
 %-----------------------
-function delete_Callback %#ok<DEFNU>
+function delete_Callback
 %-----------------------
 global DATA
 
@@ -194,7 +187,7 @@ end
 update;
 
 %-------------------------------
-function deletecontrast_Callback %#ok<DEFNU>
+function deletecontrast_Callback
 %-------------------------------
 global DATA
 
@@ -219,7 +212,7 @@ end
 updatecontrast;
 
 %----------------------
-function close_Callback  %#ok<DEFNU>
+function close_Callback 
 %----------------------
 global DATA
 
@@ -231,7 +224,7 @@ catch %#ok<CTCH>
 end
 
 %-----------------------
-function rename_Callback %#ok<DEFNU>
+function rename_Callback 
 %-----------------------
 global DATA
 
@@ -261,7 +254,7 @@ set(gui.handles.storepushbutton,'Callback','segmentview(''gorename_Callback'')')
 saveupdate_Callback;
 
 %-------------------------------
-function renamecontrast_Callback %#ok<DEFNU>
+function renamecontrast_Callback 
 %-------------------------------
 global DATA
 
@@ -293,7 +286,7 @@ set(gui.handles.storecontrastpushbutton,'Callback','segmentview(''gorenamecontra
 savecontrastupdate_Callback;
 
 %---------------------
-function save_Callback %#ok<DEFNU>
+function save_Callback 
 %---------------------
 %Brings upp new GUI until abort is clicked
 global DATA
@@ -368,7 +361,7 @@ set(gui.handles.windowlistbox,'visible','on');
 set(gui.handles.windowtext,'visible','on');
 
 %---------------------------
-function saveupdate_Callback %#ok<DEFNU>
+function saveupdate_Callback 
 %---------------------------
 global DATA
 
@@ -432,7 +425,7 @@ hotkey = [hotkey hotkeystring];
 set(gui.handles.contrasthotkeytext,'string',hotkey);
 
 %-----------------------
-function gosave_Callback %#ok<DEFNU>
+function gosave_Callback 
 %-----------------------
 global DATA
 
@@ -440,9 +433,10 @@ gui = DATA.GUI.SegmentView;
 
 hotkey = get(gui.handles.hotkeytext,'string');
 name = get(gui.handles.nameedit,'string');
+applyautozoom = get(gui.handles.autozoomcheckbox,'value');
 
 %Call save
-saveviewtopreset(name,hotkey);
+saveviewtopreset(name,hotkey,applyautozoom);
 
 %Call update to reflect changes
 update;
@@ -450,7 +444,7 @@ update;
 abort_Callback; %This resets the view
 
 %-------------------------------
-function gosavecontrast_Callback %#ok<DEFNU>
+function gosavecontrast_Callback 
 %-------------------------------
 global DATA
 
@@ -556,9 +550,9 @@ try
   savestruct = struct('name',name,'hotkey',hotkey,...
       'conbri',struct('window',window,'level',level));
   if isempty(saveix)
-    windowsarray = [windowsarray savestruct]; %#ok<NASGU>
+    windowsarray = [windowsarray savestruct]; 
   else
-    windowsarray(saveix) = savestruct; %#ok<NASGU>
+    windowsarray(saveix) = savestruct; 
   end
 catch me
   mydispexception(me)
@@ -567,9 +561,9 @@ catch me
 end
 save(gui.windowsfile,'windowsarray');
 
-%-------------------------------------
-function saveviewtopreset(name,hotkey)
-%-------------------------------------
+%------------------------------------------------
+function saveviewtopreset(name,hotkey,applyautozoom)
+%------------------------------------------------
 global DATA
 
 gui = DATA.GUI.SegmentView;
@@ -586,9 +580,9 @@ end
 
 try
   if isempty(saveix)
-    viewsarray = [viewsarray presetview(name,hotkey)];
+    viewsarray = [viewsarray presetview(name,hotkey,applyautozoom)];
   else
-    viewsarray(saveix) = presetview(name,hotkey); %presetview is a class
+    viewsarray(saveix) = presetview(name,hotkey,applyautozoom); %presetview is a class
   end
 catch me
   myfailed('Could not save view')
@@ -684,7 +678,7 @@ thisname = gui.viewsarray(v).name;
 if yesno(dprintf('Delete view ''%s''?',thisname))
   n = numel(gui.viewsarray);
   gui.viewsarray = gui.viewsarray([1:v-1 v+1:n]);
-  viewsarray = gui.viewsarray; %#ok<NASGU>
+  viewsarray = gui.viewsarray; 
   save(gui.viewsfile,'viewsarray'); %Store to file
 else
 %   myfailed('Operation cancelled.');
@@ -703,7 +697,7 @@ thisname = gui.windowsarray(v).name;
 if yesno(dprintf('Delete contrast/brightness window ''%s''?',thisname))
   n = numel(gui.windowsarray);
   gui.windowsarray = gui.windowsarray([1:v-1 v+1:n]);
-  windowsarray = gui.windowsarray; %#ok<NASGU>
+  windowsarray = gui.windowsarray; 
   save(gui.windowsfile,'windowsarray'); %Store to file
 else
 %   myfailed('Operation cancelled.');
@@ -713,16 +707,24 @@ end
 function loadviewfrompreset(pv)
 %------------------------------
 %Code to bring it up!
+
+global DATA NO
+
 nos = pv.match;
 shape = pv.matrix;
 viewfunctions('setview',shape(1),shape(2),nos,pv.panelstype);
+if pv.applyautozoom
+  segment('autozoom');
+end
+panel = find(DATA.ViewPanels==NO,1);
+viewfunctions('switchpanel', panel);
 % DATA.ViewPanelsType = pv.panelstype;
 % DATA.ViewPanels = nos;
 % DATA.ViewIM = cell(1,numel(nos));
 % drawfunctions('drawall',shape(1),shape(2));
 
 %-----------------------
-function keypressed(key) %#ok<DEFNU>
+function keypressed(key) 
 %-----------------------
 viewsfile = fullfile(getpreferencespath,'.segment_views.mat');
 windowsfile = fullfile(getpreferencespath,'.segment_conbri.mat');

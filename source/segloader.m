@@ -1,5 +1,6 @@
 classdef segloader < handle  
   %class for loading data into the software
+  
   properties(Access = private)
     type
     dicoms
@@ -26,7 +27,7 @@ classdef segloader < handle
     function [instancenumber] = getcanonfields(self)
     %-----------------------
     if ~isempty(self.dicoms)
-      instancenumber = self.dicoms(1).tags.InstanceNumber;
+      instancenumber = self.dicoms(1).getinstancenumber;
     else
       instancenumber = [];
     end
@@ -52,11 +53,17 @@ classdef segloader < handle
     
     % Try to load the file
     try
+      % append  '\\?\' to avoid MAX_PATH_LENGTH problem
+      %first check that it is Windows, long filepath and that the
+      %files is local (does not start with \\)
+      if ispc && length(filename) > 250 && ~strcmp(filename(1:2), '\\')
+        filename = append('\\?\',filename);
+      end
       if self.previewmode
         s = load(filename, '-mat', 'preview', 'info');
       end
       if not(self.previewmode) || not(isfield(s,'preview')) || not(isfield(s,'info')) || isempty(s.preview)
-        s = load(filename, '-mat', 'setstruct');
+         s = load(filename, '-mat', 'setstruct');
       end
     catch e
       error('SEGMENT:ERROR', 'Invalid mat file error was: %s', ...
@@ -92,8 +99,11 @@ classdef segloader < handle
         'Can''t continue loading after multidatafile');
     end
     
-    % Read the dicoms    
+    % Read the dicoms   
+    tic
     dicomdata = segdicomtags.readfiles(filenames);
+    t = toc;
+    logdisp(sprintf('Loading DICOMs took %0.5g s',t));
     
     if numel(dicomdata) == 0
       error('SEGMENT:ERROR', 'No data to load');
@@ -122,7 +132,12 @@ classdef segloader < handle
       self.type = 'set';
       self.set = [];
       for i=1:numel(dicomdata)
-        self.set = [self.set ; dicomdata(i).getsegmentdata()];
+        % get data
+        newdata = dicomdata(i).getsegmentdata();
+        if ~isrow(newdata)
+          newdata = newdata';
+        end
+        self.set = [self.set , newdata];
       end
       return
     end
@@ -155,18 +170,21 @@ classdef segloader < handle
     end
         
     %-----------------------
-    function [type, r, ignoreddata] = render(self, datapath, cropbox)
+    function [type, r, ignoreddata] = render(self, datapath, cropbox,donotignore)
     %-----------------------
     % Renders the images in the loader object to a
     % Preview or a set struct suitable for passing on
     % to segment.m.
     ignoreddata=[];
+    if nargin < 4
+      donotignore = false; %used in case stacks can be loaded anyways, for example for research use in Segment
+    end
     switch self.type
       case 'empty'
         error('SEGMENT:ERROR', 'Can''t render empty loader')
       case 'stacks'
         type = 'stacks';
-        [r,ignoreddata] = renderstacks(self, datapath, cropbox);
+        [r,ignoreddata] = renderstacks(self,datapath,cropbox,donotignore);        
       case 'set'
         type = 'set';
         r = self.set;
@@ -177,7 +195,7 @@ classdef segloader < handle
     end
     
     %-----------------------
-    function [im, desc, filetype, resolutionx, resolutiony, cancrop] = renderpreview(self) 
+    function [im, cmap, photometricinterpretation, desc, filetype, resolutionx, resolutiony, cancrop] = renderpreview(self) 
     %-----------------------    
     % Renders a preview of the files in the loader object.
     switch self.type
@@ -185,8 +203,11 @@ classdef segloader < handle
         % Get im, a preview of the mat file.
         if isempty(self.setpreview) || isempty(self.setinfo)
           im = self.set(1).IM(:, :, 1, 1);
-          tfrac = self.set(1).AcquisitionTime/(3600*24);
-          acquisitiontime = sprintf('%02.0f:%02.0f:%02.0f',segloader.hour(tfrac),segloader.minute(tfrac),segloader.second(tfrac));
+          cmap = [];
+          photometricinterpretation = [];
+          [acquisitiondate, acquisitiontime] = helperfunctions('getmostrecentstudydate',self.set);
+          tfrac = acquisitiontime/(3600*24);
+          acquisitiontimestr = sprintf('%02.0f:%02.0f:%02.0f',segloader.hour(tfrac),segloader.minute(tfrac),segloader.second(tfrac));
           [agedigit,ageunit] = calcfunctions('calcagewithunits',segloader.getpreviewdata(self.set(1).PatientInfo, 'Age'));
           desc = sprintf([...
             'Type:%s\n' ...
@@ -203,20 +224,18 @@ classdef segloader < handle
             segloader.getpreviewdata(self.set(1), 'ImageType'), ...
             segloader.getpreviewdata(self.set(1), 'SequenceName'), ...
             segloader.getpreviewdata(self.set(1), 'SeriesDescription'), ...
-            segloader.getpreviewdata( ...
-            self.set(1).PatientInfo, 'AcquisitionDate'), ...
-            acquisitiontime, ...
+            acquisitiondate, ...
+            acquisitiontimestr, ...
             segloader.getpreviewdata(self.set(1).PatientInfo, 'Name'), ...
             segloader.getpreviewdata(self.set(1).PatientInfo, 'ID'), ...
-            segloader.getpreviewdata(...
-            self.set(1).PatientInfo, 'BirthDate'), ...
+            segloader.getpreviewdata(self.set(1).PatientInfo, 'BirthDate'), ...
             segloader.getpreviewdata(self.set(1).PatientInfo, 'Sex'), ...
-            agedigit,ageunit,...
-            ...segloader.getpreviewdata(self.set(1).PatientInfo, 'Age'), ...
-            segloader.getpreviewdata(...
-            self.set(1).PatientInfo, 'HeartRate') );
+            agedigit,ageunit, ...
+            segloader.getpreviewdata(self.set(1).PatientInfo, 'HeartRate') );
         else
           im = self.setpreview;
+          cmap = [];
+          photometricinterpretation = [];
           [agedigit,ageunit] = calcfunctions('calcagewithunits',self.setinfo.Age);
           desc = sprintf([...
             'Type:%s\n' ...
@@ -242,7 +261,18 @@ classdef segloader < handle
         cancrop = false;
       case 'stacks'
         images = self.dicoms(1).getimages();
-        im = images(1).im;
+        im = images(1).im;        
+        cmap = self.dicoms(1).getcolormap();
+        if isfield(images,'cmap')
+          if ~isempty(images(1).cmap)
+            cmap = images(1).cmap;
+          end
+        end
+        if isfield(images,'photometricinterpretation')
+          photometricinterpretation = images(1).photometricinterpretation;
+        else
+          photometricinterpretation = [];
+        end
         patinfo = self.dicoms(1).getpatientinfo();
         acquisitiontime = self.dicoms(1).getacquisitiontime();
         if not(ischar(acquisitiontime))
@@ -288,6 +318,8 @@ classdef segloader < handle
         cancrop = true;
       case 'empty'
         im = zeros(256);
+        cmap = [];
+        photometricinterpretation = [];
         desc = '';
         resolutionx = 1;
         resolutiony = 1;
@@ -298,46 +330,86 @@ classdef segloader < handle
 end
   
 methods (Access = private)
+
     %-----------------------
-    function [r, ignoreddata] = renderstacks(self, datapath, cropbox)
+    function [r, ignoreddata] = renderstacks(self, datapath, cropbox, donotignore)
     %-----------------------
     % This rendering method is used when the files loaded are
     % dicom files. It's called from the render method.
     
     % Init rawstacks
-    ignoreddata=[];
-    lines = self.uniquelines();
-    [itis, imaxis] = self.isrotated;
-    if itis
-      r = self.renderrotstacks(datapath,cropbox,lines,imaxis);
-      return
-    end
-    r = [];
-    segloaderprogressbar('update', ...
-      struct('name', 'renderstacksstart', 'numstacks', numel(lines)));
-    for i=1:numel(lines)
-      curstack = segrawstack(lines(i));
-      curdicoms = self.dicoms;
-      j = 1;
-      while j <= numel(curdicoms)
-        if curstack.ismatch(curdicoms(j))
-          j = j + 1;
-        else
-          curdicoms(j) = [];
+    ignoreddata = [];
+    if ~self.hasgantrydetectiontilt()
+      %Normal case
+      
+      lines = self.uniquelines();
+      [itis, imaxis] = self.isrotated;
+      if itis
+        r = self.renderrotstacks(datapath,cropbox,lines,imaxis);
+        return
+      end
+      r = [];
+      segloaderprogressbar('update', ...
+        struct('name', 'renderstacksstart', 'numstacks', numel(lines)));
+      for i = 1:numel(lines)
+        curstack = segrawstack(lines(i));
+        curdicoms = self.dicoms;
+        j = 1;
+        while j <= numel(curdicoms)
+          if curstack.ismatch(curdicoms(j))
+            j = j + 1;
+          else
+            curdicoms(j) = [];
+          end
         end
-      end
-      segloaderprogressbar('update', struct('name', 'sort'));
-      curdicoms = segloader.removeduplicates(curdicoms);
-      curstack.setdicoms(curdicoms);
-      [stack, excludecurrent]=curstack.render( datapath, cropbox);
-      if ~isempty(stack)
-        r = [r stack]; %#ok<AGROW>
+        segloaderprogressbar('update', struct('name', 'sort'));
+        [curdicoms, dcminfo] = self.removeduplicates(curdicoms);
+        curstack.setdicoms(curdicoms,dcminfo);
+        try
+          [stack, excludecurrent] = curstack.render(datapath,cropbox,donotignore);
+        catch me
+          stack = [];
+          excludecurrent.series = string(curdicoms(1).getfullseriesdesc);
+          excludecurrent.msg = me.message;
+          if strcmp(me.identifier, 'SEGMENT:ERROR')
+            % display error and series description for stack to be excluded
+            fprintf('%s\nIn series %s:\n%s\n',me.identifier,excludecurrent.series,me.message);
+          elseif strcmp(me.identifier, 'SEGMENT:FATALERROR')
+            rethrow(me)
+          else
+            mydispexception(me)
+          end
+        end
+     
+        if ~isempty(stack)
+          r = [r stack]; %#ok<AGROW>
+        else
+          ignoreddata = [ignoreddata; excludecurrent]; %#ok<AGROW>
+        end
+        clear curstack;
+        segloaderprogressbar('update', struct('name', 'renderstack'));
+      end %loop over lines
+    else
+      %Gantry tilt case
+      myworkoff;
+
+      curdicoms = self.dicoms;
+      r = [];
+
+      if yesno([dprintf('Gantry tilt is not supported.') ' ' dprintf('Convert?')])
+        gantrytilttool(); %Call without any input arguments uses files2load
+        mymsgbox(dprintf('A new gantry tilt modified serie was created. Please use the new one instead when loading.'),'',[],true);
+        ignoreddata = [];
       else
-        ignoreddata=[ignoreddata; string(excludecurrent)]; %#ok<AGROW>
+        failmsg = dprintf('Gantry tilt is not supported.');
+        excludecurrent.series = string(curdicoms(1).getfullseriesdesc);
+        excludecurrent.msg = failmsg;     
+        ignoreddata = excludecurrent;
       end
-      clear curstack;
-      segloaderprogressbar('update', struct('name', 'renderstack'));
-    end
+
+      segloaderprogressbar('close'); %, struct('name', 'renderstack'));
+
+    end    
     end
     
     %-----------------------
@@ -401,8 +473,8 @@ methods (Access = private)
       end
     end
     segloaderprogressbar('update', struct('name', 'sort'));
-    curdicoms = segloader.removeduplicates(curdicoms);
-    curstack.setdicoms(curdicoms);
+    [curdicoms, dcminfo] = segloader.removeduplicates(curdicoms);
+    curstack.setdicoms(curdicoms,dcminfo);
     r = curstack.render( datapath, cropbox );
     clear curstack;
     segloaderprogressbar('update', struct('name', 'renderstack'));
@@ -434,7 +506,16 @@ methods (Access = private)
       end
     end
     end
-        
+    
+    %-----------------------
+    function r = hasgantrydetectiontilt(self)
+    %-----------------------
+    %Returns true if has gantrydetectiontilt
+    
+    r = ~isequal(self.dicoms(1).getgantrydetectortilt(),0); 
+
+    end
+    
     %-----------------------
     function r = uniquelines(self)
     %-----------------------
@@ -443,9 +524,9 @@ methods (Access = private)
     % the x and y axis of the picture) and a projection of the
     % imageposition onto the subspaces that the orientation vectors
     % span. We need this projection to separate projection to
-    % separate stacks with the same orientation but diffrent positions.
+    % separate stacks with the same orientation but different positions.
     r = struct('orientation',{}, 'linepos',{}, 'seq',{},'type',{});
-    
+        
     segloaderprogressbar('update', struct('name', 'uniquelinesstart', ...
       'numdicoms', numel(self.dicoms)));
     for i=1:numel(self.dicoms)
@@ -463,16 +544,22 @@ methods (Access = private)
   end
   
   methods(Static = true, Access = private)
+    
     %-----------------------
-    function curdicoms = removeduplicates(curdicoms)
+    function [curdicoms,dcmimages] = removeduplicates(curdicoms)
     %-----------------------
     % Removes any duplicates in curdicoms
-    
-    spacetimepos = zeros(5, numel(curdicoms));
+    numdicoms = numel(curdicoms);
+    spacetimepos = zeros(5, numdicoms);
+    dcmimages = cell(numdicoms,1);
     segloaderprogressbar('update', struct('name', 'removedupsstart', ...
       'numdicoms', numel(curdicoms)));
-    for i=1:numel(curdicoms)
-      spacetimepos(:, i) = curdicoms(i).spacetimepos';
+    for i = 1:numel(curdicoms)
+      s = curdicoms(i).getimages();
+      r = s(1).spacetimepos;
+      r(4) = s(1).triggertime;
+      spacetimepos(:, i) = r';
+      dcmimages{i} = s;
       segloaderprogressbar('update', struct('name', 'removedup'));
     end
     tt = sortrows([spacetimepos; 1:size(spacetimepos, 2)]');
@@ -495,6 +582,8 @@ methods (Access = private)
     end
     
     curdicoms(toremove) = [];
+    dcmimages(toremove) = [];
+    dcmimages = cell2mat(dcmimages);
     end
 
     %-----------------------
@@ -529,20 +618,46 @@ methods (Access = private)
     if norm(line1.linepos - line2.linepos) > 2 %changed from 10 NL
       return
     end
+    
+    phasestrings = {'\P\','\P','PCA/P','VELOCITY\NONE','\PCPHASE'};
+    magstrings = {'\M\','PCA/M','M\FFE','T1\NONE','\M','\PCMAG'};
+    psirstrings = {'\PSIR'};
+    
+    % exclude matchstring from type comparison
+    matchstr = '\PRIMARY';
+    type1 = erase(line1.type,matchstr);
+    type2 = erase(line2.type,matchstr);
+    
     if ~strcmp(line1.seq, line2.seq) %not equal sequence name
-        if ~isapproxequal(norm(line1.linepos - line2.linepos),0)
+        if ~isapproxequal(norm(line1.linepos - line2.linepos),0,0.1) %20220803 EH&KG: changed tol from 0 to 0.1 to extend tolarance for position difference
             %different sequence name and there is position difference
             return
         end
-        if strcmp(line1.type, line2.type) 
-          return
+        if strcmp(type1, type2)
+          % exclusion for 4D flow phase stacks, since they are
+          % same type but different sequence name
+          %TODO check if \P last letter (UIH images)
+          if cellfun(@(x,y) (contains(x,phasestrings)) && (contains(y,phasestrings)),{type1},{type2})
+            
+           if cellfun(@(x,y) (contains(x,psirstrings)) || (contains(y,psirstrings)),{type1},{type2})
+             return
+           end
+           
+          else
+           return
+          end
         end
     end
 
-    if ~strcmp(line1.type, line2.type) %not equal image type
-        %exlusion for Phase Contrast stacks
-         if ~cellfun(@(x,y) (contains(x,{'\M\','PCA/M','M\FFE','T1\NONE'})) && (contains(y,{'\P\','PCA/P','VELOCITY\NONE'})) || (contains(y,{'\M\','PCA/M','M\FFE','T1\NONE'})) && (contains(x,{'\P\','PCA/P','VELOCITY\NONE'})),{line1.type},{line2.type})
-          return
+    if ~strcmp(type1, type2) %not equal image type
+        % exclusion for 2D/4D flow phase and magnitude stacks
+        %TODO check if \P last letter (UIH images)
+         if cellfun(@(x,y) (contains(x,magstrings)) && (contains(y,phasestrings)) || (contains(y,magstrings)) && (contains(x,phasestrings)),{type1},{type2})  
+           if cellfun(@(x,y) (contains(x,psirstrings)) || (contains(y,psirstrings)),{type1},{type2})  
+             return
+           end           
+         else
+           return
 %         elseif cellfun(@(x,y)(contains(x,{'\M\IR','\CR\IR','\M\FFE',}) && contains(y,{'\M\IR','\CR\IR','\M\FFE'})),{line1.type},{line2.type}) %PSIR PHILIPS
 %           return
         end

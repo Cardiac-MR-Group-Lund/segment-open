@@ -7,17 +7,34 @@ function [varargout] = mergestacks(varargin)
 %Nils Lundahl
 %Minor bugfixing by Einar Heiberg
 
+%#ok<*GVMIS>
 
 global SET DATA
 
 if nargin < 1
   %Launch GUI
+
+  if length(SET) < 2
+    myfailed('Need to select at least two image stacks')
+    return
+  end
+
   gui = mygui('mergestacks.fig');
   DATA.GUI.MergeStacks = gui;
   handles = gui.handles;
   stackc = cell(1,numel(SET));
+  posstr = dprintf('Slice Position');
   for no = 1:numel(SET)
-    stackc{no} = sprintf('%d. %s, %s',no,SET(no).ImageType,SET(no).ImageViewPlane);
+    startslicepos = sum(cross(SET(no).ImageOrientation(1:3),SET(no).ImageOrientation(4:6)).*SET(no).ImagePosition);
+    numslices = SET(no).ZSize;
+    if numslices > 1
+      endslicepos = startslicepos + (SET(no).SliceThickness + SET(no).SliceGap)*(-numslices+1); % - for Segment z direction
+      sliceposstr = sprintf('[%.5g  %.5g]',startslicepos,endslicepos);
+    else
+      sliceposstr = sprintf('%.5g',startslicepos);
+    end
+    stackc{no} = sprintf('%d. %s, %s, %s: %s', ...
+      no,SET(no).ImageType,SET(no).ImageViewPlane,posstr,sliceposstr);
   end
   set(handles.imagestackslistbox,'String',stackc);
 elseif isnumeric(varargin{1})
@@ -52,10 +69,10 @@ else
       answer=yesno('Number of timeframes does not match. Do you wish to resample stacks?');
       if answer
         initwhichstack_Callback(nos)
-%       if ~DATA.GUI.whichstack.proceed
-%         return
-%       end
-%       
+        %       if ~DATA.GUI.whichstack.proceed
+        %         return
+        %       end
+        %
       else
         return
       end
@@ -84,15 +101,21 @@ else
     else
       domerge(nos);
     end
-    viewfunctions('setview',1,1,numel(SET),{'one'})%segment('switchtoimagestack',numel(SET),true);
+    
+    %Switch to one panel view if not in 3D FILE/MODEL tab
+    if ~contains(DATA.CurrentTheme,'3d')
+      viewfunctions('setview',1,1,numel(SET),{'one'})%segment('switchtoimagestack',numel(SET),true);
+    end
+    
     flushlog;
-    close(handles.figure1);
+    close_Callback;
   end
 end
 
 %---------------------------------
 function domerge(nostomerge,force)
 %---------------------------------
+%Core function to merge stacks
 global SET DATA
 
 %Check number of nos before, make sure to only generate one new stack
@@ -124,11 +147,13 @@ while numel(nostomerge) > 1
     (0.5*(SET(no1).ResolutionX+SET(no2).ResolutionX));
   yres = abs(SET(no1).ResolutionY-SET(no2).ResolutionY)/...
     (0.5*(SET(no1).ResolutionY+SET(no2).ResolutionY));
-  if (xres>1e-6) || (yres>1e-6)
+  threshold = 1e-4; % was previously 1e-6
+  if (xres > threshold) || (yres > threshold)
     area1 = SET(no1).ResolutionX*SET(no1).ResolutionY;
     area2 = SET(no2).ResolutionX*SET(no2).ResolutionY;
+    areadiff = 100*(1-min([area1 area2])/max([area1 area2]));
     if ~yesno(dprintf('Not the same ResolutionX or Resolution Y, difference in percentage of area in pixels is: %0.5g %%. This will introduce and error in the quantification, proceed?',...
-        100*min([area1 area2])/max([area1 area2])))
+        areadiff))
       return;
     end
   end
@@ -173,18 +198,18 @@ while numel(nostomerge) > 1
   newzsz = zsz1+zsz2;
   
   if ~isequal(orsz1(3),orsz2(3))
-        myfailed('Number of timeframes does not match.')
-        return
+    myfailed('Number of timeframes does not match.')
+    return
   end
   
   %Check slice order by looking at fh coordinates of end slices
+  mostbasal = 1e6;
+  mostapical = -1e6;
   if ~force
     overlap = true;
     start1 = 1;
-    start2 = 1;
+    start2 = 1;    
     
-    mostbasal=1e6;
-    mostapical=-1e6;
     while overlap
       sortord = '';
       p1_1 = calcfunctions('xyz2rlapfh',no1,xm1,ym1,start1);
@@ -203,10 +228,10 @@ while numel(nostomerge) > 1
       end
       
       pmat = [p1_1;p1_2;p2_1;p2_2]';
-
+      
       zvec = zdir1*pmat;
-      mostbasal=min([zvec,mostbasal]);
-      mostapical=max([zvec,mostapical]);
+      mostbasal = min([zvec,mostbasal]);
+      mostapical= max([zvec,mostapical]);
       
       [~,sortind] = sort(zvec);
       sortord = [sortord char(sortind+'a'-1)];
@@ -236,7 +261,7 @@ while numel(nostomerge) > 1
       mywarning(dprintf(['%d slices appear to overlap. Consider ' ...
         'removing slices and reperforming this merge operation.'],iters));
     end
-           
+    
     if noswitch
       tmp = no2;
       no2 = no1;
@@ -252,15 +277,13 @@ while numel(nostomerge) > 1
   yext = 1:size(set2.IM,2);
   zext = zpre+1:newzsz;
   
-  %estimation of slice gap    
+  %estimation of slice gap
   %If all merged stacks are single slice then we need to estimate
   %slicegap since zero in original images
-
+  
   if newzsz>1
-    slicegap(counter)=abs(mostapical-mostbasal)/(newzsz-1)-setstruct.SliceThickness;
-    counter=counter+1;
-    %setstruct.SliceGap=abs(mostapical-mostbasal)/(newzsz-1)-setstruct.SliceThickness;
-    
+    slicegap(counter) = abs(mostapical-mostbasal)/(newzsz-1)-setstruct.SliceThickness;
+    counter = counter+1;
   end
   
   %--- Update variables
@@ -279,7 +302,7 @@ while numel(nostomerge) > 1
   setstruct.YSize = max(SET(no1).YSize,set2.YSize);
   setstruct.StartSlice = 1;
   setstruct.EndSlice = newzsz;
-
+  
   %Scar
   if isempty(setstruct.Scar) && ~isempty(set2.Scar)
     %no1 is empty but no2 is not
@@ -321,6 +344,41 @@ while numel(nostomerge) > 1
     setstruct.MaR.Manual(xext,yext,:,zext) = set2.MaR.Manual;
     setstruct.MaR.MyocardMask(xext,yext,:,zext) = set2.MaR.MyocardMask;
   end
+
+  % merge InversionTime field
+  if ~isempty(setstruct.InversionTime) && ~isempty(set2.InversionTime)
+    val1 = setstruct.InversionTime;
+    val2 = set2.InversionTime;
+    if size(val1,2) == size(val2,2)
+      setstruct.InversionTime = cat(1,val1,val2);
+    else
+      warnstr = sprintf('"Inversion time": %s\n%s\n%s?', ...
+        dprintf('Number of timeframes does not match.'), ...
+        dprintf('T%s-mapping is not possible.','1'), ...
+        dprintf('Continue anyway'));
+      if ~yesno(warnstr)
+        return
+      end
+    end
+  end
+
+  % merge T2preptime field
+  if ~isempty(setstruct.T2preptime) && ~isempty(set2.T2preptime)
+    val1 = setstruct.T2preptime;
+    val2 = set2.T2preptime;
+    if size(val1,2) == size(val2,2)
+      setstruct.T2preptime = cat(1,val1,val2);
+    else
+      warnstr = sprintf('"T2prep time": %s\n%s\n%s?', ...
+        dprintf('Number of timeframes does not match.'), ...
+        dprintf('T%s-mapping is not possible.','2'), ...
+        dprintf('Continue anyway'));
+      if ~yesno(warnstr)
+        return
+      end
+    end
+  end
+
   
   %Merge contours
   contfields = {'Endo','Epi','RVEndo','RVEpi',...
@@ -398,13 +456,13 @@ while numel(nostomerge) > 1
 end
 
 %use last slicegap calculation as slicegap.
-SET(newno).SliceGap=slicegap(end);
+SET(newno).SliceGap = slicegap(end);
 
 if max(diff(slicegap))>1
   ok = yesno('More than one millimeter difference in spacing of slices. Proceed any way?','Not Equidistant slices',DATA.GUI.Segment);
   if ~ok
     SET(newno) = [];
-    return;  
+    return;
   end
 end
 
@@ -416,15 +474,15 @@ if not(isempty(SET(newno).StrainTagging))
   end
   SET(newno).StrainTagging = [];
 end
+%remove Strain MITT analysis
+strainmitt.strainmitt('removestrainanalysis',newno)
 
 drawfunctions('drawthumbnails');
-
-close_Callback; 
-
 
 %--------------------------------------------------------------------
 function initwhichstack_Callback(nostomerge)
 %--------------------------------------------------------------------
+%Initialise the GUI for the user to choose stacks
 
 global DATA SET
 %Launch GUI
@@ -434,42 +492,43 @@ handles = gui.handles;
 %DATA.GUI.whichstack.handles=handles;
 handles.nostomerge=nostomerge;
 stackc = cell(1,numel(nostomerge));
-counter=1;
+counter = 1;
 for no = nostomerge
   stackc{counter} = sprintf('%d. Number of timeframes: %d.',no,SET(no).TSize);
-  counter=counter+1;
+  counter = counter+1;
 end
 set(handles.imagestackslistbox,'String',stackc);
 %alters if we should
-%DATA.GUI.whichstack.proceed=0; 
+%DATA.GUI.whichstack.proceed=0;
 uiwait(gcf)
 
 %--------------------------------------------------------------------
 function setfactor_Callback
 %--------------------------------------------------------------------
+%Callback to resample image stacks if needed
 global SET DATA NO
 
-handles=guihandles(gcbf);
-gui=DATA.GUI.whichstack;
-ind=get(handles.imagestackslistbox,'value');
-nom=SET(gui.nostomerge(ind)).TSize;
-oldNO=NO;
-for no=gui.nostomerge
-  NO=no;
+handles = guihandles(gcbf);
+gui = DATA.GUI.whichstack;
+ind = get(handles.imagestackslistbox,'value');
+nom = SET(gui.nostomerge(ind)).TSize;
+oldNO = NO;
+for no = gui.nostomerge
+  NO = no; %#ok<NASGU> correct NO is needed in tools
   tools('upsampletemporal_Callback',(nom/SET(no).TSize));
 end
-NO=oldNO;
+NO = oldNO;
 close(gcbf)
 
-%----------------------
-function close_Callback 
-%----------------------
+%-----------------------------------------------
+function close_Callback
+%-----------------------------------------------
+%Close the GUI
 global DATA
 
 try
-  DATA.GUI.MergeStacks = close(DATA.GUI.MergeStacks);
-catch me
-  mydispexception(me)%#ok<CTCH>
-  DATA.GUI.MergeStacks =[];
-  delete(gcbf);
+  close(DATA.GUI.MergeStacks);
+catch
+  close(gcbf);
 end
+DATA.GUI.MergeStacks = [];

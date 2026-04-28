@@ -13,5 +13,5 @@ function a = copyfields(a,b)
 temp = fieldnames(b);
 for loop=1:length(temp)
   a = setfield(a,temp{loop},getfield(b,temp{loop}));
-end;
+end
 

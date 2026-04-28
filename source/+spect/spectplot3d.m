@@ -3,7 +3,6 @@ function spectplot3d(varargin)
 %Plot a 3D view of the left ventricle in the spect image
 %written by Helen Soneson 2008-03-03
 
-macro_helper(varargin{:});
 [varargout{1:nargout}] = feval(varargin{:});
 
 %---------------------

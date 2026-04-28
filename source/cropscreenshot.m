@@ -1,7 +1,7 @@
 function varargout = cropscreenshot(varargin)
 % MATLAB code for cropscreenshot.fig
-% disp(varargin{1})
-macro_helper(varargin{:});
+%#ok<*GVMIS> 
+
 if nargin < 1 || isempty(varargin{1})
   varargin{1} = 'init';
 end
@@ -9,13 +9,14 @@ end
 [varargout{1:nargout}] = feval(varargin{:}); % FEVAL switchyard
 
 %------------
-function init %#ok<DEFNU>
+function init 
 %------------
 %Initialize the GUI
 
 global DATA  
 
 gui = mygui('cropscreenshot.fig');
+gui.SelectedGUI = 'Segment'; %default GUI to display in the crop region
 DATA.GUI.CropScreenshot = gui;
 gui.handles.screenshotimgh = image([],'Parent',gui.handles.screenshotaxes);
 axis(gui.handles.screenshotaxes,'image','off');
@@ -38,7 +39,6 @@ switch selectedbtn.Tag
     resetcropboundaries;
     updatecropbox;
 end
-
 
 %-------------------------------------
 function imagepanelradiobutton_Callback 
@@ -95,9 +95,8 @@ boxY = [starty,starty,endy,endy,starty];
 gui.handles.framebox.XData = boxX;
 gui.handles.framebox.YData = boxY;
 
-
 %-------------------------------------
-function cropbox_Buttondown %#ok<DEFNU> called as a string from init
+function cropbox_Buttondown
 %---------------------------------
 global DATA
 gui = DATA.GUI.CropScreenshot;
@@ -122,7 +121,7 @@ gui.fig.WindowButtonMotionFcn = sprintf('cropscreenshot(''cropbox_Motion'',''%s'
 gui.fig.WindowButtonUpFcn = 'cropscreenshot(''cropbox_Buttonup'')';
 
 %-------------------------------------
-function cropbox_Motion(type) %#ok<DEFNU> as string in cropbox_Buttondown
+function cropbox_Motion(type)
 %---------------------------------
 %motion function to move cropping box points.
 global DATA 
@@ -151,7 +150,7 @@ gui.endy = endy;
 updatecropbox
 
 %-------------------------------------
-function cropbox_Buttonup %#ok<DEFNU> as string in cropbox_Buttondown
+function cropbox_Buttonup
 %---------------------------------
 %motion function for mid slice axes. Move box points.
 global DATA 
@@ -177,7 +176,7 @@ gui.handles.resizel.XData = gui.endx;
 gui.handles.resizel.YData = gui.endy;
 
 %-------------------------------------
-function reset_Callback  %#ok<DEFNU> button callback
+function reset_Callback
 %---------------------------------
 resetcropboundaries;
 userselectionradiobutton_Callback;
@@ -196,7 +195,7 @@ catch me
 end
 
 %-------------------------------------
-function save_Callback %#ok<DEFNU> called from gui
+function save_Callback
 %---------------------------------
 [fname, extindex] = setfilename;
 im = getimage;
@@ -220,7 +219,8 @@ switch selectedbtn.Tag
       '*.tif','TIFF image (*.tif)'},...
       dprintf('Save file as'),'screenshot');
   case 'pacsradiobutton'
-    filename = char(myinputdlg({'Enter File Name'},'File name',1,{'screenshot'}));
+    defname = 'screenshot';
+    filename = char(myinputdlg({'Enter File Name'},'',1,{defname}));
     isnotok = 1;
     while isnotok
       if isempty(filename)
@@ -228,7 +228,7 @@ switch selectedbtn.Tag
       elseif ~isvarname(filename)
         myfailed(dprintf('File name %s is not valid.\nFile name can contain letters, digits, and underscores',filename),DATA.GUI.Segment);
         isnotok = 1;
-        filename = char(myinputdlg({'Enter File Name'},'File name',1,{'screenshot'}));
+        filename = char(myinputdlg({'Enter File Name'},'',1,{defname}));
       elseif isvarname(filename)
         break;
       end
@@ -289,8 +289,20 @@ function successful = writeimage(im,fname,extindex)
 %-------------------------------------
 global DATA
 successful = false;
-switch extindex
-  case 1
+saveoptions = {
+  'png',...
+  'jpg',...
+  'bmp',...
+  'tif',...
+  'pacs'
+  };
+if isnumeric(extindex)
+  formatstr = saveoptions{extindex};
+else
+  formatstr = extindex;
+end
+switch formatstr
+  case 'png'
     try
       imwrite(im,fname,'png','bitdepth',8,'software','Segment',...
         'creationtime',datestr(now));
@@ -300,7 +312,7 @@ switch extindex
       mydispexception(me);
       disp('Export failed');
     end
-  case 2
+  case {'jpeg','jpg'}
     try
       imwrite(im,fname,'jpg','quality',100);
       disp('Export successful');
@@ -309,7 +321,7 @@ switch extindex
       mydispexception(me);
       disp('Export failed');
     end
-  case 3
+  case 'bmp'
     try
       imwrite(im,fname,'bmp');
       successful = true;
@@ -318,7 +330,7 @@ switch extindex
       mydispexception(me)
       disp('Export failed');
     end
-  case 4
+  case {'tif','tiff'}
     try
       imwrite(im,fname,'tif');
       successful = true;
@@ -328,7 +340,7 @@ switch extindex
       disp('Export failed');
     end
     
-  case 5
+  case 'pacs'
     makeimagedicom(im,fname,DATA.ViewPanels(DATA.CurrentPanel));
     try
       successful = pacsaccess('savetopacs_helper',{fname},getpreferencespath);
@@ -387,6 +399,39 @@ switch selectedbtn.Tag
 end
 
 %---------------------------------
+function selectgui_Callback
+%---------------------------------
+global DATA
+gui = DATA.GUI.CropScreenshot;
+
+%find all opened GUIs
+indices = ~structfun(@isempty, DATA.GUI);
+guis = fieldnames(DATA.GUI);
+openedguis = guis(indices);
+toremove = strcmp(openedguis,'CropScreenshot'); %remove screeshot GUI
+openedguis(toremove) = [];
+
+%prompt user to choose a GUI
+n = 1;
+f(n).Field = 'selectedgui';
+f(n).Label = dprintf('Select a GUI for the screenshot:');
+f(n).Default = openedguis;
+[outs,ok] = myinputstruct(f,dprintf('Select GUI'),15);
+if ok
+  ind = outs.selectedgui;
+  g = openedguis(ind);
+else
+  % cancel was clicked
+  g = {'Segment'}; %main GUI is default
+end
+
+%assign selected gui
+gui.SelectedGUI = g{1};
+setimage;
+resetcropboundaries;
+updatecropbox;
+
+%---------------------------------
 function setimage
 %---------------------------------
 global DATA
@@ -400,7 +445,8 @@ try
       boxvis = 'off';    
     case 'userselectionradiobutton'
       % get whole figure of segment as a frame 
-      sgui = DATA.GUI.Segment;
+      selectedGUI = gui.SelectedGUI;
+      sgui = DATA.GUI.(selectedGUI);
       imgframe = mygetframe(sgui.fig);
       imgframe.colormap = colormap(sgui.fig); 
       boxvis = 'on';
@@ -412,15 +458,3 @@ try
 catch me
   mydispexception(me);
 end
-
-
-
-
-
-
-
-
-
-
-
-

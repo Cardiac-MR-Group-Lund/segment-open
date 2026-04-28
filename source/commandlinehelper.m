@@ -7,15 +7,45 @@ persistent s %store options in persistent variable
 
 %--- Define commandline options
 c = [];
-c(1).switch = 'StudiesFolder'; c(1).nargin = 1; c(1).default = ''; c(1).description = '<dir>: folder software reads input files (dicoms), each subfolder is one series';
-c(2).switch = 'DICOMStorageFolder'; c(2).nargin = 1; c(2).default = ''; c(2).description = '<dir>: folder where output dicom files are stored';
-c(3).switch = 'LogFolder'; c(3).nargin = 1; c(3).default = ''; c(3).description = '<dir>: folder where log-files are stored';
-c(4).switch = 'NoQuit'; c(4).nargin = 0; c(4).default = false; c(4).description = ': Disable quit options';
-c(5).switch = 'NoPopUp'; c(5).nargin = 0; c(5).default = false; c(5).description = ': Disable pop-up when starting';
-c(6).switch = 'License'; c(6).nargin = 1; c(6).default = ''; c(6).description = '<file>: License file';
-c(7).switch = 'TempStorageFolder'; c(7).nargin = 1; c(7).default = ''; c(7).description = '<dir>: folder for temporal file storage';
-c(8).switch = 'UseDefaultStudiesFolder'; c(8).nargin = 0; c(8).default = false; c(8).description = '<dir>: Create studies folder if it not existing according to default preference settings';
-c(9).switch = 'UseComputerAETitle'; c(9).nargin = 0; c(9).default = false; c(9).description = '<dir>: Use computer AETitle in case if in segpref was different one assigned';
+n = 1;
+c(n).switch = 'StudiesFolder'; c(n).nargin = 1; c(n).default = ''; c(n).description = '<dir>: folder software reads input files (dicoms), each subfolder is one series';
+n = n + 1;
+c(n).switch = 'DICOMStorageFolder'; c(n).nargin = 1; c(n).default = ''; c(n).description = '<dir>: folder where output dicom files are stored';
+n = n + 1;
+c(n).switch = 'LogFolder'; c(n).nargin = 1; c(n).default = ''; c(n).description = '<dir>: folder where log-files are stored';
+n = n + 1;
+c(n).switch = 'NoQuit'; c(n).nargin = 0; c(n).default = false; c(n).description = ': Disable quit options';
+n = n + 1;
+c(n).switch = 'NoPopUp'; c(n).nargin = 0; c(n).default = false; c(n).description = ': Disable pop-up when starting';
+n = n + 1;
+c(n).switch = 'License'; c(n).nargin = 1; c(n).default = ''; c(n).description = '<file>: License file';
+n = n + 1;
+c(n).switch = 'TempStorageFolder'; c(n).nargin = 1; c(n).default = ''; c(n).description = '<dir>: folder for temporal file storage';
+n = n + 1;
+c(n).switch = 'UseDefaultStudiesFolder'; c(n).nargin = 0; c(n).default = false; c(n).description = '<dir>: Create studies folder if it not existing according to default preference settings';
+n = n + 1;
+c(n).switch = 'UseComputerAETitle'; c(n).nargin = 0; c(n).default = false; c(n).description = '<dir>: Use computer AETitle in case if in segpref was different one assigned';
+n = n + 1;
+c(n).switch = 'NoGUI'; c(n).nargin = 0; c(n).default = false; c(n).description = ': Starts and quits the software in the background. No GUI available.';
+n = n + 1;
+c(n).switch = 'AutoMate'; c(n).nargin = 0; c(n).default = false; c(n).description = ': Starts AI AutoMate';
+n = n + 1;
+c(n).switch = 'MatfileStorageFolder'; c(n).nargin = 1; c(n).default = ''; c(n).description = '<dir>: folder where output mat files are stored in the autoloader';
+n = n + 1;
+c(n).switch = 'Autoanalyse'; c(n).nargin = 1; c(n).default = '00000'; c(n).description = 'Perform automatic analysis in the autoloader';
+n = n + 1;
+c(n).switch = 'SaveToDatabase'; c(n).nargin = 0; c(n).default = false; c(n).description = 'Save to patient database';
+n = n + 1;
+c(n).switch = 'DatabasePath'; c(n).nargin = 1; c(n).default = ''; c(n).description = '<dir>: folder for patient database';
+n = n + 1;
+c(n).switch = 'SkipSecCapImages'; c(n).nargin = 0; c(n).default = false; c(n).description = 'Skip to load Secondary Captures in AI AutoMate';
+n = n + 1;
+c(n).switch = 'SkipScoutImages'; c(n).nargin = 0; c(n).default = false; c(n).description = 'Skip to load Scout images in AI AutoMate';
+n = n + 1;
+c(n).switch = 'Segment3DP'; c(n).nargin = 0; c(n).default = false; c(n).description = 'Run AI AutoMate for Segment 3DPrint';
+n = n + 1;
+c(n).switch = 'SendtoPACS'; c(n).nargin = 0; c(n).default = false; c(n).description = 'Send to PACS in AI AutoMate';
+
 switch arg
   case 'parse'
     %do nothing here, do later after switch clause
