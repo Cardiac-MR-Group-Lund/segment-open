@@ -1,7 +1,7 @@
 # segment-open -- Segment source distribution
 
 
-![lvimage](docs/images/titlepage.jpg)
+![lvimage](docs/images/Segmentopen.jpg)
 
 [![newsletter](docs/images/newsletter.png)](http://medviso.com/signup_for_software/)
 
@@ -9,12 +9,12 @@
 
 Segment is a comprehensive software package for medical image analysis, [widely used in research](http://medviso.com/research/publication/).
 
-Segment is developed with cardiovascular MRI (CMR) in mind, but it has also been validated using Cardiac CT and Myocardial Perfusion SPECT. The software package can also be used for a wide range of Radiology and Cardiology applications.
+Segment is developed with cardiovascular MRI (CMR) in mind, but it has also been used for Cardiac CT and Myocardial Perfusion SPECT analysis. The software package can also be used for a wide range of Radiology and Cardiology applications.
 
 
 ## What is the Segment Source Distribution?
 
-The Segment source code is regularly exported from Medviso for free use by the academic research community, through the collaboration between Medviso AB and the Cardiac MR Group at Lund University, Sweden.
+The Segment source code is exported from Medviso for free use by the academic research community, through the collaboration between Medviso AB and the Cardiac MR Group at Lund University, Sweden.
 This forms the basis for segment-open, the Segment Source Distribution, which can be found in this repository.
 
 Note that not all functionality in Segment is present in the Source Distribution, and the Source Distribution is neither FDA-approved nor CE-marked, and may not be used for clinical purposes.
@@ -24,11 +24,12 @@ Some parts of the code is protected (Matlab p-files).
 
  * Please see the Medviso homepage: [manuals](https://medviso.com/user-manuals/) and [tutorial videos](https://medviso.com/tutorial-videos/).
 
-**It is strongly recommended to use Matlab R2019a.**
+**It is strongly recommended to use Matlab R2022a.**
  * Using older versions may produce bugs due to non-existent functionality.
  * You can have several Matlab installations on the same computer at the same time.
+ * Newer version can work but is not officially supported.
 
-![r2019a](docs/images/matlab_r2019a.jpg)
+![r2022a](docs/images/matlab_r2022a.jpg)
 
 
 ## Matlab toolboxes
@@ -65,19 +66,19 @@ Found a bug? Do you have a feature request? Please let us know by [opening an is
 
 ## License and Terms of use
 
-We recommend that you read the [full license agreement](LICENSE.md) before starting to use Segment. This section is just a short summary.
+Read the [full license agreement](LICENSE.md) before starting to use Segment. This section is just a short summary.
 
 Segment is **freely available for academic research** in source and [binary](http://medviso.com/download2/) form, provided that you cite relevant publications and the usage of the software in your publications (see specific papers below).
-
-The Segment Source Distribution may not be used for commercial or clinical applications.
-The commercial, FDA-approved and CE-marked version of Segment is developed, marketed and sold by [Medviso AB, Lund, Sweden](http://medviso.com/).
 
 We are happy to accept contributions to this source tree if you want to share your work with the world.
 Write your code as a Segment plugin and submit your work as a pull request when you feel ready. Please see the [Contributions Document](docs/CONTRIBUTING.md) for details.
 
+The Segment Source Distribution may not be used for commercial or clinical applications.
+The commercial, FDA cleared and CE-marked version of Segment is developed, marketed and sold by [Medviso AB, Lund, Sweden](http://medviso.com/).
+
 ### What IS allowed?
 
-Provided that you give proper attribution (see "Papers to cite" below), you can:
+Provided that you follow the license term and give proper citation (see https://medviso.com/how-to-refer/), you can:
 
  * Use Segment for academic research
  * Publish results based on Segment
@@ -91,18 +92,6 @@ Provided that you give proper attribution (see "Papers to cite" below), you can:
  * Distributing your own compiled version of Segment
  * For any of these cases, please contact Helen Fransson (CEO, Medviso AB, see contact info below)
 
-## Papers to cite
-
-According to the [license agreement](LICENSE.md), proper citation of required when you publish research based on Segment. A complete list is kept at the Medviso homepage: http://medviso.com/research/how-to-refer/
-
-
-
-
-## Frequently asked questions
-
-Q: What is the airspeed velocity of an unladen swallow?
-
-A: African or European?
 
 
 ## Contact
