@@ -17,7 +17,7 @@ Segment is developed with cardiovascular MRI (CMR) in mind, but it has also been
 The Segment source code is exported from Medviso for free use by the academic research community, through the collaboration between Medviso AB and the Cardiac MR Group at Lund University, Sweden.
 This forms the basis for segment-open, the Segment Source Distribution, which can be found in this repository.
 
-Note that not all functionality in Segment is present in the Source Distribution, and the Source Distribution is neither FDA-approved nor CE-marked, and may not be used for clinical purposes.
+Note that not all functionality in Segment is present in the Source Distribution, and the Source Distribution is neither FDA-cleared nor CE-marked, and may not be used for clinical purposes.
 Some parts of the code is protected (Matlab p-files).
 
 ## How do I use Segment?
