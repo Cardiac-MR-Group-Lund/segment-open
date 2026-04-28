@@ -1,7 +1,7 @@
 # segment-open -- Segment source distribution
 
 
-![lvimage](docs/images/Segmentopen.jpg)
+![segmentopen](docs/images/Segmentopen.png)
 
 [![newsletter](docs/images/newsletter.png)](http://medviso.com/signup_for_software/)
 
@@ -17,7 +17,7 @@ Segment is developed with cardiovascular MRI (CMR) in mind, but it has also been
 The Segment source code is exported from Medviso for free use by the academic research community, through the collaboration between Medviso AB and the Cardiac MR Group at Lund University, Sweden.
 This forms the basis for segment-open, the Segment Source Distribution, which can be found in this repository.
 
-Note that not all functionality in Segment is present in the Source Distribution, and the Source Distribution is neither FDA-approved nor CE-marked, and may not be used for clinical purposes.
+Note that not all functionality in Segment is present in the Source Distribution, and the Source Distribution is neither FDA-cleared nor CE-marked, and may not be used for clinical purposes.
 Some parts of the code is protected (Matlab p-files).
 
 ## How do I use Segment?
@@ -29,7 +29,7 @@ Some parts of the code is protected (Matlab p-files).
  * You can have several Matlab installations on the same computer at the same time.
  * Newer version can work but is not officially supported.
 
-![r2022a](docs/images/matlab_r2022a.jpg)
+<img src="docs/images/matlab_r2022a.png" alt="r2022a" width="400"/>
 
 
 ## Matlab toolboxes
