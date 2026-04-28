@@ -29,7 +29,7 @@ Some parts of the code is protected (Matlab p-files).
  * You can have several Matlab installations on the same computer at the same time.
  * Newer version can work but is not officially supported.
 
-![r2022a](docs/images/matlab_r2022a.png)
+<img src="docs/images/matlab_r2022a.png" alt="r2022a" width="400"/>
 
 
 ## Matlab toolboxes
