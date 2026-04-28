@@ -1,7 +1,7 @@
 # segment-open -- Segment source distribution
 
 
-![lvimage](docs/images/Segmentopen.jpg)
+![segmentopen](docs/images/Segmentopen.png)
 
 [![newsletter](docs/images/newsletter.png)](http://medviso.com/signup_for_software/)
 
@@ -29,7 +29,7 @@ Some parts of the code is protected (Matlab p-files).
  * You can have several Matlab installations on the same computer at the same time.
  * Newer version can work but is not officially supported.
 
-![r2022a](docs/images/matlab_r2022a.jpg)
+![r2022a](docs/images/matlab_r2022a.png)
 
 
 ## Matlab toolboxes
