@@ -1185,7 +1185,7 @@ classdef segmentgui < maingui %skiptranslation
       %----------------------
       % Function to check if the license and the user preferences allow for
       % FDA version or not. Calls callbacks functions to set the menus' 
-      % visiblity accordingly. edit segmentmakemat
+      % visiblity accordingly. 
 
       if g.isFDAVersion
         %Make buttons visible

@@ -23,6 +23,7 @@ if fileinput && ~isempty(fig)
   openfile('loadfiles', {varargin{1}}, false, []);
 end
 
+
 %-----------------------------------------------
 function fig = initializesegmentopen(programversion)
 %-----------------------------------------------

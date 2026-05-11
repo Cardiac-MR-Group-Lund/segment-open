@@ -24,6 +24,80 @@ global DATA
 [DATA.epiintersectionx{panel}{t},DATA.epiintersectiony{panel}{t}] = ...
   calcfunctions('calcsegmentationintersections',panel,'epi',t,DATA.ViewPanelsType{panel});
 
+%---------------------------------------
+function [pmin,pmax] = findavpoints(x,y)
+%---------------------------------------
+%Rewritten by Einar Heiberg, insired by old code by Helen Soneson
+%
+%Find max curvature, max "curvature" is at AV-plane
+
+%Create filters
+n = 31;
+f = linspace(-5,5,n);
+f = exp(-f.^2/0.5);
+f = f(:)./sum(f(:));
+f2der = conv2([-1;2;-1],f);
+fder = conv2([-1;0;1],f);
+invalid = (n+1)/2;
+
+%Convolve to find derivatives
+dx = conv2([x((end-(invalid+1)):(end-1));x;x(2:(invalid+2))],fder,'valid');
+dy = conv2([y((end-(invalid+1)):(end-1));y;y(2:(invalid+2))],fder,'valid');
+ddx = conv2([x((end-(invalid+1)):(end-1));x;x(2:(invalid+2))],f2der,'valid');
+ddy = conv2([y((end-(invalid+1)):(end-1));y;y(2:(invalid+2))],f2der,'valid');
+
+%Old formulas
+%dc2 = sqrt(ddx.^2+ddy.^2); 
+%dc = (abs((dx.*ddy-dy.*ddx)))./((dx.^2+dy.^2).^(3/2));
+dc = (dx.*ddy-dy.*ddx)./((dx.^2+dy.^2).^(3/2)); %Curvature with sign
+
+%For debugging purposes plot it.
+%figure(32);
+%plot(dc2)
+
+%--- Try with normal sign
+[p1_normal,p2_normal,g_normal] = avpointsfinderhelper(dc);
+
+%--- Try with switched sign
+[p1_switched,p2_switched,g_switched] = avpointsfinderhelper(-dc);
+
+if g_normal>g_switched
+  p1 = p1_normal;
+  p2 = p2_normal;
+else
+  p1 = p1_switched;
+  p2 = p2_switched;
+end
+
+%--- Reorder the two points
+pmin = min(p1,p2);
+pmax = max(p1,p2);
+
+%------------------------------------------
+function [p1,p2,gm] = avpointsfinderhelper(dc)
+%------------------------------------------
+%Finds two peaks p1,p2 of a signal dc. gm is a goodness measure.
+
+%Find first peak
+[g1,p1] = max(dc);
+
+%Blank data so we can find second peak
+blank = zeros(size(dc));
+blank(p1) = 1;
+blankf = zeros(size(dc));
+n = ceil(length(dc)*0.3);
+blankf(1:n) = 1;
+blankf((end-n):end) = 1;
+blank = real(ifft(fft(blank).*fft(blankf)));
+dc(blank>0.25) = 0;
+
+%Find second peak
+[g2,p2] = max(dc);
+
+%Return gm as a goodness measure
+gm = g1+g2;
+
+
 %----------------------------------------------
 function [x,y] = resamplecurve(x,y,numpoints,opencontour,closethecurve)
 %----------------------------------------------
@@ -313,22 +387,16 @@ calcrvvolume(no);
 
 volume_helper(no); %Find peak ejection rate, and empty volumes etc.
 
-%-------------------------------------------
-function varargout = calclvvolume(no,docomp,dosliceexport)
-%-------------------------------------------
+%--------------------------------------------------
+function varargout = calclvvolume(no,dosliceexport)
+%--------------------------------------------------
 %Calculate LV volume. Docomp if to use longaxis motion, see below.
 %Uses area*(thickness+slicedist)
 %NOTE: the exported LVM does NOT include Papillary volume (PV)
 
-global DATA SET
+global SET
 
-if nargin < 2
-  docomp = true;
-elseif SET(no).Longaxis > 1%SET(NO).Longaxis > 1
-  docomp = true;
-end
-
-if nargin < 3 %used in Slice based export fucntions
+if nargin < 2 %used in Slice based export functions
   dosliceexport = false;
 end
 
@@ -442,97 +510,6 @@ if ~isequal(SET(no).EDT,SET(no).EST)
 else
   SET(no).ESV = NaN;
 end
-
-%--- Compensation computation
-if (SET(no).ZSize>2) && docomp
-  LVVnocomp = SET(no).LVV;
-  EPVnocomp = SET(no).EPV;
-  
-  for rloop=1:1 %Converges very quickly
-    
-    %Calculate compensation mechanism
-    if (SET(no).LVV(SET(no).EDT)-SET(no).LVV(SET(no).EST)~=0)
-      pp = SET(no).LVV;
-      pp = pp-SET(no).LVV(SET(no).EST);
-      pp = pp./(SET(no).LVV(SET(no).EDT)-SET(no).LVV(SET(no).EST));
-      pp = 1-pp;
-      pp = min(max(pp,0),1);
-    else
-      pp = ones(size(SET(no).LVV));
-    end
-    err = zeros(1,20);
-    
-    %Compensate
-    %pp = pp.*pp;
-    
-    %Check if autodetect
-    if SET(no).AutoLongaxis
-      for loop=1:20
-        
-        %Calculate slices
-        slices = (loop-1); %Convert to mm
-        slices = slices/(SET(no).SliceThickness+SET(no).SliceGap); %Convert to slices
-        
-        sloop=1;
-        SET(no).LVV = LVVnocomp; %Restore
-        SET(no).EPV = EPVnocomp;
-        while (slices>0)&&(sloop<size(LVVall,1))
-          %Remove whole slice or fraction of it.
-          SET(no).LVV = SET(no).LVV-min(slices,1)*LVVall(sloop,:).*pp;
-          SET(no).EPV = SET(no).EPV-min(slices,1)*EPVall(sloop,:).*pp;
-          slices = slices-1;
-          sloop = sloop+1;
-        end
-        
-        %Calculate error
-        err(loop) = max(SET(no).EPV-SET(no).LVV+SET(no).PV)-min(SET(no).EPV-SET(no).LVV+SET(no).PV);
-      end %loop
-      [~,inde] = min(err);
-      SET(no).Longaxis = inde;
-    end %autodetect
-    
-    %Convert to slices => 1mm between, first is zero
-    slices = (SET(no).Longaxis-1);
-    if isempty(slices)
-      slices = 0;
-    end
-    slices = slices/(SET(no).SliceThickness+SET(no).SliceGap);
-    
-    %Compensate the last time, now store it!
-    sloop=1;
-    SET(no).LVV = LVVnocomp; %Restore
-    SET(no).EPV = EPVnocomp;
-    
-    %Check if need to fix with outline
-    if ~isempty(SET(no).EndoX)
-      zloop = find(not(isnan(SET(no).EndoX(1,SET(no).CurrentTimeFrame,:))));
-    elseif ~isempty(SET(no).EpiX)
-      zloop = find(not(isnan(SET(no).EpiX(1,SET(no).CurrentTimeFrame,:))));
-    else
-      zloop = [];
-    end
-    if isempty(zloop)
-      slices = 0;
-      zloop = SET(no).CurrentSlice;
-    else
-      zloop = zloop(1);
-    end
-    
-    while (slices>0)&&(sloop<=size(LVVall,1))
-      %Remove whole slice or fraction of it.
-      SET(no).LVV = SET(no).LVV-min(slices,1)*LVVall(sloop,:).*pp;
-      SET(no).EPV = SET(no).EPV-min(slices,1)*EPVall(sloop,:).*pp;
-      zloop = zloop+1;
-      slices = slices-1;
-      sloop = sloop+1;
-    end
-  end %rloop
-  
-  if DATA.Silent
-    return;
-  end
-end %If docompensation
-
 
 %-----------------------------
 function calclvvolumepolar(no)
@@ -1242,7 +1219,7 @@ SET(no).LVM = SET(no).EPV-SET(no).LVV+SET(no).PV;
 SET(no).RVM = SET(no).RVEPV-SET(no).RVV;
 
 %Prevent that when endo is empty that epi may be viewed
-if not(isnan(SET(no).EPV(1)))&&(isnan(SET(no).LVV(1)))
+if not(isnan(SET(no).EPV(SET(no).EDT)))&&(isnan(SET(no).LVV(SET(no).EDT)))
   SET(no).LVV = zeros(size(SET(no).LVV));
 end
 
@@ -4227,8 +4204,6 @@ if ~isempty(SET(no).Flow)
   end
 end
 
-
-
 %------------------------
 function clearallflow(no)
 %------------------------
@@ -4242,266 +4217,6 @@ end
 if ~isempty(SET(no).Flow)
   SET(no).Flow.Result = [];
 end
-
-%-------------------------------------------
-function varargout = calclvvolumeAVPD(no,docomp)
-%-------------------------------------------
-% this function is the old version of calclvvolume that is used on github
-% and is needed for AVPD calculation
-%Calculate LV volume. Docomp if to use longaxis motion, see below.
-%Uses area*(thickness+slicedist)
-%NOTE: the exported LVM do NOT include Papillary volume (PV)
-
-global DATA SET
-
-if nargin<2
-  docomp=true;
-elseif SET(no).Longaxis > 1%SET(NO).Longaxis > 1
-  docomp = true;
-end
-
-if SET(no).Rotated
-  calclvvolumepolar(no);
-  return;
-end
-
-ind = (findfunctions('findslicewithendo',no))|(findfunctions('findslicewithepi',no)); %Accepts empty endo and epi if exist
-
-if ~any(ind)
-  SET(no).LVV = nan(1,SET(no).TSize);
-  SET(no).EPV = SET(no).LVV;
-  SET(no).LVM = SET(no).LVV;
-  SET(no).PV = zeros(size(SET(no).LVV));
-  SET(no).PFR = 0;
-  SET(no).PER = 0;
-  SET(no).PFRT = 1;
-  SET(no).PERT = 1;
-  SET(no).ESV = 0;
-  SET(no).EDV = 0;
-  SET(no).EF = 0;
-  SET(no).SV = 0;
-  if nargout>0
-    varargout = cell(1,1);
-    varargout{1} = [];
-  end
-  if nargout>1
-    varargout{2} = [];
-  end
-  return;
-end
-
-%Find what slices to do
-if SET(no).ZSize>1
-  pos = find(ind);
-else
-  pos = 1;
-end
-LVVall = zeros(length(pos),SET(no).TSize);
-EPVall = zeros(length(pos),SET(no).TSize);
-
-% if isempty(SET(no).EndoX)
-%   %This far then create
-%   SET(no).EndoX = nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);
-%   SET(no).EndoY = nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);
-% end;
-%
-% if isempty(SET(no).EpiX)
-%   %This far then create
-%   SET(no).EpiX = nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);
-%   SET(no).EpiY = nan(DATA.NumPoints,SET(no).TSize,SET(no).ZSize);
-% end;
-
-%Loop over all segmented slices
-for sloop=1:length(pos)
-  for tloop=1:SET(no).TSize
-    if ~isempty(SET(no).EndoX)&&~isnan(SET(no).EndoX(1,tloop,pos(sloop)))
-      A = stablepolyarea(...
-        SET(no).ResolutionY*SET(no).EndoY(1:end-1,tloop,pos(sloop)),...
-        SET(no).ResolutionX*SET(no).EndoX(1:end-1,tloop,pos(sloop)));
-      LVVall(sloop,tloop)=A*(SET(no).SliceThickness+SET(no).SliceGap)/1000; %to cm3
-    end
-    if ~isempty(SET(no).EpiX)&&~isnan(SET(no).EpiX(1,tloop,pos(sloop)))
-      A = stablepolyarea(...
-        SET(no).ResolutionY*SET(no).EpiY(1:end-1,tloop,pos(sloop)),...
-        SET(no).ResolutionX*SET(no).EpiX(1:end-1,tloop,pos(sloop)));
-      EPVall(sloop,tloop)=A*(SET(no).SliceThickness+SET(no).SliceGap)/1000; %to cm3
-    end
-  end
-end
-
-%Sum to get total volume
-if length(pos)>1
-  SET(no).LVV = sum(LVVall);
-  SET(no).EPV = sum(EPVall);
-else
-  SET(no).LVV = LVVall;
-  SET(no).EPV = EPVall;
-end
-SET(no).LVM = SET(no).EPV-SET(no).LVV+SET(no).PV;
-
-if nargout>0
-  varargout = cell(1,1);
-  varargout{1} = LVVall;
-end
-
-if nargout>1
-  varargout{2} = EPVall;
-end
-
-if nargout>2
-  varargout{3} = 1.05*(EPVall-LVVall); %LVM in g, NOTE not include Papillary volume (PV)
-end
-
-%Update EDV,ESV
-SET(no).EDV = SET(no).LVV(SET(no).EDT);
-if ~isequal(SET(no).EDT,SET(no).EST)
-  SET(no).ESV = SET(no).LVV(SET(no).EST);
-else
-  SET(no).ESV = NaN;
-end
-
-if (SET(no).ZSize>2)&&docomp
-  LVVnocomp = SET(no).LVV;
-  EPVnocomp = SET(no).EPV;
-  
-  for rloop=1:1 %Converges very quickly
-    
-    %Calculate compensation mechanism
-    if (SET(no).LVV(SET(no).EDT)-SET(no).LVV(SET(no).EST)~=0)
-      pp = SET(no).LVV;
-      pp = pp-SET(no).LVV(SET(no).EST);
-      pp = pp./(SET(no).LVV(SET(no).EDT)-SET(no).LVV(SET(no).EST));
-      pp = 1-pp;
-      pp = min(max(pp,0),1);
-    else
-      pp = ones(size(SET(no).LVV));
-    end
-    err = zeros(1,20);
-    
-    %Compensate
-    %pp = pp.*pp;
-    
-    %Check if autodetect
-    if SET(no).AutoLongaxis
-      for loop=1:20
-        
-        %Calculate slices
-        slices = (loop-1); %Convert to mm
-        slices = slices/(SET(no).SliceThickness+SET(no).SliceGap); %Convert to slices
-        
-        sloop=1;
-        SET(no).LVV = LVVnocomp; %Restore
-        SET(no).EPV = EPVnocomp;
-        while (slices>0)&&(sloop<size(LVVall,1))
-          %Remove whole slice or fraction of it.
-          SET(no).LVV = SET(no).LVV-min(slices,1)*LVVall(sloop,:).*pp;
-          SET(no).EPV = SET(no).EPV-min(slices,1)*EPVall(sloop,:).*pp;
-          slices = slices-1;
-          sloop = sloop+1;
-        end
-        
-        %Calculate error
-        err(loop) = max(SET(no).EPV-SET(no).LVV+SET(no).PV)-min(SET(no).EPV-SET(no).LVV+SET(no).PV);
-      end %loop
-      [~,inde] = min(err);
-      SET(no).Longaxis = inde;
-    end %autodetect
-    
-    %Convert to slices => 1mm between, first is zero
-    slices = (SET(no).Longaxis-1);
-    if isempty(slices)
-      slices = 0;
-    end
-    slices = slices/(SET(no).SliceThickness+SET(no).SliceGap);
-    
-    %Compensate the last time, now store it!
-    sloop=1;
-    SET(no).LVV = LVVnocomp; %Restore
-    SET(no).EPV = EPVnocomp;
-    
-    %Check if need to fix with outline
-    if ~isempty(SET(no).EndoX)
-      zloop = find(not(isnan(SET(no).EndoX(1,SET(no).CurrentTimeFrame,:))));
-    elseif ~isempty(SET(no).EpiX)
-      zloop = find(not(isnan(SET(no).EpiX(1,SET(no).CurrentTimeFrame,:))));
-    else
-      zloop = [];
-    end
-    if isempty(zloop)
-      slices = 0;
-      zloop = SET(no).CurrentSlice;
-    else
-      zloop = zloop(1);
-    end
-    
-    %Make sure that it is updated
-    %if docomp
-    %  updatemodeldisplay;
-    %end;
-    
-    while (slices>0)&&(sloop<=size(LVVall,1))
-      %Remove whole slice or fraction of it.
-      SET(no).LVV = SET(no).LVV-min(slices,1)*LVVall(sloop,:).*pp;
-      SET(no).EPV = SET(no).EPV-min(slices,1)*EPVall(sloop,:).*pp;
-      
-      [xofs,yofs] = calcoffset(zloop,'montage');
-      
-      %Need to fix with outline?
-%       if 0%get(DATA.Handles.volumeoutlinecheckbox,'value')
-%         for tloop=1:SET(no).TSize
-%           if ~isempty(SET(no).EndoX)
-%             SET(no).EndoXView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
-%               (SET(no).EndoX(:,tloop,zloop)-SET(no).CenterX)*(1-pp(tloop)*min(1,slices))+SET(no).CenterX+xofs;
-%             SET(no).EndoYView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
-%               (SET(no).EndoY(:,tloop,zloop)-SET(no).CenterY)*(1-pp(tloop)*min(1,slices))+SET(no).CenterY+yofs;
-%           end
-%           if ~isempty(SET(no).EpiX)
-%             SET(no).EpiXView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
-%               (SET(no).EpiX(:,tloop,zloop)-SET(no).CenterX)*(1-pp(tloop)*min(1,slices))+SET(no).CenterX+xofs;
-%             SET(no).EpiYView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
-%               (SET(no).EpiY(:,tloop,zloop)-SET(no).CenterY)*(1-pp(tloop)*min(1,slices))+SET(no).CenterY+yofs;
-%           end
-%         end
-%       else
-        for tloop=1:SET(no).TSize
-          if ~isempty(SET(no).EndoX)
-            SET(no).EndoXView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
-              SET(no).EndoX(:,tloop,zloop)+xofs;
-            SET(no).EndoYView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
-              SET(no).EndoY(:,tloop,zloop)+yofs;
-          end
-          if ~isempty(SET(no).EpiX)
-            SET(no).EpiXView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
-              SET(no).EpiX(:,tloop,zloop)+xofs;
-            SET(no).EpiYView((1+(zloop-1)*(DATA.NumPoints+1)):(zloop*(DATA.NumPoints+1)-1),tloop) = ...
-              SET(no).EpiY(:,tloop,zloop)+yofs;
-          end
-        end
-%       end
-      zloop = zloop+1;
-      slices = slices-1;
-      sloop = sloop+1;
-    end
-  end %rloop
-  
-  if DATA.Silent
-    return;
-  end
-  
-  for loop = 1:length(DATA.ViewPanels)
-    if isequal(no,DATA.ViewPanels(loop))
-%       if 0%isequal(get(DATA.Handles.volumeoutlinecheckbox,'value'),1) &&...
-%         ismember(DATA.ViewPanelsType{DATA.CurrentPanel},{'montage','montagerow','montagefit','sax3'})
-%         set(DATA.Handles.endocontour(loop),'LineStyle',':');
-%         set(DATA.Handles.epicontour(loop),'LineStyle',':');
-%       else
-        set(DATA.Handles.endocontour(loop),'LineStyle','-');
-        set(DATA.Handles.epicontour(loop),'LineStyle','-');
-%       end
-    end
-  end
-  
-end %If docompensation
 
 %-------------------------------------------
 function [xofs,yofs] = calcoffsetmodified(z,cols,sz)

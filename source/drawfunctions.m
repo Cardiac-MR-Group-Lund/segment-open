@@ -928,7 +928,7 @@ no = DATA.ViewPanels(panel);
 if numel(sz) == 5
   im = squeeze(DATA.ViewIM{panel}(:,:,SET(no).CurrentTimeFrame,:,:));
   DATA.Handles.imagehandles(panel).CData = im;
-elseif (numel(sz) == 3 && sz(3) == 3) ... %RGB images
+elseif (numel(sz) == 3 && sz(3) == 3 && SET(no).TSize ~= 3) ... %RGB images
     && ~contains(SET(no).DICOMImageType,'GT\AIF')... %Fix for Gadgeton diagrams (Aera 2018)
     && ~((isfield(SET(no),'T2preptime') && ~isempty(SET(no).T2preptime) && numel(unique(SET(no).T2preptime)) == 3) ||...
     (isfield(SET(no),'EchoTime') && ~isempty(SET(no).EchoTime) && numel(unique(SET(no).EchoTime)) == 3) ||...

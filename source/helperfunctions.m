@@ -639,7 +639,11 @@ function resetrandomseed
 % Reset seed for MATLAB's random number generator using current time for non-repetitive,
 % non-predictable random number creation, used for example field StackUID
 % in SET struct
-reset(RandStream.getGlobalStream,sum(100*clock));
+try
+  reset(RandStream.getGlobalStream,sum(100*clock));
+catch
+  logdisp('could not reset random seed');
+end
 
 %----------------------------------
 function ok = checknvfile(nvtofind)

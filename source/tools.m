@@ -37,23 +37,9 @@ if showmessage
     return
   end
 end
-if ~isempty(SET(NO).StrainTagging)
-  if ~yesno('Reorder time frames clears the Strain tagging analysis. Are you sure?',[],DATA.GUI.Segment)
-    return
-  end
-  if ~isempty(DATA.GUI.StrainTagging)
-    straintagging.straintagging('close_Callback');
-  end
-  SET(NO).StrainTagging = [];
-end
 
-if ~isempty(SET(NO).StrainMitt)
-  logdisp(sprintf('Reordering time frames clears the Strain MITT analysis in stack %d.',NO));
-  if ~isempty(DATA.GUI.StrainMitt)
-    strainmitt.strainmitt('close_Callback');
-  end
-  SET(NO).StrainMitt = [];
-end
+logdisp(sprintf('Reordering time frames clears the Strain analysis in stack %d.',NO));
+DATA.clearstrainfields(NO);
 
 % if user still sure to do that, then proceed
 
@@ -450,17 +436,11 @@ for no = oldNO %nos
   %     SET(sloop).Linked = newlinkies;
   %   end
 
-  %remove Strain tagging analysis
-  if not(isempty(SET(NO).StrainTagging))
-    logdisp('Merging to a mean image stack clears the Strain tagging analysis',true);
-    if ~isempty(DATA.GUI.StrainTagging)
-      straintagging.straintagging('close_Callback');
-    end
-    SET(NO).StrainTagging = [];
-  end
-  %remove Strain MITT analysis
-  logmsg = 'Merging to a mean image stack clears the Strain MITT analysis';
-  strainmitt.strainmitt('removestrainanalysis',NO,logmsg);
+
+  %remove Strain analysis
+  logmsg = 'Merging to a mean image stack clears the Strain analysis';
+  logdisp(logmsg);
+  DATA.clearstrainfields(NO);
 
   number = number+1;
 end
@@ -742,18 +722,12 @@ switch type
     end
 end
 
-%remove Strain tagging analysis
-if not(isempty(SET(NO).StrainTagging))
-  logdisp('Adding a slices clears the Strain tagging analysis',true);
-  if ~isempty(DATA.GUI.StrainTagging)
-    straintagging.straintagging('close_Callback');
-  end
-  SET(NO).StrainTagging = [];
-end
 
-%remove Strain MITT analysis
-logmsg = 'Adding a slice clears the Strain MITT analysis';
-strainmitt.strainmitt('removestrainanalysis',NO,logmsg);
+
+%remove Strainanalysis
+logmsg = 'Adding a slice clears the Strain analysis';
+logdisp(logmsg);
+DATA.clearstrainfields(NO);
 
 %segment('viewrefresh_Callback');
 viewfunctions('setview')
@@ -1133,20 +1107,13 @@ for no = nos
     segment3dp.tools('init3DP',silentmessage,silentupdate);
   end
 
-  %remove Strain tagging analysis
-  if not(isempty(SET(no).StrainTagging))
-    logdisp('Upsample image stack clears the Strain tagging analysis',true);
-    if ~isempty(DATA.GUI.StrainTagging)
-      straintagging.straintagging('close_Callback');
-    end
-    SET(no).StrainTagging = [];
-  end
+
 
   %remove Strain MITT analysis
-  logmsg = 'Upsample image stack clears the Strain MITT analysis';
-  strainmitt.strainmitt('removestrainanalysis',no,logmsg);
-
-
+  logmsg = 'Upsample image stack clears the Strain analysis';
+  logdisp(logmsg);
+DATA.clearstrainfields(no);
+  
   if isfield(SET(no),'RV') && ~isempty(SET(no).RV) && ~isempty(SET(no).RV.centerbasal)
     SET(no).RV.centerbasal = resamplehelper(f,SET(no).RV.centerbasal);
     SET(no).RV.centerapical = resamplehelper(f,SET(no).RV.centerapical);
@@ -1419,18 +1386,13 @@ for no = nos
     %SET(no).EDT = min([1 max([SET(no).TSize round(SET(no).EDT*f)])]);
     SET(no).CurrentTimeFrame = min([1 max([SET(no).TSize round(SET(no).CurrentTimeFrame*f)])]);
 
-    %remove Strain tagging analysis
-    if not(isempty(SET(no).StrainTagging))
-      logdisp('Upsample image stack clears the Strain tagging analysis',true);
-      if ~isempty(DATA.GUI.StrainTagging)
-        straintagging.straintagging('close_Callback');
-      end
-      SET(no).StrainTagging = [];
-    end
 
-    %remove Strain MITT analysis
-    logmsg = 'Upsample image stack clears the Strain MITT analysis';
-    strainmitt.strainmitt('removestrainanalysis',no,logmsg);
+
+    %remove Strain analysis
+    logmsg = 'Upsample image stack clears the Strain analysis';
+    logdisp(logmsg);
+    DATA.clearstrainfields(no);
+    
 
   end %If Tsize(loop)>1
 end %Loop over image stacks
@@ -1755,17 +1717,10 @@ for no = nos
 
   end
 
-  %remove Strain tagging analysis
-  if not(isempty(SET(no).StrainTagging))
-    logdisp('Upsample image stack clears the Strain tagging analysis',true);
-    if ~isempty(DATA.GUI.StrainTagging)
-      straintagging.straintagging('close_Callback');
-    end
-    SET(no).StrainTagging = [];
-  end
-  %remove Strain MITT analysis
-  logmsg = 'Upsample image stack clears the Strain MITT analysis';
-  strainmitt.strainmitt('removestrainanalysis',no,logmsg);
+  %remove Strain analysis
+  logmsg = 'Upsample image stack clears the Strain analysis';
+  logdisp(logmsg);
+  DATA.clearstrainfields(no);
 
   if isfield(SET(no),'RV') && ~isempty(SET(no).RV) && ~isempty(SET(no).RV.slicebasal)
     SET(no).RV.slicebasal = max(1,min(round(resamplehelper(f,SET(no).RV.slicebasal)),SET(no).ZSize));
@@ -2281,18 +2236,10 @@ for nloop=1:length(nop)
     SET(no).Point.Label = SET(no).Point.Label(pind);
   end
 
-  %remove Strain tagging analysis
-  if not(isempty(SET(no).StrainTagging))
-    logdisp('Removing time frames clears the Strain tagging analysis',true);
-    if ~isempty(DATA.GUI.StrainTagging)
-      straintagging.straintagging('close_Callback');
-    end
-    SET(no).StrainTagging = [];
-  end
-
-  %remove Strain MITT analysis
-  logmsg = 'Removing time frames clears the Strain MITT analysis';
-  strainmitt.strainmitt('removestrainanalysis',no,logmsg);
+  %remove Strain analysis
+  logmsg = 'Removing time frames clears the Strain analysis';
+  logdisp(logmsg);
+  DATA.clearstrainfields(no);
 
 end %Loop over all linked image stacks.
 
@@ -2662,18 +2609,10 @@ if ~isempty(SET(no).Measure)
   end
 end
 
-%remove Strain tagging analysis
-if not(isempty(SET(no).StrainTagging))
-  logdisp('Removing slices clears the Strain tagging analysis',true);
-  if ~isempty(DATA.GUI.StrainTagging)
-    straintagging.straintagging('close_Callback');
-  end
-  SET(no).StrainTagging = [];
-end
-%remove Strain MITT analysis
-logmsg = 'Removing slices clears the Strain MITT analysis';
-strainmitt.strainmitt('removestrainanalysis',no,logmsg);
-
+%remove Strain analysis
+logmsg = 'Removing slices clears the Strain analysis';
+logdisp(logmsg);
+DATA.clearstrainfields(no);
 
 %------------------------------------
 function removeslices_Callback(ind)
@@ -2952,17 +2891,11 @@ for no = nos
     segment3dp.graphics('update3D');
   end
 
-  %remove Strain tagging analysis  
-  if not(isempty(SET(no).StrainTagging))
-    logdisp('Cropping image stacks clears the Strain tagging analysis',true);
-    if ~isempty(DATA.GUI.StrainTagging)
-      straintagging.straintagging('close_Callback');
-    end
-    SET(no).StrainTagging = [];
-  end
-  %remove Strain MITT analysis
-  logmsg = 'Cropping image stacks clears the Strain MITT analysis';
-  strainmitt.strainmitt('removestrainanalysis',no,logmsg);
+
+  %remove Strain analysis
+  logmsg = 'Cropping image stacks clears the Strain analysis';
+  logdisp(logmsg);
+  DATA.clearstrainfields(no);
 
 
 end %loop over image stacks
@@ -5728,17 +5661,10 @@ if not(isempty(SET(no).Flow))
 
 end
 
-%remove Strain tagging analysis
-if not(isempty(SET(no).StrainTagging))
-  logdisp('Flip image stack clears the Strain tagging analysis',true);
-  if ~isempty(DATA.GUI.StrainTagging)
-    straintagging.straintagging('close_Callback');
-  end
-  SET(no).StrainTagging = [];
-end
-%remove Strain MITT analysis
-logmsg = 'Flip image stack clears the Strain MITT analysis';
-strainmitt.strainmitt('removestrainanalysis',no,logmsg);
+%remove Strain analysis
+logmsg = 'Flip image stack clears the Strain analysis';
+logdisp(logmsg);
+DATA.clearstrainfields(no);
 
 %Graphical update
 DATA.ViewIM{DATA.CurrentPanel} = [];
